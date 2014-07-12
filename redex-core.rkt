@@ -123,93 +123,37 @@
   [(remove (Γ x : t) x) Γ]
   [(remove (Γ x_0 : t_0) x_1) (remove Γ x_1)])
 
-;; http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
-#;(define-judgment-form dtracket-typingL
-  #:mode (synth I I O)
-  #:contract (synth Γ t t)
-
-  [(unv-ok U_0 U_1)
-   ----------------- ;; DTR-SAxiom
-   (synth ∅ U_0 U_1)]
-
-  [(synth (remove Γ x) t U)
-   ----------------- ;; DTR-SStart
-   (synth (Γ x : t) x t)]
-
-  [(synth Γ t t_1) (synth Γ t_0 U)
-   ----------------- ;; DTR-SWeakening
-   (synth (Γ x : t_0) t t_1)]
-
-  [(check Γ e t)
-   ----------------- ;; DTR-SSwitch
-   (synth Γ (e : t) t)]
-
-  [(synth Γ e_0 (Π (x : t_0) t_1))
-   (check Γ e_1 t_0)
-   ----------------- ;; DTR-Application
-   (synth Γ (e_0 e_1) (subst t_1 x e_1))])
-
-#;(define-judgment-form dtracket-typingL
-  #:mode (check I I I)
-  #:contract (check Γ t t)
-
-
-  [(check (Γ x : t_0) e t_1)
-   (synth Γ (Π (x : t_0) t_1) U)
-   ----------------- ;; DTR-CAbstraction
-   (check Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
-
-  [(synth Γ t_0 U_1)
-   (synth (Γ x : t_0) t U_2)
-   (unv-kind U_1 U_2 U)
-   ----------------- ;; DTR-CProduct
-   (check Γ (Π (x : t_0) t) U)]
-
-  [(check Γ t t_1) (synth Γ t_0 U)
-   ----------------- ;; DTR-CWeakening
-   (check (Γ x : t_0) t t_1)]
-
-  [(synth Γ e t_1)
-   (synth Γ t_0 U)
-   (side-condition ,(term (first (apply-reduction-relation* ==β (term t_0) (term t_1)))))
-   ----------------- ;; DTR-CConversion
-   (check Γ e t_0)]
-
-  [(synth Γ e t)
-   ----------------- ;; DTR-CSwitch
-   (check Γ e t)])
-
 (define-judgment-form dtracket-typingL
   #:mode (types I I O)
   #:contract (types Γ e t)
 
   [(unv-ok U_0 U_1)
-   ----------------- ;; DTR-Axiom
+   ----------------- "DTR-Axiom"
    (types ∅ U_0 U_1)]
 
   [(where t (lookup Γ x))
    (types (remove Γ x) t U)
-   ----------------- ;; DTR-SStart
+   ----------------- "DTR-Start"
    (types Γ x t)]
 
   [(types Γ t t_1) (types Γ t_0 U)
-   ----------------- ;; DTR-Weakening
+   ----------------- "DTR-Weakening"
    (types (Γ x : t_0) t t_1)]
 
   [(types Γ t_0 U_1)
    (types (Γ x : t_0) t U_2)
    (unv-kind U_1 U_2 U)
-   ----------------- ;; DTR-Product
+   ----------------- "DTR-Product"
    (types Γ (Π (x : t_0) t) U)]
 
   [(types Γ e_0 (Π (x : t_0) t_1))
    (types Γ e_1 t_0)
-   ----------------- ;; DTR-Application
+   ----------------- "DTR-Application"
    (types Γ (e_0 e_1) (subst t_1 x e_1))]
 
   [(types (Γ x : t_0) e t_1)
    (types Γ (Π (x : t_0) t_1) U)
-   ----------------- ;; DTR-Abstraction
+   ----------------- "DTR-Abstraction"
    (types Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
 
   ;; TODO: beta-equiv
@@ -221,7 +165,7 @@
    (where t_0 (in-hole E t))
    (where t_1 ,(car (apply-reduction-relation* ==β (term t_0))))
    (types Γ t_1 U)
-   ----------------- ;; DTR-Conversion
+   ----------------- "DTR-Conversion"
    (types Γ e t_1)])
 (module+ test
   (check-true (judgment-holds (types ∅ Type (Unv 0))))
@@ -230,7 +174,9 @@
   (check-true (judgment-holds (types ((∅ x_0 : Type) x_1 : Type)
                                      (Π (x_3 : x_0) x_1) Type)))
 
-  (check-true (judgment-holds (types ∅ (λ (x : Type) x) (Π (x : Type) Type)))))
+  (check-true (judgment-holds (types ∅ (λ (x : Type) x) (Π (x : Type) Type))))
+  (check-true (judgment-holds (types ∅ (λ (y : Type) (λ (x : y) x))
+                                     (Π (y : Type) (Π (x : y) y))))))
 
 (define-judgment-form dtracket-typingL
   #:mode (type-check I I I)
@@ -243,5 +189,67 @@
 ;; Infer-core Language
 ;; A relaxed core where annotation are optional.
 (define-extended-language dtracket-surfaceL dtracketL
-  (v ::= .... (λ x e) (Π x e))
+  (v ::= .... (λ x e) (Π t e))
   (t e ::= .... (e : t)))
+
+;; http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
+#;(define-judgment-form dtracket-typingL
+  #:mode (synth I I O)
+  #:contract (synth Γ t t)
+
+  [(unv-ok U_0 U_1)
+   ----------------- "DTR-SAxiom"
+   (synth ∅ U_0 U_1)]
+
+  [(where t (lookup Γ x))
+   (synth (remove Γ x) t U)
+   ----------------- "DTR-SStart"
+   (synth Γ x t)]
+
+  [(synth Γ t t_1) (synth Γ t_0 U)
+   ----------------- "DTR-SWeakening"
+   (synth (Γ x : t_0) t t_1)]
+
+  [(check (Γ x : t_0) e t_1)
+   ----------------- "DTR-SAbstraction"
+   (check Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
+
+  [(synth Γ e_0 (Π (x : t_0) t_1))
+   (check Γ e_1 t_0)
+   ----------------- "DTR-SApplication"
+   (synth Γ (e_0 e_1) (subst t_1 x e_1))]
+
+  [(check Γ e t)
+   ----------------- "DTR-SAnnotate"
+   (synth Γ (e : t) t)])
+
+#;(define-judgment-form dtracket-typingL
+  #:mode (check I I I)
+  #:contract (check Γ t t)
+
+  [(check (Γ x : t_0) e t_1)
+   ----------------- "DTR-Abstraction"
+   (check Γ (λ x e) (Π (x : t_0) t_1))]
+
+  [(synth Γ e t)
+   ----------------- "DTR-SSynth"
+   (check Γ e t)])
+#;(module+ test
+  (check-equal?
+    (list (term (Unv 0)))
+    (judgment-holds (synth ∅ Type U) U))
+  (check-equal?
+    (list (term Unv 0))
+    (judgment-holds (synth (∅ x : Type) Type U)))
+  (check-equal?
+    (list (term Type))
+    (judgment-holds (synth (∅ x : Type) x U)))
+  (check-equal?
+    (list (term Type))
+    (judgment-holds (synth ((∅ x_0 : Type) x_1 : Type) (Π (x_3 : x_0) x_1) U)))
+
+  (check-equal?
+    (list ())
+    (judgment-holds (synth ∅ (λ (x : Type) x) (Π (x : Type) Type))))
+  (check-true (judgment-holds (types ∅ (λ (y : Type) (λ (x : y) x))
+                                     (Π (y : Type) (Π (x : y) y))))))
