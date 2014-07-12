@@ -24,7 +24,7 @@
   (x ::= variable-not-otherwise-mentioned)
   ;; TODO: Having 2 binders is stupid.
   (v ::= (Π (x : t) t) (λ (x : t) t) x U)
-  (t e ::= v (t t) (t : t)))
+  (t e ::= v (t t)))
 
 (module+ test
   (require (except-in rackunit check))
