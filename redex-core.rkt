@@ -78,7 +78,7 @@
   [(subst (e_0 e_1) x t) ((subst e_0 x t) (subst e_1 x t))])
 
 (define-extended-language dtracket-redL dtracketL
-  (E hole (E t) (E : t)))
+  (E hole (E t) (λ (x : t) E) (Π (x : t) E)))
 
 ;; TODO: Congruence-closure instead of β
 (define ==β
@@ -90,6 +90,18 @@
     with
     [(--> (in-hole E t_0) (in-hole E t_1))
      (==> t_0 t_1)]))
+
+(define-metafunction dtracket-redL
+  reduce : e -> e
+  [(reduce e) ,(car (apply-reduction-relation* ==β (term e)))])
+(module+ test
+  (check-equal? (term (reduce Type)) (term Type))
+  (check-equal? (term (reduce ((λ (x : t) x) Type))) (term Type))
+  (check-equal? (term (reduce ((Π (x : t) x) Type))) (term Type))
+  (check-equal? (term (reduce (Π (x : t) ((Π (x_0 : t) x_0) Type))))
+                (term (Π (x : t) Type)))
+  (check-equal? (term (reduce (Π (x : t) ((Π (x_0 : t) x_0) x))))
+                (term (Π (x : t) x))))
 
 ;; TODO: Bi-directional and inference?
 ;; http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
@@ -200,9 +212,11 @@
    ----------------- ;; DTR-Abstraction
    (types Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
 
+  ;; TODO: beta-equiv
   ;; This rule is no good for algorithmic checking; Redex infinitly
   ;; searches it.
   ;; Perhaps something closer to Zombies = type would be better.
+  ;; For now, reduce types
   #;[(types Γ e (in-hole E t))
    (where t_0 (in-hole E t))
    (where t_1 ,(car (apply-reduction-relation* ==β (term t_0))))
@@ -224,4 +238,10 @@
 
   [(types Γ e t)
    ---------------
-   (type-check Γ e t)])
+   (type-check Γ e (reduce t))])
+
+;; Infer-core Language
+;; A relaxed core where annotation are optional.
+(define-extended-language dtracket-surfaceL dtracketL
+  (v ::= .... (λ x e) (Π x e))
+  (t e ::= .... (e : t)))
