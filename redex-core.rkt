@@ -1,5 +1,6 @@
 #lang racket
 
+;; TODO: Strip to racket/base as much as possible
 (module core racket
   (require
     (only-in racket/set set=?)
@@ -14,7 +15,7 @@
 
   ;; Core language. Surface langauge should provide short-hand, such as
   ;; -> for non-dependent function types, and type inference.
-  (define-language dtracketL
+  (define-language cicL
     (i ::= natural)
     (U ::= Type (Unv i))
     (x ::= variable-not-otherwise-mentioned)
@@ -24,25 +25,25 @@
 
   (module+ test
     (require rackunit)
-    (check-true (redex-match? dtracketL x (term T)))
-    (check-true (redex-match? dtracketL x (term truth)))
-    (check-true (redex-match? dtracketL x (term zero)))
-    (check-true (redex-match? dtracketL x (term s)))
-    (check-true (redex-match? dtracketL t (term zero)))
-    (check-true (redex-match? dtracketL t (term s)))
-    (check-true (redex-match? dtracketL t (term Type)))
-    (check-true (redex-match? dtracketL x (term nat)))
-    (check-true (redex-match? dtracketL t (term nat)))
-    (check-true (redex-match? dtracketL U (term Type)))
-    (check-true (redex-match? dtracketL U (term (Unv 0))))
-    (check-true (redex-match? dtracketL e (term (λ (x_0 : (Unv 0)) x_0))))
-    (check-true (redex-match? dtracketL v (term (λ (x_0 : (Unv 0)) x_0))))
-    (check-true (redex-match? dtracketL t (term (λ (x_0 : (Unv 0)) x_0)))))
+    (check-true (redex-match? cicL x (term T)))
+    (check-true (redex-match? cicL x (term truth)))
+    (check-true (redex-match? cicL x (term zero)))
+    (check-true (redex-match? cicL x (term s)))
+    (check-true (redex-match? cicL t (term zero)))
+    (check-true (redex-match? cicL t (term s)))
+    (check-true (redex-match? cicL t (term Type)))
+    (check-true (redex-match? cicL x (term nat)))
+    (check-true (redex-match? cicL t (term nat)))
+    (check-true (redex-match? cicL U (term Type)))
+    (check-true (redex-match? cicL U (term (Unv 0))))
+    (check-true (redex-match? cicL e (term (λ (x_0 : (Unv 0)) x_0))))
+    (check-true (redex-match? cicL v (term (λ (x_0 : (Unv 0)) x_0))))
+    (check-true (redex-match? cicL t (term (λ (x_0 : (Unv 0)) x_0)))))
 
   ;; 'A'
   ;; Types of Universes
   ;; Replace with sub-typing
-  (define-judgment-form dtracketL
+  (define-judgment-form cicL
     #:mode (unv-ok I O)
     #:contract (unv-ok U U)
 
@@ -57,7 +58,7 @@
 
   ;; 'R'
   ;; Kinding, I think
-  (define-judgment-form dtracketL
+  (define-judgment-form cicL
     #:mode (unv-kind I I O)
     #:contract (unv-kind U U U)
 
@@ -72,7 +73,7 @@
      (unv-kind (Unv i_1) (Unv i_2) (Unv i_3))])
 
   ;; NB: Substitution is hard
-  (define-metafunction dtracketL
+  (define-metafunction cicL
     subst : t x t -> t
     [(subst U x t) U]
     [(subst x x t) t]
@@ -85,12 +86,12 @@
   ;; NB:
   ;; TODO: Why do I not have tests for substitutions?!?!?!?!?!?!?!!?!?!?!?!?!?!!??!?!
 
-  (define-extended-language dtracket-redL dtracketL
+  (define-extended-language cic-redL cicL
     (E hole (E t) (λ (x : t) E) (Π (x : t) E)))
 
   ;; TODO: Congruence-closure instead of β
   (define ==β
-    (reduction-relation dtracket-redL
+    (reduction-relation cic-redL
       (==> ((Π (x : t_0) t_1) t_2)
            (subst t_1 x t_2))
       (==> ((λ (x : t) e_0) e_1)
@@ -99,7 +100,7 @@
       [(--> (in-hole E t_0) (in-hole E t_1))
        (==> t_0 t_1)]))
 
-  (define-metafunction dtracket-redL
+  (define-metafunction cic-redL
     reduce : e -> e
     [(reduce e) ,(car (apply-reduction-relation* ==β (term e)))])
   (module+ test
@@ -114,24 +115,24 @@
   ;; TODO: Bi-directional and inference?
   ;; http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
 
-  (define-extended-language dtracket-typingL dtracketL
+  (define-extended-language cic-typingL cicL
     (Σ Γ ::= ∅ (Γ x : t)))
 
   ;; NB: Depends on clause order
-  (define-metafunction dtracket-typingL
+  (define-metafunction cic-typingL
     lookup : Γ x -> t or #f
     [(lookup ∅ x) #f]
     [(lookup (Γ x : t) x) t]
     [(lookup (Γ x_0 : t_0) x_1) (lookup Γ x_1)])
 
   ;; NB: Depends on clause order
-  (define-metafunction dtracket-typingL
+  (define-metafunction cic-typingL
     remove : Γ x -> Γ
     [(remove ∅ x) ∅]
     [(remove (Γ x : t) x) Γ]
     [(remove (Γ x_0 : t_0) x_1) (remove Γ x_1)])
 
-  (define-metafunction dtracket-typingL
+  (define-metafunction cic-typingL
     result-type : Σ t -> t or #f
     [(result-type Σ (Π (x : t) e)) (result-type Σ e)]
     [(result-type Σ x) ,(and (term (lookup Σ x)) (term x))]
@@ -141,7 +142,7 @@
     (check-equal? (term nat) (term (result-type ,Σ (Π (x : nat) nat))))
     (check-equal? (term nat) (term (result-type ,Σ nat))))
 
-  (define-judgment-form dtracket-typingL
+  (define-judgment-form cic-typingL
     #:mode (constructor-for I I O)
     #:contract (constructor-for Σ t x)
 
@@ -164,7 +165,7 @@
         (constructor-for (((∅ nat : Type) zero : nat) s : (Π (x : nat) nat))
                          nat x) x)
       (list (term zero) (term s))))
-  (define-metafunction dtracket-typingL
+  (define-metafunction cic-typingL
     constructors-for : Σ t (x ...) -> #t or #f
     [(constructors-for Σ t (x ...))
      ,((lambda (x y) (and (set=? x y) (= (length x) (length y))))
@@ -178,7 +179,7 @@
       (term (constructors-for (((∅ nat : Type) zero : nat) s : (Π (x : nat) nat))
                          nat (zero)))))
 
-  (define-metafunction dtracketL
+  (define-metafunction cicL
     branch-type : t t t -> t
     [(branch-type t_ind (Π (x_0 : t) e_0) (Π (x_1 : t) e_1))
      (branch-type t_ind e_0 e_1)]
@@ -188,7 +189,7 @@
     (check-equal? (term nat) (term (branch-type nat nat nat)))
     (check-equal? (term Type) (term (branch-type nat (lookup ,Σ s) (Π (x : nat) Type)))))
 
-  (define-metafunction dtracket-typingL
+  (define-metafunction cic-typingL
     branch-types-match : Σ (x ...) (t ...) t t -> #t or #f
     [(branch-types-match Σ (x ...) (t_11 ...) t t_1)
      ,(andmap (curry equal? (term t)) (term ((branch-type t_1 (lookup Σ x) t_11) ...)))])
@@ -200,7 +201,7 @@
     (check-true
       (term (branch-types-match ,Σ (zero s) (nat (Π (x : nat) nat)) nat nat))))
 
-  (define-metafunction dtracketL
+  (define-metafunction cicL
     positive : t any -> #t or #f
     ;; Type; not a inductive constructor
     [(positive U any) #t]
@@ -216,7 +217,7 @@
     [(positive (Π (x : (Π (x_1 : t_0) t_2)) t_1) x_0)
      ,(and (term (copositive (Π (x_1 : t_0) t_2) x_0)) (term (positive t_1 x_0)))])
 
-  (define-metafunction dtracketL
+  (define-metafunction cicL
     copositive : t any -> #t or #f
     [(copositive U any) #t]
     [(copositive x_0 x_0) #f]
@@ -243,7 +244,7 @@
     (check-true (term (positive Type #f)))
     )
 
-  (define-judgment-form dtracket-typingL
+  (define-judgment-form cic-typingL
     #:mode (wf I I)
     #:contract (wf Σ Γ)
 
@@ -265,7 +266,7 @@
     (check-true (judgment-holds (wf (∅ nat : Type) (∅ x : nat))))
     (check-true (judgment-holds (wf (∅ nat : Type) (∅ x : (Π (x : nat) nat))))))
 
-  (define-judgment-form dtracket-typingL
+  (define-judgment-form cic-typingL
     #:mode (types I I I O)
     #:contract (types Σ Γ e t)
 
@@ -395,7 +396,7 @@
                              (λ (y : Type) y))
                             t) t)))
 
-  (define-judgment-form dtracket-typingL
+  (define-judgment-form cic-typingL
     #:mode (type-check I I I)
     #:contract (type-check Γ e t)
 
@@ -405,12 +406,12 @@
 
   ;; Infer-core Language
   ;; A relaxed core where annotation are optional.
-  (define-extended-language dtracket-surfaceL dtracketL
+  (define-extended-language cic-surfaceL cicL
     (v ::= .... (λ x e) (Π t e))
     (t e ::= .... (data x (x : t) (x : t) ...) (case e ([e e] ...)) (e : t)))
 
   ;; http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
-  #;(define-judgment-form dtracket-typingL
+  #;(define-judgment-form cic-typingL
     #:mode (synth I I O)
     #:contract (synth Γ t t)
 
@@ -440,6 +441,8 @@
      ----------------- "DTR-SAnnotate"
      (synth Γ (e : t) t)]) )
 
+;; TODO: Strip to racket/base as much as possible.
+;; TODO: Remove trace,pretty, debugging stuff
 (module sugar racket
   (require
     racket/trace
@@ -494,13 +497,13 @@
   (define gamma
     (make-parameter (term ∅)
       (lambda (x)
-        (unless (redex-match? dtracket-typingL Γ x)
+        (unless (redex-match? cic-typingL Γ x)
           (error 'core-error "We build a bad gamma ~s" x))
         x)))
   (define sigma
     (make-parameter (term ∅)#;(term (((∅ nat : Type) z : nat) s : (Π (x : nat) nat)))
       (lambda (x)
-        (unless (redex-match? dtracket-typingL Σ x)
+        (unless (redex-match? cic-typingL Σ x)
           (error 'core-error "We build a bad sigma ~s" x))
         x)))
   #;(define-syntax (-> syn)
