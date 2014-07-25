@@ -1,5 +1,6 @@
 #lang racket
 
+;; This module contains a model of CIC, ish.
 ;; TODO: Strip to racket/base as much as possible
 (module core racket
   (require
@@ -25,20 +26,27 @@
 
   (module+ test
     (require rackunit)
-    (check-true (redex-match? cicL x (term T)))
-    (check-true (redex-match? cicL x (term truth)))
-    (check-true (redex-match? cicL x (term zero)))
-    (check-true (redex-match? cicL x (term s)))
-    (check-true (redex-match? cicL t (term zero)))
-    (check-true (redex-match? cicL t (term s)))
-    (check-true (redex-match? cicL t (term Type)))
-    (check-true (redex-match? cicL x (term nat)))
-    (check-true (redex-match? cicL t (term nat)))
-    (check-true (redex-match? cicL U (term Type)))
-    (check-true (redex-match? cicL U (term (Unv 0))))
-    (check-true (redex-match? cicL e (term (λ (x_0 : (Unv 0)) x_0))))
-    (check-true (redex-match? cicL v (term (λ (x_0 : (Unv 0)) x_0))))
-    (check-true (redex-match? cicL t (term (λ (x_0 : (Unv 0)) x_0)))))
+    (define x? (redex-match? cicL x))
+    (define t? (redex-match? cicL t))
+    (define e? (redex-match? cicL e))
+    (define v? (redex-match? cicL v))
+    (define U? (redex-match? cicL U))
+    (check-true (x? (term T)))
+    (check-true (x? (term truth)))
+    (check-true (x? (term zero)))
+    (check-true (x? (term s)))
+    (check-true (t? (term zero)))
+    (check-true (t? (term s)))
+    (check-true (t? (term Type)))
+    (check-true (x? (term nat)))
+    (check-true (t? (term nat)))
+    (check-true (U? (term Type)))
+    (check-true (U? (term (Unv 0))))
+    (check-true (e? (term (λ (x_0 : (Unv 0)) x_0))))
+    (check-true (v? (term (λ (x_0 : (Unv 0)) x_0))))
+    (check-true (t? (term (λ (x_0 : (Unv 0)) x_0))))
+    (check-true (t? (term (λ (x_0 : (Unv 0)) x_0))))
+    )
 
   ;; 'A'
   ;; Types of Universes
@@ -74,20 +82,53 @@
 
   ;; NB: Substitution is hard
   (define-metafunction cicL
+    subst-vars : (x any) ... any -> any
+    [(subst-vars (x_1 any_1) x_1) any_1]
+    [(subst-vars (x_1 any_1) (any_2 ...)) ((subst-vars (x_1 any_1) any_2) ...)]
+    [(subst-vars (x_1 any_1) any_2) any_2]
+    [(subst-vars (x_1 any_1) (x_2 any_2) ... any_3) (subst-vars (x_1 any_1) (subst-vars (x_2 any_2) ... any_3))]
+    [(subst-vars any) any])
+
+  (define-metafunction cicL
     subst : t x t -> t
     [(subst U x t) U]
     [(subst x x t) t]
     [(subst x_0 x t) x_0]
-    [(subst (Π (x : t_0) t_1) x t) (Π (x : t_0) t_1)]
-    [(subst (λ (x : t_0) t_1) x t) (λ (x : t_0) t_1)]
-    [(subst (Π (x_0 : t_0) t_1) x t) (Π (x_0 : t_0) (subst t_1 x t))]
-    [(subst (λ (x_0 : t_0) t_1) x t) (λ (x_0 : t_0) (subst t_1 x t))]
-    [(subst (e_0 e_1) x t) ((subst e_0 x t) (subst e_1 x t))])
+    [(subst (Π (x : t_0) t_1) x t) (Π (x : (subst t_0 x t)) t_1)]
+    [(subst (λ (x : t_0) t_1) x t) (λ (x : (subst t_0 x t)) t_1)]
+    ;; TODO: Broken: needs capture avoiding, but currently require
+    ;; binders to be the same in term/type, so this is not a local
+    ;; change.
+    [(subst (Π (x_0 : t_0) t_1) x t) (Π (x_0 : (subst t_0 x t)) (subst t_1 x t)) ]
+    [(subst (λ (x_0 : t_0) t_1) x t) (λ (x_0 : (subst t_0 x t)) (subst t_1 x t))]
+    [(subst (e_0 e_1) x t) ((subst e_0 x t) (subst e_1 x t))]
+    [(subst (case e (x_0 e_0) ...) x t)
+     (case (subst e x t)
+       (x_0 (subst e_0 x t)) ...)])
+  (module+ test
+    (check-equal?
+      (term (Π (a : S) (Π (b : B) ((and S) B))))
+      (term (subst (Π (a : A) (Π (b : B) ((and A) B))) A S))))
   ;; NB:
   ;; TODO: Why do I not have tests for substitutions?!?!?!?!?!?!?!!?!?!?!?!?!?!!??!?!
 
   (define-extended-language cic-redL cicL
     (E hole (E t) (λ (x : t) E) (Π (x : t) E)))
+
+  (define-metafunction cicL
+    inductive-name : t -> x
+    [(inductive-name x) x]
+    [(inductive-name (t_1 t_2)) (inductive-name t_1)])
+  (module+ test
+    (check-equal?
+      (term and)
+      (term (inductive-name ((and A) B)))))
+
+  (define-metafunction cicL
+    inductive-apply : t t -> t
+    [(inductive-apply e x) e]
+    [(inductive-apply e (e_1 e_2))
+     ((inductive-apply e e_1) e_2)])
 
   ;; TODO: Congruence-closure instead of β
   (define ==β
@@ -96,6 +137,10 @@
            (subst t_1 x t_2))
       (==> ((λ (x : t) e_0) e_1)
            (subst e_0 x e_1))
+      (==> (case e_9
+             (x_0 e_0) ... (x e) (x_r e_r) ...)
+           (inductive-apply e e_9)
+           (where x (inductive-name e_9)))
       with
       [(--> (in-hole E t_0) (in-hole E t_1))
        (==> t_0 t_1)]))
@@ -183,11 +228,22 @@
     branch-type : t t t -> t
     [(branch-type t_ind (Π (x_0 : t) e_0) (Π (x_1 : t) e_1))
      (branch-type t_ind e_0 e_1)]
-    [(branch-type t_ind t_ind t) t])
+    ;[(branch-type t_ind t_ind t) t])
+    [(branch-type t_ind t_other t) t])
   (module+ test
     (check-equal? (term Type) (term (branch-type nat (lookup ,Σ zero) Type)))
     (check-equal? (term nat) (term (branch-type nat nat nat)))
-    (check-equal? (term Type) (term (branch-type nat (lookup ,Σ s) (Π (x : nat) Type)))))
+    (check-equal? (term Type) (term (branch-type nat (lookup ,Σ s) (Π (x : nat) Type))))
+    (define Σ3 (term (∅ and : (Π (A : Type) (Π (B : Type) Type)))))
+    (define Σ4 (term (,Σ3 conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) ((and A) B))))))))
+    (define Σ? (redex-match? cic-typingL Σ))
+    (check-true (Σ? Σ3))
+    (check-true (Σ? Σ4))
+
+    (check-equal?
+      (term Type)
+      (term (branch-type and (lookup ,Σ4 conj)
+              (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) Type))))))))
 
   (define-metafunction cic-typingL
     branch-types-match : Σ (x ...) (t ...) t t -> #t or #f
@@ -201,18 +257,19 @@
     (check-true
       (term (branch-types-match ,Σ (zero s) (nat (Π (x : nat) nat)) nat nat))))
 
+  ;; TODO: I'm pretty sure this is wrong
   (define-metafunction cicL
     positive : t any -> #t or #f
     ;; Type; not a inductive constructor
-    [(positive U any) #t]
+    [(positive t any) #t]
     ;; nat
     [(positive x_0 x_0) #t]
     ;; nat -> t_1 ... -> nat
     [(positive (Π (x : x_1) t_1) x_0)
      (positive t_1 x_0)]
     ;; Type -> t_1 ... -> nat
-    [(positive (Π (x : U) t_1) x_0)
-     (positive t_1 x_0)]
+    [(positive (Π (x : U) t_1) any)
+     (positive t_1 any)]
     ;; (t_0 -> t_2) -> t_1 ... -> nat
     [(positive (Π (x : (Π (x_1 : t_0) t_2)) t_1) x_0)
      ,(and (term (copositive (Π (x_1 : t_0) t_2) x_0)) (term (positive t_1 x_0)))])
@@ -232,6 +289,7 @@
 
   (module+ test
     (check-true (term (positive nat nat)))
+    (check-true (term (positive (Π (x : Type) (Π (y : Type) Type)) #f)))
     (check-true (term (positive (Π (x : nat) nat) nat)))
     ;; (nat -> nat) -> nat
     (check-false (term (positive (Π (x : (Π (y : nat) nat)) nat) nat)))
@@ -289,17 +347,19 @@
      ----------------- "DTR-Product"
      (types Σ Γ (Π (x : t_0) t) U)]
 
-    [(types Σ Γ e_0 (Π (x : t_0) t_1))
+    [(types Σ Γ e_0 (Π (x_0 : t_0) t_1))
      (types Σ Γ e_1 t_0)
      ----------------- "DTR-Application"
-     (types Σ Γ (e_0 e_1) (subst t_1 x e_1))]
+     (types Σ Γ (e_0 e_1) (subst t_1 x_0 e_1))]
 
+    ;; TODO: This restriction that the names be the same is a little annoying
     [(types Σ (Γ x : t_0) e t_1)
      (types Σ Γ (Π (x : t_0) t_1) U)
      ----------------- "DTR-Abstraction"
      (types Σ Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
 
-    [(types Σ Γ e t_1)
+    [(types Σ Γ e t_9)
+     (where t_1 (inductive-name t_9))
      (side-condition (constructors-for Σ t_1 (x_0 x_1 ...)))
      (types Σ Γ e_0 t_00)
      (types Σ Γ e_1 t_11) ...
@@ -376,25 +436,53 @@
     (define Σ0 (term ∅))
     (define lam (term (λ (nat : Type) nat)))
     (check-equal?
-      (term (Π (nat : Type) Type))
+      (list (term (Π (nat : Type) Type)))
       (judgment-holds (types ,Σ0 ∅ ,lam t) t))
     (define Σ2 (term (((∅ nat : Type) z : nat) s : (Π (x : nat) nat))))
     (check-equal?
-      (term (Π (nat : Type) Type))
+      (list (term (Π (nat : Type) Type)))
       (judgment-holds (types ,Σ2 ∅ ,lam t) t))
     (check-equal?
-      (term (Π (x : (Π (y : Type) y)) nat))
+      (list (term (Π (x : (Π (y : Type) y)) nat)))
       (judgment-holds (types (∅ nat : Type) ∅ (λ (x : (Π (y : Type) y)) (x nat))
                             t) t))
     (check-equal?
-      (term (Π (y : Type) Type))
+      (list (term (Π (y : Type) Type)))
       (judgment-holds (types (∅ nat : Type) ∅ (λ (y : Type) y) t) t))
     (check-equal?
-      (term Type)
+      (list (term Type))
       (judgment-holds (types (∅ nat : Type) ∅
                             ((λ (x : (Π (y : Type) Type)) (x nat))
                              (λ (y : Type) y))
-                            t) t)))
+                            t) t))
+    (check-equal?
+      (list (term Type))
+      (judgment-holds
+        (types ,Σ4 ∅ (Π (S : Type) (Π (B : Type) (Π (a : S) (Π (b : B) ((and S) B)))))
+               U) U))
+    (check-true
+      (judgment-holds (types ,Σ4 (∅ S : Type) conj (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) ((and A) B))))))))
+    (check-true
+      (judgment-holds (types ,Σ4 (∅ S : Type) S Type)))
+    (check-true
+      (judgment-holds (types ,Σ4 (∅ S : Type) (conj S)
+                             (Π (B : Type) (Π (a : S) (Π (b : B) ((and S) B)))))))
+    (check-true
+      (judgment-holds (types ,Σ4 (∅ S : Type) (conj S)
+                             (Π (B : Type) (Π (a : S) (Π (b : B) ((and S) B)))))))
+    (check-true
+      (judgment-holds (types ,Σ4 ∅ (λ (S : Type) (conj S))
+                             (Π (S : Type) (Π (B : Type) (Π (a : S) (Π (b : B) ((and S) B))))))))
+    (check-true
+      (judgment-holds (types ((,Σ4 true : Type) tt : true) ∅
+                             (case ((((conj true) true) tt) tt)
+                               (conj (λ (A : Type)
+                                        (λ (B : Type)
+                                           (λ (a : A)
+                                              (λ (b : B) a))))))
+                             t) t))
+    )
+
 
   (define-judgment-form cic-typingL
     #:mode (type-check I I I)
@@ -441,6 +529,8 @@
      ----------------- "DTR-SAnnotate"
      (synth Γ (e : t) t)]) )
 
+;; This module just provide module language sugar over the redex model.
+
 ;; TODO: Strip to racket/base as much as possible.
 ;; TODO: Remove trace,pretty, debugging stuff
 (module sugar racket
@@ -458,6 +548,8 @@
   (provide
     ;; Basic syntax
     #%module-begin
+    require
+    for-syntax
     (rename-out
       [dep-lambda lambda]
       [dep-lambda λ]
@@ -506,11 +598,6 @@
         (unless (redex-match? cic-typingL Σ x)
           (error 'core-error "We build a bad sigma ~s" x))
         x)))
-  #;(define-syntax (-> syn)
-    (syntax-case syn ()
-      [(_ t1 t2)
-       (with-syntax ([(x) (generate-temporaries '(1))])
-         #'(dep-forall (x : t1) t2))]))
 
   (define-syntax (dep-lambda syn)
     (syntax-case syn (:)
@@ -535,7 +622,7 @@
        #'(term (reduce ,(curry-app e1 e2 ...))) ]))
 
   (define-syntax-rule (dep-case e (x0 e0) ...)
-    (term (case ,e (,x0 ,e0) ...)))
+    (term (reduce (case ,e (,x0 ,e0) ...))))
 
   (define-syntax (dep-inductive syn)
     (syntax-case syn (:)
@@ -558,6 +645,9 @@
              (error 'type-checking "Term is ill-typed: ~s" tmp))
            tmp)]))
 
+  ;; TODO: Right now, all top level things are variables, so typos can
+  ;; result in "unbound variable" errors. Should do something more
+  ;; clever.
   (define-syntax (dep-var syn)
     (syntax-case syn ()
       [(_ . id)
@@ -581,3 +671,5 @@
 
 (require 'sugar)
 (provide (all-from-out 'sugar))
+(module+ test
+  (require (submod ".." core test)))
