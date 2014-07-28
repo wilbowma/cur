@@ -58,9 +58,7 @@
     [-----------------
      (unv-ok Type (Unv 0))]
 
-    [(where i_2 ,(sub1 (term i_0)))
-     (unv-ok (Unv i_2) (Unv i_3))
-     (where i_1 ,(add1 (term i_3)))
+    [(where i_1 ,(add1 (term i_0)))
      -----------------
      (unv-ok (Unv i_0) (Unv i_1))])
 
@@ -72,6 +70,9 @@
 
     [----------------
      (unv-kind Type Type Type)]
+
+    [----------------
+     (unv-kind Type (Unv i) (Unv i))]
 
     [----------------
      (unv-kind (Unv i) Type Type)]
@@ -140,7 +141,8 @@
       (==> (case e_9
              (x_0 e_0) ... (x e) (x_r e_r) ...)
            (inductive-apply e e_9)
-           (where x (inductive-name e_9)))
+           (where x (inductive-name e_9))
+           )
       with
       [(--> (in-hole E t_0) (in-hole E t_1))
        (==> t_0 t_1)]))
@@ -155,7 +157,14 @@
     (check-equal? (term (reduce (Π (x : t) ((Π (x_0 : t) x_0) Type))))
                   (term (Π (x : t) Type)))
     (check-equal? (term (reduce (Π (x : t) ((Π (x_0 : t) x_0) x))))
-                  (term (Π (x : t) x))))
+                  (term (Π (x : t) x)))
+    (check-equal? (term (reduce (case (s z) (z (s z)) (s (λ (x : nat)
+                                                            (s (s x)))))))
+                  (term (s (s z))))
+    (check-equal? (term (reduce (case (s (s (s z))) (z (s z)) (s (λ (x : nat)
+                                                            (s (s x)))))))
+                  (term (s (s (s (s z))))))
+    )
 
   ;; TODO: Bi-directional and inference?
   ;; http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
@@ -292,11 +301,13 @@
     (check-true (term (positive (Π (x : Type) (Π (y : Type) Type)) #f)))
     (check-true (term (positive (Π (x : nat) nat) nat)))
     ;; (nat -> nat) -> nat
+    ;; Not sure if this is actually supposed to pass
     (check-false (term (positive (Π (x : (Π (y : nat) nat)) nat) nat)))
     ;; (Type -> nat) -> nat
     (check-true (term (positive (Π (x : (Π (y : Type) nat)) nat) nat)))
     ;; (((nat -> Type) -> nat) -> nat)
     (check-true (term (positive (Π (x : (Π (y : (Π (x : nat) Type)) nat)) nat) nat)))
+    ;; Not sure if this is actually supposed to pass
     (check-false (term (positive (Π (x : (Π (y : (Π (x : nat) nat)) nat)) nat) nat)))
 
     (check-true (term (positive Type #f)))
@@ -388,9 +399,28 @@
     (check-true (judgment-holds (types ∅ ((∅ x_0 : Type) x_1 : Type)
                                        (Π (x_3 : x_0) x_1) Type)))
 
+    (check-true (judgment-holds (types ∅ (∅ x_0 : Type) x_0 U_1)))
+    (check-true (judgment-holds (types ∅ ((∅ x_0 : Type) x_2 : x_0) Type U_2)))
+    (check-true (judgment-holds (unv-kind Type (Unv 0) (Unv 0))))
+    (check-true (judgment-holds (types ∅ (∅ x_0 : Type) (Π (x_2 : x_0) Type) t)))
+
     (check-true (judgment-holds (types ∅ ∅ (λ (x : Type) x) (Π (x : Type) Type))))
     (check-true (judgment-holds (types ∅ ∅ (λ (y : Type) (λ (x : y) x))
                                        (Π (y : Type) (Π (x : y) y)))))
+
+    (check-equal? (list (term (Unv 0)))
+      (judgment-holds
+        (types ∅ ((∅ x1 : Type) x2 : Type) (Π (t6 : x1) (Π (t2 : x2) Type))
+               U)
+        U))
+    (check-true
+      (judgment-holds
+        (types ∅ ∅ (Π (x2 : Type) (Unv 0))
+               U)))
+    (check-true
+      (judgment-holds
+        (types ∅ (∅ x1 : Type) (λ (x2 : Type) (Π (t6 : x1) (Π (t2 : x2) Type)))
+               t)))
     (check-true
       (judgment-holds (types ((∅ truth : Type) T : truth)
                              ∅
@@ -470,6 +500,7 @@
     (check-true
       (judgment-holds (types ,Σ4 (∅ S : Type) (conj S)
                              (Π (B : Type) (Π (a : S) (Π (b : B) ((and S) B)))))))
+    ;; Failing due to lack of unification of case branches
     (check-true
       (judgment-holds (types ,Σ4 ∅ (λ (S : Type) (conj S))
                              (Π (S : Type) (Π (B : Type) (Π (a : S) (Π (b : B) ((and S) B))))))))
@@ -548,6 +579,7 @@
   (provide
     ;; Basic syntax
     #%module-begin
+    #%datum
     require
     for-syntax
     (rename-out
@@ -567,6 +599,7 @@
     (rename-out [dep-define define])
     syntax-case
     syntax-rules
+    define-syntax-rule
     (for-syntax (all-from-out racket)))
 
   (begin-for-syntax
