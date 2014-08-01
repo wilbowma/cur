@@ -320,11 +320,13 @@
     [-----------------
      (wf ∅ ∅)]
 
-    [(types Σ Γ t U)
+    [(types Σ Γ t t_0)
+     (wf Σ Γ)
      -----------------
      (wf Σ (Γ x : t))]
 
-    [(types Σ ∅ t U)
+    [(types Σ ∅ t t_0)
+     (wf Σ ∅)
      (side-condition (positive t (result-type Σ t)))
      -----------------
      (wf (Σ x : t) ∅)])
@@ -512,7 +514,18 @@
                                            (λ (a : A)
                                               (λ (b : B) a))))))
                              t) t))
-    )
+    (define sigma (term (((((((∅ true : Type) T : true) false : Type) equal : (Π (A : Type)
+                                                              (Π (B : Type) Type)))
+        nat : Type) heap : Type) pre : (Π (temp808 : heap) Type))))
+    (define gamma (term (∅ temp863 : pre)))
+    (check-true (judgment-holds (wf ,sigma ∅)))
+    (check-true (judgment-holds (wf ,sigma ,gamma)))
+    (check-true
+      (judgment-holds (types ,sigma ,gamma Type t)))
+    (check-true
+      (judgment-holds (types ,sigma ,gamma pre t)))
+    (check-true
+      (judgment-holds (types ,sigma (,gamma tmp863 : pre) Type (Unv 0)))))
 
 
   (define-judgment-form cic-typingL
@@ -578,6 +591,7 @@
       redex/reduction-semantics))
   (provide
     ;; Basic syntax
+    begin-for-syntax
     #%module-begin
     #%datum
     require
