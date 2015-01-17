@@ -47,27 +47,27 @@
 
 ;; -------------------
 ;; Write functions on inductive data
-;; TODO: This is not plus! Plus require recursion and I don't have
-;; recursion!
-;(define (plus (n1 : nat) (n2 : nat))
-;  (case n1
-;    [z n2]
-;    ;; TODO: Add macro to enable writing this line as:
-;    ;; [(s x) (s (s x))]
-;    [s (λ (x : nat) (s (s x)))]))
-;
-;(define four (plus (s (s z)) (s (s z))))
-;(check-equal? four (s (s (s z))))
+(define (add1 (n : nat)) (s n))
 
-(define (add1 (n1 : nat))
-  (case n1
-    [z (s z)]
+(check-equal? (add1 (s z)) (s (s z)))
+
+(define (sub1 (n : nat))
+  (case n
+    [z z]
     ;; TODO: Add macro to enable writing this line as:
     ;; [(s x) (s (s x))]
-    [s (λ (x : nat) (s (s x)))]))
+    [s (lambda (x : nat) x)]))
+(check-equal? (sub1 (s z)) z)
 
-(define two (add1 (s z)))
-(check-equal? two (s (s z)))
+#|
+;; TODO: Plus require recursion and I don't have recursion!
+(define (plus (n1 : nat) (n2 : nat))
+  (case n1
+    [z n2]
+    [s (λ (x : nat) (plus x (s n2)))]))
+
+(check-equal? (plus (s (s z)) (s (s z))) (s (s (s z))))
+|#
 
 ;; -------------------
 ;; It's annoying to have to write things explicitly curried
@@ -94,9 +94,6 @@
 ;; -------------------
 ;; Prove interesting theorems!
 
-#|
-;; TODO: Well, case can't seem to type-check non-Type inductives. So I
-;; guess we'll do a church encoding
 (define (thm:and-is-symmetric
           (x : (forall* (P : Type) (Q : Type)
                  ;; TODO: Can't use -> for the final clause because generated
@@ -108,30 +105,15 @@
 (define proof:and-is-symmetric
   (lambda* (P : Type) (Q : Type) (ab : (and P Q))
     (case ab
+      (conj (lambda* (P : Type) (Q : Type) (x : P) (y : Q) (conj Q P y x))))))
+
+(define proof:and-is-symmetric^
+  (lambda* (S : Type) (R : Type) (ab : (and S R))
+    (case ab
       (conj (lambda* (S : Type) (R : Type) (s : S) (r : R) (conj R S r s))))))
 
 (check-equal? (thm:and-is-symmetric proof:and-is-symmetric) T)
-|#
-(define and^ (forall* (A : Type) (B : Type)
-                      (forall* (C :  Type) (f : (forall* (a : A) (b : B) C))
-                               C)))
-(define fst (lambda* (A : Type) (B : Type) (ab : (and^ A B)) (ab A (lambda* (a : A) (b : B) a))))
-(define snd (lambda* (A : Type) (B : Type) (ab : (and^ A B)) (ab B (lambda* (a : A) (b : B) b))))
-(define conj^ (lambda* (A : Type) (B : Type)
-                       (a : A) (b : B)
-                       (lambda* (C : Type) (f : (-> A (-> B C)))
-                                (f a b))))
-(define (thm:and^-is-symmetric
-          (x : (forall* (P : Type) (Q : Type)
-                 (ab : (and^ P Q))
-                 (and^ P Q))))
-  T)
-
-(define proof:and^-is-symmetric
-  (lambda* (P : Type) (Q : Type) (ab : (and^ P Q))
-    (conj^ Q P (snd P Q ab) (fst P Q ab))))
-
-(check-equal? T (thm:and^-is-symmetric proof:and^-is-symmetric))
+(check-equal? (thm:and-is-symmetric proof:and-is-symmetric^) T)
 
 ;; -------------------
 ;; Gee, I wish there was a special syntax for theorems and proofs so I could think of
@@ -143,10 +125,24 @@
 (define-syntax-rule (qed thm pf)
   (check-equal? T (thm pf)))
 
-(define-theorem thm:and^-is-symmetric^
-  (forall* (P : Type) (Q : Type) (ab : (and^ P Q)) (and^ P Q)))
+(define-theorem thm:and-is-symmetric^^
+  (forall* (P : Type) (Q : Type) (ab : (and P Q)) (and Q P)))
 
-(qed thm:and^-is-symmetric^ proof:and^-is-symmetric)
+(qed thm:and-is-symmetric^^ proof:and-is-symmetric)
+
+(define-theorem thm:proj1
+  (forall* (A : Type) (B : Type) (c : (and A B)) A))
+(define proof:proj1 
+  (lambda* (A : Type) (B : Type) (c : (and A B))
+    (case c (conj (lambda* (A : Type) (B : Type) (a : A) (b : B) a)))))
+(qed thm:proj1 proof:proj1)
+
+(define-theorem thm:proj2
+  (forall* (A : Type) (B : Type) (c : (and A B)) B))
+(define proof:proj2 
+  (lambda* (A : Type) (B : Type) (c : (and A B))
+    (case c (conj (lambda* (A : Type) (B : Type) (a : A) (b : B) b)))))
+(qed thm:proj2 proof:proj2)
 
 ;; -------------------
 ;; Gee, I wish I had special syntax for defining types like I do for
@@ -157,16 +153,20 @@
 
 (define-type (not (A : Type)) (-> A false))
 
-(define-type (and^^ (A : Type) (B : Type))
-  (forall* (C :  Type) (f : (forall* (a : A) (b : B) C)) C))
 #|
-TODO: Can't seem to pattern match on a inductive with 0 constructors...
-should result in a term of any type, I think.
-(define-theorem thm:absurdidty
-  (forall (P : Type) (A : Type) (-> (and^ A (not A)) P)))
+;;TODO: Can't pattern match on a inductive with 0 constructors yet.
+(define-theorem thm:absurd
+  (forall* (P : Type) (A : Type) (a : A) (~a : (not A)) P))
+(qed thm:absurd (lambda* (P : Type) (A : Type) (a : A) (~a : (not A))
+       (case (~a a))))
 
-(define (proof:absurdidty (P : Type) (A : Type) (a*nota : (and^ A (not A)))
-  ((snd A (not A) a*nota) (fst A (not A) a*nota))))
+(define-theorem thm:absurdidty
+  (forall* (P : Type) (A : Type) (a*nota : (and A (not A))) P))
+
+;; TODO: Not sure why this doesn't type-check.. probably not handling
+;; inductive families correctly in (case ...)
+(define (proof:absurdidty (P : Type) (A : Type) (a*nota : (and A (not A))))
+  ((proof:proj2 A (not A) a*nota) (proof:proj1 A (not A) a*nota)))
 |#
 
 ;; -------------------
@@ -182,7 +182,7 @@ should result in a term of any type, I think.
     ;; TODO: We want all forall*s to be expanded by this point. Should
     ;; look into Racket macro magic to expand syn before matching on it.
     [(_ (forall (x : t0) t1))
-     ;; TODO: Should carry around assumptions to enable inhabhit-type to use
+     ;; TODO: Should carry around assumptions to enable inhabit-type to use
      ;; them
      #'(lambda (x : t0) (inhabit-type t1))]
     [(_ t)
@@ -196,7 +196,6 @@ should result in a term of any type, I think.
 (qed thm:true-is-proveable (inhabit-type (forall (P : Type) true)))
 
 #;(define is-this-inhabited? (inhabit-type false))
-
 
 ;; -------------------
 ;; Unit test your theorems before proving them!
@@ -212,7 +211,7 @@ should result in a term of any type, I think.
 (define type-thm:true?
   (forall* (A : Type) (B : Type) (P : Type)
     ;; If A implies P and (and A B) then P
-    (->* (-> A P) (and^ A B) P)))
+    (->* (-> A P) (and A B) P)))
 
 (define-theorem thm:true? type-thm:true?)
 
@@ -220,7 +219,5 @@ should result in a term of any type, I think.
      ;; TODO: inhabit-type ought to be able to reduce (type-thm:true? true true true)
      ;; but can't. Maybe instead there should be a reduce tactic/macro.
      (inhabit-type (forall (a : (-> true true))
-                   (forall (f : (and^ true true))
+                   (forall (f : (and true true))
                    true))))
-
-;; TODO: Interopt with Racket at runtime via contracts?!?!

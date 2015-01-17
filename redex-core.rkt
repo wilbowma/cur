@@ -22,7 +22,7 @@
     (x ::= variable-not-otherwise-mentioned)
     ;; TODO: Having 2 binders is stupid.
     (v ::= (Π (x : t) t) (λ (x : t) t) x U)
-    (t e ::= (case e (x e) (x e)...) v (t t)))
+    (t e ::= (case e (x e) ...) v (t t)))
 
   (module+ test
     (require rackunit)
@@ -31,6 +31,21 @@
     (define e? (redex-match? cicL e))
     (define v? (redex-match? cicL v))
     (define U? (redex-match? cicL U))
+
+    ;; TODO: Rename these signatures, and use them in all future tests.
+    (define Σ (term (((∅ nat : Type) zero : nat) s : (Π (x : nat) nat))))
+
+    (define Σ0 (term ∅))
+    (define Σ2 (term (((∅ nat : Type) z : nat) s : (Π (x : nat) nat))))
+    (define Σ3 (term (∅ and : (Π (A : Type) (Π (B : Type) Type)))))
+    (define Σ4 (term (,Σ3 conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) ((and A) B))))))))
+    (define Σ? (redex-match? cic-typingL Σ))
+
+    (check-true (Σ? Σ0))
+    (check-true (Σ? Σ2))
+    (check-true (Σ? Σ4))
+    (check-true (Σ? Σ3))
+    (check-true (Σ? Σ4))
     (check-true (x? (term T)))
     (check-true (x? (term truth)))
     (check-true (x? (term zero)))
@@ -114,7 +129,7 @@
   ;; TODO: Why do I not have tests for substitutions?!?!?!?!?!?!?!!?!?!?!?!?!?!!??!?!
 
   (define-extended-language cic-redL cicL
-    (E hole (E t) (λ (x : t) E) (Π (x : t) E)))
+    (E hole (E t) (λ (x : t) E) (Π (x : t) E) (case E (x e) ...)))
 
   (define-metafunction cicL
     inductive-name : t -> x
@@ -141,8 +156,7 @@
       (==> (case e_9
              (x_0 e_0) ... (x e) (x_r e_r) ...)
            (inductive-apply e e_9)
-           (where x (inductive-name e_9))
-           )
+           (where x (inductive-name e_9)))
       with
       [(--> (in-hole E t_0) (in-hole E t_1))
        (==> t_0 t_1)]))
@@ -163,8 +177,7 @@
                   (term (s (s z))))
     (check-equal? (term (reduce (case (s (s (s z))) (z (s z)) (s (λ (x : nat)
                                                             (s (s x)))))))
-                  (term (s (s (s (s z))))))
-    )
+                  (term (s (s (s (s z)))))))
 
   ;; TODO: Bi-directional and inference?
   ;; http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
@@ -189,10 +202,10 @@
   (define-metafunction cic-typingL
     result-type : Σ t -> t or #f
     [(result-type Σ (Π (x : t) e)) (result-type Σ e)]
+    [(result-type Σ (e_1 e_2)) (result-type Σ e_1)]
     [(result-type Σ x) ,(and (term (lookup Σ x)) (term x))]
     [(result-type Σ t) #f])
   (module+ test
-    (define Σ (term (((∅ nat : Type) zero : nat) s : (Π (x : nat) nat))))
     (check-equal? (term nat) (term (result-type ,Σ (Π (x : nat) nat))))
     (check-equal? (term nat) (term (result-type ,Σ nat))))
 
@@ -220,18 +233,20 @@
                          nat x) x)
       (list (term zero) (term s))))
   (define-metafunction cic-typingL
-    constructors-for : Σ t (x ...) -> #t or #f
-    [(constructors-for Σ t (x ...))
+    constructors-for : Σ x (x ...) -> #t or #f
+    [(constructors-for Σ x_0 (x ...))
      ,((lambda (x y) (and (set=? x y) (= (length x) (length y))))
        (term (x ...))
-       (judgment-holds (constructor-for Σ t x_00) x_00))])
+       (judgment-holds (constructor-for Σ x_0 x_00) x_00))])
   (module+ test
     (check-true
       (term (constructors-for (((∅ nat : Type) zero : nat) s : (Π (x : nat) nat))
                          nat (zero s))))
     (check-false
       (term (constructors-for (((∅ nat : Type) zero : nat) s : (Π (x : nat) nat))
-                         nat (zero)))))
+                         nat (zero))))
+    (check-true
+      (term (constructors-for ,Σ4 and (conj)))))
 
   (define-metafunction cicL
     branch-type : t t t -> t
@@ -243,12 +258,6 @@
     (check-equal? (term Type) (term (branch-type nat (lookup ,Σ zero) Type)))
     (check-equal? (term nat) (term (branch-type nat nat nat)))
     (check-equal? (term Type) (term (branch-type nat (lookup ,Σ s) (Π (x : nat) Type))))
-    (define Σ3 (term (∅ and : (Π (A : Type) (Π (B : Type) Type)))))
-    (define Σ4 (term (,Σ3 conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) ((and A) B))))))))
-    (define Σ? (redex-match? cic-typingL Σ))
-    (check-true (Σ? Σ3))
-    (check-true (Σ? Σ4))
-
     (check-equal?
       (term Type)
       (term (branch-type and (lookup ,Σ4 conj)
@@ -266,35 +275,11 @@
     (check-true
       (term (branch-types-match ,Σ (zero s) (nat (Π (x : nat) nat)) nat nat))))
 
-  ;; TODO: I'm pretty sure this is wrong
+  ;; TODO: Add positivity checking.
   (define-metafunction cicL
     positive : t any -> #t or #f
     ;; Type; not a inductive constructor
-    [(positive t any) #t]
-    ;; nat
-    [(positive x_0 x_0) #t]
-    ;; nat -> t_1 ... -> nat
-    [(positive (Π (x : x_1) t_1) x_0)
-     (positive t_1 x_0)]
-    ;; Type -> t_1 ... -> nat
-    [(positive (Π (x : U) t_1) any)
-     (positive t_1 any)]
-    ;; (t_0 -> t_2) -> t_1 ... -> nat
-    [(positive (Π (x : (Π (x_1 : t_0) t_2)) t_1) x_0)
-     ,(and (term (copositive (Π (x_1 : t_0) t_2) x_0)) (term (positive t_1 x_0)))])
-
-  (define-metafunction cicL
-    copositive : t any -> #t or #f
-    [(copositive U any) #t]
-    [(copositive x_0 x_0) #f]
-    [(copositive (Π (x : x_0) t_1) x_0) #f]
-    ;; x_1 -> t_1 ... -> nat
-    [(copositive (Π (x : x_1) t_1) x_0)
-     (positive t_1 x_0)]
-    [(copositive (Π (x : U) t_1) x_0)
-     (positive t_1 x_0)]
-    [(copositive (Π (x : (Π (x_1 : t_0) t_2)) t_1) x_0)
-     ,(and (term (positive (Π (x_1 : t_0) t_2) x_0)) (term (copositive t_1 x_0)))])
+    [(positive any_1 any_2) #t])
 
   (module+ test
     (check-true (term (positive nat nat)))
@@ -310,8 +295,7 @@
     ;; Not sure if this is actually supposed to pass
     (check-false (term (positive (Π (x : (Π (y : (Π (x : nat) nat)) nat)) nat) nat)))
 
-    (check-true (term (positive Type #f)))
-    )
+    (check-true (term (positive Type #f))))
 
   (define-judgment-form cic-typingL
     #:mode (wf I I)
@@ -382,6 +366,15 @@
      (side-condition (branch-types-match Σ (x_1 ...) (t_11 ...) t t_1))
      ----------------- "DTR-Case"
      (types Σ Γ (case e (x_0 e_0) (x_1 e_1) ...) t)]
+
+    ;; TODO: This shouldn't be a special case, but I failed to forall
+    ;; quantify properly over the branches in the above case, and I'm lazy.
+    ;; TODO: Seem to need bidirectional checking to pull this off
+    #;[(types Σ Γ e t_9)
+     (where t_1 (inductive-name t_9))
+     (side-condition (constructors-for Σ t_1 ()))
+     ----------------- "DTR-Case-Empty"
+     (types Σ Γ (case e) t)]
 
     ;; TODO: beta-equiv
     ;; This rule is no good for algorithmic checking; Redex infinitly
@@ -465,12 +458,10 @@
                            ∅
                            (case zero (zero (s zero)))
                            nat)))
-    (define Σ0 (term ∅))
     (define lam (term (λ (nat : Type) nat)))
     (check-equal?
       (list (term (Π (nat : Type) Type)))
       (judgment-holds (types ,Σ0 ∅ ,lam t) t))
-    (define Σ2 (term (((∅ nat : Type) z : nat) s : (Π (x : nat) nat))))
     (check-equal?
       (list (term (Π (nat : Type) Type)))
       (judgment-holds (types ,Σ2 ∅ ,lam t) t))
@@ -502,10 +493,13 @@
     (check-true
       (judgment-holds (types ,Σ4 (∅ S : Type) (conj S)
                              (Π (B : Type) (Π (a : S) (Π (b : B) ((and S) B)))))))
-    ;; Failing due to lack of unification of case branches
     (check-true
       (judgment-holds (types ,Σ4 ∅ (λ (S : Type) (conj S))
                              (Π (S : Type) (Π (B : Type) (Π (a : S) (Π (b : B) ((and S) B))))))))
+    (check-true
+      (judgment-holds (types ((,Σ4 true : Type) tt : true) ∅
+                             ((((conj true) true) tt) tt)
+                             ((and true) true))))
     (check-true
       (judgment-holds (types ((,Σ4 true : Type) tt : true) ∅
                              (case ((((conj true) true) tt) tt)
@@ -513,7 +507,7 @@
                                         (λ (B : Type)
                                            (λ (a : A)
                                               (λ (b : B) a))))))
-                             t) t))
+                             A)))
     (define sigma (term (((((((∅ true : Type) T : true) false : Type) equal : (Π (A : Type)
                                                               (Π (B : Type) Type)))
         nat : Type) heap : Type) pre : (Π (temp808 : heap) Type))))
@@ -525,7 +519,10 @@
     (check-true
       (judgment-holds (types ,sigma ,gamma pre t)))
     (check-true
-      (judgment-holds (types ,sigma (,gamma tmp863 : pre) Type (Unv 0)))))
+      (judgment-holds (types ,sigma (,gamma tmp863 : pre) Type (Unv 0))))
+    (check-true
+      (judgment-holds (types ,sigma (,gamma x : false) (case x) t)))
+    )
 
 
   (define-judgment-form cic-typingL
