@@ -54,8 +54,6 @@
 (define (sub1 (n : nat))
   (case n
     [z z]
-    ;; TODO: Add macro to enable writing this line as:
-    ;; [(s x) (s (s x))]
     [s (lambda (x : nat) x)]))
 (check-equal? (sub1 (s z)) z)
 
@@ -107,12 +105,28 @@
     (case ab
       (conj (lambda* (P : Type) (Q : Type) (x : P) (y : Q) (conj Q P y x))))))
 
+(check-equal? (thm:and-is-symmetric proof:and-is-symmetric) T)
+
+
+;; -------------------
+;; Ugh, why did the language implementer make the syntax for case so stupid? 
+;; I wish I could fix that ... Oh I can.
+(begin-for-syntax
+  (define (rewrite-clause clause)
+    (syntax-case clause (:)
+      [((con (a : A) ...) body) #'(con (lambda* (a : A) ... body))]
+      [(e body) #'(e body)])))
+(define-syntax (case* syn)
+  (syntax-case syn ()
+    [(_ e clause* ...)
+     #`(case e #,@(map rewrite-clause (syntax->list #'(clause* ...))))]))
+
 (define proof:and-is-symmetric^
   (lambda* (S : Type) (R : Type) (ab : (and S R))
-    (case ab
-      (conj (lambda* (S : Type) (R : Type) (s : S) (r : R) (conj R S r s))))))
+    (case* ab
+      [(conj (S : Type) (R : Type) (s : S) (r : R))
+       (conj R S r s)])))
 
-(check-equal? (thm:and-is-symmetric proof:and-is-symmetric) T)
 (check-equal? (thm:and-is-symmetric proof:and-is-symmetric^) T)
 
 ;; -------------------
@@ -120,10 +134,10 @@
 ;; them as seperate from types and programs.
 
 (define-syntax-rule (define-theorem name prop)
-  (define (name (x : prop)) T))
+  (define name prop))
 
 (define-syntax-rule (qed thm pf)
-  (check-equal? T (thm pf)))
+  (check-equal? T ((lambda (x : thm) T) pf)))
 
 (define-theorem thm:and-is-symmetric^^
   (forall* (P : Type) (Q : Type) (ab : (and P Q)) (and Q P)))
@@ -132,14 +146,14 @@
 
 (define-theorem thm:proj1
   (forall* (A : Type) (B : Type) (c : (and A B)) A))
-(define proof:proj1 
+(define proof:proj1
   (lambda* (A : Type) (B : Type) (c : (and A B))
     (case c (conj (lambda* (A : Type) (B : Type) (a : A) (b : B) a)))))
 (qed thm:proj1 proof:proj1)
 
 (define-theorem thm:proj2
   (forall* (A : Type) (B : Type) (c : (and A B)) B))
-(define proof:proj2 
+(define proof:proj2
   (lambda* (A : Type) (B : Type) (c : (and A B))
     (case c (conj (lambda* (A : Type) (B : Type) (a : A) (b : B) b)))))
 (qed thm:proj2 proof:proj2)
@@ -189,6 +203,11 @@
      (raise-syntax-error 'inhabit
        "Sorry, this type is too much for me" syn)]))
 
+;; TODO: Would be great if meta-programs could reference things by name.
+;; e.g. if I run (inhabit-type thm:true-is-proveable), it would first
+;; lookup the syntax of the definition thm:true-is-proveable, then
+;; run ... this would require some extra work in define, and a macro for
+;; defining macros this way.
 (define-theorem thm:true-is-proveable true)
 (qed thm:true-is-proveable (inhabit-type true))
 
@@ -206,16 +225,12 @@
     [(->* a a* ...)
      (-> a (->* a* ...))]))
 
-;; TODO: Ought to have some syntactic sugar for doing this.
-;; Or a different representation of theorems.
-(define type-thm:true?
+(define-theorem thm:true?
   (forall* (A : Type) (B : Type) (P : Type)
     ;; If A implies P and (and A B) then P
     (->* (-> A P) (and A B) P)))
 
-(define-theorem thm:true? type-thm:true?)
-
-(qed (lambda (x : (type-thm:true? true true true)) T)
+(qed (thm:true? true true true)
      ;; TODO: inhabit-type ought to be able to reduce (type-thm:true? true true true)
      ;; but can't. Maybe instead there should be a reduce tactic/macro.
      (inhabit-type (forall (a : (-> true true))
