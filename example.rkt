@@ -236,3 +236,30 @@
      (inhabit-type (forall (a : (-> true true))
                    (forall (f : (and true true))
                    true))))
+
+;; -------------------
+;; Okay but what about *real* proofs, like formalizing STLC, complete
+;; with fancy syntax for type checking?
+
+(data type : Type
+  (Unit : type)
+  (Pair : (->* type type type))
+  (Fun  : (->* type type type)))
+
+(data var : Type
+  (v : (-> nat var)))
+
+(data term : Type
+  (tvar : (-> var term))
+  (unitv : term)
+  (pair  : (->* term term term))
+  (lam   : (->* var type term term))
+  (prj   : (->* nat term term))
+  (app   : (->* term term term)))
+
+(define-syntax (λ syn)
+  (syntax-case syn (:)
+    [(_ (x : t) e)
+     #'(lam (v x) t e)]))
+
+(check-equal? (lam (v z) Unit unitv) (λ (z : Unit) unitv))
