@@ -727,13 +727,19 @@
       [(_ ((x : t) (xr : tr) ...) e)
        #'(dep-lambda (x : t) (curry-lambda ((xr : tr) ...) e))]
       [(_ () e) #'e]))
+
   ;; TODO: Syntax-parse
+  ;; TODO: Don't use define; this results in duplicated type-checking,
+  ;; automagic inlining, and long error messages. Perhaps instead, roll
+  ;; your own environment, add each defined name to gamma, and
+  ;; paramaterize reduce over the environment.
   (define-syntax (dep-define syn)
     (syntax-case syn (:)
       [(_ (name (x : t) ...) e)
        #'(define name (curry-lambda ((x : t) ...) e))]
       [(_ id e)
        #'(define id e)]))
+
   (define-syntax (dep-fix syn)
    (syntax-case syn (:)
      [(_ (x : t) e)
