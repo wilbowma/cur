@@ -633,7 +633,12 @@
     syntax-case
     syntax-rules
     define-syntax-rule
-    (for-syntax (all-from-out racket)))
+    (for-syntax (all-from-out racket))
+    ;; reflection
+    #;(rename-out
+      [type-infer^ type-infer]
+      [type-check^ type-check]
+      [reduce^ reduce]))
 
   (begin-for-syntax
     (current-trace-notify
@@ -658,8 +663,9 @@
         (unless (redex-match? cic-typingL Γ x)
           (error 'core-error "We build a bad gamma ~s" x))
         x)))
+
   (define sigma
-    (make-parameter (term ∅)#;(term (((∅ nat : Type) z : nat) s : (Π (x : nat) nat)))
+    (make-parameter (term ∅)
       (lambda (x)
         (unless (redex-match? cic-typingL Σ x)
           (error 'core-error "We build a bad sigma ~s" x))
@@ -733,6 +739,8 @@
   ;; automagic inlining, and long error messages. Perhaps instead, roll
   ;; your own environment, add each defined name to gamma, and
   ;; paramaterize reduce over the environment.
+  ;; TODO: The above notes might be solved when doing all type-checking
+  ;; expand time, as per below notes.
   (define-syntax (dep-define syn)
     (syntax-case syn (:)
       [(_ (name (x : t) ...) e)
@@ -749,7 +757,17 @@
                                    e))))])
            (unless (judgment-holds (types ,(sigma) ,(gamma) ,lam t_0))
              (error 'type-checking "Term is ill-typed: ~s" lam))
-           lam)])))
+           lam)]))
+
+  ;; TODO: Adding reflection will require building sigma, gamma, and
+  ;; doing type-checking at macro expand time, I think.
+  ;; Just as well---that might be more efficient.
+  ;; This will require a large change to the macros, so ought to branch
+  ;; first.
+  #;(define (type-infer^ syn)
+    (let ([t (judgment-holds (types ,(sigma) ,(gamma) ,(syntax->datum syn) t_0) t_0)])
+      (and t (datum->syntax syn (car t)))))
+  )
 
 (require 'sugar)
 (provide (all-from-out 'sugar))
