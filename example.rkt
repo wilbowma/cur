@@ -57,15 +57,16 @@
     [s (lambda (x : nat) x)]))
 (check-equal? (sub1 (s z)) z)
 
-#|
 ;; TODO: Plus require recursion and I don't have recursion!
-(define (plus (n1 : nat) (n2 : nat))
-  (case n1
-    [z n2]
-    [s (λ (x : nat) (plus x (s n2)))]))
+(define plus
+  (fix (plus : (forall* (n1 : nat) (n2 : nat) nat))
+    (lambda (n1 : nat)
+      (lambda (n2 : nat)
+        (case n1
+          [z n2]
+          [s (λ (x : nat) (plus x (s n2)))])))))
 
-(check-equal? (plus (s (s z)) (s (s z))) (s (s (s z))))
-|#
+(check-equal? (plus (s (s z)) (s (s z))) (s (s (s (s z)))))
 
 ;; -------------------
 ;; It's annoying to have to write things explicitly curried
@@ -109,7 +110,7 @@
 
 
 ;; -------------------
-;; Ugh, why did the language implementer make the syntax for case so stupid? 
+;; Ugh, why did the language implementer make the syntax for case so stupid?
 ;; I wish I could fix that ... Oh I can.
 (begin-for-syntax
   (define (rewrite-clause clause)
@@ -239,7 +240,7 @@
 
 ;; -------------------
 ;; Okay but what about *real* proofs, like formalizing STLC, complete
-;; with fancy syntax for type checking?
+;; with fancy syntax?
 
 (data type : Type
   (Unit : type)
