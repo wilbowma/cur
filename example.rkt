@@ -360,22 +360,40 @@
   (T-Unit : (forall* (g : gamma) (has-type g unitv Unit)))
   (T-Var  : (forall* (g : gamma) (x : var) (t : type)
               (-> (== (maybe type) (lookup-gamma g x) (some type t))
-                  (has-type gamma (tvar x) t))))
+                  (has-type g (tvar x) t))))
   (T-Pair : (forall* (g : gamma) (e1 : term) (e2 : term) (t1 : type) (t2 : type)
-              (->* (has-type gamma e1 t1)
-                   (has-type gamma e2 t2)
-                   (has-type gamma (pair e1 e2) (Pair t1 t2)))))
+              (->* (has-type g e1 t1)
+                   (has-type g e2 t2)
+                   (has-type g (pair e1 e2) (Pair t1 t2)))))
   (T-Prj1  : (forall* (g : gamma) (e : term) (t1 : type) (t2 : type)
-              (->* (has-type gamma e (Pair t1 t2))
-                   (has-type gamma (prj z e) t1))))
+              (->* (has-type g e (Pair t1 t2))
+                   (has-type g (prj z e) t1))))
   (T-Prj2  : (forall* (g : gamma) (e : term) (t1 : type) (t2 : type)
-              (->* (has-type gamma e (Pair t1 t2))
-                   (has-type gamma (prj (s z) e) t2))))
+              (->* (has-type g e (Pair t1 t2))
+                   (has-type g (prj (s z) e) t2))))
   (T-Fun  : (forall* (g : gamma) (e1 : term) (t1 : type) (t2 : type) (x : var)
-              (-> (has-type (extend-gamma gamma x t1) e1 t2)
-                  (has-type gamma (lam var t1 e1) (Fun t1 t2)))))
+              (-> (has-type (extend-gamma g x t1) e1 t2)
+                  (has-type g (lam x t1 e1) (Fun t1 t2)))))
   (T-App  : (forall* (g : gamma) (e1 : term) (e2 : term) (t1 : type)
                      (t2 : type)
-              (->* (has-type gamma e1 (Fun t1 t2))
-                   (has-type gamma e2 t1)
-                   (has-type gamma (app e1 e2) t2)))))
+              (->* (has-type g e1 (Fun t1 t2))
+                   (has-type g e2 t1)
+                   (has-type g (app e1 e2) t2)))))
+
+#|
+;; Gee, it would be great if I could write those rules more naturally.
+;; Suppose like:
+ (define-type-system (has-type gamma term type)
+   [------------------------ T-Unit
+    (has-type g unitv Unit)]
+   [(== (maybe type) (lookup-gamma g x) (some type t))
+    ------------------------ T-Var
+    (has-type g (tvar x) t)]
+   ...)
+
+And have each free-identifier automagically forall quantified
+(might require some tricky type inference).
+
+With meta-programming, we can! But... it would be kind of tricky and
+obnoxious to define so maybe I'll do it later.
+|#
