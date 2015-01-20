@@ -331,9 +331,9 @@
     terminates? : t -> #t or #f
     [(terminates? t) #t])
   (module+ test
-    (check-false (terminates? (μ (x : Type) x)))
-    (check-false (terminates? (μ (x : Type) (λ (y : Type) (x y)))))
-    (check-true (terminates? (μ (x : Type) (λ (y : Type) y)))))
+    (check-false (term (terminates? (μ (x : Type) x))))
+    (check-false (term (terminates? (μ (x : Type) (λ (y : Type) (x y))))))
+    (check-true (term (terminates? (μ (x : Type) (λ (y : Type) y))))))
 
   (define-judgment-form cic-typingL
     #:mode (types I I I O)
