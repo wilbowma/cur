@@ -258,9 +258,124 @@
   (prj   : (->* nat term term))
   (app   : (->* term term term)))
 
-(define-syntax (λ syn)
-  (syntax-case syn (:)
-    [(_ (x : t) e)
-     #'(lam (v x) t e)]))
+;; Now, fancy syntax to write these terms in a more natural syntax,
+;; instead of via applications of inductives. Also, use variables names
+;; and automatically get de Bruijn indecies.
+(begin-for-syntax
+  (define index #'z))
+(define-syntax (begin-stlc syn)
+  (set! index #'z)
+  (let stlc ([syn (syntax-case syn () [(_ e) #'e])])
+    (syntax-case syn (lambda : prj * -> quote)
+      [(lambda (x : t) e)
+       (let ([oldindex index])
+         (set! index #`(s #,index))
+         #`((lambda (x : term)
+              (lam (v #,oldindex) #,(stlc #'t) #,(stlc #'e)))
+            (tvar (v #,oldindex))))]
+      [(quote (e1 e2))
+       #`(pair #,(stlc #'e1) #,(stlc #'e2))]
+      [(prj i e1)
+       #`(prj i #,(stlc #'e1))]
+      [() #'unitv]
+      [(t1 * t2)
+       #`(Pair #,(stlc #'t1) #,(stlc #'t2))]
+      [(t1 -> t2)
+       #`(Fun #,(stlc #'t1) #,(stlc #'t2))]
+      [(e1 e2)
+       #`(app #,(stlc #'e1) #,(stlc #'e2))]
+      [e
+       (if (eq? 1 (syntax->datum #'e))
+           #'Unit
+           #'e)])))
 
-(check-equal? (lam (v z) Unit unitv) (λ (z : Unit) unitv))
+(check-equal?
+  (begin-stlc (lambda (x : 1) x))
+  (lam (v z) Unit (tvar (v z))))
+(check-equal?
+  (begin-stlc ((lambda (x : 1) x) ()))
+  (app (lam (v z) Unit (tvar (v z))) unitv))
+(check-equal?
+  (begin-stlc '(() ()))
+  (pair unitv unitv))
+
+;; ---------------
+
+(data gamma : Type
+  (emp-gamma : gamma)
+  (ext-gamma : (->* gamma var type gamma)))
+
+(data maybe : (forall (A : Type) Type)
+  (none : (forall (A : Type) (maybe A)))
+  (some : (forall* (A : Type) (a : A) (maybe A))))
+
+(data bool : Type
+  (btrue : bool)
+  (bfalse : bool))
+
+(define-syntax (if syn)
+  (syntax-case syn ()
+    [(_ t s f)
+     #'(case t
+         [btrue s]
+         [bfalse f])]))
+
+(define-syntax (define-rec syn)
+  (syntax-case syn (:)
+    [(_ (name (a : t) ... : t_res) body)
+     #'(define name (fix (name : (forall* (a : t) ... t_res))
+                      (lambda* (a : t) ... body)))]))
+
+(define-rec (nat-equal? (n1 : nat) (n2 : nat) : bool)
+  (case* n1
+    [z (case* n2
+         [z btrue]
+         [(s (n3 : nat)) bfalse])]
+    [(s (n3 : nat))
+       (case* n2
+         [z btrue]
+         [(s (n4 : nat)) (nat-equal? n3 n4)])]))
+
+(define (var-equal? (v1 : var) (v2 : var))
+  (case* v1
+    [(v (n1 : nat))
+     (case* v2
+       [(v (n2 : nat))
+        (nat-equal? n1 n2)])]))
+
+(define-rec (lookup-gamma (g : gamma) (x : var) : (maybe type))
+  (case* g
+    [emp-gamma (none type)]
+    [(ext-gamma (g1 : gamma) (v1 : var) (t1 : type))
+     (if (var-equal? v1 x)
+         (some type t1)
+         (lookup-gamma g1 x))]))
+
+(define extend-gamma ext-gamma)
+
+(data == : (forall* (A : Type) (x : A) (-> A Type))
+  (refl : (forall* (A : Type) (x : A) (== A x x))))
+
+(data has-type : (->* gamma term type Type)
+  (T-Unit : (forall* (g : gamma) (has-type g unitv Unit)))
+  (T-Var  : (forall* (g : gamma) (x : var) (t : type)
+              (-> (== (maybe type) (lookup-gamma g x) (some type t))
+                  (has-type gamma (tvar x) t))))
+  (T-Pair : (forall* (g : gamma) (e1 : term) (e2 : term) (t1 : type) (t2 : type)
+              (->* (has-type gamma e1 t1)
+                   (has-type gamma e2 t2)
+                   (has-type gamma (pair e1 e2) (Pair t1 t2)))))
+  (T-Prj1  : (forall* (g : gamma) (e : term) (t1 : type) (t2 : type)
+              (->* (has-type gamma e (Pair t1 t2))
+                   (has-type gamma (prj z e) t1))))
+  (T-Prj2  : (forall* (g : gamma) (e : term) (t1 : type) (t2 : type)
+              (->* (has-type gamma e (Pair t1 t2))
+                   (has-type gamma (prj (s z) e) t2))))
+  (T-Fun  : (forall* (g : gamma) (e1 : term) (t1 : type) (t2 : type) (x : var)
+              (-> (has-type (extend-gamma gamma x t1) e1 t2)
+                  (has-type gamma (lam var t1 e1) (Fun t1 t2)))))
+  (T-App  : (forall* (g : gamma) (e1 : term) (e2 : term) (t1 : type)
+                     (t2 : type)
+              (->* (has-type gamma e1 (Fun t1 t2))
+                   (has-type gamma e2 t1)
+                   (has-type gamma (app e1 e2) t2)))))
