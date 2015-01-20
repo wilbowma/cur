@@ -21,7 +21,7 @@
     (U ::= Type (Unv i))
     (x ::= variable-not-otherwise-mentioned)
     ;; TODO: Having 2 binders is stupid.
-    (v ::= (Π (x : t) t) (λ (x : t) t) x U)
+    (v ::= (Π (x : t) t) (μ (x : t) t) (λ (x : t) t) x U)
     (t e ::= (case e (x e) ...) v (t t)))
 
   (module+ test
@@ -112,11 +112,13 @@
     [(subst x_0 x t) x_0]
     [(subst (Π (x : t_0) t_1) x t) (Π (x : (subst t_0 x t)) t_1)]
     [(subst (λ (x : t_0) t_1) x t) (λ (x : (subst t_0 x t)) t_1)]
+    [(subst (μ (x : t_0) t_1) x t) (μ (x : (subst t_0 x t)) t_1)]
     ;; TODO: Broken: needs capture avoiding, but currently require
     ;; binders to be the same in term/type, so this is not a local
     ;; change.
     [(subst (Π (x_0 : t_0) t_1) x t) (Π (x_0 : (subst t_0 x t)) (subst t_1 x t)) ]
     [(subst (λ (x_0 : t_0) t_1) x t) (λ (x_0 : (subst t_0 x t)) (subst t_1 x t))]
+    [(subst (μ (x_0 : t_0) t_1) x t) (μ (x_0 : (subst t_0 x t)) (subst t_1 x t))]
     [(subst (e_0 e_1) x t) ((subst e_0 x t) (subst e_1 x t))]
     [(subst (case e (x_0 e_0) ...) x t)
      (case (subst e x t)
@@ -129,12 +131,13 @@
   ;; TODO: Why do I not have tests for substitutions?!?!?!?!?!?!?!!?!?!?!?!?!?!!??!?!
 
   (define-extended-language cic-redL cicL
-    (E hole (E t) (λ (x : t) E) (Π (x : t) E) (case E (x e) ...)))
+    (E hole (E t) (case E (x e) ...)))
 
   (define-metafunction cicL
-    inductive-name : t -> x
+    inductive-name : t -> x or #f
     [(inductive-name x) x]
-    [(inductive-name (t_1 t_2)) (inductive-name t_1)])
+    [(inductive-name (t_1 t_2)) (inductive-name t_1)]
+    [(inductive-name t) #f])
   (module+ test
     (check-equal?
       (term and)
@@ -153,6 +156,8 @@
            (subst t_1 x t_2))
       (==> ((λ (x : t) e_0) e_1)
            (subst e_0 x e_1))
+      (==> ((μ (x : t) e_0) e_1)
+           ((subst e_0 x (μ (x : t) e_0)) e_1))
       (==> (case e_9
              (x_0 e_0) ... (x e) (x_r e_r) ...)
            (inductive-apply e e_9)
@@ -321,6 +326,15 @@
     (check-true (judgment-holds (wf (∅ nat : Type) (∅ x : nat))))
     (check-true (judgment-holds (wf (∅ nat : Type) (∅ x : (Π (x : nat) nat))))))
 
+  ;; TODO: Add termination checking
+  (define-metafunction cicL
+    terminates? : t -> #t or #f
+    [(terminates? t) #t])
+  (module+ test
+    (check-false (terminates? (μ (x : Type) x)))
+    (check-false (terminates? (μ (x : Type) (λ (y : Type) (x y)))))
+    (check-true (terminates? (μ (x : Type) (λ (y : Type) y)))))
+
   (define-judgment-form cic-typingL
     #:mode (types I I I O)
     #:contract (types Σ Γ e t)
@@ -354,6 +368,12 @@
      (types Σ Γ (Π (x : t_0) t_1) U)
      ----------------- "DTR-Abstraction"
      (types Σ Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
+
+    [(side-condition (terminates? (μ (x : t_0) e)))
+     (types Σ (Γ x : t_0) e t_0)
+     (types Σ Γ t_0 U)
+     ----------------- "DTR-Fix"
+     (types Σ Γ (μ (x : t_0) e) t_0)]
 
     [(types Σ Γ e t_9)
      (where t_1 (inductive-name t_9))
@@ -598,6 +618,8 @@
       [dep-lambda λ]
       [dep-app #%app]
 
+      [dep-fix fix]
+
       [dep-forall forall]
       [dep-forall ∀]
 
@@ -711,7 +733,17 @@
       [(_ (name (x : t) ...) e)
        #'(define name (curry-lambda ((x : t) ...) e))]
       [(_ id e)
-       #'(define id e)])))
+       #'(define id e)]))
+  (define-syntax (dep-fix syn)
+   (syntax-case syn (:)
+     [(_ (x : t) e)
+      #`(let* ([lam (term (μ (x : ,t)
+                              ,(let ([x (term x)])
+                                 (parameterize ([gamma (term (,(gamma) ,x : ,t))])
+                                   e))))])
+           (unless (judgment-holds (types ,(sigma) ,(gamma) ,lam t_0))
+             (error 'type-checking "Term is ill-typed: ~s" lam))
+           lam)])))
 
 (require 'sugar)
 (provide (all-from-out 'sugar))
