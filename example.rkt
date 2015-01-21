@@ -356,29 +356,14 @@
 (data == : (forall* (A : Type) (x : A) (-> A Type))
   (refl : (forall* (A : Type) (x : A) (== A x x))))
 
+#|
 (data has-type : (->* gamma term type Type)
   (T-Unit : (forall* (g : gamma) (has-type g unitv Unit)))
-  (T-Var  : (forall* (g : gamma) (x : var) (t : type)
-              (-> (== (maybe type) (lookup-gamma g x) (some type t))
-                  (has-type g (tvar x) t))))
-  (T-Pair : (forall* (g : gamma) (e1 : term) (e2 : term) (t1 : type) (t2 : type)
-              (->* (has-type g e1 t1)
-                   (has-type g e2 t2)
-                   (has-type g (pair e1 e2) (Pair t1 t2)))))
-  (T-Prj1  : (forall* (g : gamma) (e : term) (t1 : type) (t2 : type)
-              (->* (has-type g e (Pair t1 t2))
-                   (has-type g (prj z e) t1))))
-  (T-Prj2  : (forall* (g : gamma) (e : term) (t1 : type) (t2 : type)
-              (->* (has-type g e (Pair t1 t2))
-                   (has-type g (prj (s z) e) t2))))
-  (T-Fun  : (forall* (g : gamma) (e1 : term) (t1 : type) (t2 : type) (x : var)
-              (-> (has-type (extend-gamma g x t1) e1 t2)
-                  (has-type g (lam x t1 e1) (Fun t1 t2)))))
-  (T-App  : (forall* (g : gamma) (e1 : term) (e2 : term) (t1 : type)
-                     (t2 : type)
-              (->* (has-type g e1 (Fun t1 t2))
-                   (has-type g e2 t1)
-                   (has-type g (app e1 e2) t2)))))
+  ....)
+|#
+
+;; Those inferrence rules look terrible. Gee, it would be great if I
+;; could write them in a more natural, math notation....
 
 (begin-for-syntax
   (define-syntax-class dash
@@ -388,6 +373,7 @@
 
   (define-syntax-class decl (pattern (x:id (~literal :) t:id)))
 
+  ;; TODO: Automatically infer decl ... by binding all free identifiers?
   (define-syntax-class inferrence-rule
     (pattern (d:decl ...
               x*:expr ...
@@ -409,10 +395,6 @@
      #'(data n : (->* types* ... Type)
           rules.rule ...)]))
 
-
-#|
-;; Gee, it would be great if I could write those rules more naturally.
-;; Suppose like:
 (define-relation (has-type gamma term type)
   [(g : gamma)
    ------------------------ T-Unit
@@ -422,12 +404,30 @@
    (== (maybe type) (lookup-gamma g x) (some type t))
    ------------------------ T-Var
    (has-type g (tvar x) t)]
-  []
-)
 
-And have each free-identifier automagically forall quantified
-(might require some tricky type inference).
+  [(g : gamma) (e1 : term) (e2 : term) (t1 : type) (t2 : type)
+   (has-type g e1 t1)
+   (has-type g e2 t2)
+   ---------------------- T-Pair
+   (has-type g (pair e1 e2) (Pair t1 t2))]
 
-With meta-programming, we can! But... it would be kind of tricky and
-obnoxious to define so maybe I'll do it later.
-|#
+  [(g : gamma) (e : term) (t1 : type) (t2 : type)
+   (has-type g e (Pair t1 t2))
+   ----------------------- T-Prj1
+   (has-type g (prj z e) t1)]
+
+  [(g : gamma) (e : term) (t1 : type) (t2 : type)
+   (has-type g e (Pair t1 t2))
+   ----------------------- T-Prj2
+   (has-type g (prj (s z) e) t1)]
+
+  [(g : gamma) (e1 : term) (t1 : type) (t2 : type) (x : var)
+   (has-type (extend-gamma g x t1) e1 t2)
+   ---------------------- T-Fun
+   (has-type g (lam x t1 e1) (Fun t1 t2))]
+
+  [(g : gamma) (e1 : term) (e2 : term) (t1 : type) (t2 : type)
+   (has-type g e1 (Fun t1 t2))
+   (has-type g e2 t1)
+   ---------------------- T-App
+   (has-type g (app e1 e2) t2)])

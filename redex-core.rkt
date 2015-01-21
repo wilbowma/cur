@@ -596,13 +596,13 @@
 ;; TODO: Remove trace,pretty, debugging stuff
 (module sugar racket
   (require
-    syntax/parse
     racket/trace
     racket/pretty
     (submod ".." core)
     redex/reduction-semantics
     (for-syntax
       racket
+      syntax/parse
       racket/pretty
       racket/trace
       (except-in (submod ".." core) remove)
