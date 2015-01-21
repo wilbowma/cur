@@ -596,6 +596,7 @@
 ;; TODO: Remove trace,pretty, debugging stuff
 (module sugar racket
   (require
+    syntax/parse
     racket/trace
     racket/pretty
     (submod ".." core)
@@ -630,6 +631,7 @@
     ;; DYI syntax extension
     define-syntax
     (rename-out [dep-define define])
+    (for-syntax (all-from-out syntax/parse))
     syntax-case
     syntax-rules
     define-syntax-rule

@@ -380,8 +380,6 @@
                    (has-type g e2 t1)
                    (has-type g (app e1 e2) t2)))))
 
-(require (for-syntax syntax/parse racket))
-
 (begin-for-syntax
   (define-syntax-class dash
     (pattern x:id
