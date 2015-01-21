@@ -18,7 +18,7 @@
   (syntax-case syn ()
     [(_ t1 t2)
      (with-syntax ([(x) (generate-temporaries '(1))])
-       #'(forall (x : t1) t2))]))
+       #`(forall (x : t1) t2))]))
 
 (data nat : Type
   (z : nat)
@@ -371,7 +371,7 @@
            #:fail-unless (regexp-match #rx"-+" (symbol->string (syntax-e #'x)))
            "Invalid dash"))
 
-  (define-syntax-class decl (pattern (x:id (~literal :) t:id)))
+  (define-syntax-class decl (pattern (x:id (~datum :) t:id)))
 
   ;; TODO: Automatically infer decl ... by binding all free identifiers?
   (define-syntax-class inferrence-rule
@@ -384,7 +384,7 @@
 
 (define-syntax (define-relation syn)
   (syntax-parse syn
-    [(_ (n:id types*:id ...) rules:inferrence-rule ...)
+    [(_ (n:id types* ...) rules:inferrence-rule ...)
      #:fail-unless (andmap (curry equal? (length (syntax->datum #'(types* ...))))
                            (map length (syntax->datum #'((rules.y* ...)
                                                           ...))))
@@ -392,7 +392,7 @@
      #:fail-unless (andmap (curry equal? (syntax->datum #'n))
                            (syntax->datum #'(rules.name ...)))
      "Mismatch between relation declared name and result of inference rule"
-     #'(data n : (->* types* ... Type)
+      #`(data n : (->* types* ... Type)
           rules.rule ...)]))
 
 (define-relation (has-type gamma term type)
@@ -431,3 +431,57 @@
    (has-type g e2 t1)
    ---------------------- T-App
    (has-type g (app e1 e2) t2)])
+
+(begin-for-syntax
+  (define orig-insp (variable-reference->module-declaration-inspector
+    (#%variable-reference)))
+
+  (define (disarm syn) (syntax-disarm syn orig-insp))
+
+  (define (expand syn)
+    (disarm (local-expand syn 'expression (syntax-e #'(lambda forall data case fix Type #%app #%top)))))
+
+  (define (output-coq syn)
+    (syntax-parse (expand syn)
+       [((~literal lambda) ~! (x:id (~datum :) t) body:expr)
+        (format "(fun ~a : ~a => ~a)" (syntax-e #'x) (output-coq #'t)
+                (output-coq #'body))]
+       [((~literal forall) ~! (x:id (~datum :) t) body:expr)
+        (format "(forall ~a : ~a, ~a)" (syntax-e #'x) (output-coq #'t)
+                (output-coq #'body))]
+       [((~literal data) ~! n:id (~datum :) t (x*:id (~datum :) t*) ...)
+        (format "Inductive ~a : ~a :=~n~a."
+                (syntax-e #'n)
+                (output-coq #'t)
+                (string-trim
+                  (for/fold ([strs ""])
+                            ([clause (syntax->list #'((x* : t*) ...))])
+                    (syntax-parse clause
+                      [(x (~datum :) t)
+                       (format "~a~a : ~a~n| " strs (syntax-e #'x)
+                               (output-coq #'t))]))
+                  #px"\\s\\| $"
+                  #:left? #f))]
+       [(e1 e* ...)
+        (format "(~a~a)" (output-coq #'e1)
+          (for/fold ([strs ""])
+                    ([arg (syntax->list #'(e* ...))])
+            (format "~a ~a" strs (output-coq arg))))]
+       [e:id (format "~a" (syntax->datum #'e))])))
+
+(define-syntax (generate-coq syn)
+  (syntax-parse syn
+    [(_ (~optional (~seq #:file file)) body:expr)
+     (parameterize ([current-output-port (if (attribute file)
+                                             (syntax->datum #'file)
+                                             (current-output-port))])
+       (displayln (output-coq #'body))
+       #'Type)]))
+
+(generate-coq (data nat : Type (z : nat)))
+(generate-coq (-> Type Type))
+(generate-coq
+  (define-relation (meow gamma term type)
+    [(g : gamma) (e : term) (t : type)
+     --------------- T-Bla
+     (meow g e t)]))
