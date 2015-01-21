@@ -380,16 +380,52 @@
                    (has-type g e2 t1)
                    (has-type g (app e1 e2) t2)))))
 
+(require (for-syntax syntax/parse racket))
+
+(begin-for-syntax
+  (define-syntax-class dash
+    (pattern x:id
+           #:fail-unless (regexp-match #rx"-+" (symbol->string (syntax-e #'x)))
+           "Invalid dash"))
+
+  (define-syntax-class decl (pattern (x:id (~literal :) t:id)))
+
+  (define-syntax-class inferrence-rule
+    (pattern (d:decl ...
+              x*:expr ...
+              line:dash lab:id
+              (name:id y* ...))
+              #:with rule #'(lab : (forall* d ...
+                                     (->* x* ... (name y* ...)))))))
+
+(define-syntax (define-relation syn)
+  (syntax-parse syn
+    [(_ (n:id types*:id ...) rules:inferrence-rule ...)
+     #:fail-unless (andmap (curry equal? (length (syntax->datum #'(types* ...))))
+                           (map length (syntax->datum #'((rules.y* ...)
+                                                          ...))))
+     "Mismatch between relation declared and relation definition"
+     #:fail-unless (andmap (curry equal? (syntax->datum #'n))
+                           (syntax->datum #'(rules.name ...)))
+     "Mismatch between relation declared name and result of inference rule"
+     #'(data n : (->* types* ... Type)
+          rules.rule ...)]))
+
+
 #|
 ;; Gee, it would be great if I could write those rules more naturally.
 ;; Suppose like:
- (define-type-system (has-type gamma term type)
-   [------------------------ T-Unit
-    (has-type g unitv Unit)]
-   [(== (maybe type) (lookup-gamma g x) (some type t))
-    ------------------------ T-Var
-    (has-type g (tvar x) t)]
-   ...)
+(define-relation (has-type gamma term type)
+  [(g : gamma)
+   ------------------------ T-Unit
+   (has-type g unitv Unit)]
+
+  [(g : gamma) (x : var) (t : type)
+   (== (maybe type) (lookup-gamma g x) (some type t))
+   ------------------------ T-Var
+   (has-type g (tvar x) t)]
+  []
+)
 
 And have each free-identifier automagically forall quantified
 (might require some tricky type inference).
