@@ -613,7 +613,9 @@
     #%module-begin
     #%datum
     require
+    provide
     for-syntax
+    module+
     (rename-out
       [dep-lambda lambda]
       [dep-lambda λ]
