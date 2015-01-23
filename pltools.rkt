@@ -123,6 +123,8 @@
                            #`((data name* : Type . rhs*.clause)
                               ...)))))
 
+;; TODO: For better error messages, add context, rename some of these patterns. e.g.
+;;    (type (meta-vars) ::= ?? )
 (define-syntax (define-language syn)
   (syntax-parse syn
     [(_ name:id (~do (lang-name #'name))
@@ -138,12 +140,11 @@
 
 ;;Type this:
 
-#;
 (define-language stlc
   #:vars (x)
-  (val (v) ::= true false)
+  (val  (v)   ::= true false)
   (type (A B) ::= bool (-> A B))
-  (term (e) ::= var v (e e) (lambda (x : A) e)))
+  (term (e)   ::= x v (e e) (lambda (x : A) e)))
 
 ;;This gets generated:
 
