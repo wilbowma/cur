@@ -1,6 +1,9 @@
 #lang s-exp "redex-core.rkt"
-(require "sugar.rkt")
-(provide define-relation)
+(require "sugar.rkt" "nat.rkt")
+;; TODO: Can't export var, avar because technically these aren't
+;; defined....
+;; REALLY NEED TO FIX THAT
+(provide define-relation define-language)
 
 (begin-for-syntax
   (define-syntax-class dash
@@ -33,10 +36,10 @@
 
 (begin-for-syntax
   (require racket/syntax)
-  (define (new-name . id*)
-    (apply format-id #f (for/fold ([str "~a"])
-                                  ([_ (cdr id*)])
-                          (string-append str "-~a")) (map syntax->datum id*)))
+  (define (new-name name . id*)
+    (apply format-id name (for/fold ([str "~a"])
+                                  ([_ id*])
+                          (string-append str "-~a")) name (map syntax->datum id*)))
 
   (define (fresh-name id)
     (datum->syntax id (gensym (syntax->datum id)))))
@@ -122,6 +125,7 @@
 
 (define-syntax (define-language syn)
   (syntax-parse syn
+    #:literals (var)
     [(_ name:id (~do (lang-name #'name))
         (~do (nts (hash-set (make-immutable-hash) 'var #'var)))
         (~optional (~seq #:vars (x*:id ...)
@@ -129,17 +133,27 @@
                                ([v (syntax->datum #'(x* ...))])
                        (hash-set ht v (hash-ref ht 'var)))))))
         . clause*:nt-clauses)
-     (let ([var (hash-ref (nts) 'var)])
-       #`(begin
-           #,@(if (attribute x*)
-                  #`((data #,var : Type (avar : (-> nat #,var))))
-                  #'())
-           . clause*.defs))]))
+     #`(begin . clause*.defs)]))
 
-; TODO: Not quite working yet. I think it has something to do with
-; begin.
+(data var : Type (avar : (-> nat var)))
+
+#|
 (define-language stlc
   #:vars (x)
   (val (v) ::= true false)
   (type (A B) ::= bool (-> A B))
   (term (e) ::= var v (e e) (lambda x A e)))
+
+(begin
+  (data stlc-val : Type
+    (stlc-true : stlc-val)
+    (stlc-false : stlc-val))
+  (data stlc-type : Type
+    (stlc-bool : stlc-type)
+    (stlc--> : (->* stlc-type stlc-type stlc-type)))
+  (data stlc-term : Type
+    (var-->-stlc-term : (-> var stlc-term))
+    (stlc-val-->-stlc-term : (-> stlc-val stlc-term))
+    (stlc-term2151 : (->* stlc-term stlc-term stlc-term))
+    (stlc-lambda : (->* var stlc-type stlc-term stlc-term))))
+|#

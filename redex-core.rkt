@@ -616,6 +616,7 @@
     provide
     for-syntax
     module+
+    begin
     (rename-out
       [dep-lambda lambda]
       [dep-lambda λ]
