@@ -125,7 +125,6 @@
 
 (define-syntax (define-language syn)
   (syntax-parse syn
-    #:literals (var)
     [(_ name:id (~do (lang-name #'name))
         (~do (nts (hash-set (make-immutable-hash) 'var #'var)))
         (~optional (~seq #:vars (x*:id ...)
@@ -137,23 +136,29 @@
 
 (data var : Type (avar : (-> nat var)))
 
-#|
+;;Type this:
+
+#;
 (define-language stlc
   #:vars (x)
   (val (v) ::= true false)
   (type (A B) ::= bool (-> A B))
-  (term (e) ::= var v (e e) (lambda x A e)))
+  (term (e) ::= var v (e e) (lambda (x : A) e)))
 
+;;This gets generated:
+
+#;
 (begin
   (data stlc-val : Type
     (stlc-true : stlc-val)
     (stlc-false : stlc-val))
+
   (data stlc-type : Type
     (stlc-bool : stlc-type)
     (stlc--> : (->* stlc-type stlc-type stlc-type)))
+
   (data stlc-term : Type
     (var-->-stlc-term : (-> var stlc-term))
     (stlc-val-->-stlc-term : (-> stlc-val stlc-term))
     (stlc-term2151 : (->* stlc-term stlc-term stlc-term))
     (stlc-lambda : (->* var stlc-type stlc-term stlc-term))))
-|#
