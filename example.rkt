@@ -1,4 +1,4 @@
-#lang s-exp "redex-core.rkt"
+#lang s-exp "cur-redex.rkt"
 
 ;; Use racket libraries over your dependently typed code!?!?
 ;; TODO: actually, I'm not sure this should work quite as well as it

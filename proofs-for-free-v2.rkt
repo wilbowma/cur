@@ -1,4 +1,4 @@
-#lang s-exp "redex-core.rkt"
+#lang s-exp "cur-redex.rkt"
 (require rackunit racket/trace (for-syntax racket/syntax))
 
 ;; TODO: Move to standard library

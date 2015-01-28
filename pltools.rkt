@@ -1,4 +1,4 @@
-#lang s-exp "redex-core.rkt"
+#lang s-exp "cur-redex.rkt"
 (require "sugar.rkt" "nat.rkt")
 ;; TODO: Can't export var, avar because technically these aren't
 ;; defined....

@@ -1,4 +1,4 @@
-#lang s-exp "redex-core.rkt"
+#lang s-exp "cur-redex.rkt"
 
 (begin-for-syntax
   (define orig-insp (variable-reference->module-declaration-inspector
