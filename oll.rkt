@@ -167,15 +167,6 @@
     (stlc-lambda : (->* var stlc-type stlc-term stlc-term))))
 
 (begin-for-syntax
-  (define orig-insp (variable-reference->module-declaration-inspector
-    (#%variable-reference)))
-
-  (define (disarm syn) (syntax-disarm syn orig-insp))
-
-  ;; TODO: Pull expand, perhaps list of literals, into a library.
-  (define (expand syn)
-    (disarm (local-expand syn 'expression (syntax-e #'(lambda forall data case fix Type #%app #%top)))))
-
   (define (output-coq syn)
     (syntax-parse (expand syn)
        [((~literal lambda) ~! (x:id (~datum :) t) body:expr)

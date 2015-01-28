@@ -57,9 +57,8 @@
     [s (lambda (x : nat) x)]))
 (check-equal? (sub1 (s z)) z)
 
-;; TODO: Plus require recursion and I don't have recursion!
 (define plus
-  (fix (plus : (forall* (n1 : nat) (n2 : nat) nat))
+  (fix (plus : (forall (n1 : nat) (forall (n2 : nat) nat)))
     (lambda (n1 : nat)
       (lambda (n2 : nat)
         (case n1
