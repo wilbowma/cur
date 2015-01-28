@@ -703,8 +703,8 @@
                       (append
                         (syntax-e #'(term reduce #%app λ Π μ case))
                         (bound))))))
-      (let core-expand ([syn (expand syn)])
-        (syntax-parse syn
+      (let core-expand ([syn syn])
+        (syntax-parse (expand syn)
           #:datum-literals (term reduce case Π λ μ :)
           [x:id #'x]
           [(reduce e) (core-expand #'e)]
@@ -725,7 +725,7 @@
                            (syntax->list #'(ec ...))
                            (syntax->list #'(eb ...))))]
           [(e ...)
-           #`(#,@(map core-expand (syntax->list #'(e ...))))])))
+           (expand #`(curry-app #,@(map core-expand (syntax->list #'(e ...)))))])))
 
     (define (cur->datum syn) (syntax->datum (core-expand syn)))
 
@@ -750,7 +750,7 @@
       [(_ e1 e2 e3 ...)
        #'(curry-app (e1 e2) e3 ...)]))
 
-  (trace-define-syntax (dep-app syn)
+  (define-syntax (dep-app syn)
     (syntax-case syn ()
       [(_ e1 e2 ...)
        (denote (core-expand #'(curry-app e1 e2 ...))) ]))
@@ -769,7 +769,12 @@
                [t (syntax->list #`(t1 ...))])
            (sigma (extend-env sigma x t))
            (bound (extend-bound x)))
-         #'(void))]))
+         ;; TODO: Binding the names to ensure local-expand doesn't try
+         ;; to expand them.
+         #'(begin
+             (define i (void))
+             (define x1 (void))
+             ...))]))
 
   ;; TODO: Lots of shared code with dep-lambda
   (define-syntax (dep-forall syn)
@@ -804,7 +809,7 @@
     (syntax-case syn (:)
       [(_ ((x : t) (xr : tr) ...) e)
        #'(dep-lambda (x : t) (curry-lambda ((xr : tr) ...) e))]
-      [(_ () e) (denote #'e)]))
+      [(_ () e) #'e]))
 
   ;; TODO: Syntax-parse
   ;; TODO: Don't use define; this results in duplicated type-checking,
