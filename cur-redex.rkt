@@ -609,11 +609,10 @@
       redex/reduction-semantics))
   (provide
     ;; Basic syntax
-    begin-for-syntax
-    #%datum
     require
     provide
     for-syntax
+    only-in
     module+
     #%module-begin
     (rename-out
@@ -630,19 +629,22 @@
       [dep-case case]
 
       [dep-var #%top]
+      [dep-datum #%datum]
       [dep-define define])
     ;; DYI syntax extension
     define-syntax
+    begin-for-syntax
     (for-syntax (all-from-out syntax/parse))
     syntax-case
     syntax-rules
     define-syntax-rule
     (for-syntax (all-from-out racket))
     ;; reflection
-    #;(rename-out
-      [type-infer^ type-infer]
-      [type-check^ type-check]
-      [reduce^ reduce]))
+    (for-syntax
+      (rename-out
+       [type-infer^ type-infer]
+       [type-check? type-check?]
+       [reduce^ normalize])))
 
   #;(begin-for-syntax
     (current-trace-notify
@@ -654,12 +656,14 @@
     (current-trace-print-args
       (let ([cwtpr (current-trace-print-args)])
         (lambda (s l kw l2 n)
-          (cwtpr s (map (lambda (x) (if (syntax? x) (syntax->datum x)
-                                        x)) l) kw l2 n))))
+          (cwtpr s (map (lambda (x)
+                          (if (syntax? x)
+                              (cons 'syntax (syntax->datum x))
+                              x)) l) kw l2 n))))
     (current-trace-print-results
       (let ([cwtpr (current-trace-print-results)])
         (lambda (s l n)
-         (cwtpr s (map (lambda (x) (if (syntax? x) (syntax->datum x) x)) l) n)))))
+         (cwtpr s (map (lambda (x) (if (syntax? x) (cons 'syntax (syntax->datum x)) x)) l) n)))))
 
   (begin-for-syntax
 
@@ -693,25 +697,22 @@
                              dep-inductive dep-case dep-lambda dep-app
                              dep-fix dep-forall dep-var)))))
 
-
-
     (define (core-expand syn)
       (define (expand syn)
-        (if (identifier? syn)
-            syn
-            (disarm (local-expand syn 'expression
-                      (append
-                        (syntax-e #'(term reduce #%app λ Π μ case))
-                        (bound))))))
+        (disarm (if (identifier? syn)
+             syn
+             (local-expand syn 'expression
+                           (append
+                             (syntax-e #'(term reduce dep-var λ Π μ case Type)))))))
       (let core-expand ([syn syn])
         (syntax-parse (expand syn)
-          #:datum-literals (term reduce case Π λ μ :)
+          #:datum-literals (term reduce case Π λ μ : Type #%app)
           [x:id #'x]
-          [(reduce e) (core-expand #'e)]
+          [(reduce e) #'e]
           [(term e) (core-expand #'e)]
           ;; TODO: should really check that b is one of the binders
           [(b:id (x : t) e)
-           (let* ([x (core-expand #'x)]
+           (let* ([x #'x]
                   [t (core-expand #'t)]
                   [e (parameterize ([gamma (extend-env gamma x t)]
                                     [bound (extend-bound x)])
@@ -720,19 +721,21 @@
           [(case e (ec eb) ...)
            #`(case #,(core-expand #'e)
                    #,@(map (lambda (c b)
-                             #`(#,(core-expand c)
-                                #,(core-expand b)))
+                             #`(#,c #,(core-expand b)))
                            (syntax->list #'(ec ...))
                            (syntax->list #'(eb ...))))]
-          [(e ...)
-           (expand #`(curry-app #,@(map core-expand (syntax->list #'(e ...)))))])))
+          [(#%app e1 e2)
+           #`(#,(core-expand #'e1) #,(core-expand #'e2))])))
 
     (define (cur->datum syn) (syntax->datum (core-expand syn)))
 
     (define (extend-env env x t)
-      (term (,(env) ,(cur->datum x) : ,(cur->datum t))))
+      (term (,(env) ,(syntax->datum x) : ,(cur->datum t))))
 
-    (define (denote syn) #`(term (reduce #,syn))))
+    (define (denote syn)
+      #`(term (reduce #,syn))))
+
+  (define-syntax (dep-datum syn) (denote #'syn))
 
   (define-syntax (dep-lambda syn)
     (syntax-case syn (:)
@@ -744,20 +747,14 @@
                (begin (printf "Sigma: ~s~nGamma: ~s~n" (sigma) (gamma)) lam)))
            (denote lam))]))
 
-  (define-syntax (curry-app syn)
-    (syntax-case syn ()
-      [(_ e1 e2) #'(e1 e2)]
-      [(_ e1 e2 e3 ...)
-       #'(curry-app (e1 e2) e3 ...)]))
-
   (define-syntax (dep-app syn)
     (syntax-case syn ()
-      [(_ e1 e2 ...)
-       (denote (core-expand #'(curry-app e1 e2 ...))) ]))
+      [(_ e1 e2)
+       (denote (core-expand #'(e1 e2)))]))
 
   (define-syntax (dep-case syn)
     (syntax-case syn ()
-      [(_ e ...) (denote #'(case e ...))]))
+      [(_ e ...) (denote (core-expand #'(case e ...)))]))
 
   (define-syntax (dep-inductive syn)
     (syntax-case syn (:)
@@ -769,12 +766,7 @@
                [t (syntax->list #`(t1 ...))])
            (sigma (extend-env sigma x t))
            (bound (extend-bound x)))
-         ;; TODO: Binding the names to ensure local-expand doesn't try
-         ;; to expand them.
-         #'(begin
-             (define i (void))
-             (define x1 (void))
-             ...))]))
+         #'(void))]))
 
   ;; TODO: Lots of shared code with dep-lambda
   (define-syntax (dep-forall syn)
@@ -792,24 +784,16 @@
   ;; clever.
   (define-syntax (dep-var syn)
     (syntax-case syn ()
-      [(_ . id) (denote #'id)])
-
-    #;(syntax-case syn ()
       [(_ . id)
-       (let ([id #'id])
-         (unless (judgment-holds (types ,(sigma) ,(gamma) ,(cur->datum id) t_0))
+       (denote #'id)
+       #;(let ([id #'id])
+         (unless (judgment-holds (types ,(sigma) ,(gamma) ,(syntax->datum id) t_0))
            (raise-syntax-error 'cur "Unbound variable: ~s"
              (begin (printf "Sigma: ~s~nGamma: ~s~n" (sigma) (gamma))
                     id)))
-         (if (bound? id)
+         (denote id)#;(if (bound? id)
              (denote #`,#,id)
              (denote id)))]))
-
-  (define-syntax (curry-lambda syn)
-    (syntax-case syn (:)
-      [(_ ((x : t) (xr : tr) ...) e)
-       #'(dep-lambda (x : t) (curry-lambda ((xr : tr) ...) e))]
-      [(_ () e) #'e]))
 
   ;; TODO: Syntax-parse
   ;; TODO: Don't use define; this results in duplicated type-checking,
@@ -820,15 +804,15 @@
   ;; expand time, as per below notes.
   (define-syntax (dep-define syn)
     (syntax-case syn (:)
-      [(_ (name (x : t) ...) e)
-       #'(dep-define name (curry-lambda ((x : t) ...) e))]
+      [(_ (name (x : t)) e)
+       #'(dep-define name (dep-lambda (x : t) e))]
       [(_ id e)
        (let* ([expr (core-expand #'e)]
               [type (car (judgment-holds (types ,(sigma) ,(gamma)
                                             ,(syntax->datum expr) t_0)
                                      t_0))])
          (gamma (extend-env gamma #'id type))
-         #`(define id #,(denote expr)))]))
+         #'(void)#;#`(define id #,(denote #'id)))]))
 
   (define-syntax (dep-fix syn)
    (syntax-case syn (:)
@@ -847,10 +831,16 @@
   ;; Just as well---that might be more efficient.
   ;; This will require a large change to the macros, so ought to branch
   ;; first.
-  #;(define (type-infer^ syn)
-    (let ([t (judgment-holds (types ,(sigma) ,(gamma) ,(cur->datum syn) t_0) t_0)])
-      (and t (datum->syntax syn (car t)))))
-  )
+  (begin-for-syntax
+    (define (type-infer^ syn)
+      (let ([t (judgment-holds (types ,(sigma) ,(gamma) ,(cur->datum syn) t_0) t_0)])
+        (and t (datum->syntax syn (car t)))))
+
+    (define (type-check? syn type)
+      (let ([t (judgment-holds (types ,(sigma) ,(gamma) ,(cur->datum syn) t_0) t_0)])
+        (equal? t (cur->datum type))))
+
+    (define (reduce^ syn) (term (reduce (cur->datum syn))))))
 
 (require 'sugar)
 (provide (all-from-out 'sugar))

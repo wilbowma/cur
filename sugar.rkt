@@ -3,9 +3,14 @@
          ->*
          forall*
          lambda*
+         #%app
+         define
          case*
          define-theorem
          qed)
+
+(require (only-in "cur-redex.rkt" [#%app real-app]
+                  [define real-define]))
 
 (define-syntax (-> syn)
   (syntax-case syn ()
@@ -32,6 +37,20 @@
      (lambda (a : t)
        (lambda* (ar : tr) ... b))]
     [(_ b) b]))
+
+(define-syntax (#%app syn)
+  (syntax-case syn ()
+    [(_ e1 e2)
+     #'(real-app e1 e2)]
+    [(_ e1 e2 e3 ...)
+     #'(#%app (#%app e1 e2) e3 ...)]))
+
+(define-syntax (define syn)
+  (syntax-case syn ()
+    [(define (name (x : t) ...) body)
+     #'(real-define name (lambda* (x : t) ... body))]
+    [(define id body)
+     #'(real-define id body)]))
 
 (begin-for-syntax
   (define (rewrite-clause clause)

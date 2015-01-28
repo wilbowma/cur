@@ -4,6 +4,15 @@
 ;; TODO: actually, I'm not sure this should work quite as well as it
 ;; seems to with check-equal?
 (require rackunit)
+(require (only-in "cur-redex.rkt" [#%app real-app]
+                  [define real-define]))
+
+(define-syntax (#%app syn)
+  (syntax-case syn ()
+    [(_ e1 e2)
+     #'(real-app e1 e2)]
+    [(_ e1 e2 e3 ...)
+     #'(#%app (#%app e1 e2) e3 ...)]))
 
 ;; -------------------
 ;; Define inductive data
@@ -37,8 +46,8 @@
 ;; Reuse some familiar syntax
 
 (define y (lambda (x : true) x))
-(define (y1 (x : true)) x)
-(define (y2 (x1 : true) (x2 : true)) x1)
+;(define (y1 (x : true)) x)
+;(define (y2 (x1 : true) (x2 : true)) x1)
 
 ;; -------------------
 ;; Unit test dependently typed code!
@@ -84,6 +93,13 @@
      (lambda (a : t)
        (lambda* (ar : tr) ... b))]
     [(_ b) b]))
+
+(define-syntax (define syn)
+  (syntax-case syn ()
+    [(define (name (x : t) ...) body)
+     #'(real-define name (lambda* (x : t) ... body))]
+    [(define id body)
+     #'(real-define id body)]))
 
 (data and : (forall* (A : Type) (B : Type) Type)
   (conj : (forall* (A : Type) (B : Type)
