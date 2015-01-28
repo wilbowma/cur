@@ -1,4 +1,5 @@
 #lang s-exp "cur-redex.rkt"
+;; Ignore this file.
 (require rackunit racket/trace (for-syntax racket/syntax))
 
 ;; TODO: Move to standard library
