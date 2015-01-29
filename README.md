@@ -2,7 +2,7 @@ cur
 ===
 
 CIC under Racket. A language with static dependent-types and dynamic
-types, type annotations and parenthesis, theorem proving and
+types, type annotations and parentheses, theorem proving and
 meta-programming.
 
 ```
