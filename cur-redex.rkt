@@ -629,7 +629,7 @@
       [dep-case case]
 
       [dep-var #%top]
-      [dep-datum #%datum]
+;      [dep-datum #%datum]
       [dep-define define])
     ;; DYI syntax extension
     define-syntax
@@ -641,12 +641,13 @@
     (for-syntax (all-from-out racket))
     ;; reflection
     (for-syntax
+      cur-expand
       (rename-out
        [type-infer^ type-infer]
        [type-check? type-check?]
        [reduce^ normalize])))
 
-  #;(begin-for-syntax
+  (begin-for-syntax
     (current-trace-notify
       (parameterize ([pretty-print-depth #f]
                      [pretty-print-columns 'infinity])
@@ -666,8 +667,7 @@
          (cwtpr s (map (lambda (x) (if (syntax? x) (cons 'syntax (syntax->datum x)) x)) l) n)))))
 
   (begin-for-syntax
-
-    ;; WEEEEEEE
+    ;; TODO: Gamma and Sigma seem to get reset inside a module+
     (define gamma
       (make-parameter (term ∅)
         (lambda (x)
@@ -682,7 +682,14 @@
             (error 'core-error "We built a bad sigma ~s" x))
           x)))
 
+    (define (extend-env/term env x t)
+      (term (,(env) ,x : ,t)))
+
+    (define (extend-env/syn env x t)
+      (term (,(env) ,(syntax->datum x) : ,(cur->datum t))))
+
     (define bound (make-parameter '()))
+
     (define (extend-bound id) (cons id (bound)))
 
     (define orig-insp (variable-reference->module-declaration-inspector
@@ -690,157 +697,125 @@
 
     (define (disarm syn) (syntax-disarm syn orig-insp))
 
-    ;; TODO: Pull expand, perhaps list of literals, into a library.
-    (define (cur-expand syn)
-      (disarm (local-expand syn 'expression
-                (syntax-e #'(term lambda forall data case fix Type #%app #%top
-                             dep-inductive dep-case dep-lambda dep-app
-                             dep-fix dep-forall dep-var)))))
 
-    (define (core-expand syn)
+    (define (core-expand syn) (denote syn (cur->datum syn)))
+
+    (define (denote syn t)
+      #`(term (reduce #,(datum->syntax syn t))))
+
+    (define (cur->datum syn)
       (define (expand syn)
         (disarm (if (identifier? syn)
              syn
              (local-expand syn 'expression
                            (append
-                             (syntax-e #'(term reduce dep-var λ Π μ case Type)))))))
-      (let core-expand ([syn syn])
-        (syntax-parse (expand syn)
-          #:datum-literals (term reduce case Π λ μ : Type #%app)
-          [x:id #'x]
-          [(reduce e) #'e]
-          [(term e) (core-expand #'e)]
-          ;; TODO: should really check that b is one of the binders
-          [(b:id (x : t) e)
-           (let* ([x #'x]
-                  [t (core-expand #'t)]
-                  [e (parameterize ([gamma (extend-env gamma x t)]
-                                    [bound (extend-bound x)])
-                       (core-expand #'e))])
-              #`(b (#,x : #,t) #,e))]
-          [(case e (ec eb) ...)
-           #`(case #,(core-expand #'e)
-                   #,@(map (lambda (c b)
-                             #`(#,c #,(core-expand b)))
-                           (syntax->list #'(ec ...))
-                           (syntax->list #'(eb ...))))]
-          [(#%app e1 e2)
-           #`(#,(core-expand #'e1) #,(core-expand #'e2))])))
+                             (syntax-e #'(term reduce dep-var #%app λ Π μ case Type)))))))
+      (define reified-term
+        (let core-expand ([syn syn])
+          (syntax-parse (expand syn)
+            #:literals (term reduce #%app)
+            #:datum-literals (case Π λ μ : Type)
+            [x:id (syntax->datum #'x)]
+            [(reduce e) (syntax->datum #'e)]
+            [(term e) (core-expand #'e)]
+            ;; TODO: should really check that b is one of the binders
+            ;; Maybe make a syntax class for the binders, core forms,
+            ;; etc.
+            [(b:id (x:id : t) e)
+             (let* ([x (syntax->datum #'x)]
+                    [t (core-expand #'t)]
+                    [e (parameterize ([gamma (extend-env/term gamma x t)]
+                                      [bound (extend-bound x)])
+                         (core-expand #'e))])
+                   (term (,(syntax->datum #'b) (,x : ,t) ,e)))]
+            [(case e (ec eb) ...)
+             (term (case ,(core-expand #'e)
+                         ,@(map (lambda (c b)
+                                  `(,c ,(core-expand b)))
+                                (syntax->datum #'(ec ...))
+                                (syntax->list #'(eb ...)))))]
+            [(#%app e1 e2)
+             (term (,(core-expand #'e1) ,(core-expand #'e2)))])))
+      (unless (judgment-holds (types ,(sigma) ,(gamma) ,reified-term t_0))
+        ;; TODO: is this really a syntax error?
+        (raise-syntax-error 'cur "term is ill-typed:"
+          (begin (printf "Sigma: ~s~nGamma: ~s~n" (sigma) (gamma))
+                 reified-term)
+          syn))
+      reified-term)
 
-    (define (cur->datum syn) (syntax->datum (core-expand syn)))
+    ;; Reflection tools
 
-    (define (extend-env env x t)
-      (term (,(env) ,(syntax->datum x) : ,(cur->datum t))))
-
-    (define (denote syn)
-      #`(term (reduce #,syn))))
-
-  (define-syntax (dep-datum syn) (denote #'syn))
-
-  (define-syntax (dep-lambda syn)
-    (syntax-case syn (:)
-      [(_ (x : t) e)
-       (let* ([lam (core-expand #`(λ (x : t) e))])
-           (unless (judgment-holds (types ,(sigma) ,(gamma)
-                                     ,(syntax->datum lam) t_0))
-             (raise-syntax-error 'cur "λ is ill-typed:"
-               (begin (printf "Sigma: ~s~nGamma: ~s~n" (sigma) (gamma)) lam)))
-           (denote lam))]))
-
-  (define-syntax (dep-app syn)
-    (syntax-case syn ()
-      [(_ e1 e2)
-       (denote (core-expand #'(e1 e2)))]))
-
-  (define-syntax (dep-case syn)
-    (syntax-case syn ()
-      [(_ e ...) (denote (core-expand #'(case e ...)))]))
-
-  (define-syntax (dep-inductive syn)
-    (syntax-case syn (:)
-      [(_ i : ti (x1 : t1) ...)
-       (begin
-         (sigma (extend-env sigma #'i #'ti))
-         (bound (extend-bound #'i))
-         (for ([x (syntax->list #`(x1 ...))]
-               [t (syntax->list #`(t1 ...))])
-           (sigma (extend-env sigma x t))
-           (bound (extend-bound x)))
-         #'(void))]))
-
-  ;; TODO: Lots of shared code with dep-lambda
-  (define-syntax (dep-forall syn)
-    (syntax-case syn (:)
-      [(_ (x : t) e)
-       (let ([pi (core-expand #`(Π (x : t) e))])
-           (unless (judgment-holds (types ,(sigma) ,(gamma)
-                                          ,(syntax->datum pi) U_0))
-             (raise-syntax-error 'cur "Π is ill-typed:"
-               (begin (printf "Sigma: ~s~nGamma: ~s~n" (sigma) (gamma)) pi)))
-           (denote pi))]))
-
-  ;; TODO: Right now, all top level things are variables, so typos can
-  ;; result in "unbound variable" errors. Should do something more
-  ;; clever.
-  (define-syntax (dep-var syn)
-    (syntax-case syn ()
-      [(_ . id)
-       (denote #'id)
-       #;(let ([id #'id])
-         (unless (judgment-holds (types ,(sigma) ,(gamma) ,(syntax->datum id) t_0))
-           (raise-syntax-error 'cur "Unbound variable: ~s"
-             (begin (printf "Sigma: ~s~nGamma: ~s~n" (sigma) (gamma))
-                    id)))
-         (denote id)#;(if (bound? id)
-             (denote #`,#,id)
-             (denote id)))]))
-
-  ;; TODO: Syntax-parse
-  ;; TODO: Don't use define; this results in duplicated type-checking,
-  ;; automagic inlining, and long error messages. Perhaps instead, roll
-  ;; your own environment, add each defined name to gamma, and
-  ;; paramaterize reduce over the environment.
-  ;; TODO: The above notes might be solved when doing all type-checking
-  ;; expand time, as per below notes.
-  (define-syntax (dep-define syn)
-    (syntax-case syn (:)
-      [(_ (name (x : t)) e)
-       #'(dep-define name (dep-lambda (x : t) e))]
-      [(_ id e)
-       (let* ([expr (core-expand #'e)]
-              [type (car (judgment-holds (types ,(sigma) ,(gamma)
-                                            ,(syntax->datum expr) t_0)
-                                     t_0))])
-         (gamma (extend-env gamma #'id type))
-         #'(void)#;#`(define id #,(denote #'id)))]))
-
-  (define-syntax (dep-fix syn)
-   (syntax-case syn (:)
-     [(_ (x : t) e)
-      (let* ([expr (core-expand #`(μ (x : t) e))]
-             [type (car (judgment-holds (types ,(sigma) ,(gamma)
-                                           ,(syntax->datum expr)
-                                           t_0)
-                                        t_0))])
-           (unless (equal? (cur->datum #'t) type)
-             (raise-syntax-error 'type-checking "Term is ill-typed: ~s" expr))
-           (denote expr))]))
-
-  ;; TODO: Adding reflection will require building sigma, gamma, and
-  ;; doing type-checking at macro expand time, I think.
-  ;; Just as well---that might be more efficient.
-  ;; This will require a large change to the macros, so ought to branch
-  ;; first.
-  (begin-for-syntax
     (define (type-infer^ syn)
       (let ([t (judgment-holds (types ,(sigma) ,(gamma) ,(cur->datum syn) t_0) t_0)])
-        (and t (datum->syntax syn (car t)))))
+        (and t (denote syn (car t)))))
 
     (define (type-check? syn type)
       (let ([t (judgment-holds (types ,(sigma) ,(gamma) ,(cur->datum syn) t_0) t_0)])
         (equal? t (cur->datum type))))
 
-    (define (reduce^ syn) (term (reduce (cur->datum syn))))))
+    (define (reduce^ syn) (term (reduce (cur->datum syn))))
+
+    (define (cur-expand syn)
+      (disarm (local-expand syn 'expression
+                (syntax-e #'(Type dep-inductive dep-case dep-lambda dep-app
+                             dep-fix dep-forall dep-var))))))
+
+  #;(define-syntax (dep-datum syn) (denote #'syn))
+
+  ;; TODO: Can these be simplified further?
+  ;; TODO: Can we make core-expand some kind of parameter that is only
+  ;; to ensure type-checking is only done at the outermost level, and
+  ;; not in the main loop?
+  (define-syntax (dep-lambda syn)
+    (syntax-case syn (:)
+      [(_ (x : t) e) (core-expand #`(λ (x : t) e))]))
+
+  (define-syntax (dep-app syn)
+    (syntax-case syn ()
+      [(_ e1 e2) (core-expand #`(#%app e1 e2))]))
+
+  (define-syntax (dep-case syn)
+    (syntax-case syn ()
+      [(_ e ...) (core-expand #`(case e ...))]))
+
+  (define-syntax (dep-forall syn)
+    (syntax-case syn (:)
+      [(_ (x : t) e) (core-expand #`(Π (x : t) e))]))
+
+  (define-syntax (dep-fix syn)
+   (syntax-case syn (:)
+     [(_ (x : t) e) (core-expand #`(μ (x : t) e))]))
+
+  (define-syntax (dep-inductive syn)
+    (syntax-case syn (:)
+      [(_ i : ti (x1 : t1) ...)
+       (begin
+         (sigma (extend-env/syn sigma #'i #'ti))
+         (bound (extend-bound #'i))
+         (for ([x (syntax->list #`(x1 ...))]
+               [t (syntax->list #`(t1 ...))])
+           (sigma (extend-env/syn sigma x t))
+           (bound (extend-bound x)))
+         #'(void))]))
+
+  ;; TODO: Not sure if this is the correct behavior for #%top
+  (define-syntax (dep-var syn)
+    (syntax-case syn ()
+      [(_ . id) #`(term (reduce id))]))
+
+  ;; TODO: Syntax-parse
+  (define-syntax (dep-define syn)
+    (syntax-case syn (:)
+      [(_ (name (x : t)) e)
+       #'(dep-define name (dep-lambda (x : t) e))]
+      [(_ id e)
+       ;; TODO: Can't actually run programs until I do something about
+       ;; #'e. Maybe denote final terms into Racket. Or keep an
+       ;; environment and have denote do a giant substitution
+       (let () #;[t (core-expand #'e)]
+         (gamma (extend-env/syn gamma #'id (type-infer^ #'e)))
+         #'(void))])) )
 
 (require 'sugar)
 (provide (all-from-out 'sugar))

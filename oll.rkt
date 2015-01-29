@@ -168,7 +168,7 @@
 
 (begin-for-syntax
   (define (output-coq syn)
-    (syntax-parse (expand syn)
+    (syntax-parse (cur-expand syn)
        [((~literal lambda) ~! (x:id (~datum :) t) body:expr)
         (format "(fun ~a : ~a => ~a)" (syntax-e #'x) (output-coq #'t)
                 (output-coq #'body))]

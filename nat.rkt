@@ -16,7 +16,6 @@
     [z z]
     [s (lambda (x : nat) x)]))
 (module+ test
-;; TODO: Um. For some reason, sigma becomes empty here?
   (check-equal? (sub1 (s z)) z))
 
 (define plus
