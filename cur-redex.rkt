@@ -610,12 +610,13 @@
   (provide
     ;; Basic syntax
     require
-    provide
     for-syntax
     only-in
     module+
     #%module-begin
     (rename-out
+      [dep-provide provide]
+
       [dep-lambda lambda]
       [dep-lambda λ]
       [dep-app #%app]
@@ -685,18 +686,17 @@
     (define (extend-env/term env x t)
       (term (,(env) ,x : ,t)))
 
+    (define (extend-env/term! env x t) (env (extend-env/term env x t)))
+
     (define (extend-env/syn env x t)
       (term (,(env) ,(syntax->datum x) : ,(cur->datum t))))
 
-    (define bound (make-parameter '()))
-
-    (define (extend-bound id) (cons id (bound)))
+    (define (extend-env/syn! env x t) (env (extend-env/syn env x t)))
 
     (define orig-insp (variable-reference->module-declaration-inspector
       (#%variable-reference)))
 
     (define (disarm syn) (syntax-disarm syn orig-insp))
-
 
     (define (core-expand syn) (denote syn (cur->datum syn)))
 
@@ -724,8 +724,7 @@
             [(b:id (x:id : t) e)
              (let* ([x (syntax->datum #'x)]
                     [t (core-expand #'t)]
-                    [e (parameterize ([gamma (extend-env/term gamma x t)]
-                                      [bound (extend-bound x)])
+                    [e (parameterize ([gamma (extend-env/term gamma x t)])
                          (core-expand #'e))])
                    (term (,(syntax->datum #'b) (,x : ,t) ,e)))]
             [(case e (ec eb) ...)
@@ -762,6 +761,14 @@
                              dep-fix dep-forall dep-var))))))
 
   #;(define-syntax (dep-datum syn) (denote #'syn))
+  ;; TODO: Add extend-env calls. Will be tricky with sigma and gamma
+  ;; being separate.
+  (define-syntax (dep-provide syn)
+    (syntax-parse syn
+      [(_ name ...)
+       #`(provide name ...)
+       #;#`(begin-for-syntax
+           (extend-env/syn! ))]))
 
   ;; TODO: Can these be simplified further?
   ;; TODO: Can we make core-expand some kind of parameter that is only
@@ -791,12 +798,10 @@
     (syntax-case syn (:)
       [(_ i : ti (x1 : t1) ...)
        (begin
-         (sigma (extend-env/syn sigma #'i #'ti))
-         (bound (extend-bound #'i))
+         (extend-env/syn! sigma #'i #'ti)
          (for ([x (syntax->list #`(x1 ...))]
                [t (syntax->list #`(t1 ...))])
-           (sigma (extend-env/syn sigma x t))
-           (bound (extend-bound x)))
+           (extend-env/syn! sigma x t))
          #'(void))]))
 
   ;; TODO: Not sure if this is the correct behavior for #%top
