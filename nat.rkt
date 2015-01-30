@@ -1,4 +1,4 @@
-#lang s-exp "cur-redex.rkt"
+#lang s-exp "redex-curnel.rkt"
 (require "sugar.rkt")
 (module+ test
   (require rackunit))

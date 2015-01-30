@@ -1,4 +1,4 @@
-#lang s-exp "cur-redex.rkt"
+#lang s-exp "redex-curnel.rkt"
 ;; Ignore this file.
 (require rackunit racket/trace (for-syntax racket/syntax))
 
