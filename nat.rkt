@@ -1,5 +1,6 @@
 #lang s-exp "redex-curnel.rkt"
 (require "sugar.rkt")
+(provide nat z s add1 sub1 plus)
 (module+ test
   (require rackunit))
 
