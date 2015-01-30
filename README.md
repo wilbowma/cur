@@ -9,6 +9,6 @@ meta-programming.
 Noun
 cur (plural curs)
 
-1. (archaic) A mongrel or inferior dog.
+1. (archaic) A mongrel.
 2. (archaic) A detestable person.
 ```
