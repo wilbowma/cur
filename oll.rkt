@@ -1,4 +1,4 @@
-#lang s-exp "cur-redex.rkt"
+#lang s-exp "redex-curnel.rkt"
 ;; OLL: The OTT-Like Library
 (require "sugar.rkt" "nat.rkt")
 
