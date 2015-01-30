@@ -1,5 +1,7 @@
 #lang s-exp "redex-curnel.rkt"
 ;; OLL: The OTT-Like Library
+;; TODO: Add latex extraction
+;; TODO: Automagically create a parser from bnf grammar
 (require "sugar.rkt" "nat.rkt")
 
 (provide define-relation define-language var avar)
@@ -64,6 +66,7 @@
       #px"stlc-term\\d+"
       (new-name #'stlc (fresh-name #'term)))))
 
+;; TODO: Oh, this is a mess. Rewrite it.
 (begin-for-syntax
   (define lang-name (make-parameter #'name))
   (define nts (make-parameter (make-immutable-hash)))
@@ -143,7 +146,8 @@
   #:vars (x)
   (val  (v)   ::= true false)
   (type (A B) ::= bool (-> A B))
-  (term (e)   ::= x v (e e) (lambda (x : A) e)))
+  (term (e)   ::= x v (e e) (lambda (x : A) e) (cons e e)
+                  (let (x x) = e in e)))
 
 ;;This gets generated:
 
@@ -161,7 +165,50 @@
     (var-->-stlc-term : (-> var stlc-term))
     (stlc-val-->-stlc-term : (-> stlc-val stlc-term))
     (stlc-term2151 : (->* stlc-term stlc-term stlc-term))
-    (stlc-lambda : (->* var stlc-type stlc-term stlc-term))))
+    (stlc-lambda : (->* var stlc-type stlc-term stlc-term))
+    (stlc-cons : (->* stlc-term stlc-term stlc-term))
+    (stlc-let : (->* var var stlc-term stlc-term))))
+
+;; Define inference rules in a more natural notation, like so:
+#;
+(define-relation (has-type gamma term type)
+  [(g : gamma)
+   ------------------------ T-Unit
+   (has-type g unitv Unit)]
+
+  [(g : gamma) (x : var) (t : type)
+   (== (maybe type) (lookup-gamma g x) (some type t))
+   ------------------------ T-Var
+   (has-type g (tvar x) t)]
+
+  [(g : gamma) (e1 : term) (e2 : term) (t1 : type) (t2 : type)
+   (has-type g e1 t1)
+   (has-type g e2 t2)
+   ---------------------- T-Pair
+   (has-type g (pair e1 e2) (Pair t1 t2))]
+
+  [(g : gamma) (e : term) (t1 : type) (t2 : type)
+   (has-type g e (Pair t1 t2))
+   ----------------------- T-Prj1
+   (has-type g (prj z e) t1)]
+
+  [(g : gamma) (e : term) (t1 : type) (t2 : type)
+   (has-type g e (Pair t1 t2))
+   ----------------------- T-Prj2
+   (has-type g (prj (s z) e) t1)]
+
+  [(g : gamma) (e1 : term) (t1 : type) (t2 : type) (x : var)
+   (has-type (extend-gamma g x t1) e1 t2)
+   ---------------------- T-Fun
+   (has-type g (lam x t1 e1) (Fun t1 t2))]
+
+  [(g : gamma) (e1 : term) (e2 : term) (t1 : type) (t2 : type)
+   (has-type g e1 (Fun t1 t2))
+   (has-type g e2 t1)
+   ---------------------- T-App
+   (has-type g (app e1 e2) t2)])
+
+;; Generate Coq from Cur:
 
 (begin-for-syntax
   (define (output-coq syn)
