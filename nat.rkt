@@ -31,6 +31,3 @@
 (module+ test
   (check-equal? (plus z z) z)
   (check-equal? (plus (s (s z)) (s (s z))) (s (s (s (s z))))))
-
-(add1 (s z))
-(sub1 (s z))

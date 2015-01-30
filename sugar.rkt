@@ -7,7 +7,8 @@
          define
          case*
          define-theorem
-         qed)
+         qed
+         real-app)
 
 (require (only-in "redex-curnel.rkt" [#%app real-app]
                   [define real-define]))

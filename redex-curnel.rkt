@@ -32,21 +32,7 @@
 
   (module+ test
     (require rackunit)
-    ;; TODO: Rename these signatures, and use them in all future tests.
-    (define Σ (term (((∅ nat : Type) zero : nat) s : (Π (x : nat) nat))))
-
-    (define Σ0 (term ∅))
-    (define Σ2 (term (((∅ nat : Type) z : nat) s : (Π (x : nat) nat))))
-    (define Σ3 (term (∅ and : (Π (A : Type) (Π (B : Type) Type)))))
-    (define Σ4 (term (,Σ3 conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) ((and A) B))))))))
-    (define Σ? (redex-match? cic-typingL Σ))
-
-    (check-true (Σ? Σ0))
-    (check-true (Σ? Σ2))
-    (check-true (Σ? Σ4))
-    (check-true (Σ? Σ3))
-    (check-true (Σ? Σ4))
-    (check-true (x? (term T)))
+   (check-true (x? (term T)))
     (check-true (x? (term truth)))
     (check-true (x? (term zero)))
     (check-true (x? (term s)))
@@ -130,6 +116,12 @@
   ;; NB:
   ;; TODO: Why do I not have tests for substitutions?!?!?!?!?!?!?!!?!?!?!?!?!?!!??!?!
 
+  (define-metafunction cicL
+    subst-all : t (x ...) (e ...) -> t
+    [(subst-all t () ()) t]
+    [(subst-all t (x_0 x ...) (e_0 e ...))
+     (subst-all (subst t x_0 e_0) (x ...) (e ...))])
+
   (define-extended-language cic-redL cicL
     (E hole (E t) (case E (x e) ...)))
 
@@ -189,6 +181,23 @@
 
   (define-extended-language cic-typingL cicL
     (Σ Γ ::= ∅ (Γ x : t)))
+
+  (define Σ? (redex-match? cic-typingL Σ))
+  (define Γ? (redex-match? cic-typingL Γ))
+  (module+ test
+    ;; TODO: Rename these signatures, and use them in all future tests.
+    (define Σ (term (((∅ nat : Type) zero : nat) s : (Π (x : nat) nat))))
+
+    (define Σ0 (term ∅))
+    (define Σ2 (term (((∅ nat : Type) z : nat) s : (Π (x : nat) nat))))
+    (define Σ3 (term (∅ and : (Π (A : Type) (Π (B : Type) Type)))))
+    (define Σ4 (term (,Σ3 conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) ((and A) B))))))))
+
+    (check-true (Σ? Σ0))
+    (check-true (Σ? Σ2))
+    (check-true (Σ? Σ4))
+    (check-true (Σ? Σ3))
+    (check-true (Σ? Σ4)))
 
   (define-metafunction cic-typingL
     append-env : Γ Γ -> Γ
@@ -684,14 +693,14 @@
     (define gamma
       (make-parameter (term ∅)
         (lambda (x)
-          (unless (redex-match? cic-typingL Γ x)
+          (unless (Γ? x)
             (error 'core-error "We built a bad gamma ~s" x))
           x)))
 
     (define sigma
       (make-parameter (term ∅)
         (lambda (x)
-          (unless (redex-match? cic-typingL Σ x)
+          (unless (Σ? x)
             (error 'core-error "We built a bad sigma ~s" x))
           x)))
 
@@ -705,6 +714,13 @@
 
     (define (extend-env/syn! env x t) (env (extend-env/syn env x t)))
 
+    (define bind-subst (make-parameter (list null null)))
+
+    (define (add-binding/term! x t)
+      (let ([vars (first (bind-subst))]
+            [exprs (second (bind-subst))])
+           (bind-subst (list (cons x vars) (cons t exprs)))))
+
     ;; TODO: Still absurdly slow. Probably doing n^2 checks of sigma and
     ;; gamma. And lookup on sigma, gamma are linear, so probably n^2 lookup time.
     (define (type-infer/term t)
@@ -713,11 +729,12 @@
 
     (define (syntax->curnel-syntax syn) (denote syn (cur->datum syn)))
 
-    (define (denote syn t) #`(term (reduce #,(datum->syntax syn t))))
+    (define (denote syn t)
+      #`(term (reduce (subst-all #,(datum->syntax syn t) #,(first (bind-subst)) #,(second (bind-subst))))))
 
     ;; TODO: Blanket disarming is probably a bad idea.
     (define orig-insp (variable-reference->module-declaration-inspector
-        (#%variable-reference)))
+                        (#%variable-reference)))
     (define (disarm syn) (syntax-disarm syn orig-insp))
 
     ;; Locally expand everything down to core forms.
@@ -726,7 +743,7 @@
         (if (identifier? syn)
             syn
             (local-expand syn 'expression
-              (append (syntax-e #'(term reduce dep-var #%app λ Π μ case
+              (append (syntax-e #'(term reduce subst-all dep-var #%app λ Π μ case
                                    Type)))))))
 
     ;; Only type-check at the top-level, to prevent exponential
@@ -742,10 +759,11 @@
         (parameterize ([inner-expand? #t])
           (let cur->datum ([syn syn])
             (syntax-parse (core-expand syn)
-              #:literals (term reduce #%app)
+              #:literals (term reduce #%app subst-all)
               #:datum-literals (case Π λ μ : Type)
               [x:id (syntax->datum #'x)]
-              [(reduce e) (syntax->datum #'e)]
+              [(subst-all e _ _) (syntax->datum #'e)]
+              [(reduce e) (cur->datum #'e)]
               [(term e) (cur->datum #'e)]
               ;; TODO: should really check that b is one of the binders
               ;; Maybe make a syntax class for the binders, core forms,
@@ -819,13 +837,13 @@
                             #`(extend-env/term! #,env #,(export-out-sym e) #,t))))
              ~cur)]))))
 
-  (define-syntax (export-gamma syn)
+  (define-syntax (export-envs syn)
     (syntax-case syn ()
-      [(_ name) #`(begin-for-syntax (define name (term #,(gamma))))]))
-
-  (define-syntax (export-sigma syn)
-    (syntax-case syn ()
-      [(_ name) #`(begin-for-syntax (define name (term #,(sigma))))]))
+      [(_ gamma-out sigma-out bind-out)
+       #`(begin-for-syntax
+           (define gamma-out (term #,(gamma)))
+           (define sigma-out (term #,(sigma)))
+           (define bind-out '#,(bind-subst)))]))
 
   (define-syntax (dep-provide syn)
     (syntax-case syn ()
@@ -837,18 +855,16 @@
          ;; TODO: rename out will need to rename variables in gamma and
          ;; sigma.
          (syntax-local-lift-module-end-declaration
-           #`(export-gamma gamma-out))
-         (syntax-local-lift-module-end-declaration
-           #`(export-sigma sigma-out))
+           #`(export-envs gamma-out sigma-out bind-out))
          #`(provide (extend-env-and-provide e ...)
-                    (for-syntax gamma-out sigma-out)))]))
+                    (for-syntax gamma-out sigma-out bind-out)))]))
   (begin-for-syntax
-    (define out-gammas
-      #`())
-    (define out-sigmas
-      #`())
+    (define out-gammas #`())
+    (define out-sigmas #`())
+    (define out-binds #`())
     (define gn 0)
     (define sn 0)
+    (define bn 0)
     (define (filter-cur-imports syn)
       (for/fold ([imports '()]
                  [sources '()])
@@ -882,6 +898,22 @@
                                                                ,#,new-id)))))
                              (cons (struct-copy import imp [local-id new-id])
                                    imports))]
+                       ;; TODO: Many shared code between these two clauses
+                       [(equal? (import-src-sym imp) 'bind-out)
+                        (let ([new-id (format-id (import-orig-stx imp)
+                                                 "bind-out~a" bn)])
+                             ;; TODO: Fewer set!s
+                             ;; TODO: Do not DIY gensym
+                             (set! bn (add1 bn))
+                             (set! out-binds
+                               #`(#,@out-binds (bind-subst (list (append
+                                                                   (first #,new-id)
+                                                                   (first (bind-subst)))
+                                                                 (append
+                                                                   (second #,new-id)
+                                                                   (second (bind-subst)))))))
+                             (cons (struct-copy import imp [local-id new-id])
+                                   imports))]
                        [else (cons imp imports)]))
                   (append sources more-sources))))))
 
@@ -892,21 +924,17 @@
 
     ;; TODO: rename in will need to rename variables in gamma and
     ;; sigma.
-    (define-syntax (update-gammas syn)
+    (define-syntax (import-envs syn)
       (syntax-case syn ()
-        [(_) #`(begin-for-syntax #,@out-gammas)]))
-    (define-syntax (update-sigmas syn)
-      (syntax-case syn ()
-        [(_) #`(begin-for-syntax #,@out-sigmas)]))
-
+        [(_) #`(begin-for-syntax #,@out-gammas #,@out-sigmas
+                                 #,@out-binds)]))
 
   (define-syntax (dep-require syn)
     (syntax-case syn ()
       [(_ e ...)
        #`(begin
           (require (extend-env-and-require e ...))
-          (update-gammas)
-          (update-sigmas))]))
+          (import-envs))]))
 
   (define-syntax (dep-module+ syn)
     (syntax-case syn ()
@@ -914,7 +942,8 @@
        #`(module+ name
            (begin-for-syntax
              (gamma (term #,(gamma)))
-             (sigma (term #,(sigma))))
+             (sigma (term #,(sigma)))
+             (bind-subst '#,(bind-subst)))
            body ...)]))
 
   ;; -----------------------------------------------------------------
@@ -969,8 +998,10 @@
        ;; TODO: Can't actually run programs until I do something about
        ;; #'e. Maybe denote final terms into Racket. Or keep an
        ;; environment and have denote do a giant substitution
-       (let () #;[t (core-expand #'e)]
-         (extend-env/syn! gamma #'id (type-infer/syn #'e))
+       (let ([e (cur->datum #'e)]
+             [id (syntax->datum #'id)])
+         (extend-env/term! gamma id (type-infer/term e))
+         (add-binding/term! id e)
          #'(void))])))
 
 (require 'sugar)

@@ -166,13 +166,14 @@
 (begin-for-syntax
   (define (output-coq syn)
     (syntax-parse (cur-expand syn)
-       [((~literal lambda) ~! (x:id (~datum :) t) body:expr)
+       #:literals (lambda forall data real-app case)
+       [(lambda ~! (x:id (~datum :) t) body:expr)
         (format "(fun ~a : ~a => ~a)" (syntax-e #'x) (output-coq #'t)
                 (output-coq #'body))]
-       [((~literal forall) ~! (x:id (~datum :) t) body:expr)
+       [(forall ~! (x:id (~datum :) t) body:expr)
         (format "(forall ~a : ~a, ~a)" (syntax-e #'x) (output-coq #'t)
                 (output-coq #'body))]
-       [((~literal data) ~! n:id (~datum :) t (x*:id (~datum :) t*) ...)
+       [(data ~! n:id (~datum :) t (x*:id (~datum :) t*) ...)
         (format "Inductive ~a : ~a :=~n~a."
                 (syntax-e #'n)
                 (output-coq #'t)
@@ -187,11 +188,8 @@
                   #:left? #f))]
        ;; TODO: Add "case". Will be slightly tricky since the syntax is
        ;; quite different from Coq.
-       [(e1 e* ...)
-        (format "(~a~a)" (output-coq #'e1)
-          (for/fold ([strs ""])
-                    ([arg (syntax->list #'(e* ...))])
-            (format "~a ~a" strs (output-coq arg))))]
+       [(real-app e1 e2)
+        (format "(~a ~a)" (output-coq #'e1) (output-coq #'e2))]
        [e:id (format "~a" (syntax->datum #'e))])))
 
 (define-syntax (generate-coq syn)
@@ -222,5 +220,5 @@
         "Inductive meow : (forall temp. : gamma, (forall temp. : term, (forall temp. : type, Type))) :="
         (first (string-split t "\n")))
       (check-regexp-match
-        "T-Bla : (forall g : gamma, (forall e : term, (forall t : type, (meow g e t))))\\."
+        "T-Bla : (forall g : gamma, (forall e : term, (forall t : type, (((meow g) e) t))))\\."
         (second (string-split t "\n"))))))
