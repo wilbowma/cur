@@ -1,5 +1,7 @@
 #lang s-exp "redex-curnel.rkt"
 (require "sugar.rkt")
+;; TODO: override (all-defined-out) to enable exporting all these
+;; properly.
 (provide nat z s add1 sub1 plus)
 (module+ test
   (require rackunit))

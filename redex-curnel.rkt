@@ -190,6 +190,12 @@
   (define-extended-language cic-typingL cicL
     (Σ Γ ::= ∅ (Γ x : t)))
 
+  (define-metafunction cic-typingL
+    append-env : Γ Γ -> Γ
+    [(append-env Γ ∅) Γ]
+    [(append-env Γ_2 (Γ_1 x : t))
+     ((append-env Γ_2 Γ_1) x : t)])
+
   ;; NB: Depends on clause order
   (define-metafunction cic-typingL
     lookup : Γ x -> t or #f
@@ -602,22 +608,27 @@
     redex/reduction-semantics
     racket/provide-syntax
     (for-syntax
-      racket
+      (except-in racket import)
       syntax/parse
       racket/pretty
       racket/trace
+      racket/syntax
       (except-in racket/provide-transform export)
+      racket/require-transform
       (except-in (submod ".." core) remove)
       redex/reduction-semantics))
   (provide
     ;; Basic syntax
-    require
     for-syntax
     only-in
+    all-defined-out
+    rename-in
     #%module-begin
+    begin
     (rename-out
       [dep-module+ module+]
       [dep-provide provide]
+      [dep-require require]
 
       [dep-lambda lambda]
       [dep-lambda λ]
@@ -729,7 +740,7 @@
       ;; Main loop; avoid type
       (define reified-term
         (parameterize ([inner-expand? #t])
-          (trace-let cur->datum ([syn syn])
+          (let cur->datum ([syn syn])
             (syntax-parse (core-expand syn)
               #:literals (term reduce #%app)
               #:datum-literals (case Π λ μ : Type)
@@ -777,15 +788,22 @@
                 (syntax-e #'(Type dep-inductive dep-case dep-lambda dep-app
                              dep-fix dep-forall dep-var))))))
 
-  #;(define-syntax (dep-datum syn) (denote #'syn))
+  ;; -----------------------------------------------------------------
+  ;; Require/provide macros
+
+  ;; TODO: This is code some of the most hacky awful code I've ever
+  ;; written. But it works.
   (begin-for-syntax
     (define envs (list #'(void)))
-    (define (filter-cur-transformer syn modes)
-      (partition (lambda (x)
-                   (let ([x (syntax->datum (export-local-id x))])
-                     (and (x? x)
-                       (or (term (lookup ,(gamma) ,x))
-                         (term (lookup ,(sigma) ,x))))))
+
+    (define (cur-identifier-bound? id)
+      (let ([x (syntax->datum id)])
+        (and (x? x)
+             (or (term (lookup ,(gamma) ,x))
+               (term (lookup ,(sigma) ,x))))))
+
+    (define (filter-cur-exports syn modes)
+      (partition (compose cur-identifier-bound? export-local-id)
                  (apply append (map (lambda (e) (expand-export e modes))
                                     (syntax->list syn))))))
   (define-syntax extend-env-and-provide
@@ -793,27 +811,104 @@
       (lambda (syn modes)
         (syntax-case syn ()
           [(_ e ...)
-           (let-values ([(cur ~cur) (filter-cur-transformer #'(e ...) '())])
+           (let-values ([(cur ~cur) (filter-cur-exports #'(e ...) modes)])
              (set! envs (for/list ([e cur])
                           (let* ([x (syntax->datum (export-local-id e))]
                                  [t (type-infer/term x)]
                                  [env (if (term (lookup ,(gamma) ,x)) #'gamma #'sigma)])
                             #`(extend-env/term! #,env #,(export-out-sym e) #,t))))
              ~cur)]))))
+
+  (define-syntax (export-gamma syn)
+    (syntax-case syn ()
+      [(_ name) #`(begin-for-syntax (define name (term #,(gamma))))]))
+
+  (define-syntax (export-sigma syn)
+    (syntax-case syn ()
+      [(_ name) #`(begin-for-syntax (define name (term #,(sigma))))]))
+
   (define-syntax (dep-provide syn)
     (syntax-case syn ()
       [(_ e ...)
-       #`(begin
-           (provide (extend-env-and-provide e ...))
-           (begin-for-syntax
-             ;; TODO: Here, I think I need to define and export a
-             ;; new gamma and sigma, and redefine require to import them
-             ;; and merge them with the existing gamma/sigma.
-             (gamma (term #,(gamma)))
-             (sigma (term #,(sigma)))
-             #;#,@envs))]))
+       (begin
+         ;; TODO: Ignoring the built envs above, for now
+         ;; The local-lift export seems to get executed before the
+         ;; filtered environment is built.
+         ;; TODO: rename out will need to rename variables in gamma and
+         ;; sigma.
+         (syntax-local-lift-module-end-declaration
+           #`(export-gamma gamma-out))
+         (syntax-local-lift-module-end-declaration
+           #`(export-sigma sigma-out))
+         #`(provide (extend-env-and-provide e ...)
+                    (for-syntax gamma-out sigma-out)))]))
+  (begin-for-syntax
+    (define out-gammas
+      #`())
+    (define out-sigmas
+      #`())
+    (define gn 0)
+    (define sn 0)
+    (define (filter-cur-imports syn)
+      (for/fold ([imports '()]
+                 [sources '()])
+                ([req-spec (syntax->list syn)])
+        (let-values ([(more-imports more-sources) (expand-import req-spec)])
+          (values (for/fold ([imports imports])
+                     ([imp more-imports])
+                     (cond
+                       [(equal? (import-src-sym imp) 'gamma-out)
+                        (let ([new-id (format-id (import-orig-stx imp)
+                                                 "gamma-out~a" gn)])
+                             ;; TODO: Fewer set!s
+                             ;; TODO: Do not DIY gensym
+                             (set! gn (add1 gn))
+                             (set! out-gammas
+                               #`(#,@out-gammas (gamma (term (append-env
+                                                               ,(gamma)
+                                                               ,#,new-id)))))
+                             (cons (struct-copy import imp [local-id new-id])
+                                   imports))]
+                       ;; TODO: Many shared code between these two clauses
+                       [(equal? (import-src-sym imp) 'sigma-out)
+                        (let ([new-id (format-id (import-orig-stx imp)
+                                                 "sigma-out~a" sn)])
+                             ;; TODO: Fewer set!s
+                             ;; TODO: Do not DIY gensym
+                             (set! sn (add1 sn))
+                             (set! out-sigmas
+                               #`(#,@out-sigmas (sigma (term (append-env
+                                                               ,(sigma)
+                                                               ,#,new-id)))))
+                             (cons (struct-copy import imp [local-id new-id])
+                                   imports))]
+                       [else (cons imp imports)]))
+                  (append sources more-sources))))))
 
-  (trace-define-syntax (dep-module+ syn)
+  (define-syntax extend-env-and-require
+    (make-require-transformer (lambda (syn)
+                                (syntax-case syn ()
+                                  [(_ e ...) (filter-cur-imports #'(e ...))]))))
+
+    ;; TODO: rename in will need to rename variables in gamma and
+    ;; sigma.
+    (define-syntax (update-gammas syn)
+      (syntax-case syn ()
+        [(_) #`(begin-for-syntax #,@out-gammas)]))
+    (define-syntax (update-sigmas syn)
+      (syntax-case syn ()
+        [(_) #`(begin-for-syntax #,@out-sigmas)]))
+
+
+  (define-syntax (dep-require syn)
+    (syntax-case syn ()
+      [(_ e ...)
+       #`(begin
+          (require (extend-env-and-require e ...))
+          (update-gammas)
+          (update-sigmas))]))
+
+  (define-syntax (dep-module+ syn)
     (syntax-case syn ()
       [(_ name body ...)
        #`(module+ name
@@ -822,10 +917,14 @@
              (sigma (term #,(sigma))))
            body ...)]))
 
+  ;; -----------------------------------------------------------------
+  ;; Core wrapper macros
+  ;;
   ;; TODO: Can these be simplified further?
   ;; TODO: Can we make core-expand some kind of parameter that is only
   ;; to ensure type-checking is only done at the outermost level, and
   ;; not in the main loop?
+  #;(define-syntax (dep-datum syn) (denote #'syn))
   (define-syntax (dep-lambda syn)
     (syntax-case syn (:)
       [(_ (x : t) e) (syntax->curnel-syntax #`(λ (x : t) e))]))
@@ -872,9 +971,9 @@
        ;; environment and have denote do a giant substitution
        (let () #;[t (core-expand #'e)]
          (extend-env/syn! gamma #'id (type-infer/syn #'e))
-         #'(void))])) )
+         #'(void))])))
 
 (require 'sugar)
 (provide (all-from-out 'sugar))
-(module+ test
+#;(module+ test
   (require (submod ".." core test)))

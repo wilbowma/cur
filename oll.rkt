@@ -2,10 +2,7 @@
 ;; OLL: The OTT-Like Library
 (require "sugar.rkt" "nat.rkt")
 
-;; TODO: Can't export var, avar because technically these aren't
-;; defined....
-;; REALLY NEED TO FIX THAT
-(provide define-relation define-language)
+(provide define-relation define-language var avar)
 
 (begin-for-syntax
   (define-syntax-class dash
