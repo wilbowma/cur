@@ -4,7 +4,7 @@
 ;; TODO: actually, I'm not sure this should work quite as well as it
 ;; seems to with check-equal?
 (require rackunit)
-(require (only-in "cur-redex.rkt" [#%app real-app]
+(require (only-in "redex-curnel.rkt" [#%app real-app]
                   [define real-define]))
 
 (define-syntax (#%app syn)
