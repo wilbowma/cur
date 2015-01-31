@@ -1,8 +1,8 @@
 #lang s-exp "redex-curnel.rkt"
-(require "sugar.rkt")
+(require "sugar.rkt" "bool.rkt")
 ;; TODO: override (all-defined-out) to enable exporting all these
 ;; properly.
-(provide nat z s add1 sub1 plus)
+(provide nat z s add1 sub1 plus nat-equal?)
 (module+ test
   (require rackunit))
 
@@ -31,3 +31,17 @@
 (module+ test
   (check-equal? (plus z z) z)
   (check-equal? (plus (s (s z)) (s (s z))) (s (s (s (s z))))))
+
+(define-rec (nat-equal? (n1 : nat) (n2 : nat) : bool)
+  (case* n1
+    [z (case* n2
+         [z btrue]
+         [(s (n3 : nat)) bfalse])]
+    [(s (n3 : nat))
+       (case* n2
+         [z btrue]
+         [(s (n4 : nat)) (nat-equal? n3 n4)])]))
+(module+ test
+  (check-equal? btrue (nat-equal? z z))
+  (check-equal? bfalse (nat-equal? z (s z)))
+  (check-equal? btrue (nat-equal? (s z) (s z))))

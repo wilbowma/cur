@@ -32,7 +32,7 @@
 
   (module+ test
     (require rackunit)
-   (check-true (x? (term T)))
+    (check-true (x? (term T)))
     (check-true (x? (term truth)))
     (check-true (x? (term zero)))
     (check-true (x? (term s)))
@@ -46,8 +46,7 @@
     (check-true (e? (term (λ (x_0 : (Unv 0)) x_0))))
     (check-true (v? (term (λ (x_0 : (Unv 0)) x_0))))
     (check-true (t? (term (λ (x_0 : (Unv 0)) x_0))))
-    (check-true (t? (term (λ (x_0 : (Unv 0)) x_0))))
-    )
+    (check-true (t? (term (λ (x_0 : (Unv 0)) x_0)))))
 
   ;; 'A'
   ;; Types of Universes
@@ -165,6 +164,7 @@
     (check-equal? (term (reduce Type)) (term Type))
     (check-equal? (term (reduce ((λ (x : t) x) Type))) (term Type))
     (check-equal? (term (reduce ((Π (x : t) x) Type))) (term Type))
+    ;; NB: Currently not reducing under binders. I forget why.
     (check-equal? (term (reduce (Π (x : t) ((Π (x_0 : t) x_0) Type))))
                   (term (Π (x : t) Type)))
     (check-equal? (term (reduce (Π (x : t) ((Π (x_0 : t) x_0) x))))
@@ -667,7 +667,8 @@
       cur-expand
       type-infer/syn
       type-check/syn?
-      normalize/syn))
+      normalize/syn)
+    run)
 
   (begin-for-syntax
     (current-trace-notify
@@ -799,12 +800,17 @@
       (let ([t (type-infer/term (cur->datum syn))])
         (equal? t (cur->datum type))))
 
-    (define (normalize/syn syn) (denote syn (term (reduce (cur->datum syn)))))
+    (define (normalize/syn syn)
+      (denote syn (term (reduce (subst-all ,(cur->datum syn) ,(first (bind-subst)) ,(second (bind-subst)))))))
 
     (define (cur-expand syn)
       (disarm (local-expand syn 'expression
                 (syntax-e #'(Type dep-inductive dep-case dep-lambda dep-app
                              dep-fix dep-forall dep-var))))))
+
+    (define-syntax (run syn)
+      (syntax-case syn ()
+        [(_ expr) (normalize/syn #'expr)]))
 
   ;; -----------------------------------------------------------------
   ;; Require/provide macros
@@ -845,6 +851,8 @@
            (define sigma-out (term #,(sigma)))
            (define bind-out '#,(bind-subst)))]))
 
+  ;; TODO: This can only handle a single provide form, otherwise
+  ;; generates multiple *-out
   (define-syntax (dep-provide syn)
     (syntax-case syn ()
       [(_ e ...)
@@ -1004,7 +1012,7 @@
          (add-binding/term! id e)
          #'(void))])))
 
-(require 'sugar)
+(require (rename-in 'sugar [module+ dep-module+]))
 (provide (all-from-out 'sugar))
-#;(module+ test
+(module+ test
   (require (submod ".." core test)))

@@ -2,9 +2,9 @@
 ;; OLL: The OTT-Like Library
 ;; TODO: Add latex extraction
 ;; TODO: Automagically create a parser from bnf grammar
-(require "sugar.rkt" "nat.rkt")
+(require "sugar.rkt" "nat.rkt" racket/trace)
 
-(provide define-relation define-language var avar)
+(provide define-relation define-language var avar var-equal?)
 
 (begin-for-syntax
   (define-syntax-class dash
@@ -128,7 +128,7 @@
 ;; TODO: For better error messages, add context, rename some of these patterns. e.g.
 ;;    (type (meta-vars) ::= ?? )
 (define-syntax (define-language syn)
-  (syntax-parse syn
+(syntax-parse syn
     [(_ name:id (~do (lang-name #'name))
         (~do (nts (hash-set (make-immutable-hash) 'var #'var)))
         (~optional (~seq #:vars (x*:id ...)
@@ -140,79 +140,22 @@
 
 (data var : Type (avar : (-> nat var)))
 
-;;Type this:
+(define (var-equal? (v1 : var) (v2 : var))
+  (case* v1
+    [(avar (n1 : nat))
+     (case* v2
+       [(avar (n2 : nat))
+        (nat-equal? n1 n2)])]))
 
-(define-language stlc
-  #:vars (x)
-  (val  (v)   ::= true false)
-  (type (A B) ::= bool (-> A B))
-  (term (e)   ::= x v (e e) (lambda (x : A) e) (cons e e)
-                  (let (x x) = e in e)))
-
-;;This gets generated:
-
-#;
-(begin
-  (data stlc-val : Type
-    (stlc-true : stlc-val)
-    (stlc-false : stlc-val))
-
-  (data stlc-type : Type
-    (stlc-bool : stlc-type)
-    (stlc--> : (->* stlc-type stlc-type stlc-type)))
-
-  (data stlc-term : Type
-    (var-->-stlc-term : (-> var stlc-term))
-    (stlc-val-->-stlc-term : (-> stlc-val stlc-term))
-    (stlc-term2151 : (->* stlc-term stlc-term stlc-term))
-    (stlc-lambda : (->* var stlc-type stlc-term stlc-term))
-    (stlc-cons : (->* stlc-term stlc-term stlc-term))
-    (stlc-let : (->* var var stlc-term stlc-term))))
-
-;; Define inference rules in a more natural notation, like so:
-#;
-(define-relation (has-type gamma term type)
-  [(g : gamma)
-   ------------------------ T-Unit
-   (has-type g unitv Unit)]
-
-  [(g : gamma) (x : var) (t : type)
-   (== (maybe type) (lookup-gamma g x) (some type t))
-   ------------------------ T-Var
-   (has-type g (tvar x) t)]
-
-  [(g : gamma) (e1 : term) (e2 : term) (t1 : type) (t2 : type)
-   (has-type g e1 t1)
-   (has-type g e2 t2)
-   ---------------------- T-Pair
-   (has-type g (pair e1 e2) (Pair t1 t2))]
-
-  [(g : gamma) (e : term) (t1 : type) (t2 : type)
-   (has-type g e (Pair t1 t2))
-   ----------------------- T-Prj1
-   (has-type g (prj z e) t1)]
-
-  [(g : gamma) (e : term) (t1 : type) (t2 : type)
-   (has-type g e (Pair t1 t2))
-   ----------------------- T-Prj2
-   (has-type g (prj (s z) e) t1)]
-
-  [(g : gamma) (e1 : term) (t1 : type) (t2 : type) (x : var)
-   (has-type (extend-gamma g x t1) e1 t2)
-   ---------------------- T-Fun
-   (has-type g (lam x t1 e1) (Fun t1 t2))]
-
-  [(g : gamma) (e1 : term) (e2 : term) (t1 : type) (t2 : type)
-   (has-type g e1 (Fun t1 t2))
-   (has-type g e2 t1)
-   ---------------------- T-App
-   (has-type g (app e1 e2) t2)])
+;; See stlc.rkt for examples
 
 ;; Generate Coq from Cur:
 
 (begin-for-syntax
   (define (output-coq syn)
     (syntax-parse (cur-expand syn)
+       ;; TODO: Need to add these to a literal set and export it
+       ;; Or, maybe overwrite syntax-parse
        #:literals (lambda forall data real-app case)
        [(lambda ~! (x:id (~datum :) t) body:expr)
         (format "(fun ~a : ~a => ~a)" (syntax-e #'x) (output-coq #'t)
