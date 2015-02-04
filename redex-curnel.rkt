@@ -792,9 +792,11 @@
 
     ;; Reflection tools
 
+    ;; TODO: OOps, type-infer doesn't return a cur term but a redex term
+    ;; wrapped in syntax bla. This is bad.
     (define (type-infer/syn syn)
       (let ([t (type-infer/term (cur->datum syn))])
-        (and t (denote syn t))))
+        (and t (datum->syntax syn t))))
 
     (define (type-check/syn? syn type)
       (let ([t (type-infer/term (cur->datum syn))])

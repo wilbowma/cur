@@ -152,6 +152,16 @@
 ;; Generate Coq from Cur:
 
 (begin-for-syntax
+  (define coq-defns (make-parameter ""))
+  (define (coq-lift-top-level str)
+    (coq-defns (format "~a~a~n" (coq-defns) str)))
+  ;; TODO: OOps, type-infer doesn't return a cur term but a redex syntax bla
+  (define (constructor-args syn)
+    (syntax-parse (type-infer/syn syn)
+      #:datum-literals (Π :)
+      [(Π (x:id : t) body)
+       (cons #'x (constructor-args #'body))]
+      [_ null]))
   (define (output-coq syn)
     (syntax-parse (cur-expand syn)
        ;; TODO: Need to add these to a literal set and export it
@@ -164,20 +174,33 @@
         (format "(forall ~a : ~a, ~a)" (syntax-e #'x) (output-coq #'t)
                 (output-coq #'body))]
        [(data ~! n:id (~datum :) t (x*:id (~datum :) t*) ...)
-        (format "Inductive ~a : ~a :=~n~a."
-                (syntax-e #'n)
-                (output-coq #'t)
-                (string-trim
-                  (for/fold ([strs ""])
-                            ([clause (syntax->list #'((x* : t*) ...))])
-                    (syntax-parse clause
-                      [(x (~datum :) t)
-                       (format "~a~a : ~a~n| " strs (syntax-e #'x)
-                               (output-coq #'t))]))
-                  #px"\\s\\| $"
-                  #:left? #f))]
-       ;; TODO: Add "case". Will be slightly tricky since the syntax is
-       ;; quite different from Coq.
+        (begin
+          (coq-lift-top-level
+            (format "Inductive ~a : ~a :=~a."
+                   (syntax-e #'n)
+                   (output-coq #'t)
+                   (for/fold ([strs ""])
+                             ([clause (syntax->list #'((x* : t*) ...))])
+                     (syntax-parse clause
+                       [(x (~datum :) t)
+                        (format "~a~n| ~a : ~a" strs (syntax-e #'x)
+                          (output-coq #'t))]))))
+          "")]
+       [(case e (ec eb) ...)
+        (format "(match ~a with~n~aend)"
+                (output-coq #'e)
+                (for/fold ([strs ""])
+                          ([con   (syntax->list #'(ec ...))]
+                           [body  (syntax->list #'(eb ...))])
+                  (let* ([ids (generate-temporaries (constructor-args con))]
+                         [names (map (compose ~a syntax->datum) ids)])
+                    (format "~a| (~a) => ~a~n" strs
+                      (for/fold ([str (output-coq con)])
+                                ([n names])
+                        (format "~a ~a" str n))
+                      (for/fold ([body (output-coq body)])
+                                ([n names])
+                        (format "(~a ~a)" body n))))))]
        [(real-app e1 e2)
         (format "(~a ~a)" (output-coq #'e1) (output-coq #'e2))]
        [e:id (format "~a" (syntax->datum #'e))])))
@@ -186,29 +209,41 @@
   (syntax-parse syn
     [(_ (~optional (~seq #:file file)) body:expr)
      (parameterize ([current-output-port (if (attribute file)
-                                             (syntax->datum #'file)
-                                             (current-output-port))])
-       (displayln (output-coq #'body))
-       #'Type)]))
+                                             (open-output-file (syntax->datum #'file)
+                                                               #:exists 'replace)
+                                             (current-output-port))]
+                    [coq-defns ""])
+       (define body
+         (let ([body (output-coq #'body)])
+           (if (equal? body "")
+               ""
+               (format "Eval compute in ~a." body))))
+       (displayln (format "~a~a" (coq-defns) body))
+       #'(begin))]))
 
 (module+ test
   (require "stdlib/sugar.rkt")
   (begin-for-syntax
     (require rackunit)
     (check-equal?
-      (format "Inductive nat : Type :=~nz : nat.")
-      (output-coq #'(data nat : Type (z : nat))))
+      (parameterize ([coq-defns ""]) (output-coq #'(data nat : Type (z : nat))) (coq-defns))
+      (format "Inductive nat : Type :=~n| z : nat.~n"))
     (check-regexp-match
       "(forall .+ : Type, Type)"
       (output-coq #'(-> Type Type)))
-    ;; TODO: Not sure why these tests are failing.
-    (let ([t (output-coq #'(define-relation (meow gamma term type)
-                             [(g : gamma) (e : term) (t : type)
-                              --------------- T-Bla
-                              (meow g e t)]))])
+    (let ([t (parameterize ([coq-defns ""])
+               (output-coq #'(define-relation (meow gamma term type)
+                                             [(g : gamma) (e : term) (t : type)
+                                                          --------------- T-Bla
+                                                          (meow g e t)]))
+               (coq-defns))])
       (check-regexp-match
         "Inductive meow : \\(forall temp. : gamma, \\(forall temp. : term, \\(forall temp. : type, Type\\)\\)\\) :="
         (first (string-split t "\n")))
       (check-regexp-match
         "\\| T-Bla : \\(forall g : gamma, \\(forall e : term, \\(forall t : type, \\(\\(\\(meow g\\) e\\) t\\)\\)\\)\\)\\."
-        (second (string-split t "\n"))))))
+        (second (string-split t "\n"))))
+    (let ([t (output-coq #'(case z (z z) (s (lambda (n : nat) (s n)))))])
+      (check-regexp-match
+        "\\(match z with\n\\| \\(z\\) => z\n\\| \\(s .+\\) => \\(\\(fun n : nat => \\(s n\\)\\) .+\\)\nend\\)"
+        t))))
