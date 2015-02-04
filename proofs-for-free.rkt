@@ -1,5 +1,5 @@
 #lang s-exp "redex-curnel.rkt"
-(require "sugar.rkt" "prop.rkt")
+(require "stdlib/sugar.rkt" "stdlib/prop.rkt")
 
 ;; ---------
 (begin-for-syntax

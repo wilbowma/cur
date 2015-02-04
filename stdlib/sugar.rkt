@@ -1,4 +1,4 @@
-#lang s-exp "redex-curnel.rkt"
+#lang s-exp "../redex-curnel.rkt"
 (provide ->
          ->*
          forall*
@@ -12,7 +12,7 @@
          real-app
          define-rec)
 
-(require (only-in "redex-curnel.rkt" [#%app real-app]
+(require (only-in "../redex-curnel.rkt" [#%app real-app]
                   [define real-define]))
 
 

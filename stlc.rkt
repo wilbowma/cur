@@ -1,5 +1,6 @@
 #lang s-exp "redex-curnel.rkt"
-(require racket/trace "nat.rkt" "sugar.rkt" "oll.rkt" "maybe.rkt")
+(require racket/trace "stdlib/nat.rkt" "stdlib/sugar.rkt" "oll.rkt"
+         "stdlib/maybe.rkt")
 
 (define-language stlc
   #:vars (x)

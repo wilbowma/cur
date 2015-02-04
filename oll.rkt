@@ -2,7 +2,7 @@
 ;; OLL: The OTT-Like Library
 ;; TODO: Add latex extraction
 ;; TODO: Automagically create a parser from bnf grammar
-(require "sugar.rkt" "nat.rkt" racket/trace)
+(require "stdlib/sugar.rkt" "stdlib/nat.rkt" racket/trace)
 
 (provide define-relation define-language var avar var-equal?)
 
@@ -192,7 +192,7 @@
        #'Type)]))
 
 (module+ test
-  (require "sugar.rkt")
+  (require "stdlib/sugar.rkt")
   (begin-for-syntax
     (require rackunit)
     (check-equal?
@@ -207,8 +207,8 @@
                               --------------- T-Bla
                               (meow g e t)]))])
       (check-regexp-match
-        "Inductive meow : (forall temp. : gamma, (forall temp. : term, (forall temp. : type, Type))) :="
+        "Inductive meow : \\(forall temp. : gamma, \\(forall temp. : term, \\(forall temp. : type, Type\\)\\)\\) :="
         (first (string-split t "\n")))
       (check-regexp-match
-        "T-Bla : (forall g : gamma, (forall e : term, (forall t : type, (((meow g) e) t))))\\."
+        "\\| T-Bla : \\(forall g : gamma, \\(forall e : term, \\(forall t : type, \\(\\(\\(meow g\\) e\\) t\\)\\)\\)\\)\\."
         (second (string-split t "\n"))))))

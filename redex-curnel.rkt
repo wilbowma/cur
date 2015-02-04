@@ -1013,6 +1013,6 @@
          #'(void))])))
 
 (require (rename-in 'sugar [module+ dep-module+]))
-(provide (all-from-out 'sugar))
+(provide (rename-out [dep-module+ module+]) (all-from-out 'sugar))
 (module+ test
   (require (submod ".." core test)))
