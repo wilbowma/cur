@@ -71,7 +71,8 @@
 (define-type CPSf (forall* (ans : Type) (k : (-> X ans)) ans))
 
 (define (CPSf-relation (f1 : CPSf) (f2 : CPSf))
-  (translate (forall* (ans : Type) (k : (-> X ans)) ans))
+  ;; Run performs substitution, among other things, at compile.
+  (translate (run CPSf))
 (module+ test
   (require rackunit)
   (check-equal?
@@ -86,7 +87,7 @@
 (define-type paramCPSf (forall* (f : CPSf) (CPSf-relation f f)))
 (define (id (X : Type) (x : X)) x)
 
-(define-theorem thm:cont-shuffle
+(define-theorem thm:continuation-shuffle
   (forall* (f : CPSf)
            (ans : Type)
            (ansr : (-> ans ans Type))

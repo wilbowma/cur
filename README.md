@@ -30,3 +30,5 @@ translation defined in [Proofs for Free](http://staff.city.ac.uk/~ross/papers/pr
 
 Open up anything in `stdlib/` to see some standard dependent-type
 formalisms.
+
+Open up `redex-curnel.rkt` to see the entire "trusted" core.
