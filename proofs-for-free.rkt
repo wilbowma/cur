@@ -27,6 +27,7 @@
   (syntax-parse (cur-expand syn)
     ;; TODO: Need to add these to a literal set and export it
     ;; Or, maybe redefine syntax-parse
+    #:dataumliterals (:)
     #:literals (lambda forall data real-app case Type)
     [(_ Type)
      #'(lambda* (x1 : Type) (x2 : Type) (->* x1 x2 Type))]
