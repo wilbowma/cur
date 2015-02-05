@@ -22,8 +22,8 @@ or worse.
 Open up `stlc.rkt` to see an example of what advanced meta-programming can let you do.
 
 Open up `oll.rkt` to see the implementation of the meta-programs used to
-enable `stlc.rkt`, including the parsers for BNF syntax, inference rule
-relation syntax, and Coq and LaTeX generators.
+enable `stlc.rkt`, including the parsers for BNF syntax and inference rule
+syntax, and Coq and LaTeX generators.
 
 Open up `proofs-for-free.rkt` to see an implementation of the
 translation defined in [Proofs for Free](http://staff.city.ac.uk/~ross/papers/proofs.html) as a meta-program.
