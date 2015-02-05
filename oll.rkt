@@ -15,6 +15,8 @@
   (define-syntax-class decl (pattern (x:id (~datum :) t:id)))
 
   ;; TODO: Automatically infer decl ... by binding all free identifiers?
+  ;; TODO: Automatically infer decl ... for meta-variables that are the
+  ;; same as bnf grammar.
   (define-syntax-class inferrence-rule
     (pattern (d:decl ...
               x*:expr ...
@@ -128,7 +130,7 @@
 ;; TODO: For better error messages, add context, rename some of these patterns. e.g.
 ;;    (type (meta-vars) ::= ?? )
 (define-syntax (define-language syn)
-(syntax-parse syn
+  (syntax-parse syn
     [(_ name:id (~do (lang-name #'name))
         (~do (nts (hash-set (make-immutable-hash) 'var #'var)))
         (~optional (~seq #:vars (x*:id ...)
@@ -162,11 +164,51 @@
       [(Π (x:id : t) body)
        (cons #'x (constructor-args #'body))]
       [_ null]))
+  (define (sanitize-id str)
+    (let ([replace-by `((: _) (- _))])
+      (for/fold ([str str])
+                ([p replace-by])
+        (string-replace str (symbol->string (first p))
+                        (symbol->string (second p))))))
   (define (output-coq syn)
-    (syntax-parse (cur-expand syn)
+    (syntax-parse (cur-expand syn #'define #'define-theorem #'qed)
        ;; TODO: Need to add these to a literal set and export it
        ;; Or, maybe overwrite syntax-parse
-       #:literals (lambda forall data real-app case)
+       #:literals (lambda forall data real-app case define-theorem
+                          define qed)
+       [(define-theorem name prop)
+        (begin
+          (fprintf (current-error-port) "Warning: If theorem ~a is not followed by a proof using (qed ...), the resulting Coq code may be malformed.~n" (output-coq #'name))
+          (coq-lift-top-level
+            (format "Theorem ~a : ~a.~n"
+                    (output-coq #'name)
+                    (output-coq #'prop)))
+          "")]
+       [(qed thm proof)
+        ;; TODO: Have some sort of coq-lift-to-theorem, to auto match
+        ;; proofs and theorems.
+        (begin
+          (coq-lift-top-level
+            (format "Proof. exact ~a. Qed.~n" (output-coq #'proof)))
+          "")]
+       [(define name:id body)
+        (begin
+          (coq-lift-top-level
+            (format "Definition ~a := ~a.~n"
+                    (output-coq #'name)
+                    (output-coq #'body)))
+          "")]
+       [(define (name:id (x:id : t) ...) body)
+        (begin
+          (coq-lift-top-level
+            (format "Function ~a ~a := ~a.~n"
+                    (output-coq #'name)
+                    (for/fold ([str ""])
+                              ([n (syntax->list #'(x ...))]
+                               [t (syntax->list #'(t ...))])
+                      (format "~a(~a : ~a) " str (output-coq n) (output-coq t)))
+                    (output-coq #'body)))
+          "")]
        [(lambda ~! (x:id (~datum :) t) body:expr)
         (format "(fun ~a : ~a => ~a)" (syntax-e #'x) (output-coq #'t)
                 (output-coq #'body))]
@@ -203,7 +245,7 @@
                         (format "(~a ~a)" body n))))))]
        [(real-app e1 e2)
         (format "(~a ~a)" (output-coq #'e1) (output-coq #'e2))]
-       [e:id (format "~a" (syntax->datum #'e))])))
+       [e:id (sanitize-id (format "~a" (syntax->datum #'e)))])))
 
 (define-syntax (generate-coq syn)
   (syntax-parse syn
@@ -246,4 +288,16 @@
     (let ([t (output-coq #'(case z (z z) (s (lambda (n : nat) (s n)))))])
       (check-regexp-match
         "\\(match z with\n\\| \\(z\\) => z\n\\| \\(s .+\\) => \\(\\(fun n : nat => \\(s n\\)\\) .+\\)\nend\\)"
-        t))))
+        t))
+    (check-regexp-match
+      "Theorem thm_plus_commutes : \\(forall n : nat, \\(forall m : nat, \\(\\(\\(== nat\\) \\(\\(plus n\\) m\\)\\) \\(\\(plus m\\) n\\)\\)\\)\\).\n"
+      (parameterize ([coq-defns ""])
+        (output-coq #'(define-theorem thm:plus-commutes
+                                     (forall* (n : nat) (m : nat)
+                                              (== nat (plus n m) (plus m n)))))
+        (coq-defns)))
+    (check-regexp-match
+      "Function add1 \\(n : nat\\)  := \\(s n\\).\n"
+      (parameterize ([coq-defns ""])
+        (output-coq #'(define (add1 (n : nat)) (s n)))
+        (coq-defns)))))

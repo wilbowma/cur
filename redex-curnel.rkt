@@ -805,10 +805,14 @@
     (define (normalize/syn syn)
       (denote syn (term (reduce (subst-all ,(cur->datum syn) ,(first (bind-subst)) ,(second (bind-subst)))))))
 
-    (define (cur-expand syn)
+    ;; Takes a Cur term syn and an arbitrary number of identifiers ls. The cur term is
+    ;; expanded until expansion reaches a Curnel form, or one of the
+    ;; identifiers in ls.
+    (define (cur-expand syn . ls)
       (disarm (local-expand syn 'expression
-                (syntax-e #'(Type dep-inductive dep-case dep-lambda dep-app
-                             dep-fix dep-forall dep-var))))))
+                (append (syntax-e #'(Type dep-inductive dep-case dep-lambda dep-app
+                                   dep-fix dep-forall dep-var))
+                        ls)))))
 
     (define-syntax (run syn)
       (syntax-case syn ()
