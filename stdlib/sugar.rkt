@@ -82,3 +82,4 @@
 ;; because reasons. So manually insert a run in the type annotation
 (define-syntax-rule (qed thm pf)
   ((lambda (x : (run thm)) Type) pf))
+

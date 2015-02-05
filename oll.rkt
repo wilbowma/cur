@@ -4,7 +4,8 @@
 ;; TODO: Automagically create a parser from bnf grammar
 (require "stdlib/sugar.rkt" "stdlib/nat.rkt" racket/trace)
 
-(provide define-relation define-language var avar var-equal?)
+(provide define-relation define-language var avar var-equal?
+         generate-coq #;(rename-out [oll-define-theorem define-theorem]))
 
 (begin-for-syntax
   (define-syntax-class dash
@@ -23,10 +24,22 @@
               line:dash lab:id
               (name:id y* ...))
               #:with rule #'(lab : (forall* d ...
-                                     (->* x* ... (name y* ...)))))))
+                                     (->* x* ... (name y* ...))))
+              ;; TODO: convert meta-vars such as e1 to e_1
+              #:attr latex (format "\\inferrule~n{~a}~n{~a}"
+                             (string-trim
+                               (for/fold ([str ""])
+                                        ([hyp (syntax->datum #'(x* ...))])
+                                 (format "~a~a \\+" str hyp))
+                               " \\+"
+                               #:left? #f)
+                             (format "~a" (syntax->datum #'(name y* ...)))))))
 (define-syntax (define-relation syn)
   (syntax-parse syn
-    [(_ (n:id types* ...) rules:inferrence-rule ...)
+    [(_ (n:id types* ...)
+        (~optional (~seq #:output-coq coq-file:str))
+        (~optional (~seq #:output-latex latex-file:str))
+        rules:inferrence-rule ...)
      #:fail-unless (andmap (curry equal? (length (syntax->datum #'(types* ...))))
                            (map length (syntax->datum #'((rules.y* ...)
                                                           ...))))
@@ -34,8 +47,26 @@
      #:fail-unless (andmap (curry equal? (syntax->datum #'n))
                            (syntax->datum #'(rules.name ...)))
      "Mismatch between relation declared name and result of inference rule"
-      #`(data n : (->* types* ... Type)
-          rules.rule ...)]))
+      (let ([output #`(data n : (->* types* ... Type) rules.rule ...)])
+        ;; TODO: Pull this out into a separate function and test. Except
+        ;; that might make using attritbutes more difficult.
+        (when (attribute latex-file)
+          (with-output-to-file (syntax->datum #'latex-file)
+            (thunk
+              (format "\\fbox{$~a$}$~n$\\begin{mathpar}~n~a~n\end{mathpar}$$"
+                      (string-trim
+                        (for/fold ([str ""])
+                                  ([rule (syntax->datum #'(rules.latex ...))])
+                          (format "~a~a\\and~n" rule))
+                        "\\and"
+                        #:left? #f)))
+            #:exists 'append))
+        #`(begin
+            #,@(if (attribute coq-file)
+                   #`((generate-coq #:file coq-file #:exists
+                                    'append #,output))
+                   #'())
+               #,output))]))
 
 (begin-for-syntax
   (require racket/syntax)
@@ -127,8 +158,55 @@
                            #`((data name* : Type . rhs*.clause)
                               ...)))))
 
+(begin-for-syntax
+  ;; TODO: More clever use of syntax-parse would enable something akin to what
+  ;; define-relation is doing---having attributes that contain the latex
+  ;; code for each clause.
+  ;; TODO: convert meta-vars such as e1 to e_1
+  (define (output-latex-bnf vars clauses)
+    (format "$$\\begin{array}{lrrl}~n~a~n\\end{array}$$"
+      (for/fold ([str ""])
+                ([clause (syntax->list clauses)])
+        (syntax-parse clause
+          #:datum-literals (::=)
+          [(type:id (nonterminal:id ...) ::= exprs ...)
+           (format "\\mbox{\\textit{~a}} & ~a & \\bnfdef & ~a\\\\~n"
+                   (symbol->string (syntax->datum #'type))
+                   (string-trim
+                     (for/fold ([str ""])
+                               ([nt (syntax->datum #'(nonterminal ...))])
+                       (format "~a~a," str nt))
+                     ","
+                     #:left? #f)
+                   (string-trim
+                     (for/fold ([str ""])
+                               ([expr (syntax->datum #'(exprs ...))])
+                       (format "~a~a \\bnfalt " str expr))
+                     " \\bnfalt "
+                     #:left? #f))]))))
+  (define (generate-latex-bnf file-name vars clauses)
+    (with-output-to-file file-name
+      (thunk (output-latex-bnf vars clauses))
+      #:exists 'append)))
+(module+ test
+  (require "stdlib/sugar.rkt")
+  (begin-for-syntax
+    (require rackunit)
+    (check-equal?
+      (format "$$\\begin{array}{lrrl}~n~a~n\\end{array}$$"
+        (format "\\mbox{\\textit{term}} & e & \\bnfdef & (e1 e2) \\bnfalt (lambda (x) e)\\\\~n"))
+      (output-latex-bnf #'(x)
+                    #'((term (e) ::= (e1 e2) (lambda (x) e)))))
+    (check-equal?
+      (format "$$\\begin{array}{lrrl}~n~a~n\\end{array}$$"
+        (format "\\mbox{\\textit{type}} & A,B,C & \\bnfdef & unit \\bnfalt (* A B) \\bnfalt (+ A C)\\\\~n"))
+      (output-latex-bnf #'(x)
+                    #'((type (A B C) ::= unit (* A B) (+ A C)))))))
 ;; TODO: For better error messages, add context, rename some of these patterns. e.g.
 ;;    (type (meta-vars) ::= ?? )
+;; TODO: Extend define-language with syntax such as ....
+;;   (term (e) ::= (e1 e2) ((lambda (x) e)
+;                           #:latex "(\\lambda ,x. ,e)"))
 (define-syntax (define-language syn)
   (syntax-parse syn
     [(_ name:id (~do (lang-name #'name))
@@ -137,8 +215,17 @@
            (~do (nts (for/fold ([ht (nts)])
                                ([v (syntax->datum #'(x* ...))])
                        (hash-set ht v (hash-ref ht 'var)))))))
+        (~optional (~seq #:output-coq coq-file:str))
+        (~optional (~seq #:output-latex latex-file:str))
         . clause*:nt-clauses)
-     #`(begin . clause*.defs)]))
+     (let ([output #`(begin . clause*.defs)])
+       (when (attribute latex-file)
+         (generate-latex-bnf (syntax->datum #'latex-file) #'vars #'clause*))
+       #`(begin
+           #,@(if (attribute coq-file)
+                 #`((generate-coq #:file coq-file #:exists 'append #,output))
+                 #'())
+           #,output))]))
 
 (data var : Type (avar : (-> nat var)))
 
@@ -171,11 +258,16 @@
         (string-replace str (symbol->string (first p))
                         (symbol->string (second p))))))
   (define (output-coq syn)
-    (syntax-parse (cur-expand syn #'define #'define-theorem #'qed)
+    (syntax-parse (cur-expand syn #'define #'define-theorem #'qed
+                              #'begin)
        ;; TODO: Need to add these to a literal set and export it
        ;; Or, maybe overwrite syntax-parse
        #:literals (lambda forall data real-app case define-theorem
-                          define qed)
+                          define qed begin)
+       [(begin e ...)
+        (for/fold ([str ""])
+                  ([e (syntax->list #'(e ...))])
+          (format "~a~n" (output-coq e)))]
        [(define-theorem name prop)
         (begin
           (fprintf (current-error-port) "Warning: If theorem ~a is not followed by a proof using (qed ...), the resulting Coq code may be malformed.~n" (output-coq #'name))
@@ -249,24 +341,27 @@
 
 (define-syntax (generate-coq syn)
   (syntax-parse syn
-    [(_ (~optional (~seq #:file file)) body:expr)
+    [(_ (~optional (~seq #:file file))
+        (~optional (~seq #:exists flag)) body:expr)
      (parameterize ([current-output-port (if (attribute file)
                                              (open-output-file (syntax->datum #'file)
-                                                               #:exists 'replace)
+                                                               #:exists
+                                                               (if (attribute flag)
+                                                                   ;; TODO: AHH WHAT?
+                                                                   (eval (syntax->datum #'flag))
+                                                                   'error))
                                              (current-output-port))]
                     [coq-defns ""])
-       (define body
+       (define output
          (let ([body (output-coq #'body)])
-           (if (equal? body "")
+           (if (regexp-match "^\\s*$" body)
                ""
                (format "Eval compute in ~a." body))))
-       (displayln (format "~a~a" (coq-defns) body))
+       (displayln (format "~a~a" (coq-defns) output))
        #'(begin))]))
 
 (module+ test
-  (require "stdlib/sugar.rkt")
   (begin-for-syntax
-    (require rackunit)
     (check-equal?
       (parameterize ([coq-defns ""]) (output-coq #'(data nat : Type (z : nat))) (coq-defns))
       (format "Inductive nat : Type :=~n| z : nat.~n"))
@@ -275,9 +370,9 @@
       (output-coq #'(-> Type Type)))
     (let ([t (parameterize ([coq-defns ""])
                (output-coq #'(define-relation (meow gamma term type)
-                                             [(g : gamma) (e : term) (t : type)
-                                                          --------------- T-Bla
-                                                          (meow g e t)]))
+                               [(g : gamma) (e : term) (t : type)
+                                --------------- T-Bla
+                                (meow g e t)]))
                (coq-defns))])
       (check-regexp-match
         "Inductive meow : \\(forall temp. : gamma, \\(forall temp. : term, \\(forall temp. : type, Type\\)\\)\\) :="

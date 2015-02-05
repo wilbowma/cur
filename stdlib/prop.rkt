@@ -9,7 +9,7 @@
   not
   and
   conj
-  thm:any-is-symmetric proof:and-is-symmetric
+  thm:and-is-symmetric proof:and-is-symmetric
   thm:proj1 proof:proj1
   thm:proj2 proof:proj2
   == refl)

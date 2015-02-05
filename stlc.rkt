@@ -1,9 +1,11 @@
 #lang s-exp "redex-curnel.rkt"
 (require racket/trace "stdlib/nat.rkt" "stdlib/sugar.rkt" "oll.rkt"
-         "stdlib/maybe.rkt")
+         "stdlib/maybe.rkt" "stdlib/bool.rkt" "stdlib/prop.rkt")
 
 (define-language stlc
   #:vars (x)
+  #:output-coq "stlc.v"
+  #:output-latex "stlc.tex"
   (val  (v)   ::= true false unit)
   ;; TODO: Allow datum as terminals
   (type (A B) ::= boolty unitty (-> A B) (* A A))
@@ -78,16 +80,18 @@
   (emp-gamma : gamma)
   (ext-gamma : (->* gamma var stlc-type gamma)))
 
-(define-rec (lookup-gamma (g : gamma) (x : var) : (maybe type))
+(define-rec (lookup-gamma (g : gamma) (x : var) : (maybe stlc-type))
   (case* g
-    [emp-gamma (none type)]
-    [(ext-gamma (g1 : gamma) (v1 : var) (t1 : type))
+    [emp-gamma (none stlc-type)]
+    [(ext-gamma (g1 : gamma) (v1 : var) (t1 : stlc-type))
      (if (var-equal? v1 x)
-         (some type t1)
+         (some stlc-type t1)
          (lookup-gamma g1 x))]))
 
 
 (define-relation (has-type gamma stlc-term stlc-type)
+  #:output-coq "stlc.v"
+  #:output-latex "stlc.tex"
   [(g : gamma)
    ------------------------ T-Unit
    (has-type g (stlc-val-->-stlc-term stlc-unit) stlc-unitty)]
