@@ -49,8 +49,12 @@
     [(_ e1 e2 e3 ...)
      #'(#%app (#%app e1 e2) e3 ...)]))
 
-(define-syntax-rule (define-type (name (a : t) ...) body)
-  (define name (forall* (a : t) ... body)))
+(define-syntax define-type
+  (syntax-rules ()
+    [(_ (name (a : t) ...) body)
+     (define name (forall* (a : t) ... body))]
+    [(_ name type)
+     (define name type)]))
 
 (define-syntax (define syn)
   (syntax-case syn ()
