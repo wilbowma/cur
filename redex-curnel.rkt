@@ -22,7 +22,7 @@
     (x ::= variable-not-otherwise-mentioned)
     ;; TODO: Having 2 binders is stupid.
     (v ::= (Π (x : t) t) (μ (x : t) t) (λ (x : t) t) x U)
-    (t e ::= (case e (x e) ...) v (t t)))
+    (t e ::= v (t t)))
 
   (define x? (redex-match? cicL x))
   (define t? (redex-match? cicL t))
@@ -55,6 +55,8 @@
     #:mode (unv-ok I O)
     #:contract (unv-ok U U)
 
+    ;; TODO: Type should be an alias for (Unv 0) I think, instead of a
+    ;; built-in thing, and defined via a macro.
     [-----------------
      (unv-ok Type (Unv 0))]
 
@@ -104,10 +106,7 @@
     [(subst (Π (x_0 : t_0) t_1) x t) (Π (x_0 : (subst t_0 x t)) (subst t_1 x t)) ]
     [(subst (λ (x_0 : t_0) t_1) x t) (λ (x_0 : (subst t_0 x t)) (subst t_1 x t))]
     [(subst (μ (x_0 : t_0) t_1) x t) (μ (x_0 : (subst t_0 x t)) (subst t_1 x t))]
-    [(subst (e_0 e_1) x t) ((subst e_0 x t) (subst e_1 x t))]
-    [(subst (case e (x_0 e_0) ...) x t)
-     (case (subst e x t)
-       (x_0 (subst e_0 x t)) ...)])
+    [(subst (e_0 e_1) x t) ((subst e_0 x t) (subst e_1 x t))])
   (module+ test
     (check-equal?
       (term (Π (a : S) (Π (b : B) ((and S) B))))
@@ -122,23 +121,7 @@
      (subst-all (subst t x_0 e_0) (x ...) (e ...))])
 
   (define-extended-language cic-redL cicL
-    (E hole (E t) (case E (x e) ...)))
-
-  (define-metafunction cicL
-    inductive-name : t -> x or #f
-    [(inductive-name x) x]
-    [(inductive-name (t_1 t_2)) (inductive-name t_1)]
-    [(inductive-name t) #f])
-  (module+ test
-    (check-equal?
-      (term and)
-      (term (inductive-name ((and A) B)))))
-
-  (define-metafunction cicL
-    inductive-apply : t t -> t
-    [(inductive-apply e x) e]
-    [(inductive-apply e (e_1 e_2))
-     ((inductive-apply e e_1) e_2)])
+    (E hole (E t)))
 
   ;; TODO: Congruence-closure instead of β
   (define ==β
@@ -149,10 +132,6 @@
            (subst e_0 x e_1))
       (==> ((μ (x : t) e_0) e_1)
            ((subst e_0 x (μ (x : t) e_0)) e_1))
-      (==> (case e_9
-             (x_0 e_0) ... (x e) (x_r e_r) ...)
-           (inductive-apply e e_9)
-           (where x (inductive-name e_9)))
       with
       [(--> (in-hole E t_0) (in-hole E t_1))
        (==> t_0 t_1)]))
@@ -169,6 +148,7 @@
                   (term (Π (x : t) Type)))
     (check-equal? (term (reduce (Π (x : t) ((Π (x_0 : t) x_0) x))))
                   (term (Π (x : t) x)))
+    ;; TODO: Change uses of case to uses of elim-nat
     (check-equal? (term (reduce (case (s z) (z (s z)) (s (λ (x : nat)
                                                             (s (s x)))))))
                   (term (s (s z))))
@@ -180,18 +160,45 @@
   ;; http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
 
   (define-extended-language cic-typingL cicL
-    (Σ Γ ::= ∅ (Γ x : t)))
+    (Γ ::= ∅ (Γ x : t))
+    ;; Σ is a signature (list) of inductively defined data with it's
+    ;; constructors, and eliminator.
+    ;; (inductive-name : type ((constr : t) ...) (elim- : t))
+    (Σ ::= ∅ (Σ (x : t ((x : t) ...) (x : t)))))
 
   (define Σ? (redex-match? cic-typingL Σ))
   (define Γ? (redex-match? cic-typingL Γ))
   (module+ test
     ;; TODO: Rename these signatures, and use them in all future tests.
-    (define Σ (term (((∅ nat : Type) zero : nat) s : (Π (x : nat) nat))))
+    ;; TODO: Convert these to new Σ format
+    (define Σ (term (∅ (nat : Type ((zero : nat) (s : (Π (x : nat) nat)))
+                          (elim-nat : (Π (P : (Π (n : nat) (Unv i)))
+                                         (Π (mz : (P zero))
+                                            (Π (ms : (Π (n : nat) (Π (p : (P n)) (P (s n)))))
+                                               (Π (n : nat) (P n))))))))))
+    (define ((elim-nat )))
 
     (define Σ0 (term ∅))
-    (define Σ2 (term (((∅ nat : Type) z : nat) s : (Π (x : nat) nat))))
-    (define Σ3 (term (∅ and : (Π (A : Type) (Π (B : Type) Type)))))
-    (define Σ4 (term (,Σ3 conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) ((and A) B))))))))
+    (define Σ2 Σ)
+    (define Σ3 (term (∅ (and : (Π (A : Type) (Π (B : Type) Type)) ()
+                               (elim-and : (Π (A : Type) (Π (B : Type)
+                                                                (Π (P : (Π (p : ((and A) B)) (Unv i)))
+                                                                   (Π (p : ((and A) B))
+                                                                      (P p))))))))))
+    (define Σ4 (term (∅ (and : (Π (A : Type) (Π (B : Type) Type))
+                               ((conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) ((and A) B)))))))
+                               (elim-and : (Π (P : (Π (A : Type) (Π (B : Type) (Π (p : ((and A) B)) (Unv i)))))
+                                              (Π
+                                                (mconj :
+                                                       (Π (A : Type)
+                                                          (Π (B : Type)
+                                                             (Π (a : A)
+                                                                (Π (b : B)
+                                                                   (P A B ((((conj A) B) a) b))))))
+                                                       (Π (A : Type)
+                                                         (Π (B : Type)
+                                                          (Π (p : ((and A) B))
+                                                             (P A B p))))))))))))
 
     (check-true (Σ? Σ0))
     (check-true (Σ? Σ2))
@@ -402,15 +409,6 @@
      ----------------- "DTR-Case"
      (types Σ Γ (case e (x_0 e_0) (x_1 e_1) ...) t)]
 
-    ;; TODO: This shouldn't be a special case, but I failed to forall
-    ;; quantify properly over the branches in the above case, and I'm lazy.
-    ;; TODO: Seem to need bidirectional checking to pull this off
-    #;[(types Σ Γ e t_9)
-     (where t_1 (inductive-name t_9))
-     (side-condition (constructors-for Σ t_1 ()))
-     ----------------- "DTR-Case-Empty"
-     (types Σ Γ (case e) t)]
-
     ;; TODO: beta-equiv
     ;; This rule is no good for algorithmic checking; Redex infinitly
     ;; searches it.
@@ -461,6 +459,7 @@
                              ∅
                              Type
                              (Unv 0))))
+    ;; TODO: Change uses of case to uses of elim-
     (check-true
       (judgment-holds (types ((∅ truth : Type) T : truth)
                              ∅
@@ -643,13 +642,10 @@
       [dep-lambda λ]
       [dep-app #%app]
 
-      [dep-fix fix]
-
       [dep-forall forall]
       [dep-forall ∀]
 
       [dep-inductive data]
-      [dep-case case]
 
       [dep-var #%top]
 ;      [dep-datum #%datum]
@@ -744,7 +740,7 @@
         (if (identifier? syn)
             syn
             (local-expand syn 'expression
-              (append (syntax-e #'(term reduce subst-all dep-var #%app λ Π μ case
+              (append (syntax-e #'(term reduce subst-all dep-var #%app λ Π
                                    Type)))))))
 
     ;; Only type-check at the top-level, to prevent exponential
@@ -761,7 +757,7 @@
           (let cur->datum ([syn syn])
             (syntax-parse (core-expand syn)
               #:literals (term reduce #%app subst-all)
-              #:datum-literals (case Π λ μ : Type)
+              #:datum-literals (Π λ : Type)
               [x:id (syntax->datum #'x)]
               [(subst-all e _ _) (syntax->datum #'e)]
               [(reduce e) (cur->datum #'e)]
@@ -775,11 +771,6 @@
                       [e (parameterize ([gamma (extend-env/term gamma x t)])
                            (cur->datum #'e))])
                  (term (,(syntax->datum #'b) (,x : ,t) ,e)))]
-              [(case e (ec eb) ...)
-               (term (case ,(cur->datum #'e)
-                           ,@(map (lambda (c b) `(,c ,(cur->datum b)))
-                                  (syntax->datum #'(ec ...))
-                                  (syntax->list #'(eb ...)))))]
               [(#%app e1 e2)
                (term (,(cur->datum #'e1) ,(cur->datum #'e2)))]))))
       (unless (and inner-expand? (type-infer/term reified-term))
@@ -810,8 +801,8 @@
     ;; identifiers in ls.
     (define (cur-expand syn . ls)
       (disarm (local-expand syn 'expression
-                (append (syntax-e #'(Type dep-inductive dep-case dep-lambda dep-app
-                                   dep-fix dep-forall dep-var))
+                (append (syntax-e #'(Type dep-inductive dep-lambda dep-app
+                                   dep-forall dep-var))
                         ls)))))
 
     (define-syntax (run syn)
@@ -976,17 +967,9 @@
     (syntax-case syn ()
       [(_ e1 e2) (syntax->curnel-syntax #`(#%app e1 e2))]))
 
-  (define-syntax (dep-case syn)
-    (syntax-case syn ()
-      [(_ e ...) (syntax->curnel-syntax #`(case e ...))]))
-
   (define-syntax (dep-forall syn)
     (syntax-case syn (:)
       [(_ (x : t) e) (syntax->curnel-syntax #`(Π (x : t) e))]))
-
-  (define-syntax (dep-fix syn)
-   (syntax-case syn (:)
-     [(_ (x : t) e) (syntax->curnel-syntax #`(μ (x : t) e))]))
 
   (define-syntax (dep-inductive syn)
     (syntax-case syn (:)
