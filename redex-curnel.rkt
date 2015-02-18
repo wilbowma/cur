@@ -176,7 +176,22 @@
                                          (Π (mz : (P zero))
                                             (Π (ms : (Π (n : nat) (Π (p : (P n)) (P (s n)))))
                                                (Π (n : nat) (P n))))))))))
-    (define ((elim-nat )))
+    ;; To implement elim-nat, I need case and fix:
+    #;(define elim-nat (P : ...) (mz : ...) (ms : ...) 
+      (fix (f : (n : nat) -> (P n))
+      (case n
+        zero mz
+        s (λ (u : nat) (ms u (f u))))))
+    ;; OR, I need some kind of extensible semantics so I can create a
+    ;; new patterns ala:
+    ;; ((((elim-nat t) e_1) e_2) z) => e_1
+    ;; ((((elim-nat t) e_1) e_2) (s n)) => ((e2 n) ((((elim-nat t) e_1) e_2) n))
+    ;; Whichhh I might be able to do via meta-functions, in Redex.
+    ;;
+    ;; Regardless, to perform the schema transformation correctly,
+    ;; single-arity function are becoming a burden. Perhaps I need a
+    ;; new abstraction ... Telescopes?
+
 
     (define Σ0 (term ∅))
     (define Σ2 Σ)
