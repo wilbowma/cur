@@ -47,7 +47,7 @@
     (check-true (t? (term (λ (x_0 : (Unv 0)) x_0)))))
 
   ;; 'A'
-  ;; Universes
+  ;; (Unv 0)s of Universes
   ;; Replace with sub-typing
   (define-judgment-form cicL
     #:mode (unv-ok I O)

@@ -54,10 +54,11 @@
           (with-output-to-file (syntax->datum #'latex-file)
             (thunk
               (format "\\fbox{$~a$}$~n$\\begin{mathpar}~n~a~n\end{mathpar}$$"
+                      (syntax->datum #'(n types* ...))
                       (string-trim
                         (for/fold ([str ""])
-                                  ([rule (syntax->datum #'(rules.latex ...))])
-                          (format "~a~a\\and~n" rule))
+                                  ([rule (attribute rules.latex)])
+                          (format "~a~a\\and~n" str rule))
                         "\\and"
                         #:left? #f)))
             #:exists 'append))
@@ -311,7 +312,7 @@
         (begin
           (coq-lift-top-level
             (format "Inductive ~a : ~a :=~a."
-                   (syntax-e #'n)
+                   (sanitize-id (format "~a" (syntax-e #'n)))
                    (output-coq #'t)
                    (for/fold ([strs ""])
                              ([clause (syntax->list #'((x* : t*) ...))])
