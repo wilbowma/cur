@@ -405,6 +405,7 @@
     ;; TODO: This shouldn't be a special case, but I failed to forall
     ;; quantify properly over the branches in the above case, and I'm lazy.
     ;; TODO: Seem to need bidirectional checking to pull this off
+    ;; http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
     #;[(types Σ Γ e t_9)
      (where t_1 (inductive-name t_9))
      (side-condition (constructors-for Σ t_1 ()))
@@ -556,54 +557,7 @@
     (check-true
       (judgment-holds (types ,sigma (,gamma tmp863 : pre) Type (Unv 0))))
     (check-true
-      (judgment-holds (types ,sigma (,gamma x : false) (case x) t)))
-    )
-
-
-  (define-judgment-form cic-typingL
-    #:mode (type-check I I I)
-    #:contract (type-check Γ e t)
-
-    [(types Σ ∅ e t)
-     ---------------
-     (type-check Σ e (reduce t))])
-
-  ;; Infer-core Language
-  ;; A relaxed core where annotation are optional.
-  (define-extended-language cic-surfaceL cicL
-    (v ::= .... (λ x e) (Π t e))
-    (t e ::= .... (data x (x : t) (x : t) ...) (case e ([e e] ...)) (e : t)))
-
-  ;; http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
-  #;(define-judgment-form cic-typingL
-    #:mode (synth I I O)
-    #:contract (synth Γ t t)
-
-    [(unv-ok U_0 U_1)
-     ----------------- "DTR-SAxiom"
-     (synth ∅ U_0 U_1)]
-
-    [(where t (lookup Γ x))
-     (synth (remove Γ x) t U)
-     ----------------- "DTR-SStart"
-     (synth Γ x t)]
-
-    [(synth Γ t t_1) (synth Γ t_0 U)
-     ----------------- "DTR-SWeakening"
-     (synth (Γ x : t_0) t t_1)]
-
-    [(check (Γ x : t_0) e t_1)
-     ----------------- "DTR-SAbstraction"
-     (check Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
-
-    [(synth Γ e_0 (Π (x : t_0) t_1))
-     (check Γ e_1 t_0)
-     ----------------- "DTR-SApplication"
-     (synth Γ (e_0 e_1) (subst t_1 x e_1))]
-
-    [(check Γ e t)
-     ----------------- "DTR-SAnnotate"
-     (synth Γ (e : t) t)]) )
+      (judgment-holds (types ,sigma (,gamma x : false) (case x) t)))))
 
 ;; This module just provide module language sugar over the redex model.
 
