@@ -263,7 +263,7 @@
        ;; TODO: Need to add these to a literal set and export it
        ;; Or, maybe overwrite syntax-parse
        #:literals (lambda forall data real-app case define-theorem
-                          define qed begin)
+                          define qed begin Type)
        [(begin e ...)
         (for/fold ([str ""])
                   ([e (syntax->list #'(e ...))])
@@ -320,6 +320,7 @@
                         (format "~a~n| ~a : ~a" strs (syntax-e #'x)
                           (output-coq #'t))]))))
           "")]
+       [(Type i) "Type"]
        [(case e (ec eb) ...)
         (format "(match ~a with~n~aend)"
                 (output-coq #'e)
