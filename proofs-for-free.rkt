@@ -1,5 +1,6 @@
 #lang s-exp "redex-curnel.rkt"
-(require "stdlib/sugar.rkt" "stdlib/prop.rkt")
+(require "stdlib/sugar.rkt" "stdlib/prop.rkt" racket/trace 
+         (for-syntax racket/syntax))
 
 ;; ---------
 (begin-for-syntax
@@ -7,40 +8,42 @@
     (format-id x "~a~a" x i)))
 
 (define-syntax (rename syn)
-  (syntax-case syn (Type forall Unv lambda :)
-    [(_ i ls Type) #'Type]
-    [(_ i ls (Unv n)) #'(Unv n)]
-    [(_ i (xr ...) (lambda (x : t) e))
-     #'(lambda (x : (rename i (xr ...) t))
-         (rename i (xr ... x) e))]
-    [(_ i (xr ...) (forall (x : t) e))
-     #'(forall (x : (rename i (xr ...) t))
-               (rename i (xr ... x) e))]
-    [(_ i ls (e1 e2))
-     #'((rename i ls e1) (rename i ls e2))]
-    [(_ i ls x)
-     (if (member (syntax->datum #'x) (syntax->datum #'ls))
-       #'x
-       (rename_id (syntax->datum #'i) #'x))]))
+  (syntax-case syn ()
+    [(_ i ls e)
+    (syntax-case #`(ls #,(cur-expand #'e)) (Type forall Unv lambda :)
+     [(_ Type) #'Type]
+     [(_ (Unv n)) #'(Unv n)]
+     [((xr ...) (lambda (x : t) e))
+      #'(lambda (x : (rename i (xr ...) t))
+                (rename i (xr ... x) e))]
+     [((xr ...) (forall (x : t) e))
+      #'(forall (x : (rename i (xr ...) t))
+                (rename i (xr ... x) e))]
+     [(ls (e1 e2))
+      #'((rename i ls e1) (rename i ls e2))]
+     [(ls x)
+      (if (member (syntax->datum #'x) (syntax->datum #'ls))
+          #'x
+          (rename_id (syntax->datum #'i) #'x))])]))
 
-(define-syntax (translate syn)
-  (syntax-parse (cur-expand syn)
+(trace-define-syntax (translate syn)
+  (syntax-parse (cur-expand (syntax-case syn () [(_ e) #'e]))
     ;; TODO: Need to add these to a literal set and export it
     ;; Or, maybe redefine syntax-parse
     #:datum-literals (:)
     #:literals (lambda forall data real-app case Type)
-    [(_ Type)
+    [Type
      #'(lambda* (x1 : Type) (x2 : Type) (->* x1 x2 Type))]
-    [(_ (forall (x : A) B))
+    [(forall (x : A) B)
      (let ([x1 (rename_id 1 #'x)]
            [x2 (rename_id 2 #'x)]
            [xr (rename_id 'r #'x)])
        #`(lambda* (f1 : (rename 1 () (forall (x : A) B)))
                   (f2 : (rename 2 () (forall (x : A) B)))
                   (forall* (#,x1 : (rename 1 () A)) (#,x2 : (rename 2 () A))
-                           (#,xr : ((translate A) #,x1 #,x2))
+                           (#,xr : (run ((translate A) #,x1 #,x2)))
                            ((translate B) (f1 #,x1) (f2 #,x2)))))]
-    [(_ (lambda (x : A) B))
+    [(lambda (x : A) B)
      (let ([x1 (rename_id 1 #'x)]
            [x2 (rename_id 2 #'x)]
            [xr (rename_id 'r #'x)])
@@ -48,15 +51,15 @@
                   (f2 : (rename 2 () (forall (x : A) B)))
                  (forall* (#,x1 : (rename 1 () A))
                           (#,x2 : (rename 2 () A))
-                          (#,xr : ((translate A) #,x1 #,x2))
+                          (#,xr : (run ((translate A) #,x1 #,x2)))
                           ((translate B) (f1 #,x1) (f2 #,x2)))))]
-    [(_ (data id : t (c : tc) ...))
+    [(data id : t (c : tc) ...)
      (let ([t #`(data #,(rename_id 'r #'id) : (translate t)
                      ((translate c) : (translate tc)) ...)])
        t)]
-    [(_ (f a))
+    [(f a)
      #`((translate f) (rename 1 () a) (rename 2 () a) (translate a))]
-    [(_ x)
+    [x:id
      ;; TODO: Look up x and generate the relation. Otherwise I need to
      ;; manually translate all dependencies.
      ;; Not sure this is quite right; Racket's hygiene might `save' me.
@@ -66,15 +69,16 @@
 (define-type X Type)
 (define X1 X)
 (define X2 X)
-(define (Xr (x1 : X) (x2 : X)) true)
+(define (Xr (x1 : X1) (x2 : X2)) true)
 
 ;; The type of a CPS function
 (define-type CPSf (forall* (ans : Type) (k : (-> X ans)) ans))
 
 (define (CPSf-relation (f1 : CPSf) (f2 : CPSf))
-  ;; Run performs substitution, among other things, at compile.
-  (translate (run CPSf)))
-(module+ test
+  ;; TODO: Fix run so I can simply use (run CPSf) to perform
+  ;; substitution
+  (translate (forall* (ans : Type) (k : (-> X ans)) ans)))
+#;(module+ test
   (require rackunit)
   (check-equal?
     (translate (forall* (ans : Type) (k : (-> X ans)) ans))

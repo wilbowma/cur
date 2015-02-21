@@ -18,9 +18,7 @@
 
 (define-syntax (-> syn)
   (syntax-case syn ()
-    [(_ t1 t2)
-     (with-syntax ([(x) (generate-temporaries '(1))])
-       #`(forall (x : t1) t2))]))
+    [(_ t1 t2) #`(forall (#,(gensym) : t1) t2)]))
 
 (define-syntax ->*
   (syntax-rules ()

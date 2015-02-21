@@ -9,6 +9,8 @@
   (provide
     (all-defined-out))
 
+  (set-cache-size! 10000)
+
   ;; References:
   ;; http://www3.di.uminho.pt/~mjf/pub/SFV-CIC-2up.pdf
   ;; https://www.cs.uoregon.edu/research/summerschool/summer11/lectures/oplss-herbelin1.pdf
@@ -358,6 +360,7 @@
      ----------------- "DTR-Inductive"
      (types Σ Γ x t)]
 
+    ;; TODO: Require alpha-equiv here, at least.
     [(where t (lookup Γ x))
      ----------------- "DTR-Start"
      (types Σ Γ x t)]
@@ -412,12 +415,12 @@
     ;; searches it.
     ;; Perhaps something closer to Zombies = type would be better.
     ;; For now, reduce types
-    #;[(types Γ e (in-hole E t))
+    #;[(types Σ Γ e (in-hole E t))
      (where t_0 (in-hole E t))
      (where t_1 ,(car (apply-reduction-relation* ==β (term t_0))))
-     (types Γ t_1 U)
+     (types Σ Γ t_1 U)
      ----------------- "DTR-Conversion"
-     (types Γ e t_1)])
+     (types Σ Γ e t_1)])
   (module+ test
     (check-true (judgment-holds (types ∅ ∅ (Unv 0) (Unv 1))))
     (check-true (judgment-holds (types ∅ (∅ x : (Unv 0)) (Unv 0) (Unv 1))))
@@ -693,8 +696,8 @@
     (define (core-expand syn)
       (disarm
         (local-expand syn 'expression
-              (append (syntax-e #'(term reduce subst-all dep-var #%app λ Π μ case
-                                   Unv #%datum))))))
+          (append (syntax-e #'(term reduce subst-all dep-var #%app λ Π μ case
+                               Unv #%datum))))))
 
     ;; Only type-check at the top-level, to prevent exponential
     ;; type-checking. Redex is expensive enough.
@@ -764,6 +767,8 @@
                                    dep-fix dep-forall dep-var))
                         ls)))))
 
+    ;; TODO: OOps, run doesn't return a cur term but a redex term
+    ;; wrapped in syntax bla. This is bad.
     (define-syntax (run syn)
       (syntax-case syn ()
         [(_ expr) (normalize/syn #'expr)]))
