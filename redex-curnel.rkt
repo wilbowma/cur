@@ -177,7 +177,7 @@
                                             (Π (ms : (Π (n : nat) (Π (p : (P n)) (P (s n)))))
                                                (Π (n : nat) (P n))))))))))
     ;; To implement elim-nat, I need case and fix:
-    #;(define elim-nat (P : ...) (mz : ...) (ms : ...) 
+    #;(define elim-nat (P : ...) (mz : ...) (ms : ...)
       (fix (f : (n : nat) -> (P n))
       (case n
         zero mz
@@ -192,6 +192,26 @@
     ;; single-arity function are becoming a burden. Perhaps I need a
     ;; new abstraction ... Telescopes?
 
+    ;; elim-nat (t : nat) (P : ...) (mz : (P zero)) (ms : (n : nat) -> P n -> P (suc n))
+    ;; (elim-nat t) => (m_i Ψ)
+    ;; (where (_ ... (m_i t) _ ...)
+    ;;        ((mz z) (ms s)))
+    ;; (where (_ ... (m_i : (Ψ -> P t)) _ ...)
+    ;;        ((mz : (P zero))
+    ;;         (ms : (... -> P (suc n)))))
+
+    ;; (Telescope) Ψ ::= hole (Π (x : t) Ψ)
+    ;; 
+    ;; elim-D : (x : D) (P : (in-hole Ψ U)) (m_i : t_i) ... (P x)
+    ;; (fresh x P m_i)
+    ;; (where (c_i ...) (constructors-for D))
+    ;; (where ((Δ_i ...)) ())
+    ;; (where (t_i ...)
+    ;;   (-> (x )))
+
+    ;; ... trying to do this amounts to trying to give a single type and
+    ;; rule to elim-D, which is basically the same thing as case. So
+    ;; might as well just use case?
 
     (define Σ0 (term ∅))
     (define Σ2 Σ)
