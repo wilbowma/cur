@@ -54,10 +54,11 @@
           (with-output-to-file (syntax->datum #'latex-file)
             (thunk
               (format "\\fbox{$~a$}$~n$\\begin{mathpar}~n~a~n\end{mathpar}$$"
+                      (syntax->datum #'(n types* ...))
                       (string-trim
                         (for/fold ([str ""])
-                                  ([rule (syntax->datum #'(rules.latex ...))])
-                          (format "~a~a\\and~n" rule))
+                                  ([rule (attribute rules.latex)])
+                          (format "~a~a\\and~n" str rule))
                         "\\and"
                         #:left? #f)))
             #:exists 'append))
@@ -263,7 +264,7 @@
        ;; TODO: Need to add these to a literal set and export it
        ;; Or, maybe overwrite syntax-parse
        #:literals (lambda forall data real-app case define-theorem
-                          define qed begin)
+                          define qed begin Type)
        [(begin e ...)
         (for/fold ([str ""])
                   ([e (syntax->list #'(e ...))])
@@ -311,7 +312,7 @@
         (begin
           (coq-lift-top-level
             (format "Inductive ~a : ~a :=~a."
-                   (syntax-e #'n)
+                   (sanitize-id (format "~a" (syntax-e #'n)))
                    (output-coq #'t)
                    (for/fold ([strs ""])
                              ([clause (syntax->list #'((x* : t*) ...))])
@@ -320,6 +321,7 @@
                         (format "~a~n| ~a : ~a" strs (syntax-e #'x)
                           (output-coq #'t))]))))
           "")]
+       [(Type i) "Type"]
        [(case e (ec eb) ...)
         (format "(match ~a with~n~aend)"
                 (output-coq #'e)

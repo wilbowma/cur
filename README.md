@@ -16,7 +16,8 @@ cur (plural curs)
 Getting started
 ===============
 
-Don't actually try to run anything. The type-checker may be exponential,
+Requires redex-lib version 1.6 if you want answer in a reasonable amount
+of time. Otherwise, the type-checker may require exponential time
 or worse.
 
 Open up `stlc.rkt` to see an example of what advanced meta-programming can let you do.

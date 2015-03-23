@@ -15,16 +15,15 @@
 ;; TODO: Abstract this over stlc-type, and provide from in OLL
 (data gamma : Type
   (emp-gamma : gamma)
-  (ext-gamma : (->* gamma var stlc-type gamma)))
+  (extend-gamma : (->* gamma var stlc-type gamma)))
 
 (define-rec (lookup-gamma (g : gamma) (x : var) : (maybe stlc-type))
   (case* g
     [emp-gamma (none stlc-type)]
-    [(ext-gamma (g1 : gamma) (v1 : var) (t1 : stlc-type))
+    [(extend-gamma (g1 : gamma) (v1 : var) (t1 : stlc-type))
      (if (var-equal? v1 x)
          (some stlc-type t1)
          (lookup-gamma g1 x))]))
-
 
 (define-relation (has-type gamma stlc-term stlc-type)
   #:output-coq "stlc.v"
@@ -41,7 +40,7 @@
    ------------------------ T-False
    (has-type g (stlc-val-->-stlc-term stlc-false) stlc-boolty)]
 
-  [(g : gamma) (x : var) (t : style-type)
+  [(g : gamma) (x : var) (t : stlc-type)
    (== (maybe stlc-type) (lookup-gamma g x) (some stlc-type t))
    ------------------------ T-Var
    (has-type g (var-->-stlc-term x) t)]
@@ -55,9 +54,11 @@
 
   [(g : gamma) (e1 : stlc-term) (e2 : stlc-term)
                (t1 : stlc-type) (t2 : stlc-type)
+               (t : stlc-type)
+               (x : var) (y : var)
    (has-type g e1 (stlc-* t1 t2))
-   (has-type (extend-gamma (extend-gamma g x t1) t y2) e2 t)
-   ---------------------- T-Pair
+   (has-type (extend-gamma (extend-gamma g x t1) y t2) e2 t)
+   ---------------------- T-Let
    (has-type g (stlc-let x y e1 e2) t)]
 
   [(g : gamma) (e1 : stlc-term) (t1 : stlc-type) (t2 : stlc-type) (x : var)

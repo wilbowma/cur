@@ -9,6 +9,8 @@
   (provide
     (all-defined-out))
 
+  (set-cache-size! 10000)
+
   ;; References:
   ;; http://www3.di.uminho.pt/~mjf/pub/SFV-CIC-2up.pdf
   ;; https://www.cs.uoregon.edu/research/summerschool/summer11/lectures/oplss-herbelin1.pdf
@@ -18,7 +20,7 @@
   ;; -> for non-dependent function types, and type inference.
   (define-language cicL
     (i ::= natural)
-    (U ::= Type (Unv i))
+    (U ::= (Unv i))
     (x ::= variable-not-otherwise-mentioned)
     ;; TODO: Having 2 binders is stupid.
     (v ::= (Π (x : t) t) (μ (x : t) t) (λ (x : t) t) x U)
@@ -38,10 +40,8 @@
     (check-true (x? (term s)))
     (check-true (t? (term zero)))
     (check-true (t? (term s)))
-    (check-true (t? (term Type)))
     (check-true (x? (term nat)))
     (check-true (t? (term nat)))
-    (check-true (U? (term Type)))
     (check-true (U? (term (Unv 0))))
     (check-true (e? (term (λ (x_0 : (Unv 0)) x_0))))
     (check-true (v? (term (λ (x_0 : (Unv 0)) x_0))))
@@ -49,16 +49,11 @@
     (check-true (t? (term (λ (x_0 : (Unv 0)) x_0)))))
 
   ;; 'A'
-  ;; Types of Universes
+  ;; (Unv 0)s of Universes
   ;; Replace with sub-typing
   (define-judgment-form cicL
     #:mode (unv-ok I O)
     #:contract (unv-ok U U)
-
-    ;; TODO: Type should be an alias for (Unv 0) I think, instead of a
-    ;; built-in thing, and defined via a macro.
-    [-----------------
-     (unv-ok Type (Unv 0))]
 
     [(where i_1 ,(add1 (term i_0)))
      -----------------
@@ -71,13 +66,13 @@
     #:contract (unv-kind U U U)
 
     [----------------
-     (unv-kind Type Type Type)]
+     (unv-kind (Unv 0) (Unv 0) (Unv 0))]
 
     [----------------
-     (unv-kind Type (Unv i) (Unv i))]
+     (unv-kind (Unv 0) (Unv i) (Unv i))]
 
     [----------------
-     (unv-kind (Unv i) Type Type)]
+     (unv-kind (Unv i) (Unv 0) (Unv 0))]
 
     [(where i_3 ,(max (term i_1) (term i_2)))
      ----------------
@@ -140,12 +135,12 @@
     reduce : e -> e
     [(reduce e) ,(car (apply-reduction-relation* ==β (term e)))])
   (module+ test
-    (check-equal? (term (reduce Type)) (term Type))
-    (check-equal? (term (reduce ((λ (x : t) x) Type))) (term Type))
-    (check-equal? (term (reduce ((Π (x : t) x) Type))) (term Type))
+    (check-equal? (term (reduce (Unv 0))) (term (Unv 0)))
+    (check-equal? (term (reduce ((λ (x : t) x) (Unv 0)))) (term (Unv 0)))
+    (check-equal? (term (reduce ((Π (x : t) x) (Unv 0)))) (term (Unv 0)))
     ;; NB: Currently not reducing under binders. I forget why.
-    (check-equal? (term (reduce (Π (x : t) ((Π (x_0 : t) x_0) Type))))
-                  (term (Π (x : t) Type)))
+    (check-equal? (term (reduce (Π (x : t) ((Π (x_0 : t) x_0) (Unv 0)))))
+                  (term (Π (x : t) (Unv 0))))
     (check-equal? (term (reduce (Π (x : t) ((Π (x_0 : t) x_0) x))))
                   (term (Π (x : t) x)))
     ;; TODO: Change uses of case to uses of elim-nat
@@ -171,7 +166,7 @@
   (module+ test
     ;; TODO: Rename these signatures, and use them in all future tests.
     ;; TODO: Convert these to new Σ format
-    (define Σ (term (∅ (nat : Type ((zero : nat) (s : (Π (x : nat) nat)))
+    (define Σ (term (∅ (nat : (Unv 0) ((zero : nat) (s : (Π (x : nat) nat)))
                           (elim-nat : (Π (P : (Π (n : nat) (Unv i)))
                                          (Π (mz : (P zero))
                                             (Π (ms : (Π (n : nat) (Π (p : (P n)) (P (s n)))))
@@ -215,26 +210,25 @@
 
     (define Σ0 (term ∅))
     (define Σ2 Σ)
-    (define Σ3 (term (∅ (and : (Π (A : Type) (Π (B : Type) Type)) ()
-                               (elim-and : (Π (A : Type) (Π (B : Type)
+    (define Σ3 (term (∅ (and : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0))) ()
+                               (elim-and : (Π (A : (Unv 0)) (Π (B : (Unv 0))
                                                                 (Π (P : (Π (p : ((and A) B)) (Unv i)))
                                                                    (Π (p : ((and A) B))
                                                                       (P p))))))))))
-    (define Σ4 (term (∅ (and : (Π (A : Type) (Π (B : Type) Type))
-                               ((conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) ((and A) B)))))))
-                               (elim-and : (Π (P : (Π (A : Type) (Π (B : Type) (Π (p : ((and A) B)) (Unv i)))))
+    (define Σ4 (term (∅ (and : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
+                               ((conj : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Π (a : A) (Π (b : B) ((and A) B)))))))
+                               (elim-and : (Π (P : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Π (p : ((and A) B)) (Unv i)))))
                                               (Π
                                                 (mconj :
-                                                       (Π (A : Type)
-                                                          (Π (B : Type)
+                                                       (Π (A : (Unv 0))
+                                                          (Π (B : (Unv 0))
                                                              (Π (a : A)
                                                                 (Π (b : B)
                                                                    (P A B ((((conj A) B) a) b))))))
-                                                       (Π (A : Type)
-                                                         (Π (B : Type)
+                                                       (Π (A : (Unv 0))
+                                                         (Π (B : (Unv 0))
                                                           (Π (p : ((and A) B))
                                                              (P A B p))))))))))))
-
     (check-true (Σ? Σ0))
     (check-true (Σ? Σ2))
     (check-true (Σ? Σ4))
@@ -284,14 +278,14 @@
      (constructor-for (Σ x_0 : t_0) t_1 x)])
   (module+ test
     (check-true
-      (judgment-holds (constructor-for ((∅ truth : Type) T : truth) truth T)))
+      (judgment-holds (constructor-for ((∅ truth : (Unv 0)) T : truth) truth T)))
     (check-true
       (judgment-holds
-        (constructor-for ((∅ nat : Type) zero : nat)
+        (constructor-for ((∅ nat : (Unv 0)) zero : nat)
                          nat zero)))
     (check set=?
       (judgment-holds
-        (constructor-for (((∅ nat : Type) zero : nat) s : (Π (x : nat) nat))
+        (constructor-for (((∅ nat : (Unv 0)) zero : nat) s : (Π (x : nat) nat))
                          nat x) x)
       (list (term zero) (term s))))
   (define-metafunction cic-typingL
@@ -302,10 +296,10 @@
        (judgment-holds (constructor-for Σ x_0 x_00) x_00))])
   (module+ test
     (check-true
-      (term (constructors-for (((∅ nat : Type) zero : nat) s : (Π (x : nat) nat))
+      (term (constructors-for (((∅ nat : (Unv 0)) zero : nat) s : (Π (x : nat) nat))
                          nat (zero s))))
     (check-false
-      (term (constructors-for (((∅ nat : Type) zero : nat) s : (Π (x : nat) nat))
+      (term (constructors-for (((∅ nat : (Unv 0)) zero : nat) s : (Π (x : nat) nat))
                          nat (zero))))
     (check-true
       (term (constructors-for ,Σ4 and (conj)))))
@@ -317,13 +311,13 @@
     ;[(branch-type t_ind t_ind t) t])
     [(branch-type t_ind t_other t) t])
   (module+ test
-    (check-equal? (term Type) (term (branch-type nat (lookup ,Σ zero) Type)))
+    (check-equal? (term (Unv 0)) (term (branch-type nat (lookup ,Σ zero) (Unv 0))))
     (check-equal? (term nat) (term (branch-type nat nat nat)))
-    (check-equal? (term Type) (term (branch-type nat (lookup ,Σ s) (Π (x : nat) Type))))
+    (check-equal? (term (Unv 0)) (term (branch-type nat (lookup ,Σ s) (Π (x : nat) (Unv 0)))))
     (check-equal?
-      (term Type)
+      (term (Unv 0))
       (term (branch-type and (lookup ,Σ4 conj)
-              (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) Type))))))))
+              (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Π (a : A) (Π (b : B) (Unv 0)))))))))
 
   (define-metafunction cic-typingL
     branch-types-match : Σ (x ...) (t ...) t t -> #t or #f
@@ -331,33 +325,33 @@
      ,(andmap (curry equal? (term t)) (term ((branch-type t_1 (lookup Σ x) t_11) ...)))])
   (module+ test
     (check-true
-      (term (branch-types-match ((∅ truth : Type) T : truth) () () Type nat)))
+      (term (branch-types-match ((∅ truth : (Unv 0)) T : truth) () () (Unv 0) nat)))
     (check-true
-      (term (branch-types-match ,Σ (zero s) (Type (Π (x : nat) Type)) Type nat)))
+      (term (branch-types-match ,Σ (zero s) ((Unv 0) (Π (x : nat) (Unv 0))) (Unv 0) nat)))
     (check-true
       (term (branch-types-match ,Σ (zero s) (nat (Π (x : nat) nat)) nat nat))))
 
   ;; TODO: Add positivity checking.
   (define-metafunction cicL
     positive : t any -> #t or #f
-    ;; Type; not a inductive constructor
+    ;; (Unv 0); not a inductive constructor
     [(positive any_1 any_2) #t])
 
   (module+ test
     (check-true (term (positive nat nat)))
-    (check-true (term (positive (Π (x : Type) (Π (y : Type) Type)) #f)))
+    (check-true (term (positive (Π (x : (Unv 0)) (Π (y : (Unv 0)) (Unv 0))) #f)))
     (check-true (term (positive (Π (x : nat) nat) nat)))
     ;; (nat -> nat) -> nat
     ;; Not sure if this is actually supposed to pass
     (check-false (term (positive (Π (x : (Π (y : nat) nat)) nat) nat)))
-    ;; (Type -> nat) -> nat
-    (check-true (term (positive (Π (x : (Π (y : Type) nat)) nat) nat)))
-    ;; (((nat -> Type) -> nat) -> nat)
-    (check-true (term (positive (Π (x : (Π (y : (Π (x : nat) Type)) nat)) nat) nat)))
+    ;; ((Unv 0) -> nat) -> nat
+    (check-true (term (positive (Π (x : (Π (y : (Unv 0)) nat)) nat) nat)))
+    ;; (((nat -> (Unv 0)) -> nat) -> nat)
+    (check-true (term (positive (Π (x : (Π (y : (Π (x : nat) (Unv 0))) nat)) nat) nat)))
     ;; Not sure if this is actually supposed to pass
     (check-false (term (positive (Π (x : (Π (y : (Π (x : nat) nat)) nat)) nat) nat)))
 
-    (check-true (term (positive Type #f))))
+    (check-true (term (positive (Unv 0) #f))))
 
   (define-judgment-form cic-typingL
     #:mode (wf I I)
@@ -378,19 +372,19 @@
      (wf (Σ x : t) ∅)])
   (module+ test
     (check-true (judgment-holds (wf ∅ ∅)))
-    (check-true (judgment-holds (wf (∅ truth : Type) ∅)))
-    (check-true (judgment-holds (wf ∅ (∅ x : Type))))
-    (check-true (judgment-holds (wf (∅ nat : Type) (∅ x : nat))))
-    (check-true (judgment-holds (wf (∅ nat : Type) (∅ x : (Π (x : nat) nat))))))
+    (check-true (judgment-holds (wf (∅ truth : (Unv 0)) ∅)))
+    (check-true (judgment-holds (wf ∅ (∅ x : (Unv 0)))))
+    (check-true (judgment-holds (wf (∅ nat : (Unv 0)) (∅ x : nat))))
+    (check-true (judgment-holds (wf (∅ nat : (Unv 0)) (∅ x : (Π (x : nat) nat))))))
 
   ;; TODO: Add termination checking
   (define-metafunction cicL
     terminates? : t -> #t or #f
     [(terminates? t) #t])
   (module+ test
-    (check-false (term (terminates? (μ (x : Type) x))))
-    (check-false (term (terminates? (μ (x : Type) (λ (y : Type) (x y))))))
-    (check-true (term (terminates? (μ (x : Type) (λ (y : Type) y))))))
+    (check-false (term (terminates? (μ (x : (Unv 0)) x))))
+    (check-false (term (terminates? (μ (x : (Unv 0)) (λ (y : (Unv 0)) (x y))))))
+    (check-true (term (terminates? (μ (x : (Unv 0)) (λ (y : (Unv 0)) y))))))
 
   (define-judgment-form cic-typingL
     #:mode (types I I I O)
@@ -405,6 +399,7 @@
      ----------------- "DTR-Inductive"
      (types Σ Γ x t)]
 
+    ;; TODO: Require alpha-equiv here, at least.
     [(where t (lookup Γ x))
      ----------------- "DTR-Start"
      (types Σ Γ x t)]
@@ -449,72 +444,72 @@
     ;; searches it.
     ;; Perhaps something closer to Zombies = type would be better.
     ;; For now, reduce types
-    #;[(types Γ e (in-hole E t))
+    #;[(types Σ Γ e (in-hole E t))
      (where t_0 (in-hole E t))
      (where t_1 ,(car (apply-reduction-relation* ==β (term t_0))))
-     (types Γ t_1 U)
+     (types Σ Γ t_1 U)
      ----------------- "DTR-Conversion"
-     (types Γ e t_1)])
+     (types Σ Γ e t_1)])
   (module+ test
-    (check-true (judgment-holds (types ∅ ∅ Type (Unv 0))))
-    (check-true (judgment-holds (types ∅ (∅ x : Type) Type (Unv 0))))
-    (check-true (judgment-holds (types ∅ (∅ x : Type) x Type)))
-    (check-true (judgment-holds (types ∅ ((∅ x_0 : Type) x_1 : Type)
-                                       (Π (x_3 : x_0) x_1) Type)))
+    (check-true (judgment-holds (types ∅ ∅ (Unv 0) (Unv 1))))
+    (check-true (judgment-holds (types ∅ (∅ x : (Unv 0)) (Unv 0) (Unv 1))))
+    (check-true (judgment-holds (types ∅ (∅ x : (Unv 0)) x (Unv 0))))
+    (check-true (judgment-holds (types ∅ ((∅ x_0 : (Unv 0)) x_1 : (Unv 0))
+                                       (Π (x_3 : x_0) x_1) (Unv 0))))
 
-    (check-true (judgment-holds (types ∅ (∅ x_0 : Type) x_0 U_1)))
-    (check-true (judgment-holds (types ∅ ((∅ x_0 : Type) x_2 : x_0) Type U_2)))
-    (check-true (judgment-holds (unv-kind Type (Unv 0) (Unv 0))))
-    (check-true (judgment-holds (types ∅ (∅ x_0 : Type) (Π (x_2 : x_0) Type) t)))
+    (check-true (judgment-holds (types ∅ (∅ x_0 : (Unv 0)) x_0 U_1)))
+    (check-true (judgment-holds (types ∅ ((∅ x_0 : (Unv 0)) x_2 : x_0) (Unv 0) U_2)))
+    (check-true (judgment-holds (unv-kind (Unv 0) (Unv 0) (Unv 0))))
+    (check-true (judgment-holds (types ∅ (∅ x_0 : (Unv 0)) (Π (x_2 : x_0) (Unv 0)) t)))
 
-    (check-true (judgment-holds (types ∅ ∅ (λ (x : Type) x) (Π (x : Type) Type))))
-    (check-true (judgment-holds (types ∅ ∅ (λ (y : Type) (λ (x : y) x))
-                                       (Π (y : Type) (Π (x : y) y)))))
+    (check-true (judgment-holds (types ∅ ∅ (λ (x : (Unv 0)) x) (Π (x : (Unv 0)) (Unv 0)))))
+    (check-true (judgment-holds (types ∅ ∅ (λ (y : (Unv 0)) (λ (x : y) x))
+                                       (Π (y : (Unv 0)) (Π (x : y) y)))))
 
-    (check-equal? (list (term (Unv 0)))
+    (check-equal? (list (term (Unv 1)))
       (judgment-holds
-        (types ∅ ((∅ x1 : Type) x2 : Type) (Π (t6 : x1) (Π (t2 : x2) Type))
+        (types ∅ ((∅ x1 : (Unv 0)) x2 : (Unv 0)) (Π (t6 : x1) (Π (t2 : x2) (Unv 0)))
                U)
         U))
     (check-true
       (judgment-holds
-        (types ∅ ∅ (Π (x2 : Type) (Unv 0))
+        (types ∅ ∅ (Π (x2 : (Unv 0)) (Unv 0))
                U)))
     (check-true
       (judgment-holds
-        (types ∅ (∅ x1 : Type) (λ (x2 : Type) (Π (t6 : x1) (Π (t2 : x2) Type)))
+        (types ∅ (∅ x1 : (Unv 0)) (λ (x2 : (Unv 0)) (Π (t6 : x1) (Π (t2 : x2) (Unv 0))))
                t)))
     (check-true
-      (judgment-holds (types ((∅ truth : Type) T : truth)
+      (judgment-holds (types ((∅ truth : (Unv 0)) T : truth)
                              ∅
                              T
                              truth)))
     (check-true
-      (judgment-holds (types ((∅ truth : Type) T : truth)
+      (judgment-holds (types ((∅ truth : (Unv 0)) T : truth)
                              ∅
-                             Type
-                             (Unv 0))))
+                             (Unv 0)
+                             (Unv 1))))
     ;; TODO: Change uses of case to uses of elim-
     (check-true
-      (judgment-holds (types ((∅ truth : Type) T : truth)
+      (judgment-holds (types ((∅ truth : (Unv 0)) T : truth)
                              ∅
-                             (case T (T Type))
-                             (Unv 0))))
+                             (case T (T (Unv 0)))
+                             (Unv 1))))
 
     (check-false
-      (judgment-holds (types ((∅ truth : Type) T : truth)
+      (judgment-holds (types ((∅ truth : (Unv 0)) T : truth)
                              ∅
-                             (case T (T Type) (T Type))
-                             (Unv 0))))
+                             (case T (T (Unv 0)) (T (Unv 0)))
+                             (Unv 1))))
     (define-syntax-rule (nat-test syn ...)
       (check-true (judgment-holds
-                    (types (((∅ nat : Type) zero : nat) s : (Π (x : nat) nat))
+                    (types (((∅ nat : (Unv 0)) zero : nat) s : (Π (x : nat) nat))
                            syn ...))))
-    (nat-test ∅ (Π (x : nat) nat) Type)
+    (nat-test ∅ (Π (x : nat) nat) (Unv 0))
     (nat-test ∅ (λ (x : nat) x) (Π (x : nat) nat))
     (nat-test ∅ (case zero (zero zero) (s (λ (x : nat) x)))
               nat)
-    (nat-test ∅ nat Type)
+    (nat-test ∅ nat (Unv 0))
     (nat-test ∅ zero nat)
     (nat-test ∅ s (Π (x : nat) nat))
     (nat-test ∅ (s zero) nat)
@@ -523,121 +518,74 @@
     (nat-test ∅ (case zero (zero (s zero)) (s (λ (x : nat) (s (s x)))))
               nat)
     (check-false (judgment-holds
-                    (types (((∅ nat : Type) zero : nat) s : (Π (x : nat) nat))
+                    (types (((∅ nat : (Unv 0)) zero : nat) s : (Π (x : nat) nat))
                            ∅
                            (case zero (zero (s zero)))
                            nat)))
-    (define lam (term (λ (nat : Type) nat)))
+    (define lam (term (λ (nat : (Unv 0)) nat)))
     (check-equal?
-      (list (term (Π (nat : Type) Type)))
+      (list (term (Π (nat : (Unv 0)) (Unv 0))))
       (judgment-holds (types ,Σ0 ∅ ,lam t) t))
     (check-equal?
-      (list (term (Π (nat : Type) Type)))
+      (list (term (Π (nat : (Unv 0)) (Unv 0))))
       (judgment-holds (types ,Σ2 ∅ ,lam t) t))
     (check-equal?
-      (list (term (Π (x : (Π (y : Type) y)) nat)))
-      (judgment-holds (types (∅ nat : Type) ∅ (λ (x : (Π (y : Type) y)) (x nat))
+      (list (term (Π (x : (Π (y : (Unv 0)) y)) nat)))
+      (judgment-holds (types (∅ nat : (Unv 0)) ∅ (λ (x : (Π (y : (Unv 0)) y)) (x nat))
                             t) t))
     (check-equal?
-      (list (term (Π (y : Type) Type)))
-      (judgment-holds (types (∅ nat : Type) ∅ (λ (y : Type) y) t) t))
+      (list (term (Π (y : (Unv 0)) (Unv 0))))
+      (judgment-holds (types (∅ nat : (Unv 0)) ∅ (λ (y : (Unv 0)) y) t) t))
     (check-equal?
-      (list (term Type))
-      (judgment-holds (types (∅ nat : Type) ∅
-                            ((λ (x : (Π (y : Type) Type)) (x nat))
-                             (λ (y : Type) y))
+      (list (term (Unv 0)))
+      (judgment-holds (types (∅ nat : (Unv 0)) ∅
+                            ((λ (x : (Π (y : (Unv 0)) (Unv 0))) (x nat))
+                             (λ (y : (Unv 0)) y))
                             t) t))
     (check-equal?
-      (list (term Type))
+      (list (term (Unv 0)) (term (Unv 1)))
       (judgment-holds
-        (types ,Σ4 ∅ (Π (S : Type) (Π (B : Type) (Π (a : S) (Π (b : B) ((and S) B)))))
+        (types ,Σ4 ∅ (Π (S : (Unv 0)) (Π (B : (Unv 0)) (Π (a : S) (Π (b : B) ((and S) B)))))
                U) U))
     (check-true
-      (judgment-holds (types ,Σ4 (∅ S : Type) conj (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) ((and A) B))))))))
+      (judgment-holds (types ,Σ4 (∅ S : (Unv 0)) conj (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Π (a : A) (Π (b : B) ((and A) B))))))))
     (check-true
-      (judgment-holds (types ,Σ4 (∅ S : Type) S Type)))
+      (judgment-holds (types ,Σ4 (∅ S : (Unv 0)) S (Unv 0))))
     (check-true
-      (judgment-holds (types ,Σ4 (∅ S : Type) (conj S)
-                             (Π (B : Type) (Π (a : S) (Π (b : B) ((and S) B)))))))
+      (judgment-holds (types ,Σ4 (∅ S : (Unv 0)) (conj S)
+                             (Π (B : (Unv 0)) (Π (a : S) (Π (b : B) ((and S) B)))))))
     (check-true
-      (judgment-holds (types ,Σ4 (∅ S : Type) (conj S)
-                             (Π (B : Type) (Π (a : S) (Π (b : B) ((and S) B)))))))
+      (judgment-holds (types ,Σ4 (∅ S : (Unv 0)) (conj S)
+                             (Π (B : (Unv 0)) (Π (a : S) (Π (b : B) ((and S) B)))))))
     (check-true
-      (judgment-holds (types ,Σ4 ∅ (λ (S : Type) (conj S))
-                             (Π (S : Type) (Π (B : Type) (Π (a : S) (Π (b : B) ((and S) B))))))))
+      (judgment-holds (types ,Σ4 ∅ (λ (S : (Unv 0)) (conj S))
+                             (Π (S : (Unv 0)) (Π (B : (Unv 0)) (Π (a : S) (Π (b : B) ((and S) B))))))))
     (check-true
-      (judgment-holds (types ((,Σ4 true : Type) tt : true) ∅
+      (judgment-holds (types ((,Σ4 true : (Unv 0)) tt : true) ∅
                              ((((conj true) true) tt) tt)
                              ((and true) true))))
     (check-true
-      (judgment-holds (types ((,Σ4 true : Type) tt : true) ∅
+      (judgment-holds (types ((,Σ4 true : (Unv 0)) tt : true) ∅
                              (case ((((conj true) true) tt) tt)
-                               (conj (λ (A : Type)
-                                        (λ (B : Type)
+                               (conj (λ (A : (Unv 0))
+                                        (λ (B : (Unv 0))
                                            (λ (a : A)
                                               (λ (b : B) a))))))
                              A)))
-    (define sigma (term (((((((∅ true : Type) T : true) false : Type) equal : (Π (A : Type)
-                                                              (Π (B : Type) Type)))
-        nat : Type) heap : Type) pre : (Π (temp808 : heap) Type))))
+    (define sigma (term (((((((∅ true : (Unv 0)) T : true) false : (Unv 0)) equal : (Π (A : (Unv 0))
+                                                              (Π (B : (Unv 0)) (Unv 0))))
+        nat : (Unv 0)) heap : (Unv 0)) pre : (Π (temp808 : heap) (Unv 0)))))
     (define gamma (term (∅ temp863 : pre)))
     (check-true (judgment-holds (wf ,sigma ∅)))
     (check-true (judgment-holds (wf ,sigma ,gamma)))
     (check-true
-      (judgment-holds (types ,sigma ,gamma Type t)))
+      (judgment-holds (types ,sigma ,gamma (Unv 0) t)))
     (check-true
       (judgment-holds (types ,sigma ,gamma pre t)))
     (check-true
-      (judgment-holds (types ,sigma (,gamma tmp863 : pre) Type (Unv 0))))
+      (judgment-holds (types ,sigma (,gamma tmp863 : pre) (Unv 0) (Unv 1))))
     (check-true
-      (judgment-holds (types ,sigma (,gamma x : false) (case x) t)))
-    )
-
-
-  (define-judgment-form cic-typingL
-    #:mode (type-check I I I)
-    #:contract (type-check Γ e t)
-
-    [(types Σ ∅ e t)
-     ---------------
-     (type-check Σ e (reduce t))])
-
-  ;; Infer-core Language
-  ;; A relaxed core where annotation are optional.
-  (define-extended-language cic-surfaceL cicL
-    (v ::= .... (λ x e) (Π t e))
-    (t e ::= .... (data x (x : t) (x : t) ...) (case e ([e e] ...)) (e : t)))
-
-  ;; http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
-  #;(define-judgment-form cic-typingL
-    #:mode (synth I I O)
-    #:contract (synth Γ t t)
-
-    [(unv-ok U_0 U_1)
-     ----------------- "DTR-SAxiom"
-     (synth ∅ U_0 U_1)]
-
-    [(where t (lookup Γ x))
-     (synth (remove Γ x) t U)
-     ----------------- "DTR-SStart"
-     (synth Γ x t)]
-
-    [(synth Γ t t_1) (synth Γ t_0 U)
-     ----------------- "DTR-SWeakening"
-     (synth (Γ x : t_0) t t_1)]
-
-    [(check (Γ x : t_0) e t_1)
-     ----------------- "DTR-SAbstraction"
-     (check Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
-
-    [(synth Γ e_0 (Π (x : t_0) t_1))
-     (check Γ e_1 t_0)
-     ----------------- "DTR-SApplication"
-     (synth Γ (e_0 e_1) (subst t_1 x e_1))]
-
-    [(check Γ e t)
-     ----------------- "DTR-SAnnotate"
-     (synth Γ (e : t) t)]) )
+      (judgment-holds (types ,sigma (,gamma x : false) (case x) t)))))
 
 ;; This module just provide module language sugar over the redex model.
 
@@ -683,8 +631,10 @@
       [dep-inductive data]
 
       [dep-var #%top]
+
 ;      [dep-datum #%datum]
       [dep-define define])
+    Type
     ;; DYI syntax extension
     define-syntax
     begin-for-syntax
@@ -772,11 +722,9 @@
     ;; Locally expand everything down to core forms.
     (define (core-expand syn)
       (disarm
-        (if (identifier? syn)
-            syn
-            (local-expand syn 'expression
-              (append (syntax-e #'(term reduce subst-all dep-var #%app λ Π
-                                   Type)))))))
+        (local-expand syn 'expression
+          (append (syntax-e #'(term reduce subst-all dep-var #%app λ Π μ case
+                               Unv #%datum))))))
 
     ;; Only type-check at the top-level, to prevent exponential
     ;; type-checking. Redex is expensive enough.
@@ -792,11 +740,12 @@
           (let cur->datum ([syn syn])
             (syntax-parse (core-expand syn)
               #:literals (term reduce #%app subst-all)
-              #:datum-literals (Π λ : Type)
+              #:datum-literals (case Π λ μ : Unv)
               [x:id (syntax->datum #'x)]
               [(subst-all e _ _) (syntax->datum #'e)]
               [(reduce e) (cur->datum #'e)]
               [(term e) (cur->datum #'e)]
+              [(Unv i) (term (Unv ,(syntax->datum #'i)))]
               ;; TODO: should really check that b is one of the binders
               ;; Maybe make a syntax class for the binders, core forms,
               ;; etc.
@@ -840,6 +789,8 @@
                                    dep-forall dep-var))
                         ls)))))
 
+    ;; TODO: OOps, run doesn't return a cur term but a redex term
+    ;; wrapped in syntax bla. This is bad.
     (define-syntax (run syn)
       (syntax-case syn ()
         [(_ expr) (normalize/syn #'expr)]))
@@ -1005,6 +956,15 @@
   (define-syntax (dep-forall syn)
     (syntax-case syn (:)
       [(_ (x : t) e) (syntax->curnel-syntax #`(Π (x : t) e))]))
+
+  (define-syntax (Type syn)
+    (syntax-case syn ()
+      [(_ i) (syntax->curnel-syntax #'(Unv i))]
+      [_ #'(Type 0)]))
+
+  (define-syntax (dep-fix syn)
+   (syntax-case syn (:)
+     [(_ (x : t) e) (syntax->curnel-syntax #`(μ (x : t) e))]))
 
   (define-syntax (dep-inductive syn)
     (syntax-case syn (:)
