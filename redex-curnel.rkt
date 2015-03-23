@@ -24,7 +24,7 @@
     (x ::= variable-not-otherwise-mentioned)
     ;; TODO: Having 2 binders is stupid.
     (v ::= (Π (x : t) t) (μ (x : t) t) (λ (x : t) t) x U)
-    (t e ::= v (t t)))
+    (t e ::= v (t t) (elim e ...)))
 
   (define x? (redex-match? cicL x))
   (define t? (redex-match? cicL t))
@@ -152,14 +152,16 @@
                   (term (s (s (s (s z)))))))
 
   ;; TODO: Bi-directional and inference?
-  ;; http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
+  ;; TODO: http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
 
   (define-extended-language cic-typingL cicL
+    ;; NB: There may be a bijection between Γ and Ξ. That's
+    ;; NB: interesting.
     (Γ ::= ∅ (Γ x : t))
     ;; Σ is a signature (list) of inductively defined data with it's
-    ;; constructors, and eliminator.
-    ;; (inductive-name : type ((constr : t) ...) (elim- : t))
-    (Σ ::= ∅ (Σ (x : t ((x : t) ...) (x : t)))))
+    ;; constructors
+    ;; (inductive-name : type ((constr : t) ...))
+    (Σ ::= ∅ (Σ (x : t ((x : t) ...)))))
 
   (define Σ? (redex-match? cic-typingL Σ))
   (define Γ? (redex-match? cic-typingL Γ))
@@ -177,36 +179,42 @@
       (case n
         zero mz
         s (λ (u : nat) (ms u (f u))))))
-    ;; OR, I need some kind of extensible semantics so I can create a
-    ;; new patterns ala:
-    ;; ((((elim-nat t) e_1) e_2) z) => e_1
-    ;; ((((elim-nat t) e_1) e_2) (s n)) => ((e2 n) ((((elim-nat t) e_1) e_2) n))
-    ;; Whichhh I might be able to do via meta-functions, in Redex.
+    ;; Trying to generate well-typed eliminators generally amounts to
+    ;; trying to give a single type and rule to elim-D, which is
+    ;; basically the same thing as case. So might as well just use case?
+
+    ;; (Telescope)     (Ξ Φ) ::= hole (Π (x : t) Ξ)
+    ;; (Apply context) Θ     ::= hole (Θ e)
     ;;
-    ;; Regardless, to perform the schema transformation correctly,
-    ;; single-arity function are becoming a burden. Perhaps I need a
-    ;; new abstraction ... Telescopes?
+    ;; (apply-telescope D hole ) = D
+    ;; (apply-telescope D (Π (x : t) Ψ)) = (apply-telescope (D x) Ψ)
 
-    ;; elim-nat (t : nat) (P : ...) (mz : (P zero)) (ms : (n : nat) -> P n -> P (suc n))
-    ;; (elim-nat t) => (m_i Ψ)
-    ;; (where (_ ... (m_i t) _ ...)
-    ;;        ((mz z) (ms s)))
-    ;; (where (_ ... (m_i : (Ψ -> P t)) _ ...)
-    ;;        ((mz : (P zero))
-    ;;         (ms : (... -> P (suc n)))))
-
-    ;; (Telescope) Ψ ::= hole (Π (x : t) Ψ)
-    ;; 
-    ;; elim-D : (x : D) (P : (in-hole Ψ U)) (m_i : t_i) ... (P x)
-    ;; (fresh x P m_i)
-    ;; (where (c_i ...) (constructors-for D))
-    ;; (where ((Δ_i ...)) ())
-    ;; (where (t_i ...)
-    ;;   (-> (x )))
-
-    ;; ... trying to do this amounts to trying to give a single type and
-    ;; rule to elim-D, which is basically the same thing as case. So
-    ;; might as well just use case?
+    ;; Data: (when does an inductive type-check. Should specify this using judgment forms)
+    ;;
+    ;; (D : (in-hole Ξ U) ((c : (in-hole Ξ (in-hole Φ (in-hole Θ D)))) ...))
+    ;;   (side-condition (judgment-holds (check-constructor Φ)))
+    ;;
+    ;; (check-constructor D hole) = #t
+    ;; (check-constructor D (Π (x : (in-hole Φ (in-hole Θ D))) Φ_1)) = (check-constructor Φ_1)
+    ;; (check-constructor D any) = #f
+    ;;
+    ;;
+    ;; elim : (Π (i_0 : T_0) (Π (i_1 : T_1) ... (Π (x : ((D i_0) ...  i_n)) ...)))
+    ;; elim : (in-hole Ξ (Π (x : (apply-telescope D Ξ))
+    ;;                   (Π (P : (in-hole (in-hole Ξ (apply-telescope D Ξ)) U))
+    ;;                      (in-hole Φ ((apply-telescope P Ξ) x)))))
+    ;;   (where Φ (methods D (constructors-for D)))
+    ;;
+    ;; (methods D ()) = hole
+    ;; (methods D ((c : (in-hole Ξ (in-hole Φ (in-hole Θ D)))) (c : e) ...)) =
+    ;;  (Π (m_i : (in-hole Ξ (in-hole Φ (in-hole Φ_1 ((in-hole Θ P) (apply-telescope (apply-telescope c Ξ) Φ))))))
+    ;      (methods D ((c : e) ...)))
+    ;;  (where Φ_1 (hypotheses D Φ))
+    ;;
+    ;; (hypotheses D hole) = hole
+    ;; (hypotheses D (Π (x : (in-hole Φ (in-hole Θ D))) Φ_1)) =
+    ;;   (Π (h : (in-hole Φ ((in-hole Θ P) (apply-telescope x Φ))))
+    ;;      (hypotheses D Φ_1))
 
     (define Σ0 (term ∅))
     (define Σ2 Σ)
