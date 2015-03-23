@@ -34,6 +34,7 @@
 
   (module+ test
     (require rackunit)
+    (define-term Type (Unv 0))
     (check-true (x? (term T)))
     (check-true (x? (term truth)))
     (check-true (x? (term zero)))
@@ -43,6 +44,7 @@
     (check-true (x? (term nat)))
     (check-true (t? (term nat)))
     (check-true (U? (term (Unv 0))))
+    (check-true (U? (term Type)))
     (check-true (e? (term (λ (x_0 : (Unv 0)) x_0))))
     (check-true (v? (term (λ (x_0 : (Unv 0)) x_0))))
     (check-true (t? (term (λ (x_0 : (Unv 0)) x_0))))
