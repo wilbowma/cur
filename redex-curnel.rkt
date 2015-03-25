@@ -112,7 +112,29 @@
      (subst-all (subst t x_0 e_0) (x ...) (e ...))])
 
   (define-extended-language cic-redL cicL
-    (E hole (E t)))
+    (E   ::= hole (E t))
+    ;; Σ signature. (inductive-name : type ((constructor : tye) ...))
+    (Σ   ::= ∅ (Σ (x : t ((x : t) ...))))
+    (Ξ Φ ::= hole (Π (x : t) Ξ)) ;;(Telescope)
+    (Θ   ::= hole (Θ e)) #|(Apply context)|#)
+  (define Σ? (redex-match? cic-redL Σ))
+  (module+ test
+    (define Σ (term (∅ (nat : (Unv 0) ((zero : nat) (s : (Π (x : nat) nat)))))))
+    (define Σ0 (term ∅))
+    (define Σ3 (term (∅ (and : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0))) ()))))
+    (define Σ4 (term (∅ (and : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
+                               ((conj : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Π (a : A) (Π (b : B) ((and A) B)))))))))))
+    (check-true (Σ? Σ0))
+    (check-true (Σ? Σ))
+    (check-true (Σ? Σ4))
+    (check-true (Σ? Σ3))
+    (check-true (Σ? Σ4)))
+
+  ;; TODO: Test
+  (define-metafunction cic-redL
+    apply-telescope : t Ξ -> t
+    [(apply-telescope t hole) t]
+    [(apply-telescope t_0 (Π (x : t) Ψ)) (apply-telescope (t_0 x) Ψ)])
 
   ;; TODO: Congruence-closure instead of β
   (define ==β
@@ -150,21 +172,14 @@
   ;; TODO: Bi-directional and inference?
   ;; TODO: http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
 
-  (define-extended-language cic-typingL cicL
+  (define-extended-language cic-typingL cic-redL
     ;; NB: There may be a bijection between Γ and Ξ. That's
     ;; NB: interesting.
-    (Γ   ::= ∅ (Γ x : t)) ;; Contexts
-    ;; Σ signature. (inductive-name : type ((constructor : tye) ...))
-    (Σ   ::= ∅ (Σ (x : t ((x : t) ...))))
-    (Ξ Φ ::= hole (Π (x : t) Ξ)) ;;(Telescope)
-    (Θ   ::= hole (Θ e)) #|(Apply context)|#)
+    (Γ   ::= ∅ (Γ x : t)))
 
-  (define Σ? (redex-match? cic-typingL Σ))
   (define Γ? (redex-match? cic-typingL Γ))
-  (module+ test
     ;; TODO: Rename these signatures, and use them in all future tests.
     ;; TODO: Convert these to new Σ format
-    (define Σ (term (∅ (nat : (Unv 0) ((zero : nat) (s : (Π (x : nat) nat)))))))
     ;; Trying to generate well-typed eliminators generally amounts to
     ;; trying to give a single type and rule to elim-D, which is
     ;; basically the same thing as case. So might as well just use case?
@@ -212,17 +227,6 @@
     ;; non-recursive parameters.
     ;; (elim-recur D Θ (in-hole Θ_t (Θ_i (in-hole Θ_r c_i))) (c_i c ...) v_P (Θ_m m_i)) =
     ;;   ((elim-recur D Θ_i (c ...) v_P Θ_m) (in-hole Θ (((elim D) (in-hole Θ_r c_i)) v_P))
-
-    (define Σ0 (term ∅))
-    (define Σ2 Σ)
-    (define Σ3 (term (∅ (and : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0))) ()))))
-    (define Σ4 (term (∅ (and : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
-                               ((conj : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Π (a : A) (Π (b : B) ((and A) B)))))))))))
-    (check-true (Σ? Σ0))
-    (check-true (Σ? Σ2))
-    (check-true (Σ? Σ4))
-    (check-true (Σ? Σ3))
-    (check-true (Σ? Σ4)))
 
   (define-metafunction cic-typingL
     append-env : Γ Γ -> Γ
@@ -273,6 +277,7 @@
 
     (check-true (term (positive (Unv 0) #f))))
 
+  ;; Checks that a signature and typing context are well-formed.
   (define-judgment-form cic-typingL
     #:mode (wf I I)
     #:contract (wf Σ Γ)
@@ -285,14 +290,52 @@
      -----------------
      (wf Σ (Γ x : t))]
 
-    [(types Σ ∅ t t_0)
-     (types Σ (∅ x : t) t_c t_tc) ...
-     (wf Σ ∅)
-     (side-condition (positive t (t_c ...)))
+    [(wf Σ ∅)
+     (types Σ ∅ t_D U_D)
+     (types Σ (∅ x_D : t_D) t_c U_c) ...
+     (side-condition (positive t_D (t_c ...)))
      -----------------
-     (wf (Σ (x : t ((x_1 : t_c) ...))) ∅)])
+     (wf (Σ (x_D : (name t_D (in-hole Ξ_D t))
+            ;; Checks that a constructor for x actually produces an x, i.e., that
+            ;; the constructor is well-formed.
+            ((x_c : (name t_c (in-hole Ξ_!_D (in-hole Φ (in-hole Θ x_!_D))))) ...))) ∅)])
   (module+ test
     (check-true (judgment-holds (wf ,Σ0 ∅)))
+    (check-true (redex-match? cic-redL (in-hole Ξ (Unv 0)) (term (Unv 0))))
+    (check-true (redex-match? cic-redL (in-hole Ξ (in-hole Φ (in-hole Θ nat)))
+                             (term (Π (x : nat) nat))))
+    (define (bindings-equal? l1 l2)
+      (map set=? l1 l2))
+    (check-pred
+      (curry bindings-equal?
+             (list (list
+                     (make-bind 'Ξ (term (Π (x : nat) hole)))
+                     (make-bind 'Φ (term hole))
+                     (make-bind 'Θ (term hole)))
+                   (list
+                     (make-bind 'Ξ (term hole))
+                     (make-bind 'Φ (term (Π (x : nat) hole)))
+                     (make-bind 'Θ (term hole)))))
+      (map match-bindings (redex-match cic-redL (in-hole Ξ (in-hole Φ (in-hole Θ nat)))
+                    (term (Π (x : nat) nat)))))
+
+    (check-true
+      (redex-match? cic-redL
+        (in-hole hole (in-hole hole (in-hole hole nat)))
+        (term nat)))
+    (check-true
+      (redex-match? cic-redL
+        (in-hole hole (in-hole (Π (x : nat) hole) (in-hole hole nat)))
+        (term (Π (x : nat) nat))))
+    (check-true (judgment-holds (wf ,Σ0 ∅)))
+    (check-true (judgment-holds (types ∅ ∅ (Unv 0) U)))
+    (check-true (judgment-holds (types ∅ (∅ nat : (Unv 0)) nat U)))
+    (check-true (judgment-holds (types ∅ (∅ nat : (Unv 0)) (Π (x : nat) nat) U)))
+    (check-true (term (positive nat (nat (Π (x : nat) nat)))))
+    (check-true (judgment-holds (wf ,Σ ∅)))
+
+    (check-true (judgment-holds (wf ,Σ3 ∅)))
+    (check-true (judgment-holds (wf ,Σ4 ∅)))
     (check-true (judgment-holds (wf (∅ (truth : (Unv 0) ())) ∅)))
     (check-true (judgment-holds (wf ∅ (∅ x : (Unv 0)))))
     (check-true (judgment-holds (wf (∅ (nat : (Unv 0) ())) (∅ x : nat))))
@@ -432,7 +475,7 @@
       (judgment-holds (types ,Σ0 ∅ ,lam t) t))
     (check-equal?
       (list (term (Π (nat : (Unv 0)) (Unv 0))))
-      (judgment-holds (types ,Σ2 ∅ ,lam t) t))
+      (judgment-holds (types ,Σ ∅ ,lam t) t))
     (check-equal?
       (list (term (Π (x : (Π (y : (Unv 0)) y)) nat)))
       (judgment-holds (types (∅ (nat : (Unv 0) ())) ∅ (λ (x : (Π (y : (Unv 0)) y)) (x nat))
