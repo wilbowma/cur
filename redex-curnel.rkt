@@ -22,7 +22,6 @@
     (i ::= natural)
     (U ::= (Unv i))
     (x ::= variable-not-otherwise-mentioned)
-    ;; TODO: Having 2 binders is stupid.
     (v ::= (Π (x : t) t) (λ (x : t) t) x U)
     (t e ::= v (t t) (elim e ...)))
 
@@ -34,6 +33,7 @@
 
   (module+ test
     (require rackunit)
+    (define-term Type (Unv 0))
     (check-true (x? (term T)))
     (check-true (x? (term truth)))
     (check-true (x? (term zero)))
@@ -43,6 +43,7 @@
     (check-true (x? (term nat)))
     (check-true (t? (term nat)))
     (check-true (U? (term (Unv 0))))
+    (check-true (U? (term Type)))
     (check-true (e? (term (λ (x_0 : (Unv 0)) x_0))))
     (check-true (v? (term (λ (x_0 : (Unv 0)) x_0))))
     (check-true (t? (term (λ (x_0 : (Unv 0)) x_0))))
@@ -93,12 +94,10 @@
     [(subst x x t) t]
     [(subst x_0 x t) x_0]
     [(subst (any (x : t_0) t_1) x t) (any (x : (subst t_0 x t)) t_1)]
-;    [(subst (λ (x : t_0) t_1) x t) (λ (x : (subst t_0 x t)) t_1)]
     ;; TODO: Broken: needs capture avoiding, but currently require
     ;; binders to be the same in term/type, so this is not a local
     ;; change.
     [(subst (any (x_0 : t_0) t_1) x t) (any (x_0 : (subst t_0 x t)) (subst t_1 x t))]
-;    [(subst (λ (x_0 : t_0) t_1) x t) (λ (x_0 : (subst t_0 x t)) (subst t_1 x t))]
     [(subst (e_0 e_1) x t) ((subst e_0 x t) (subst e_1 x t))])
   (module+ test
     (check-equal?
