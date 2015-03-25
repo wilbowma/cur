@@ -22,7 +22,6 @@
     (i ::= natural)
     (U ::= (Unv i))
     (x ::= variable-not-otherwise-mentioned)
-    ;; TODO: Having 2 binders is stupid.
     (v ::= (Π (x : t) t) (μ (x : t) t) (λ (x : t) t) x U)
     (t e ::= (case e (x e) ...) v (t t)))
 
@@ -94,15 +93,11 @@
     [(subst U x t) U]
     [(subst x x t) t]
     [(subst x_0 x t) x_0]
-    [(subst (Π (x : t_0) t_1) x t) (Π (x : (subst t_0 x t)) t_1)]
-    [(subst (λ (x : t_0) t_1) x t) (λ (x : (subst t_0 x t)) t_1)]
-    [(subst (μ (x : t_0) t_1) x t) (μ (x : (subst t_0 x t)) t_1)]
+    [(subst (any (x : t_0) t_1) x t) (any (x : (subst t_0 x t)) t_1)]
     ;; TODO: Broken: needs capture avoiding, but currently require
     ;; binders to be the same in term/type, so this is not a local
     ;; change.
-    [(subst (Π (x_0 : t_0) t_1) x t) (Π (x_0 : (subst t_0 x t)) (subst t_1 x t)) ]
-    [(subst (λ (x_0 : t_0) t_1) x t) (λ (x_0 : (subst t_0 x t)) (subst t_1 x t))]
-    [(subst (μ (x_0 : t_0) t_1) x t) (μ (x_0 : (subst t_0 x t)) (subst t_1 x t))]
+    [(subst (any (x_0 : t_0) t_1) x t) (any (x_0 : (subst t_0 x t)) (subst t_1 x t)) ]
     [(subst (e_0 e_1) x t) ((subst e_0 x t) (subst e_1 x t))]
     [(subst (case e (x_0 e_0) ...) x t)
      (case (subst e x t)
