@@ -153,11 +153,11 @@
   (define-extended-language cic-typingL cicL
     ;; NB: There may be a bijection between Γ and Ξ. That's
     ;; NB: interesting.
-    (Γ ::= ∅ (Γ x : t))
-    ;; Σ is a signature (list) of inductively defined data with it's
-    ;; constructors
-    ;; (inductive-name : type ((constr : t) ...))
-    (Σ ::= ∅ (Σ (x : t ((x : t) ...)))))
+    (Γ   ::= ∅ (Γ x : t)) ;; Contexts
+    ;; Σ signature. (inductive-name : type ((constructor : tye) ...))
+    (Σ   ::= ∅ (Σ (x : t ((x : t) ...))))
+    (Ξ Φ ::= hole (Π (x : t) Ξ)) ;;(Telescope)
+    (Θ   ::= hole (Θ e)) #|(Apply context)|#)
 
   (define Σ? (redex-match? cic-typingL Σ))
   (define Γ? (redex-match? cic-typingL Γ))
@@ -255,7 +255,6 @@
   ;; TODO: Add positivity checking.
   (define-metafunction cicL
     positive : t any -> #t or #f
-    ;; (Unv 0); not a inductive constructor
     [(positive any_1 any_2) #t])
 
   (module+ test
@@ -287,10 +286,11 @@
      (wf Σ (Γ x : t))]
 
     [(types Σ ∅ t t_0)
+     (types Σ (∅ x : t) t_c t_tc) ...
      (wf Σ ∅)
      (side-condition (positive t (t_c ...)))
      -----------------
-     (wf (Σ (x : t ((c : t_c) ...))) ∅)])
+     (wf (Σ (x : t ((x_1 : t_c) ...))) ∅)])
   (module+ test
     (check-true (judgment-holds (wf ,Σ0 ∅)))
     (check-true (judgment-holds (wf (∅ (truth : (Unv 0) ())) ∅)))
