@@ -50,8 +50,7 @@
     (check-true (t? (term (λ (x_0 : (Unv 0)) x_0)))))
 
   ;; 'A'
-  ;; (Unv 0)s of Universes
-  ;; Replace with sub-typing
+  ;; Types of Universes
   (define-judgment-form cicL
     #:mode (unv-ok I O)
     #:contract (unv-ok U U)
