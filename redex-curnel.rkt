@@ -116,7 +116,7 @@
     ;; Σ signature. (inductive-name : type ((constructor : tye) ...))
     (Σ   ::= ∅ (Σ (x : t ((x : t) ...))))
     (Ξ Φ ::= hole (Π (x : t) Ξ)) ;;(Telescope)
-    (Θ   ::= hole (Θ e)) #|(Apply context)|#)
+    (Θ   ::= hole (Θ e)))        ;;(Apply context)
   (define Σ? (redex-match? cic-redL Σ))
   (module+ test
     (define Σ (term (∅ (nat : (Unv 0) ((zero : nat) (s : (Π (x : nat) nat)))))))
@@ -134,15 +134,19 @@
   (define-metafunction cic-redL
     apply-telescope : t Ξ -> t
     [(apply-telescope t hole) t]
-    [(apply-telescope t_0 (Π (x : t) Ψ)) (apply-telescope (t_0 x) Ψ)])
+    [(apply-telescope t_0 (Π (x : t) Ξ)) (apply-telescope (t_0 x) Ξ)])
+
+  (define-metafunction cic-redL
+    apply-telescopes : t (Ξ ...) -> t
+    [(apply-telescopes t ()) t]
+    [(apply-telescopes t (Ξ_0 Ξ_rest ...))
+     (apply-telescopes (apply-telescope t Ξ_0) (Ξ_rest ...))])
 
   ;; TODO: Congruence-closure instead of β
   (define ==β
     (reduction-relation cic-redL
-      (==> ((Π (x : t_0) t_1) t_2)
+      (==> ((any (x : t_0) t_1) t_2)
            (subst t_1 x t_2))
-      (==> ((λ (x : t) e_0) e_1)
-           (subst e_0 x e_1))
       with
       [(--> (in-hole E t_0) (in-hole E t_1))
        (==> t_0 t_1)]))
@@ -195,6 +199,8 @@
     ;; (D : (in-hole Ξ U) ((c : (in-hole Ξ (in-hole Φ (in-hole Θ D)))) ...))
     ;;   (side-condition (judgment-holds (check-constructor Φ)))
     ;;
+    ;; NB: Um. I forgot what this is doing? The above pattern already checks
+    ;; NB: that all constructors produce D
     ;; (check-constructor D hole) = #t
     ;; (check-constructor D (Π (x : (in-hole Φ (in-hole Θ D))) Φ_1)) = (check-constructor Φ_1)
     ;; (check-constructor D any) = #f
@@ -202,7 +208,7 @@
     ;;
     ;; elim : (Π (i_0 : T_0) (Π (i_1 : T_1) ... (Π (x : ((D i_0) ...  i_n)) ...)))
     ;; elim : (in-hole Ξ (Π (x : (apply-telescope D Ξ))
-    ;;                   (Π (P : (in-hole (in-hole Ξ (apply-telescope D Ξ)) U))
+    ;;                   (Π (P : (in-hole Ξ (Π (x : (apply-telescope x_D Ξ)) U)))
     ;;                      (in-hole Φ ((apply-telescope P Ξ) x)))))
     ;;   (where Φ (methods D (constructors-for D)))
     ;;
@@ -293,12 +299,15 @@
     [(wf Σ ∅)
      (types Σ ∅ t_D U_D)
      (types Σ (∅ x_D : t_D) t_c U_c) ...
+     ;; NB: Ugh this should be possible with pattern matching alone ....
+     (side-condition ,(map (curry equal? (term Ξ_D)) (term (Ξ_D* ...))))
+     (side-condition ,(map (curry equal? (term x_D)) (term (x_D* ...))))
      (side-condition (positive t_D (t_c ...)))
      -----------------
      (wf (Σ (x_D : (name t_D (in-hole Ξ_D t))
             ;; Checks that a constructor for x actually produces an x, i.e., that
             ;; the constructor is well-formed.
-            ((x_c : (name t_c (in-hole Ξ_!_D (in-hole Φ (in-hole Θ x_!_D))))) ...))) ∅)])
+            ((x_c : (name t_c (in-hole Ξ_D* (in-hole Φ (in-hole Θ x_D*))))) ...))) ∅)])
   (module+ test
     (check-true (judgment-holds (wf ,Σ0 ∅)))
     (check-true (redex-match? cic-redL (in-hole Ξ (Unv 0)) (term (Unv 0))))
@@ -318,6 +327,14 @@
                      (make-bind 'Θ (term hole)))))
       (map match-bindings (redex-match cic-redL (in-hole Ξ (in-hole Φ (in-hole Θ nat)))
                     (term (Π (x : nat) nat)))))
+    (check-pred
+      (curry bindings-equal?
+             (list
+                   (list
+                     (make-bind 'Φ (term (Π (x : nat) hole)))
+                     (make-bind 'Θ (term hole)))))
+      (map match-bindings (redex-match cic-redL (in-hole hole (in-hole Φ (in-hole Θ nat)))
+                    (term (Π (x : nat) nat)))))
 
     (check-true
       (redex-match? cic-redL
@@ -327,11 +344,17 @@
       (redex-match? cic-redL
         (in-hole hole (in-hole (Π (x : nat) hole) (in-hole hole nat)))
         (term (Π (x : nat) nat))))
+    (check-true (judgment-holds (wf (∅ (nat : (Unv 0) ())) ∅)))
+
     (check-true (judgment-holds (wf ,Σ0 ∅)))
     (check-true (judgment-holds (types ∅ ∅ (Unv 0) U)))
     (check-true (judgment-holds (types ∅ (∅ nat : (Unv 0)) nat U)))
     (check-true (judgment-holds (types ∅ (∅ nat : (Unv 0)) (Π (x : nat) nat) U)))
     (check-true (term (positive nat (nat (Π (x : nat) nat)))))
+    (check-true
+      (judgment-holds (wf (∅ (nat : (Unv 0) ((zero : nat)))) ∅)))
+    (check-true
+      (judgment-holds (wf (∅ (nat : (Unv 0) ((s : (Π (x : nat) nat))))) ∅)))
     (check-true (judgment-holds (wf ,Σ ∅)))
 
     (check-true (judgment-holds (wf ,Σ3 ∅)))
@@ -340,6 +363,94 @@
     (check-true (judgment-holds (wf ∅ (∅ x : (Unv 0)))))
     (check-true (judgment-holds (wf (∅ (nat : (Unv 0) ())) (∅ x : nat))))
     (check-true (judgment-holds (wf (∅ (nat : (Unv 0) ())) (∅ x : (Π (x : nat) nat))))))
+
+  (define-metafunction cic-redL
+    hypotheses-for : x t Φ -> Φ
+    [(hypotheses-for x_D t_P hole) hole]
+    [(hypotheses-for x_D t_P (Π (x : (in-hole Φ (in-hole Θ x_D))) Φ_1))
+     (Π (x_h : (in-hole Φ (reduce ((in-hole Θ t_P) (apply-telescope x Φ)))))
+        (hypotheses-for x_D t_P Φ_1))
+     ;; NB: Lol hygiene
+     (where x_h ,(string->symbol (format "~a-~a" 'ih (term x))))])
+
+  (define-metafunction cic-redL
+    methods-for : x Ξ t ((x : t) ...) -> Ξ
+    [(methods-for x_D Ξ_pi t_P ()) hole]
+    ;; TODO: This is too restrictive; there could be more hypotheses
+    ;; TODO: between Ξ_pi and the inductive hypotheses Φ. (i.e. and)
+    ;; TODO: However, such non-deterministic matching might make this
+    ;; TODO: difficult to define.
+    [(methods-for x_D Ξ_pi t_P ((x_ci : (in-hole Ξ_pi (in-hole Φ (in-hole Θ x_D))))
+                                (x_c : t) ...))
+     (Π (x_mi : (in-hole Ξ_pi (in-hole Φ (in-hole Φ_h
+                  ;; NB: Manually reducing types because no conversion
+                  (reduce ((in-hole Θ t_P) (apply-telescopes x_ci (Ξ_pi Φ))))))))
+        (methods-for x_D Ξ_pi t_P ((x_c : t) ...)))
+     (where Φ_h (hypotheses-for x_D t_P Φ))
+     ;; NB: Lol hygiene
+     (where x_mi ,(string->symbol (format "~a-~a" 'm (term x_ci))))])
+  (module+ test
+    (check-equal?
+      (term (methods-for nat hole P ((zero : nat) (s : (Π (x : nat) nat)))))
+      (term (Π (m-zero : (P zero))
+          (Π (m-s : (Π (x : nat) (Π (ih-x : (P x)) (P (s x)))))
+             hole))))
+    (check-equal?
+      (term (methods-for nat hole (λ (x : nat) nat) ((zero : nat) (s : (Π (x : nat) nat)))))
+      (term (Π (m-zero : nat) (Π (m-s : (Π (x : nat) (Π (ih-x : nat) nat)))
+                                     hole))))
+    (check-equal?
+      (term (methods-for and (Π (A : Type) (Π (B : Type) hole))
+              (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) true)))
+              ((conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B)
+                                                                    ((and A) B)))))))))
+      (term (Π (m-conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) true)))))))))
+
+  (define-metafunction cic-redL
+    constructors-for : Σ x -> ((x : t) ...) or #f
+    ;; NB: Depends on clause order
+    [(constructors-for ∅ x_D) #f]
+    [(constructors-for (Σ (x_D : t_D ((x : t) ...))) x_D)
+     ((x : t) ...)]
+    [(constructors-for (Σ (x_1 : t_1 ((x : t) ...))) x_D)
+     (constructors-for Σ x_D)])
+  (module+ test
+    (check-equal?
+      (term (constructors-for ,Σ nat))
+      (term ((zero : nat) (s : (Π (x : nat) nat))))))
+
+  (define-judgment-form cic-typingL
+    #:mode (telescope-types I I I I)
+    #:contract (telescope-types Σ Γ Θ Ξ)
+
+    [----------------- "TT-Hole"
+     (telescope-types Σ Γ hole hole)]
+
+    [(types Σ Γ e t)
+     (telescope-types Σ Γ Θ Ξ)
+     ----------------- "TT-Match"
+     (telescope-types Σ Γ (in-hole Θ (hole e)) (Π (x : t) Ξ))])
+  (module+ test
+    (check-true
+      (judgment-holds (telescope-types ,Σ ∅ (hole zero) (Π (x : nat) hole))))
+    (check-true
+      (redex-match? cic-redL (in-hole Θ (hole e))
+                    (term ((hole zero) (λ (x : nat) x)))))
+    (check-true
+      (judgment-holds (telescope-types ,Σ ∅ (hole zero)
+                                       (methods-for nat hole
+                                         (λ (x : nat) nat)
+                                         ((zero : nat))))))
+    (check-true
+      (judgment-holds (types ,Σ ∅ (λ (x : nat) (λ (ih-x : nat) x))
+                             (Π (x : nat) (Π (ih-x : nat) nat)))))
+    (check-true
+      (judgment-holds (telescope-types ,Σ ∅
+                        ((hole zero)
+                         (λ (x : nat) (λ (ih-x : nat) x)))
+                        (methods-for nat hole
+                                     (λ (x : nat) nat)
+                                     (constructors-for ,Σ nat))))))
 
   (define-judgment-form cic-typingL
     #:mode (types I I I O)
@@ -376,27 +487,23 @@
      ----------------- "DTR-Abstraction"
      (types Σ Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
 
-    ;[(types Σ Γ e t_9)
-    ;(where t_1 (inductive-name t_9))
-    ;(side-condition (constructors-for Σ t_1 (x_0 x_1 ...)))
-    ;(types Σ Γ e_0 t_00)
-    ;(types Σ Γ e_1 t_11) ...
-    ;;; TODO Some of these meta-functions aren't very consistent in terms
-    ;;; of interface
-    ;(where t (branch-type t_1 (lookup Σ x_0) t_00))
-    ;(side-condition (branch-types-match Σ (x_1 ...) (t_11 ...) t t_1))
-    ;----------------- "DTR-Case"
-    ;(types Σ Γ (case e (x_0 e_0) (x_1 e_1) ...) t)]
+    [(types Σ Γ x_D (in-hole Ξ U_D))
+     (types Σ Γ e_D (in-hole Θ_ai x_D))
+     (types Σ Γ e_P (in-hole Ξ (Π (x : (in-hole Θ_Ξ x_D)) U_P)))
+       (telescope-types Σ Γ Θ_Ξ Ξ)
+     ;; methods
+     (telescope-types Σ Γ Θ_m (methods-for x_D Ξ e_P (constructors-for Σ x_D)))
+     ----------------- "DTR-Elim_D"
+     (types Σ Γ (in-hole Θ_m (((elim x_D) e_D) e_P)) (reduce ((in-hole Θ_ai e_P) e_D)))]
 
     ;; TODO: beta-equiv
     ;; This rule is no good for algorithmic checking; Redex infinitly
     ;; searches it.
     ;; Perhaps something closer to Zombies = type would be better.
-    ;; For now, reduce types
-    #;
-    [(types Σ Γ e (in-hole E t))
-     (where t_0 (in-hole E t))
-     (where t_1 ,(car (apply-reduction-relation* ==β (term t_0))))
+    ;; For now, reduce types manually
+    #;[(types Σ Γ e t)
+     (types Σ Γ t U)
+     (converts Σ t t_1)
      (types Σ Γ t_1 U)
      ----------------- "DTR-Conversion"
      (types Σ Γ e t_1)])
@@ -439,24 +546,56 @@
                              ∅
                              (Unv 0)
                              (Unv 1))))
-    ;; TODO: Change uses of case to uses of elim-
+
+    ;; ---- Elim
+    ;; TODO: Clean up/Reorganize these tests
+    (check-true
+      (redex-match? cic-typingL
+                    (in-hole Θ_m (((elim x_D) e_D) e_P))
+                    (term ((((elim truth) T) (Π (x : truth) (Unv 1))) (Unv 0)))))
+    (define Σtruth (term (∅ (truth : (Unv 0) ((T : truth))))))
+    (check-true
+      (judgment-holds (types ,Σtruth ∅ truth (in-hole Ξ U))))
+    (check-true
+      (judgment-holds (types ,Σtruth ∅ T (in-hole Θ_ai truth))))
+    (check-true
+      (judgment-holds (types ,Σtruth ∅ (λ (x : truth) (Unv 1))
+                             (in-hole Ξ (Π (x : (in-hole Θ truth)) U)))))
+    (check-equal?
+      (term (methods-for truth hole (λ (x : truth) (Unv 1)) ((T : truth))))
+      (term (Π (m-T : (Unv 1)) hole)))
+    (check-true
+      (judgment-holds (telescope-types ,Σtruth ∅ (hole (Unv 0))
+                                       (methods-for truth hole
+                                         (λ (x : truth) (Unv 1))
+                                         ((T : truth))))))
     (check-true
       (judgment-holds (types (∅ (truth : (Unv 0) ((T : truth))))
                              ∅
-                             (elim truth T (Unv 1) Type)
+                             ((((elim truth) T) (λ (x : truth) (Unv 1))) (Unv 0))
                              (Unv 1))))
 
     (check-false
       (judgment-holds (types (∅ (truth : (Unv 0) ((T : truth))))
                              ∅
-                             (elim truth T (Unv 1) Type Type)
+                             (((((elim truth) T) (Unv 1)) Type) Type)
                              (Unv 1))))
     (define-syntax-rule (nat-test syn ...)
-      (check-true (judgment-holds
-                    (types ,Σ syn ...))))
+      (check-true (judgment-holds (types ,Σ syn ...))))
     (nat-test ∅ (Π (x : nat) nat) (Unv 0))
     (nat-test ∅ (λ (x : nat) x) (Π (x : nat) nat))
-    (nat-test ∅ (elim nat zero nat zero (λ (x : nat) x))
+
+    (check-true
+      (judgment-holds (types ,Σ ∅ nat (in-hole Ξ U))))
+    (check-true
+      (judgment-holds (types ,Σ ∅ zero (in-hole Θ_ai nat))))
+    (check-true
+      (judgment-holds (types ,Σ ∅ (λ (x : nat) nat)
+                             (in-hole Ξ (Π (x : (in-hole Θ nat)) U)))))
+
+
+    (nat-test ∅ (((((elim nat) zero) (λ (x : nat) nat)) zero)
+                 (λ (x : nat) (λ (ih-x : nat) x)))
               nat)
     (nat-test ∅ nat (Unv 0))
     (nat-test ∅ zero nat)
@@ -513,12 +652,13 @@
                              ((and true) true))))
     (check-true
       (judgment-holds (types (,Σ4 (true : (Unv 0) ((tt : true)))) ∅
-                             (elim and ((((conj true) true) tt) tt)
-                               true
-                               (conj (λ (A : (Unv 0))
-                                        (λ (B : (Unv 0))
-                                           (λ (a : A)
-                                              (λ (b : B) a))))))
+                             ((((elim and) ((((conj true) true) tt) tt))
+                               (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B))
+                                                              true))))
+                               (λ (A : (Unv 0))
+                                  (λ (B : (Unv 0))
+                                     (λ (a : A)
+                                        (λ (b : B) tt)))))
                              A)))
     (define sigma (term ((((((∅ (true : (Unv 0) ((T : true))))
                                 (false : (Unv 0) ()))
