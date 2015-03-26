@@ -111,6 +111,65 @@
     [(subst-all t (x_0 x ...) (e_0 e ...))
      (subst-all (subst t x_0 e_0) (x ...) (e ...))])
 
+  ;; ---
+  ;; Proper inductives.
+  ;; Proper inductives start with proper telescopes.
+
+  ;; References:
+  ;; http://people.cs.kuleuven.be/~jesper.cockx/Without-K/Pattern-matching-without-K.pdf
+  ;; http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.37.74
+  ;; http://eb.host.cs.st-andrews.ac.uk/writings/thesis.pdf
+
+  ;; Trying to generate well-typed eliminators generally amounts to
+  ;; trying to give a single type and rule to elim-D, which is
+  ;; basically the same thing as case. So might as well just use case?
+
+  ;; (Telescope)     (Ξ Φ) ::= hole (Π (x : t) Ξ)
+  ;; (Apply context) Θ     ::= hole (Θ e)
+  ;;
+  ;; (apply-telescope D hole ) = D
+  ;; (apply-telescope D (Π (x : t) Ψ)) = (apply-telescope (D x) Ψ)
+
+  ;; Data: (when does an inductive type-check. Should specify this using judgment forms)
+  ;;
+  ;; (D : (in-hole Ξ U) ((c : (in-hole Ξ (in-hole Φ (in-hole Θ D)))) ...))
+  ;;   (side-condition (judgment-holds (check-constructor Φ)))
+  ;;
+  ;; NB: Um. I forgot what this is doing? The above pattern already checks
+  ;; NB: that all constructors produce D
+  ;; (check-constructor D hole) = #t
+  ;; (check-constructor D (Π (x : (in-hole Φ (in-hole Θ D))) Φ_1)) = (check-constructor Φ_1)
+  ;; (check-constructor D any) = #f
+  ;;
+  ;;
+  ;; elim : (Π (i_0 : T_0) (Π (i_1 : T_1) ... (Π (x : ((D i_0) ...  i_n)) ...)))
+  ;; elim : (in-hole Ξ (Π (x : (apply-telescope D Ξ))
+  ;;                   (Π (P : (in-hole Ξ (Π (x : (apply-telescope x_D Ξ)) U)))
+  ;;                      (in-hole Φ ((apply-telescope P Ξ) x)))))
+  ;;   (where Φ (methods D (constructors-for D)))
+  ;;
+  ;; (methods D ()) = hole
+  ;; (methods D ((c : (in-hole Ξ (in-hole Φ (in-hole Θ D)))) (c : e) ...)) =
+  ;;  (Π (m_i : (in-hole Ξ (in-hole Φ (in-hole Φ_1 ((in-hole Θ P) (apply-telescope (apply-telescope c Ξ) Φ))))))
+  ;      (methods D ((c : e) ...)))
+  ;;  (where Φ_1 (hypotheses D Φ))
+  ;;
+  ;; (hypotheses D hole) = hole
+  ;; (hypotheses D (Π (x : (in-hole Φ (in-hole Θ D))) Φ_1)) =
+  ;;   (Π (h : (in-hole Φ ((in-hole Θ P) (apply-telescope x Φ))))
+  ;;      (hypotheses D Φ_1))
+
+  ;; (in-hole Θ_m (((elim D) (in-hole Θ_i c_i)) v_P)) ->
+  ;;   (in-hole Θ_r (in-hole Θ_i m_i) ...)
+  ;;   (where m_i (method-lookup D c_i Θ_m))
+  ;;   (where Θ_r (elim-recur D Θ_m Θ_i (constructors-for D) v_P Θ_m))
+  ;;
+  ;; (elim-recur D Θ hole () v_P hole) = hole
+  ;; Not so sure about the (in-hole Θ_t ) bit. Trying to ignore the
+  ;; non-recursive parameters.
+  ;; (elim-recur D Θ (in-hole Θ_t (Θ_i (in-hole Θ_r c_i))) (c_i c ...) v_P (Θ_m m_i)) =
+  ;;   ((elim-recur D Θ_i (c ...) v_P Θ_m) (in-hole Θ (((elim D) (in-hole Θ_r c_i)) v_P))
+
   (define-extended-language cic-redL cicL
     (E   ::= hole (E t))
     ;; Σ signature. (inductive-name : type ((constructor : tye) ...))
@@ -119,6 +178,7 @@
     (Θ   ::= hole (Θ e)))        ;;(Apply context)
   (define Σ? (redex-match? cic-redL Σ))
   (module+ test
+    ;; TODO: Rename these signatures, and use them in all future tests.
     (define Σ (term (∅ (nat : (Unv 0) ((zero : nat) (s : (Π (x : nat) nat)))))))
     (define Σ0 (term ∅))
     (define Σ3 (term (∅ (and : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0))) ()))))
@@ -182,57 +242,6 @@
     (Γ   ::= ∅ (Γ x : t)))
 
   (define Γ? (redex-match? cic-typingL Γ))
-    ;; TODO: Rename these signatures, and use them in all future tests.
-    ;; TODO: Convert these to new Σ format
-    ;; Trying to generate well-typed eliminators generally amounts to
-    ;; trying to give a single type and rule to elim-D, which is
-    ;; basically the same thing as case. So might as well just use case?
-
-    ;; (Telescope)     (Ξ Φ) ::= hole (Π (x : t) Ξ)
-    ;; (Apply context) Θ     ::= hole (Θ e)
-    ;;
-    ;; (apply-telescope D hole ) = D
-    ;; (apply-telescope D (Π (x : t) Ψ)) = (apply-telescope (D x) Ψ)
-
-    ;; Data: (when does an inductive type-check. Should specify this using judgment forms)
-    ;;
-    ;; (D : (in-hole Ξ U) ((c : (in-hole Ξ (in-hole Φ (in-hole Θ D)))) ...))
-    ;;   (side-condition (judgment-holds (check-constructor Φ)))
-    ;;
-    ;; NB: Um. I forgot what this is doing? The above pattern already checks
-    ;; NB: that all constructors produce D
-    ;; (check-constructor D hole) = #t
-    ;; (check-constructor D (Π (x : (in-hole Φ (in-hole Θ D))) Φ_1)) = (check-constructor Φ_1)
-    ;; (check-constructor D any) = #f
-    ;;
-    ;;
-    ;; elim : (Π (i_0 : T_0) (Π (i_1 : T_1) ... (Π (x : ((D i_0) ...  i_n)) ...)))
-    ;; elim : (in-hole Ξ (Π (x : (apply-telescope D Ξ))
-    ;;                   (Π (P : (in-hole Ξ (Π (x : (apply-telescope x_D Ξ)) U)))
-    ;;                      (in-hole Φ ((apply-telescope P Ξ) x)))))
-    ;;   (where Φ (methods D (constructors-for D)))
-    ;;
-    ;; (methods D ()) = hole
-    ;; (methods D ((c : (in-hole Ξ (in-hole Φ (in-hole Θ D)))) (c : e) ...)) =
-    ;;  (Π (m_i : (in-hole Ξ (in-hole Φ (in-hole Φ_1 ((in-hole Θ P) (apply-telescope (apply-telescope c Ξ) Φ))))))
-    ;      (methods D ((c : e) ...)))
-    ;;  (where Φ_1 (hypotheses D Φ))
-    ;;
-    ;; (hypotheses D hole) = hole
-    ;; (hypotheses D (Π (x : (in-hole Φ (in-hole Θ D))) Φ_1)) =
-    ;;   (Π (h : (in-hole Φ ((in-hole Θ P) (apply-telescope x Φ))))
-    ;;      (hypotheses D Φ_1))
-
-    ;; (in-hole Θ_m (((elim D) (in-hole Θ_i c_i)) v_P)) ->
-    ;;   (in-hole Θ_r (in-hole Θ_i m_i) ...)
-    ;;   (where m_i (method-lookup D c_i Θ_m))
-    ;;   (where Θ_r (elim-recur D Θ_m Θ_i (constructors-for D) v_P Θ_m))
-    ;;
-    ;; (elim-recur D Θ hole () v_P hole) = hole
-    ;; Not so sure about the (in-hole Θ_t ) bit. Trying to ignore the
-    ;; non-recursive parameters.
-    ;; (elim-recur D Θ (in-hole Θ_t (Θ_i (in-hole Θ_r c_i))) (c_i c ...) v_P (Θ_m m_i)) =
-    ;;   ((elim-recur D Θ_i (c ...) v_P Θ_m) (in-hole Θ (((elim D) (in-hole Θ_r c_i)) v_P))
 
   (define-metafunction cic-typingL
     append-env : Γ Γ -> Γ
@@ -261,6 +270,7 @@
     [(remove ∅ x) ∅]
     [(remove (Γ x : t) x) Γ]
     [(remove (Γ x_0 : t_0) x_1) (remove Γ x_1)])
+
 
   ;; TODO: Add positivity checking.
   (define-metafunction cicL
