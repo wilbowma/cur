@@ -374,6 +374,9 @@
     (check-true (judgment-holds (wf (∅ (nat : (Unv 0) ())) (∅ x : nat))))
     (check-true (judgment-holds (wf (∅ (nat : (Unv 0) ())) (∅ x : (Π (x : nat) nat))))))
 
+  ;; Returns the inductive hypotheses required for eliminating the
+  ;; inductively defined type x_D with motive t_P, where the telescope
+  ;; Φ are the inductive arguments to a constructor for x_D
   (define-metafunction cic-redL
     hypotheses-for : x t Φ -> Φ
     [(hypotheses-for x_D t_P hole) hole]
@@ -383,20 +386,32 @@
      ;; NB: Lol hygiene
      (where x_h ,(string->symbol (format "~a-~a" 'ih (term x))))])
 
+  ;; Returns the inductive arguments to a constructor for the
+  ;; inducitvely defined type x_D, where the telescope Φ are the
+  ;; non-parameter arguments to the constructor.
+  (define-metafunction cic-redL
+    inductive-args : x Φ -> Φ
+    [(inductive-args x_D hole) hole]
+    [(inductive-args x_D (Π (x : (in-hole Φ (in-hole Θ x_D))) Φ_1))
+     (Π (x : (in-hole Φ (in-hole Θ x_D))) (inductive-args x_D Φ_1))]
+    ;; NB: Depends on clause order
+    [(inductive-args x_D (Π (x : t) Φ_1))
+     (inductive-args x_D Φ_1)])
+
+  ;; Returns the methods required for eliminating the inductively
+  ;; defined type x_D, whose parameters/indices are Ξ_pi and whose
+  ;; constructors are ((x_ci : t_ci) ...), with motive t_P.
   (define-metafunction cic-redL
     methods-for : x Ξ t ((x : t) ...) -> Ξ
     [(methods-for x_D Ξ_pi t_P ()) hole]
-    ;; TODO: This is too restrictive; there could be more hypotheses
-    ;; TODO: between Ξ_pi and the inductive hypotheses Φ. (i.e. and)
-    ;; TODO: However, such non-deterministic matching might make this
-    ;; TODO: difficult to define.
     [(methods-for x_D Ξ_pi t_P ((x_ci : (in-hole Ξ_pi (in-hole Φ (in-hole Θ x_D))))
                                 (x_c : t) ...))
      (Π (x_mi : (in-hole Ξ_pi (in-hole Φ (in-hole Φ_h
                   ;; NB: Manually reducing types because no conversion
+                  ;; NB: rule
                   (reduce ((in-hole Θ t_P) (apply-telescopes x_ci (Ξ_pi Φ))))))))
         (methods-for x_D Ξ_pi t_P ((x_c : t) ...)))
-     (where Φ_h (hypotheses-for x_D t_P Φ))
+     (where Φ_h (hypotheses-for x_D t_P (inductive-args x_D Φ)))
      ;; NB: Lol hygiene
      (where x_mi ,(string->symbol (format "~a-~a" 'm (term x_ci))))])
   (module+ test
@@ -414,7 +429,8 @@
               (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) true)))
               ((conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B)
                                                                     ((and A) B)))))))))
-      (term (Π (m-conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) true)))))))))
+      (term (Π (m-conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) true)))))
+               hole))))
 
   (define-metafunction cic-redL
     constructors-for : Σ x -> ((x : t) ...) or #f
@@ -460,7 +476,15 @@
                          (λ (x : nat) (λ (ih-x : nat) x)))
                         (methods-for nat hole
                                      (λ (x : nat) nat)
-                                     (constructors-for ,Σ nat))))))
+                                     (constructors-for ,Σ nat)))))
+    (check-true
+      (judgment-holds
+        (telescope-types (,Σ4 (true : (Unv 0) ((tt : true))))
+          ∅ (hole (λ (A : (Unv 0)) (λ (B : (Unv 0))
+                        (λ (a : A) (λ (b : B) tt)))))
+          (methods-for and (Π (A : Type) (Π (B : Type) hole))
+            (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) true)))
+            (constructors-for ,Σ4 and))))))
 
   (define-judgment-form cic-typingL
     #:mode (types I I I O)
@@ -500,7 +524,6 @@
     [(types Σ Γ x_D (in-hole Ξ U_D))
      (types Σ Γ e_D (in-hole Θ_ai x_D))
      (types Σ Γ e_P (in-hole Ξ (Π (x : (in-hole Θ_Ξ x_D)) U_P)))
-       (telescope-types Σ Γ Θ_Ξ Ξ)
      ;; methods
      (telescope-types Σ Γ Θ_m (methods-for x_D Ξ e_P (constructors-for Σ x_D)))
      ----------------- "DTR-Elim_D"
@@ -611,7 +634,9 @@
     (nat-test ∅ zero nat)
     (nat-test ∅ s (Π (x : nat) nat))
     (nat-test ∅ (s zero) nat)
-    (nat-test ∅ (elim nat zero nat (s zero) (λ (x : nat) (s (s x))))
+    (nat-test ∅ (((((elim nat) zero) (λ (x : nat) nat))
+                  (s zero))
+                  (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
               nat)
     (check-false (judgment-holds
                     (types ,Σ
@@ -661,6 +686,19 @@
                              ((((conj true) true) tt) tt)
                              ((and true) true))))
     (check-true
+      (judgment-holds
+        (types ,Σ4 ∅ and (in-hole Ξ U_D))))
+    (check-true
+      (judgment-holds
+        (types (,Σ4 (true : (Unv 0) ((tt : true)))) ∅
+          ((((conj true) true) tt) tt)
+          (in-hole Θ and))))
+    (check-true
+      (judgment-holds
+        (types (,Σ4 (true : (Unv 0) ((tt : true)))) ∅
+          (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) true)))
+          (in-hole Ξ (Π (x : (in-hole Θ_Ξ and)) U_P)))))
+    (check-true
       (judgment-holds (types (,Σ4 (true : (Unv 0) ((tt : true)))) ∅
                              ((((elim and) ((((conj true) true) tt) tt))
                                (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B))
@@ -669,7 +707,7 @@
                                   (λ (B : (Unv 0))
                                      (λ (a : A)
                                         (λ (b : B) tt)))))
-                             A)))
+                             true)))
     (define sigma (term ((((((∅ (true : (Unv 0) ((T : true))))
                                 (false : (Unv 0) ()))
                                 (equal : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
@@ -700,8 +738,9 @@
     (check-true
       (judgment-holds (types ,sigma (,gamma tmp863 : pre) (Unv 0) (Unv 1))))
     (check-true
-      (judgment-holds (types ,sigma (,gamma x : false) (elim false t x)
-                             t)))))
+      (judgment-holds (types ,sigma (,gamma x : false)
+                        (((elim false) x) (λ (y : false) (Π (x : Type) x)))
+                        (Π (x : Type) x))))))
 
 ;; This module just provide module language sugar over the redex model.
 
