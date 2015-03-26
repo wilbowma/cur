@@ -28,14 +28,14 @@
     (x ::= variable-not-otherwise-mentioned)
     (v ::= (Π (x : t) t) (λ (x : t) t) x U)
     (t e ::= v (t t) (elim e ...)))
+  (define x? (redex-match? cicL x))
+  (define t? (redex-match? cicL t))
+  (define e? (redex-match? cicL e))
+  (define v? (redex-match? cicL v))
+  (define U? (redex-match? cicL U))
 
   (module+ test
     (require rackunit)
-    (define x? (redex-match? cicL x))
-    (define t? (redex-match? cicL t))
-    (define e? (redex-match? cicL e))
-    (define v? (redex-match? cicL v))
-    (define U? (redex-match? cicL U))
     (define-term Type (Unv 0))
     (check-true (x? (term T)))
     (check-true (x? (term truth)))
@@ -119,13 +119,16 @@
     ;; Σ (signature). (inductive-name : type ((constructor : type) ...))
     (Σ   ::= ∅ (Σ (x : t ((x : t) ...))))
     (Ξ Φ ::= hole (Π (x : t) Ξ)) ;;(Telescope)
+    ;; NB: Does an apply context correspond to a substitution (γ) in a de
+    ;; NB: Bruijn setting?
     (Θ   ::= hole (Θ e)))        ;;(Apply context)
+  (define Σ? (redex-match? cic-redL Σ))
+  (define Ξ? (redex-match? cic-redL Ξ))
+  (define Φ? (redex-match? cic-redL Φ))
+  (define Θ? (redex-match? cic-redL Θ))
+  (define E? (redex-match? cic-redL E))
+
   (module+ test
-    (define Σ? (redex-match? cic-redL Σ))
-    (define Ξ? (redex-match? cic-redL Ξ))
-    (define Φ? (redex-match? cic-redL Φ))
-    (define Θ? (redex-match? cic-redL Θ))
-    (define E? (redex-match? cic-redL E))
     ;; TODO: Rename these signatures, and use them in all future tests.
     (define Σ (term (∅ (nat : (Unv 0) ((zero : nat) (s : (Π (x : nat) nat)))))))
     (define Σ0 (term ∅))
@@ -170,14 +173,57 @@
     [(apply-telescopes t (Ξ_0 Ξ_rest ...))
      (apply-telescopes (apply-telescope t Ξ_0) (Ξ_rest ...))])
 
-  ;; TODO: Congruence-closure instead of β
-  (define ==β
+  ;; NB: Depends on clause order
+  (define-metafunction cic-redL
+    select-arg : x (x ...) (Θ e) -> e
+    [(select-arg x (x x_r ...) (Θ e)) e]
+    [(select-arg x (x_1 x_r ...) (Θ e))
+     (select-arg x (x_r ...) Θ)])
+
+  (define-metafunction cic-redL
+    method-lookup : Σ x x (Θ e) -> e
+    [(method-lookup Σ x_D x_ci Θ)
+     (select-arg x_ci (x_0 ...) Θ)
+     (where ((x_0 : t_0) ...) (constructors-for Σ x_D)) ])
+
+  ;; TODO: This should be a helper, as it has a weird invariant about
+  ;; TODO: the first two Θs that should not be exposed to caller
+  (define-metafunction cic-redL
+    elim-recur : x e Θ Θ Θ (x ...) -> Θ
+    [(elim-recur x_D e_P Θ hole hole () e_P) hole]
+    [(elim-recur x_D e_P Θ (in-hole Θ_m (hole e_mi)) (in-hole Θ_t (in-hole Θ_r x_ci))
+       (x_ci x_c  ...) e_P )
+     ((elim-recur x_D e_P Θ Θ_m Θ_i (x_c ...))
+      (in-hole Θ (((elim x_D) (in-hole Θ_r x_ci)) e_P)))])
+
+  (define-judgment-form cic-redL
+    #:mode (length-match I I)
+    #:contract (length-match Θ (x ...))
+    [----------------------
+     (length-match hole ())]
+
+    [(length-match Θ (x_r ...))
+     ----------------------
+     (length-match (Θ e) (x x_r ...))])
+
+  (define cic-->
     (reduction-relation cic-redL
-      (==> ((any (x : t_0) t_1) t_2)
-            (subst t_1 x t_2))
-      with
-      [(--> (in-hole E t_0) (in-hole E t_1))
-       (==> t_0 t_1)]))
+      (--> (Σ (in-hole E ((any (x : t_0) t_1) t_2)))
+           (Σ (in-hole E (subst t_1 x t_2)))
+           -->β)
+      ;; TODO: This doesn't seem right; need to check that x not bound in e_f
+      #;(--> (Σ (in-hole E (any (x : t_0) (e_f x))))
+           (Σ (in-hole E e_f))
+           -->η)
+      (--> (Σ (in-hole E (in-hole Θ_m (((elim x_D) (in-hole Θ_i x_ci)) e_P))))
+           (Σ (in-hole E (in-hole Θ_r (in-hole Θ_i e_mi))))
+           (where ((x_c : t_c) ...) (constructors-for Σ x_D))
+           ;; There should be a number of methods equal to the number of
+           ;; constructors; to ensure E doesn't capture methods
+           (judgment-holds (length-match Θ_m (x_c ...)))
+           (where e_mi (method-lookup Σ x_D x_ci Θ_m))
+           (where Θ_r (elim-recur x_D e_P Θ_m Θ_m Θ_i (x_c ...)))
+           -->elim)))
 
   ;; Reducing elim:
   ;; (in-hole Θ_m (((elim D) (in-hole Θ_i c_i)) v_P)) ->
@@ -185,30 +231,32 @@
   ;;   (where m_i (method-lookup D c_i Θ_m))
   ;;   (where Θ_r (elim-recur D Θ_m Θ_i (constructors-for D) v_P Θ_m))
   ;;
-  ;; (elim-recur D Θ hole () v_P hole) = hole
+  ;; (elim-recur D Θ_m hole () v_P hole) = hole
   ;; Not so sure about the (in-hole Θ_t ) bit. Trying to ignore the
   ;; non-recursive parameters.
   ;; (elim-recur D Θ (in-hole Θ_t (Θ_i (in-hole Θ_r c_i))) (c_i c ...) v_P (Θ_m m_i)) =
-  ;;   ((elim-recur D Θ_i (c ...) v_P Θ_m) (in-hole Θ (((elim D) (in-hole Θ_r c_i)) v_P))
+  ;;   ((elim-recur D Θ Θ_i (c ...) v_P Θ_m) (in-hole Θ (((elim D) (in-hole Θ_r c_i)) v_P))
 
   (define-metafunction cic-redL
-    reduce : e -> e
-    [(reduce e) ,(car (apply-reduction-relation* ==β (term e)))])
+    reduce : Σ e -> e
+    [(reduce Σ e) e_r
+     (where (_ e_r) ,(car (apply-reduction-relation* cic--> (term (Σ e)))))])
   (module+ test
-    (check-equal? (term (reduce (Unv 0))) (term (Unv 0)))
-    (check-equal? (term (reduce ((λ (x : t) x) (Unv 0)))) (term (Unv 0)))
-    (check-equal? (term (reduce ((Π (x : t) x) (Unv 0)))) (term (Unv 0)))
+    (check-equal? (term (reduce ∅ (Unv 0))) (term (Unv 0)))
+    (check-equal? (term (reduce ∅ ((λ (x : t) x) (Unv 0)))) (term (Unv 0)))
+    (check-equal? (term (reduce ∅ ((Π (x : t) x) (Unv 0)))) (term (Unv 0)))
     ;; NB: Currently not reducing under binders. I forget why.
-    (check-equal? (term (reduce (Π (x : t) ((Π (x_0 : t) x_0) (Unv 0)))))
+    (check-equal? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) x_0) (Unv 0)))))
                   (term (Π (x : t) (Unv 0))))
-    (check-equal? (term (reduce (Π (x : t) ((Π (x_0 : t) x_0) x))))
-                  (term (Π (x : t) x)))
-    ;; TODO: Change uses of case to uses of elim-nat
-    (check-equal? (term (reduce (elim nat (s z) nat (s z) (λ (x : nat)
-                                                             (s (s
-                                                                  x))))))
+    (check-equal? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) x_0) x))))
+                  (term (Π (x_0 : t) x_0)))
+    (check-equal? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) (x_0 x)) x))))
+                  (term (Π (x : t) ((Π (x_0 : t) (x_0 x)) x))))
+    (check-equal? (term (reduce ,Σ (((((elim nat) (s z)) (λ (x : nat) nat))
+                                    (s z))
+                                    (λ (x : nat) (λ (ih-x : nat) (s (s x)))))))
                   (term (s (s z))))
-    (check-equal? (term (reduce (elim nat (s (s (s z))) nat (s z) (λ (x : nat)
+    (check-equal? (term (reduce ,Σ (elim nat (s (s (s z))) nat (s z) (λ (x : nat)
                                                                      (s (s
                                                                           x))))))
                   (term (s (s (s (s z)))))))
@@ -218,8 +266,7 @@
     ;; NB: There may be a bijection between Γ and Ξ. That's
     ;; NB: interesting.
     (Γ   ::= ∅ (Γ x : t)))
-  (module+ test
-    (define Γ? (redex-match? cic-typingL Γ)))
+  (define Γ? (redex-match? cic-typingL Γ))
 
   (define-metafunction cic-typingL
     append-env : Γ Γ -> Γ
@@ -357,7 +404,8 @@
     hypotheses-for : x t Φ -> Φ
     [(hypotheses-for x_D t_P hole) hole]
     [(hypotheses-for x_D t_P (Π (x : (in-hole Φ (in-hole Θ x_D))) Φ_1))
-     (Π (x_h : (in-hole Φ (reduce ((in-hole Θ t_P) (apply-telescope x Φ)))))
+     ;; TODO: Thread through Σ for reduce
+     (Π (x_h : (in-hole Φ (reduce ∅ ((in-hole Θ t_P) (apply-telescope x Φ)))))
         (hypotheses-for x_D t_P Φ_1))
      ;; NB: Lol hygiene
      (where x_h ,(string->symbol (format "~a-~a" 'ih (term x))))])
@@ -385,7 +433,8 @@
      (Π (x_mi : (in-hole Ξ_pi (in-hole Φ (in-hole Φ_h
                   ;; NB: Manually reducing types because no conversion
                   ;; NB: rule
-                  (reduce ((in-hole Θ t_P) (apply-telescopes x_ci (Ξ_pi Φ))))))))
+                  ;; TODO: Thread through Σ for reduce
+                  (reduce ∅ ((in-hole Θ t_P) (apply-telescopes x_ci (Ξ_pi Φ))))))))
         (methods-for x_D Ξ_pi t_P ((x_c : t) ...)))
      (where Φ_h (hypotheses-for x_D t_P (inductive-args x_D Φ)))
      ;; NB: Lol hygiene
@@ -529,7 +578,7 @@
      ;; methods
      (telescope-types Σ Γ Θ_m (methods-for x_D Ξ e_P (constructors-for Σ x_D)))
      ----------------- "DTR-Elim_D"
-     (types Σ Γ (in-hole Θ_m (((elim x_D) e_D) e_P)) (reduce ((in-hole Θ_ai e_P) e_D)))]
+     (types Σ Γ (in-hole Θ_m (((elim x_D) e_D) e_P)) (reduce Σ ((in-hole Θ_ai e_P) e_D)))]
 
     ;; TODO: beta-equiv
     ;; TODO: This rule is no good for algorithmic checking; Redex infinitly
