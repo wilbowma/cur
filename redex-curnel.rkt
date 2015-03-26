@@ -1,6 +1,5 @@
 #lang racket
 
-;; This module contains a model of CIC, ish.
 ;; TODO: Strip to racket/base as much as possible
 (module core racket
   (require
@@ -15,9 +14,14 @@
   ;; http://www3.di.uminho.pt/~mjf/pub/SFV-CIC-2up.pdf
   ;; https://www.cs.uoregon.edu/research/summerschool/summer11/lectures/oplss-herbelin1.pdf
   ;; http://www.emn.fr/z-info/ntabareau/papers/universe_polymorphism.pdf
+  ;; http://people.cs.kuleuven.be/~jesper.cockx/Without-K/Pattern-matching-without-K.pdf
+  ;; http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.37.74
+  ;; http://eb.host.cs.st-andrews.ac.uk/writings/thesis.pdf
 
-  ;; Core language. Surface langauge should provide short-hand, such as
-  ;; -> for non-dependent function types, and type inference.
+  ;; cicL is the core language of Cur. Very similar to TT (Idirs core)
+  ;; and Luo's UTT. Used to be similar to CIC, hence the name.
+  ;; Surface langauge should provide short-hand, such as -> for
+  ;; non-dependent function types, and type inference.
   (define-language cicL
     (i ::= natural)
     (U ::= (Unv i))
@@ -25,14 +29,13 @@
     (v ::= (Π (x : t) t) (λ (x : t) t) x U)
     (t e ::= v (t t) (elim e ...)))
 
-  (define x? (redex-match? cicL x))
-  (define t? (redex-match? cicL t))
-  (define e? (redex-match? cicL e))
-  (define v? (redex-match? cicL v))
-  (define U? (redex-match? cicL U))
-
   (module+ test
     (require rackunit)
+    (define x? (redex-match? cicL x))
+    (define t? (redex-match? cicL t))
+    (define e? (redex-match? cicL e))
+    (define v? (redex-match? cicL v))
+    (define U? (redex-match? cicL U))
     (define-term Type (Unv 0))
     (check-true (x? (term T)))
     (check-true (x? (term truth)))
@@ -111,76 +114,18 @@
     [(subst-all t (x_0 x ...) (e_0 e ...))
      (subst-all (subst t x_0 e_0) (x ...) (e ...))])
 
-  ;; ---
-  ;; Proper inductives.
-  ;; Proper inductives start with proper telescopes.
-
-  ;; References:
-  ;; http://people.cs.kuleuven.be/~jesper.cockx/Without-K/Pattern-matching-without-K.pdf
-  ;; http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.37.74
-  ;; http://eb.host.cs.st-andrews.ac.uk/writings/thesis.pdf
-
-  ;; Trying to generate well-typed eliminators generally amounts to
-  ;; trying to give a single type and rule to elim-D, which is
-  ;; basically the same thing as case. So might as well just use case?
-
-  ;; (Telescope)     (Ξ Φ) ::= hole (Π (x : t) Ξ)
-  ;; (Apply context) Θ     ::= hole (Θ e)
-  ;;
-  ;; (apply-telescope D hole ) = D
-  ;; (apply-telescope D (Π (x : t) Ψ)) = (apply-telescope (D x) Ψ)
-
-  ;; Data: (when does an inductive type-check. Should specify this using judgment forms)
-  ;;
-  ;; (D : (in-hole Ξ U) ((c : (in-hole Ξ (in-hole Φ (in-hole Θ D)))) ...))
-  ;;   (side-condition (judgment-holds (check-constructor Φ)))
-  ;;
-  ;; NB: Um. I forgot what this is doing? The above pattern already checks
-  ;; NB: that all constructors produce D
-  ;; (check-constructor D hole) = #t
-  ;; (check-constructor D (Π (x : (in-hole Φ (in-hole Θ D))) Φ_1)) = (check-constructor Φ_1)
-  ;; (check-constructor D any) = #f
-  ;;
-  ;;
-  ;; elim : (Π (i_0 : T_0) (Π (i_1 : T_1) ... (Π (x : ((D i_0) ...  i_n)) ...)))
-  ;; elim : (in-hole Ξ (Π (x : (apply-telescope D Ξ))
-  ;;                   (Π (P : (in-hole Ξ (Π (x : (apply-telescope x_D Ξ)) U)))
-  ;;                      (in-hole Φ ((apply-telescope P Ξ) x)))))
-  ;;   (where Φ (methods D (constructors-for D)))
-  ;;
-  ;; (methods D ()) = hole
-  ;; (methods D ((c : (in-hole Ξ (in-hole Φ (in-hole Θ D)))) (c : e) ...)) =
-  ;;  (Π (m_i : (in-hole Ξ (in-hole Φ (in-hole Φ_1 ((in-hole Θ P) (apply-telescope (apply-telescope c Ξ) Φ))))))
-  ;      (methods D ((c : e) ...)))
-  ;;  (where Φ_1 (hypotheses D Φ))
-  ;;
-  ;; (hypotheses D hole) = hole
-  ;; (hypotheses D (Π (x : (in-hole Φ (in-hole Θ D))) Φ_1)) =
-  ;;   (Π (h : (in-hole Φ ((in-hole Θ P) (apply-telescope x Φ))))
-  ;;      (hypotheses D Φ_1))
-
-  ;; (in-hole Θ_m (((elim D) (in-hole Θ_i c_i)) v_P)) ->
-  ;;   (in-hole Θ_r (in-hole Θ_i m_i) ...)
-  ;;   (where m_i (method-lookup D c_i Θ_m))
-  ;;   (where Θ_r (elim-recur D Θ_m Θ_i (constructors-for D) v_P Θ_m))
-  ;;
-  ;; (elim-recur D Θ hole () v_P hole) = hole
-  ;; Not so sure about the (in-hole Θ_t ) bit. Trying to ignore the
-  ;; non-recursive parameters.
-  ;; (elim-recur D Θ (in-hole Θ_t (Θ_i (in-hole Θ_r c_i))) (c_i c ...) v_P (Θ_m m_i)) =
-  ;;   ((elim-recur D Θ_i (c ...) v_P Θ_m) (in-hole Θ (((elim D) (in-hole Θ_r c_i)) v_P))
-
   (define-extended-language cic-redL cicL
-    (E   ::= hole (E t))
-    ;; Σ signature. (inductive-name : type ((constructor : tye) ...))
+    (E   ::= hole (E t)) ;; Call-by-name??
+    ;; Σ (signature). (inductive-name : type ((constructor : type) ...))
     (Σ   ::= ∅ (Σ (x : t ((x : t) ...))))
     (Ξ Φ ::= hole (Π (x : t) Ξ)) ;;(Telescope)
     (Θ   ::= hole (Θ e)))        ;;(Apply context)
-  (define Σ? (redex-match? cic-redL Σ))
-  (define Ξ? (redex-match? cic-redL Ξ))
-  (define Θ? (redex-match? cic-redL Θ))
-  (define E? (redex-match? cic-redL E))
   (module+ test
+    (define Σ? (redex-match? cic-redL Σ))
+    (define Ξ? (redex-match? cic-redL Ξ))
+    (define Φ? (redex-match? cic-redL Φ))
+    (define Θ? (redex-match? cic-redL Θ))
+    (define E? (redex-match? cic-redL E))
     ;; TODO: Rename these signatures, and use them in all future tests.
     (define Σ (term (∅ (nat : (Unv 0) ((zero : nat) (s : (Π (x : nat) nat)))))))
     (define Σ0 (term ∅))
@@ -229,10 +174,22 @@
   (define ==β
     (reduction-relation cic-redL
       (==> ((any (x : t_0) t_1) t_2)
-           (subst t_1 x t_2))
+            (subst t_1 x t_2))
       with
       [(--> (in-hole E t_0) (in-hole E t_1))
        (==> t_0 t_1)]))
+
+  ;; Reducing elim:
+  ;; (in-hole Θ_m (((elim D) (in-hole Θ_i c_i)) v_P)) ->
+  ;;   (in-hole Θ_r (in-hole Θ_i m_i) ...)
+  ;;   (where m_i (method-lookup D c_i Θ_m))
+  ;;   (where Θ_r (elim-recur D Θ_m Θ_i (constructors-for D) v_P Θ_m))
+  ;;
+  ;; (elim-recur D Θ hole () v_P hole) = hole
+  ;; Not so sure about the (in-hole Θ_t ) bit. Trying to ignore the
+  ;; non-recursive parameters.
+  ;; (elim-recur D Θ (in-hole Θ_t (Θ_i (in-hole Θ_r c_i))) (c_i c ...) v_P (Θ_m m_i)) =
+  ;;   ((elim-recur D Θ_i (c ...) v_P Θ_m) (in-hole Θ (((elim D) (in-hole Θ_r c_i)) v_P))
 
   (define-metafunction cic-redL
     reduce : e -> e
@@ -256,15 +213,13 @@
                                                                           x))))))
                   (term (s (s (s (s z)))))))
 
-  ;; TODO: Bi-directional and inference?
-  ;; TODO: http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
 
   (define-extended-language cic-typingL cic-redL
     ;; NB: There may be a bijection between Γ and Ξ. That's
     ;; NB: interesting.
     (Γ   ::= ∅ (Γ x : t)))
-
-  (define Γ? (redex-match? cic-typingL Γ))
+  (module+ test
+    (define Γ? (redex-match? cic-typingL Γ)))
 
   (define-metafunction cic-typingL
     append-env : Γ Γ -> Γ
@@ -294,12 +249,10 @@
     [(remove (Γ x : t) x) Γ]
     [(remove (Γ x_0 : t_0) x_1) (remove Γ x_1)])
 
-
   ;; TODO: Add positivity checking.
   (define-metafunction cicL
     positive : t any -> #t or #f
     [(positive any_1 any_2) #t])
-
   (module+ test
     (check-true (term (positive nat nat)))
     (check-true (term (positive (Π (x : (Unv 0)) (Π (y : (Unv 0)) (Unv 0))) #f)))
@@ -316,17 +269,17 @@
 
     (check-true (term (positive (Unv 0) #f))))
 
-  ;; Checks that a signature and typing context are well-formed.
+  ;; Holds when the signature Σ and typing context Γ are well-formed.
   (define-judgment-form cic-typingL
     #:mode (wf I I)
     #:contract (wf Σ Γ)
 
-    [-----------------
+    [----------------- "WF-Empty"
      (wf ∅ ∅)]
 
     [(types Σ Γ t t_0)
      (wf Σ Γ)
-     -----------------
+     ----------------- "WF-Var"
      (wf Σ (Γ x : t))]
 
     [(wf Σ ∅)
@@ -336,7 +289,7 @@
      (side-condition ,(map (curry equal? (term Ξ_D)) (term (Ξ_D* ...))))
      (side-condition ,(map (curry equal? (term x_D)) (term (x_D* ...))))
      (side-condition (positive t_D (t_c ...)))
-     -----------------
+     ----------------- "WF-Inductive"
      (wf (Σ (x_D : (name t_D (in-hole Ξ_D t))
             ;; Checks that a constructor for x actually produces an x, i.e., that
             ;; the constructor is well-formed.
@@ -463,6 +416,8 @@
               ()))
       (term hole)))
 
+  ;; Returns the constructors for the inductively defined type x_D in
+  ;; the signature Σ
   (define-metafunction cic-redL
     constructors-for : Σ x -> ((x : t) ...) or #f
     ;; NB: Depends on clause order
@@ -479,6 +434,9 @@
       (term (constructors-for ,sigma false))
       (term ())))
 
+
+  ;; Holds when an apply context Θ provides arguments that match the
+  ;; telescope Ξ
   (define-judgment-form cic-typingL
     #:mode (telescope-types I I I I)
     #:contract (telescope-types Σ Γ Θ Ξ)
@@ -526,6 +484,10 @@
           (methods-for false hole (λ (y : false) (Π (x : Type) x))
             ())))))
 
+  ;; TODO: Bi-directional and inference?
+  ;; TODO: http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
+
+  ;; Holds when e has type t under signature Σ and typing context Γ
   (define-judgment-form cic-typingL
     #:mode (types I I I O)
     #:contract (types Σ Γ e t)
@@ -570,10 +532,10 @@
      (types Σ Γ (in-hole Θ_m (((elim x_D) e_D) e_P)) (reduce ((in-hole Θ_ai e_P) e_D)))]
 
     ;; TODO: beta-equiv
-    ;; This rule is no good for algorithmic checking; Redex infinitly
-    ;; searches it.
-    ;; Perhaps something closer to Zombies = type would be better.
-    ;; For now, reduce types manually
+    ;; TODO: This rule is no good for algorithmic checking; Redex infinitly
+    ;; TODO: searches it.
+    ;; TODO: Perhaps something closer to Zombies = type would be better.
+    ;; TODO: For now, reduce types manually
     #;[(types Σ Γ e t)
      (types Σ Γ t U)
      (converts Σ t t_1)
