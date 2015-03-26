@@ -177,6 +177,9 @@
     (Ξ Φ ::= hole (Π (x : t) Ξ)) ;;(Telescope)
     (Θ   ::= hole (Θ e)))        ;;(Apply context)
   (define Σ? (redex-match? cic-redL Σ))
+  (define Ξ? (redex-match? cic-redL Ξ))
+  (define Θ? (redex-match? cic-redL Θ))
+  (define E? (redex-match? cic-redL E))
   (module+ test
     ;; TODO: Rename these signatures, and use them in all future tests.
     (define Σ (term (∅ (nat : (Unv 0) ((zero : nat) (s : (Π (x : nat) nat)))))))
@@ -188,7 +191,27 @@
     (check-true (Σ? Σ))
     (check-true (Σ? Σ4))
     (check-true (Σ? Σ3))
-    (check-true (Σ? Σ4)))
+    (check-true (Σ? Σ4))
+    (define sigma (term ((((((∅ (true : (Unv 0) ((T : true))))
+                                (false : (Unv 0) ()))
+                                (equal : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
+                                   ()))
+                                (nat : (Unv 0) ()))
+                                (heap : (Unv 0) ()))
+                                (pre : (Π (temp808 : heap) (Unv 0)) ()))))
+    (check-true (Σ? (term (∅ (true : (Unv 0) ((T : true)))))))
+    (check-true (Σ? (term (∅ (false : (Unv 0) ())))))
+    (check-true (Σ? (term (∅ (equal : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
+                                  ())))))
+    (check-true (Σ? (term (∅ (nat : (Unv 0) ())))))
+    (check-true (Σ? (term (∅ (pre : (Π (temp808 : heap) (Unv 0)) ())))))
+
+    (check-true (Σ? (term ((∅ (true : (Unv 0) ((T : true)))) (false : (Unv 0) ())))))
+    (check-true (Σ? (term (((∅ (true : (Unv 0) ((T : true)))) (false : (Unv 0) ()))
+                               (equal : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
+                                  ())))))
+
+    (check-true (Σ? sigma)))
 
   ;; TODO: Test
   (define-metafunction cic-redL
@@ -430,7 +453,15 @@
               ((conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B)
                                                                     ((and A) B)))))))))
       (term (Π (m-conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) true)))))
-               hole))))
+               hole)))
+    (check-true (x? (term false)))
+    (check-true (Ξ? (term hole)))
+    (check-true (t? (term (λ (y : false) (Π (x : Type) x)))))
+    (check-true (redex-match? cicL ((x : t) ...) (term ())))
+    (check-equal?
+      (term (methods-for false hole (λ (y : false) (Π (x : Type) x))
+              ()))
+      (term hole)))
 
   (define-metafunction cic-redL
     constructors-for : Σ x -> ((x : t) ...) or #f
@@ -443,7 +474,10 @@
   (module+ test
     (check-equal?
       (term (constructors-for ,Σ nat))
-      (term ((zero : nat) (s : (Π (x : nat) nat))))))
+      (term ((zero : nat) (s : (Π (x : nat) nat)))))
+    (check-equal?
+      (term (constructors-for ,sigma false))
+      (term ())))
 
   (define-judgment-form cic-typingL
     #:mode (telescope-types I I I I)
@@ -484,7 +518,13 @@
                         (λ (a : A) (λ (b : B) tt)))))
           (methods-for and (Π (A : Type) (Π (B : Type) hole))
             (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) true)))
-            (constructors-for ,Σ4 and))))))
+            (constructors-for ,Σ4 and)))))
+    (check-true
+      (judgment-holds
+        (telescope-types ,sigma (∅ x : false)
+          hole
+          (methods-for false hole (λ (y : false) (Π (x : Type) x))
+            ())))))
 
   (define-judgment-form cic-typingL
     #:mode (types I I I O)
@@ -708,26 +748,6 @@
                                      (λ (a : A)
                                         (λ (b : B) tt)))))
                              true)))
-    (define sigma (term ((((((∅ (true : (Unv 0) ((T : true))))
-                                (false : (Unv 0) ()))
-                                (equal : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
-                                   ()))
-                                (nat : (Unv 0) ()))
-                                (heap : (Unv 0) ()))
-                                (pre : (Π (temp808 : heap) (Unv 0)) ()))))
-    (check-true (Σ? (term (∅ (true : (Unv 0) ((T : true)))))))
-    (check-true (Σ? (term (∅ (false : (Unv 0) ())))))
-    (check-true (Σ? (term (∅ (equal : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
-                                  ())))))
-    (check-true (Σ? (term (∅ (nat : (Unv 0) ())))))
-    (check-true (Σ? (term (∅ (pre : (Π (temp808 : heap) (Unv 0)) ())))))
-
-    (check-true (Σ? (term ((∅ (true : (Unv 0) ((T : true)))) (false : (Unv 0) ())))))
-    (check-true (Σ? (term (((∅ (true : (Unv 0) ((T : true)))) (false : (Unv 0) ()))
-                               (equal : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
-                                  ())))))
-
-    (check-true (Σ? sigma))
     (define gamma (term (∅ temp863 : pre)))
     (check-true (judgment-holds (wf ,sigma ∅)))
     (check-true (judgment-holds (wf ,sigma ,gamma)))
@@ -738,9 +758,22 @@
     (check-true
       (judgment-holds (types ,sigma (,gamma tmp863 : pre) (Unv 0) (Unv 1))))
     (check-true
+      (judgment-holds
+        (types ,sigma (,gamma x : false) false (in-hole Ξ U_D))))
+    (check-true
+      (judgment-holds
+        (types ,sigma (,gamma x : false) x (in-hole Θ false))))
+    (check-true
+      (judgment-holds
+        (types ,sigma (,gamma x : false) (λ (y : false) (Π (x : Type) x))
+          (in-hole Ξ (Π (x : (in-hole Θ false)) U)))))
+    (check-true
+      (redex-match? cic-typingL (in-hole Θ_m (((elim x_D) e_D) e_P))
+                    (term (((elim false) x) (λ (y : false) (Π (x : Type) x))))))
+    (check-true
       (judgment-holds (types ,sigma (,gamma x : false)
                         (((elim false) x) (λ (y : false) (Π (x : Type) x)))
-                        (Π (x : Type) x))))))
+                        (Π (x : (Unv 0)) x))))))
 
 ;; This module just provide module language sugar over the redex model.
 
