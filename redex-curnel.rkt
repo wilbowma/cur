@@ -527,7 +527,6 @@
       (term (constructors-for ,sigma false))
       (term ())))
 
-
   ;; Holds when an apply context Θ provides arguments that match the
   ;; telescope Ξ
   (define-judgment-form cic-typingL
@@ -736,6 +735,12 @@
     (nat-test (∅ n : nat)
       (((((elim nat) n) (λ (x : nat) nat)) zero) (λ (x : nat) (λ (ih-x : nat) x)))
       nat)
+    (check-true
+      (judgment-holds
+        (types (,Σ (bool : (Unv 0) ((btrue : bool) (bfalse : bool))))
+          (∅ n2 : nat)
+          (((((elim nat) n2) (λ (x : nat) bool)) btrue) (λ (x : nat) (λ (ih-x : bool) bfalse)))
+          bool)))
     (check-false (judgment-holds
                     (types ,Σ
                            ∅
@@ -806,6 +811,27 @@
                                      (λ (a : A)
                                         (λ (b : B) tt)))))
                              true)))
+    (check-true
+      (judgment-holds
+        (types (,Σ4 (true : (Unv 0) ((tt : true)))) ∅
+          (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) ((and B) A))))
+          (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Π (x : ((and A) B)) (Unv 0)))))))
+    (check-true
+      (judgment-holds
+        (types (,Σ4 (true : (Unv 0) ((tt : true))))
+               ((∅ A : Type) B : Type)
+               (conj B)
+               t) t))
+    (check-true
+      (judgment-holds (types (,Σ4 (true : (Unv 0) ((tt : true)))) ∅
+                             ((((elim and) ((((conj true) true) tt) tt))
+                               (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B))
+                                                              ((and B) A)))))
+                               (λ (A : (Unv 0))
+                                  (λ (B : (Unv 0))
+                                     (λ (a : A)
+                                        (λ (b : B) ((((conj B) A) b) a))))))
+                             ((and true) true))))
     (define gamma (term (∅ temp863 : pre)))
     (check-true (judgment-holds (wf ,sigma ∅)))
     (check-true (judgment-holds (wf ,sigma ,gamma)))

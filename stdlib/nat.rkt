@@ -31,17 +31,18 @@
   (check-equal? (plus z z) z)
   (check-equal? (plus (s (s z)) (s (s z))) (s (s (s (s z))))))
 
-(define (nat-equal? (n1 : nat) (n2 : nat) : bool)
+(define (nat-equal? (n1 : nat) (n2 : nat))
   (case* nat n1 (lambda (x : nat) bool)
     [z (case* nat n2 (lambda (x : nat) bool)
          [z btrue]
          [(s (x : nat)) IH: ((ih-x : bool)) bfalse])]
+    ;; TODO: Can't finish correct definition due to issues with names
     [(s (x : nat)) IH: ((ih-x : bool))
        (case* nat n2 (lambda (x : nat) bool)
          [z bfalse]
          [(s (x : nat)) IH: ((ih-x : bool))
           ih-x])]))
 (module+ test
-  (check-equal? btrue (nat-equal? z z))
-  (check-equal? bfalse (nat-equal? z (s z)))
-  (check-equal? btrue (nat-equal? (s z) (s z))))
+  (check-equal? (nat-equal? z z) btrue)
+  (check-equal? (nat-equal? z (s z)) bfalse)
+  (check-equal? (nat-equal? (s z) (s z)) btrue))

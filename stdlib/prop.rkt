@@ -31,10 +31,11 @@
 (define-theorem thm:and-is-symmetric
   (forall* (P : Type) (Q : Type) (ab : (and P Q)) (and Q P)))
 
-;; TODO: BAH! pattern matching on inductive families is still broken.
 (define proof:and-is-symmetric
   (lambda* (P : Type) (Q : Type) (ab : (and P Q))
-    (case* ab
+    (case* and ab
+      (lambda* (P : Type) (Q : Type) (ab : (and P Q))
+         (and Q P))
       ((conj (P : Type) (Q : Type) (x : P) (y : Q)) (conj Q P y x)))))
 
 #;(qed thm:and-is-symmetric proof:and-is-symmetric)
