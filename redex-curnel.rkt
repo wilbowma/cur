@@ -26,8 +26,8 @@
     (i ::= natural)
     (U ::= (Unv i))
     (x ::= variable-not-otherwise-mentioned)
-    (v ::= (Π (x : t) t) (λ (x : t) t) x U)
-    (t e ::= v (t t) (elim e ...)))
+    (v ::= (Π (x : t) t) (λ (x : t) t) elim x U)
+    (t e ::= v (t t)))
   (define x? (redex-match? cicL x))
   (define t? (redex-match? cicL t))
   (define e? (redex-match? cicL e))
@@ -100,7 +100,8 @@
     ;; binders to be the same in term/type, so this is not a local
     ;; change.
     [(subst (any (x_0 : t_0) t_1) x t) (any (x_0 : (subst t_0 x t)) (subst t_1 x t))]
-    [(subst (e_0 e_1) x t) ((subst e_0 x t) (subst e_1 x t))])
+    [(subst (e_0 e_1) x t) ((subst e_0 x t) (subst e_1 x t))]
+    [(subst elim x t) elim])
   (module+ test
     (check-equal?
       (term (Π (a : S) (Π (b : B) ((and S) B))))
@@ -115,7 +116,7 @@
      (subst-all (subst t x_0 e_0) (x ...) (e ...))])
 
   (define-extended-language cic-redL cicL
-    (E   ::= hole (E t)) ;; Call-by-name??
+    (E   ::= hole (v E) (E e)) ;; call-by-value
     ;; Σ (signature). (inductive-name : type ((constructor : type) ...))
     (Σ   ::= ∅ (Σ (x : t ((x : t) ...))))
     (Ξ Φ ::= hole (Π (x : t) Ξ)) ;;(Telescope)
@@ -161,6 +162,12 @@
 
     (check-true (Σ? sigma)))
 
+  (define-metafunction cic-redL
+    append-Σ : Σ Σ -> Σ
+    [(append-Σ Σ ∅) Σ]
+    [(append-Σ Σ_2 (Σ_1 (x : t ((x_c : t_c) ...))))
+     ((append-Σ Σ_2 Σ_1) (x : t ((x_c : t_c) ...)))])
+
   ;; TODO: Test
   (define-metafunction cic-redL
     apply-telescope : t Ξ -> t
@@ -176,8 +183,8 @@
   ;; NB: Depends on clause order
   (define-metafunction cic-redL
     select-arg : x (x ...) (Θ e) -> e
-    [(select-arg x (x x_r ...) (Θ e)) e]
-    [(select-arg x (x_1 x_r ...) (Θ e))
+    [(select-arg x (x x_r ...) (in-hole Θ (hole e))) e]
+    [(select-arg x (x_1 x_r ...) (in-hole Θ (hole e)))
      (select-arg x (x_r ...) Θ)])
 
   (define-metafunction cic-redL
@@ -185,16 +192,42 @@
     [(method-lookup Σ x_D x_ci Θ)
      (select-arg x_ci (x_0 ...) Θ)
      (where ((x_0 : t_0) ...) (constructors-for Σ x_D)) ])
+  (module+ test
+    (check-equal?
+      (term (method-lookup ,Σ nat s
+            ((hole (s zero))
+             (λ (x : nat) (λ (ih-x : nat) (s (s zero)))))))
+      (term (λ (x : nat) (λ (ih-x : nat) (s (s zero)))))))
 
-  ;; TODO: This should be a helper, as it has a weird invariant about
-  ;; TODO: the first two Θs that should not be exposed to caller
+  ;; Create the recursive applications of elim to the recursive
+  ;; arguments of an inductive constructor.
+  ;; TODO: Poorly documented, and poorly tested.
   (define-metafunction cic-redL
     elim-recur : x e Θ Θ Θ (x ...) -> Θ
-    [(elim-recur x_D e_P Θ hole hole () e_P) hole]
-    [(elim-recur x_D e_P Θ (in-hole Θ_m (hole e_mi)) (in-hole Θ_t (in-hole Θ_r x_ci))
-       (x_ci x_c  ...) e_P )
-     ((elim-recur x_D e_P Θ Θ_m Θ_i (x_c ...))
+    [(elim-recur x_D e_P Θ Θ_i hole (x ...)) hole]
+    [(elim-recur x_D e_P Θ
+       (in-hole Θ_m (hole e_mi))
+       (in-hole Θ_i (hole (in-hole Θ_r x_ci)))
+       (x_c0 ... x_ci x_c1 ...))
+     ((elim-recur x_D e_P Θ Θ_m Θ_i (x_c0 ... x_ci x_c1 ...))
       (in-hole Θ (((elim x_D) (in-hole Θ_r x_ci)) e_P)))])
+  (module+ test
+    (check-true
+      (redex-match? cic-redL (in-hole Θ_i (hole (in-hole Θ_r zero))) (term (hole zero))))
+    (check-equal?
+      (term (elim-recur nat (λ (x : nat) nat)
+              ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
+              ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
+              (hole zero)
+              (zero s)))
+      (term (hole (((((elim nat) zero) (λ (x : nat) nat)) (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x))))))))
+    (check-equal?
+      (term (elim-recur nat (λ (x : nat) nat)
+              ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
+              ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
+              (hole (s zero))
+              (zero s)))
+      (term (hole (((((elim nat) (s zero)) (λ (x : nat) nat)) (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))))))
 
   (define-judgment-form cic-redL
     #:mode (length-match I I)
@@ -211,10 +244,6 @@
       (--> (Σ (in-hole E ((any (x : t_0) t_1) t_2)))
            (Σ (in-hole E (subst t_1 x t_2)))
            -->β)
-      ;; TODO: This doesn't seem right; need to check that x not bound in e_f
-      #;(--> (Σ (in-hole E (any (x : t_0) (e_f x))))
-           (Σ (in-hole E e_f))
-           -->η)
       (--> (Σ (in-hole E (in-hole Θ_m (((elim x_D) (in-hole Θ_i x_ci)) e_P))))
            (Σ (in-hole E (in-hole Θ_r (in-hole Θ_i e_mi))))
            (where ((x_c : t_c) ...) (constructors-for Σ x_D))
@@ -224,18 +253,6 @@
            (where e_mi (method-lookup Σ x_D x_ci Θ_m))
            (where Θ_r (elim-recur x_D e_P Θ_m Θ_m Θ_i (x_c ...)))
            -->elim)))
-
-  ;; Reducing elim:
-  ;; (in-hole Θ_m (((elim D) (in-hole Θ_i c_i)) v_P)) ->
-  ;;   (in-hole Θ_r (in-hole Θ_i m_i) ...)
-  ;;   (where m_i (method-lookup D c_i Θ_m))
-  ;;   (where Θ_r (elim-recur D Θ_m Θ_i (constructors-for D) v_P Θ_m))
-  ;;
-  ;; (elim-recur D Θ_m hole () v_P hole) = hole
-  ;; Not so sure about the (in-hole Θ_t ) bit. Trying to ignore the
-  ;; non-recursive parameters.
-  ;; (elim-recur D Θ (in-hole Θ_t (Θ_i (in-hole Θ_r c_i))) (c_i c ...) v_P (Θ_m m_i)) =
-  ;;   ((elim-recur D Θ Θ_i (c ...) v_P Θ_m) (in-hole Θ (((elim D) (in-hole Θ_r c_i)) v_P))
 
   (define-metafunction cic-redL
     reduce : Σ e -> e
@@ -248,18 +265,29 @@
     ;; NB: Currently not reducing under binders. I forget why.
     (check-equal? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) x_0) (Unv 0)))))
                   (term (Π (x : t) (Unv 0))))
-    (check-equal? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) x_0) x))))
-                  (term (Π (x_0 : t) x_0)))
     (check-equal? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) (x_0 x)) x))))
                   (term (Π (x : t) ((Π (x_0 : t) (x_0 x)) x))))
-    (check-equal? (term (reduce ,Σ (((((elim nat) (s z)) (λ (x : nat) nat))
-                                    (s z))
-                                    (λ (x : nat) (λ (ih-x : nat) (s (s x)))))))
-                  (term (s (s z))))
-    (check-equal? (term (reduce ,Σ (elim nat (s (s (s z))) nat (s z) (λ (x : nat)
-                                                                     (s (s
-                                                                          x))))))
-                  (term (s (s (s (s z)))))))
+    (check-equal? (term (reduce ,Σ (((((elim nat) zero) (λ (x : nat) nat))
+                                    (s zero))
+                                    (λ (x : nat) (λ (ih-x : nat)
+                                        (s (s x)))))))
+                  (term (s zero)))
+    (check-equal? (term (reduce ,Σ (((((elim nat) (s zero)) (λ (x : nat) nat))
+                                    (s zero))
+                                    (λ (x : nat) (λ (ih-x : nat)
+                                        (s (s x)))))))
+                  (term (s (s zero))))
+    (check-equal? (term (reduce ,Σ (((((elim nat) (s (s (s zero)))) (λ (x : nat) nat))
+                                     (s zero))
+                                     (λ (x : nat) (λ (ih-x : nat) (s (s x)))))))
+                  (term (s (s (s (s zero))))))
+
+    (check-equal?
+      (term (reduce ,Σ
+        (((((elim nat) (s (s zero))) (λ (x : nat) nat))
+          (s (s zero)))
+         (λ (x : nat) (λ (ih-x : nat) (s ih-x))))))
+      (term (s (s (s (s zero)))))))
 
 
   (define-extended-language cic-typingL cic-redL
@@ -269,10 +297,10 @@
   (define Γ? (redex-match? cic-typingL Γ))
 
   (define-metafunction cic-typingL
-    append-env : Γ Γ -> Γ
-    [(append-env Γ ∅) Γ]
-    [(append-env Γ_2 (Γ_1 x : t))
-     ((append-env Γ_2 Γ_1) x : t)])
+    append-Γ : Γ Γ -> Γ
+    [(append-Γ Γ ∅) Γ]
+    [(append-Γ Γ_2 (Γ_1 x : t))
+     ((append-Γ Γ_2 Γ_1) x : t)])
 
   ;; NB: Depends on clause order
   (define-metafunction cic-typingL
@@ -464,6 +492,22 @@
       (term (methods-for false hole (λ (y : false) (Π (x : Type) x))
               ()))
       (term hole)))
+
+  ;; Returns the inductively defined type that x constructs
+  ;; NB: Depends on clause order
+  (define-metafunction cic-redL
+    constructor-of : Σ x -> x
+    [(constructor-of (Σ (x : t ((x_0 : t_0) ... (x_c : t_c) (x_1 : t_1) ...)))
+                     x_c) x]
+    [(constructor-of (Σ (x_1 : t_1 ((x_c : t) ...))) x)
+     (constructor-of Σ x)])
+  (module+ test
+    (check-equal?
+      (term (constructor-of ,Σ zero))
+      (term nat))
+    (check-equal?
+      (term (constructor-of ,Σ s))
+      (term nat)))
 
   ;; Returns the constructors for the inductively defined type x_D in
   ;; the signature Σ
@@ -689,10 +733,13 @@
                   (s zero))
                   (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
               nat)
+    (nat-test (∅ n : nat)
+      (((((elim nat) n) (λ (x : nat) nat)) zero) (λ (x : nat) (λ (ih-x : nat) x)))
+      nat)
     (check-false (judgment-holds
                     (types ,Σ
                            ∅
-                           (elim nat zero nat (s zero))
+                           ((((elim nat) zero) nat) (s zero))
                            nat)))
     (define lam (term (λ (nat : (Unv 0)) nat)))
     (check-equal?
@@ -829,6 +876,8 @@
 
       [dep-inductive data]
 
+      [dep-elim elim]
+
       [dep-var #%top]
 
 ;      [dep-datum #%datum]
@@ -885,15 +934,32 @@
             (error 'core-error "We built a bad sigma ~s" x))
           x)))
 
-    (define (extend-env/term env x t)
+    (define (extend-Γ/term env x t)
       (term (,(env) ,x : ,t)))
 
-    (define (extend-env/term! env x t) (env (extend-env/term env x t)))
+    (define (extend-Γ/term! env x t) (env (extend-Γ/term env x t)))
 
-    (define (extend-env/syn env x t)
-      (term (,(env) ,(syntax->datum x) : ,(cur->datum t))))
+    (define (extend-Γ/syn env x t)
+      (extend-Γ/term env (syntax->datum x) (cur->datum t)))
 
-    (define (extend-env/syn! env x t) (env (extend-env/syn env x t)))
+    (define (extend-Γ/syn! env x t) (env (extend-Γ/syn env x t)))
+
+    (define (extend-Σ/term env x t c*)
+      (term (,(env) (,x : ,t (,@c*)))))
+
+    (define (extend-Σ/term! env x t c*)
+      (env (extend-Σ/term env x t c*)))
+
+    (define (extend-Σ/syn env x t c*)
+      (extend-Σ/term env (syntax->datum x) (cur->datum t)
+        (for/list ([c (syntax->list c*)])
+          (syntax-case c ()
+            [(c : ct)
+             (parameterize ([gamma (extend-Γ/syn gamma x t)])
+               (term (,(syntax->datum #'c) : ,(cur->datum #'ct))))]))))
+
+    (define (extend-Σ/syn! env x t c*)
+      (env (extend-Σ/syn env x t c*)))
 
     (define bind-subst (make-parameter (list null null)))
 
@@ -911,7 +977,7 @@
     (define (syntax->curnel-syntax syn) (denote syn (cur->datum syn)))
 
     (define (denote syn t)
-      #`(term (reduce (subst-all #,(datum->syntax syn t) #,(first (bind-subst)) #,(second (bind-subst))))))
+      #`(term (reduce #,(sigma) (subst-all #,(datum->syntax syn t) #,(first (bind-subst)) #,(second (bind-subst))))))
 
     ;; TODO: Blanket disarming is probably a bad idea.
     (define orig-insp (variable-reference->module-declaration-inspector
@@ -922,7 +988,7 @@
     (define (core-expand syn)
       (disarm
         (local-expand syn 'expression
-          (append (syntax-e #'(term reduce subst-all dep-var #%app λ Π μ case
+          (append (syntax-e #'(term reduce subst-all dep-var #%app λ Π elim
                                Unv #%datum))))))
 
     ;; Only type-check at the top-level, to prevent exponential
@@ -939,10 +1005,10 @@
           (let cur->datum ([syn syn])
             (syntax-parse (core-expand syn)
               #:literals (term reduce #%app subst-all)
-              #:datum-literals (case Π λ μ : Unv)
+              #:datum-literals (elim Π λ : Unv)
               [x:id (syntax->datum #'x)]
               [(subst-all e _ _) (syntax->datum #'e)]
-              [(reduce e) (cur->datum #'e)]
+              [(reduce Σ e) (cur->datum #'e)]
               [(term e) (cur->datum #'e)]
               [(Unv i) (term (Unv ,(syntax->datum #'i)))]
               ;; TODO: should really check that b is one of the binders
@@ -951,9 +1017,17 @@
               [(b:id (x:id : t) e)
                (let* ([x (syntax->datum #'x)]
                       [t (cur->datum #'t)]
-                      [e (parameterize ([gamma (extend-env/term gamma x t)])
+                      [e (parameterize ([gamma (extend-Γ/term gamma x t)])
                            (cur->datum #'e))])
                  (term (,(syntax->datum #'b) (,x : ,t) ,e)))]
+              [(elim t e P m ...)
+               (let* ([t (cur->datum #'t)]
+                      [e (cur->datum #'e)]
+                      [P (cur->datum #'P)]
+                      [e (term (((elim ,t) ,e) ,P))])
+                 (for/fold ([e e])
+                           ([m (syntax->list #'(m ...))])
+                   (term (,e ,(cur->datum m)))))]
               [(#%app e1 e2)
                (term (,(cur->datum #'e1) ,(cur->datum #'e2)))]))))
       (unless (and inner-expand? (type-infer/term reified-term))
@@ -977,7 +1051,7 @@
         (equal? t (cur->datum type))))
 
     (define (normalize/syn syn)
-      (denote syn (term (reduce (subst-all ,(cur->datum syn) ,(first (bind-subst)) ,(second (bind-subst)))))))
+      (denote syn (term (reduce ,(sigma) (subst-all ,(cur->datum syn) ,(first (bind-subst)) ,(second (bind-subst)))))))
 
     ;; Takes a Cur term syn and an arbitrary number of identifiers ls. The cur term is
     ;; expanded until expansion reaches a Curnel form, or one of the
@@ -985,7 +1059,7 @@
     (define (cur-expand syn . ls)
       (disarm (local-expand syn 'expression
                 (append (syntax-e #'(Type dep-inductive dep-lambda dep-app
-                                   dep-forall dep-var))
+                                   dep-elim dep-forall dep-var))
                         ls)))))
 
     ;; TODO: OOps, run doesn't return a cur term but a redex term
@@ -1005,8 +1079,8 @@
     (define (cur-identifier-bound? id)
       (let ([x (syntax->datum id)])
         (and (x? x)
-             (or (term (lookup ,(gamma) ,x))
-               (term (lookup ,(sigma) ,x))))))
+             (or (term (lookup-Γ ,(gamma) ,x))
+               (term (lookup-Σ ,(sigma) ,x))))))
 
     (define (filter-cur-exports syn modes)
       (partition (compose cur-identifier-bound? export-local-id)
@@ -1018,8 +1092,9 @@
         (syntax-case syn ()
           [(_ e ...)
            (let-values ([(cur ~cur) (filter-cur-exports #'(e ...) modes)])
-             (set! envs (for/list ([e cur])
-                          (let* ([x (syntax->datum (export-local-id e))]
+             ;; TODO: Ignoring the built envs for now
+             #;(set! envs (for/list ([e cur])
+                       (let* ([x (syntax->datum (export-local-id e))]
                                  [t (type-infer/term x)]
                                  [env (if (term (lookup ,(gamma) ,x)) #'gamma #'sigma)])
                             #`(extend-env/term! #,env #,(export-out-sym e) #,t))))
@@ -1070,7 +1145,7 @@
                              ;; TODO: Do not DIY gensym
                              (set! gn (add1 gn))
                              (set! out-gammas
-                               #`(#,@out-gammas (gamma (term (append-env
+                               #`(#,@out-gammas (gamma (term (append-Γ
                                                                ,(gamma)
                                                                ,#,new-id)))))
                              (cons (struct-copy import imp [local-id new-id])
@@ -1083,7 +1158,7 @@
                              ;; TODO: Do not DIY gensym
                              (set! sn (add1 sn))
                              (set! out-sigmas
-                               #`(#,@out-sigmas (sigma (term (append-env
+                               #`(#,@out-sigmas (sigma (term (append-Σ
                                                                ,(sigma)
                                                                ,#,new-id)))))
                              (cons (struct-copy import imp [local-id new-id])
@@ -1161,24 +1236,23 @@
       [(_ i) (syntax->curnel-syntax #'(Unv i))]
       [_ #'(Type 0)]))
 
-  (define-syntax (dep-fix syn)
-   (syntax-case syn (:)
-     [(_ (x : t) e) (syntax->curnel-syntax #`(μ (x : t) e))]))
-
   (define-syntax (dep-inductive syn)
     (syntax-case syn (:)
       [(_ i : ti (x1 : t1) ...)
        (begin
-         (extend-env/syn! sigma #'i #'ti)
-         (for ([x (syntax->list #`(x1 ...))]
-               [t (syntax->list #`(t1 ...))])
-           (extend-env/syn! sigma x t))
+         (extend-Σ/syn! sigma #'i #'ti #'((x1 : t1) ...))
          #'(void))]))
+
+  (define-syntax (dep-elim syn)
+    (syntax-case syn (:)
+      [(_ D e P method ...)
+       (syntax->curnel-syntax
+         #`(elim D e P method ...))]))
 
   ;; TODO: Not sure if this is the correct behavior for #%top
   (define-syntax (dep-var syn)
     (syntax-case syn ()
-      [(_ . id) #`(term (reduce id))]))
+      [(_ . id) #`(term (reduce #,(sigma) id))]))
 
   ;; TODO: Syntax-parse
   (define-syntax (dep-define syn)
@@ -1191,7 +1265,7 @@
        ;; environment and have denote do a giant substitution
        (let ([e (cur->datum #'e)]
              [id (syntax->datum #'id)])
-         (extend-env/term! gamma id (type-infer/term e))
+         (extend-Γ/term! gamma id (type-infer/term e))
          (add-binding/term! id e)
          #'(void))])))
 

@@ -9,8 +9,11 @@
 (module+ test
   (require rackunit "bool.rkt")
   ;; TODO: Dependent pattern matching doesn't work yet
-  #;(check-equal? (case* (some bool btrue)
-                  [(none (A : Type)) bfalse]
-                  [(some (A : Type) (x : bool))
-                   (if x btrue bfalse)])
-                btrue))
+  (check-equal?
+    (case* maybe (some bool btrue)
+      (lambda (x : (maybe bool)) bool)
+      [(none (A : Type)) with-IH ()
+       bfalse]
+      [(some (A : Type) (x : A)) with-IH ()
+       (if x btrue bfalse)])
+    btrue))

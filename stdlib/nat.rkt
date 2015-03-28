@@ -2,45 +2,45 @@
 (require "sugar.rkt" "bool.rkt")
 ;; TODO: override (all-defined-out) to enable exporting all these
 ;; properly.
-(provide nat z s add1 sub1 plus nat-equal?)
+(provide nat z s add1 sub1 plus )
 (module+ test
   (require rackunit))
 
 (data nat : Type
   (z : nat)
-  (s : (-> nat nat)))
+  ;; TODO: Can't use -> syntax here due to issues with names
+  (s : (forall (x : nat) nat)))
 
 (define (add1 (n : nat)) (s n))
 (module+ test
   (check-equal? (add1 (s z)) (s (s z))))
 
 (define (sub1 (n : nat))
-  (case n
+  (case* nat n (lambda (x : nat) nat)
     [z z]
-    [s (lambda (x : nat) x)]))
+    [(s (x : nat)) IH: ((ih-x : nat)) x]))
 (module+ test
   (check-equal? (sub1 (s z)) z))
 
-(define plus
-  (fix (plus : (forall* (n1 : nat) (n2 : nat) nat))
-    (lambda (n1 : nat)
-      (lambda (n2 : nat)
-        (case n1
-          [z n2]
-          [s (λ (x : nat) (plus x (s n2)))])))))
+(define (plus (n1 : nat) (n2 : nat))
+  (case* nat n1 (lambda (x : nat) nat)
+    [z n2]
+    [(s (x : nat)) IH: ((ih-x : nat))
+     (s ih-x)]))
 (module+ test
   (check-equal? (plus z z) z)
   (check-equal? (plus (s (s z)) (s (s z))) (s (s (s (s z))))))
 
-(define-rec (nat-equal? (n1 : nat) (n2 : nat) : bool)
-  (case* n1
-    [z (case* n2
+(define (nat-equal? (n1 : nat) (n2 : nat) : bool)
+  (case* nat n1 (lambda (x : nat) bool)
+    [z (case* nat n2 (lambda (x : nat) bool)
          [z btrue]
-         [(s (n3 : nat)) bfalse])]
-    [(s (n3 : nat))
-       (case* n2
-         [z btrue]
-         [(s (n4 : nat)) (nat-equal? n3 n4)])]))
+         [(s (x : nat)) IH: ((ih-x : bool)) bfalse])]
+    [(s (x : nat)) IH: ((ih-x : bool))
+       (case* nat n2 (lambda (x : nat) bool)
+         [z bfalse]
+         [(s (x : nat)) IH: ((ih-x : bool))
+          ih-x])]))
 (module+ test
   (check-equal? btrue (nat-equal? z z))
   (check-equal? bfalse (nat-equal? z (s z)))
