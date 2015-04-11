@@ -277,8 +277,9 @@
 
   (define-metafunction cicL
     branch-type : t t t -> t
-    [(branch-type t_ind (Π (x_0 : t) e_0) (Π (x_1 : t) e_1))
-     (branch-type t_ind e_0 e_1)]
+    [(branch-type t_ind (Π (x_0 : t_0) e_0) (Π (x_1 : t_1) e_1))
+     (branch-type t_ind e_0 e_1)
+     #;(side-condition (judgment-holds (equivalent t_0 t_1)))]
     ;[(branch-type t_ind t_ind t) t])
     [(branch-type t_ind t_other t) t])
   (module+ test
@@ -293,7 +294,8 @@
   (define-metafunction cic-typingL
     branch-types-match : Σ (x ...) (t ...) t t -> #t or #f
     [(branch-types-match Σ (x ...) (t_11 ...) t t_1)
-     ,(andmap (curry equal? (term t)) (term ((branch-type t_1 (lookup Σ x) t_11) ...)))])
+     ,(andmap (lambda (x) (judgment-holds (equivalent ,x t)))
+              (term ((branch-type t_1 (lookup Σ x) t_11) ...)))])
   (module+ test
     (check-true
       (term (branch-types-match ((∅ truth : (Unv 0)) T : truth) () () (Unv 0) nat)))
@@ -605,7 +607,14 @@
     (check-holds
       (type-infer ,sigma (,gamma tmp863 : pre) (Unv 0) (Unv 1)))
     (check-holds
-      (type-infer ,sigma (,gamma x : false) (case x) t))))
+      (type-infer ,sigma (,gamma x : false) (case x) t))
+    (check-true
+      (judgment-holds
+        (type-infer ,Σ4 ∅
+                   (λ (A3 : (Unv 0)) (λ (B3 : (Unv 0)) (λ (c1 : ((and A3) B3))
+                                                          (case c1
+                                                                (conj (λ (A1 : (Unv 0)) (λ (B1 : (Unv 0)) (λ (a1 : A1) (λ (b1 : B1) a1)))))))))
+                   t) t))))
 
 ;; This module just provide module language sugar over the redex model.
 

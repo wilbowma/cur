@@ -37,7 +37,7 @@
     (case* ab
       ((conj (P : Type) (Q : Type) (x : P) (y : Q)) (conj Q P y x)))))
 
-(qed thm:and-is-symmetric proof:and-is-symmetric)
+#;(qed thm:and-is-symmetric proof:and-is-symmetric)
 
 (define-theorem thm:proj1
   (forall* (A : Type) (B : Type) (c : (and A B)) A))
