@@ -42,6 +42,6 @@
          [z btrue]
          [(s (n4 : nat)) (nat-equal? n3 n4)])]))
 (module+ test
-  (check-equal? btrue (nat-equal? z z))
-  (check-equal? bfalse (nat-equal? z (s z)))
-  (check-equal? btrue (nat-equal? (s z) (s z))))
+  (check-equal? (nat-equal? z z) btrue)
+  (check-equal? (nat-equal? z (s z)) bfalse)
+  (check-equal? (nat-equal? (s z) (s z)) btrue))

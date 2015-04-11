@@ -36,6 +36,7 @@
     (require rackunit)
     (define-term Type (Unv 0))
     (check-true (x? (term T)))
+    (check-true (x? (term A)))
     (check-true (x? (term truth)))
     (check-true (x? (term zero)))
     (check-true (x? (term s)))
@@ -43,6 +44,8 @@
     (check-true (t? (term s)))
     (check-true (x? (term nat)))
     (check-true (t? (term nat)))
+    (check-true (t? (term A)))
+    (check-true (t? (term S)))
     (check-true (U? (term (Unv 0))))
     (check-true (U? (term Type)))
     (check-true (e? (term (λ (x_0 : (Unv 0)) x_0))))
@@ -81,12 +84,15 @@
      (unv-kind (Unv i_1) (Unv i_2) (Unv i_3))])
 
   ;; NB: Substitution is hard
+  ;; NB: Copy and pasted from Redex examples
   (define-metafunction cicL
     subst-vars : (x any) ... any -> any
     [(subst-vars (x_1 any_1) x_1) any_1]
-    [(subst-vars (x_1 any_1) (any_2 ...)) ((subst-vars (x_1 any_1) any_2) ...)]
+    [(subst-vars (x_1 any_1) (any_2 ...))
+     ((subst-vars (x_1 any_1) any_2) ...)]
     [(subst-vars (x_1 any_1) any_2) any_2]
-    [(subst-vars (x_1 any_1) (x_2 any_2) ... any_3) (subst-vars (x_1 any_1) (subst-vars (x_2 any_2) ... any_3))]
+    [(subst-vars (x_1 any_1) (x_2 any_2) ... any_3)
+     (subst-vars (x_1 any_1) (subst-vars (x_2 any_2) ... any_3))]
     [(subst-vars any) any])
 
   (define-metafunction cicL
@@ -94,20 +100,21 @@
     [(subst U x t) U]
     [(subst x x t) t]
     [(subst x_0 x t) x_0]
-    [(subst (Π (x : t_0) t_1) x t) (Π (x : (subst t_0 x t)) t_1)]
-    [(subst (λ (x : t_0) t_1) x t) (λ (x : (subst t_0 x t)) t_1)]
-    [(subst (μ (x : t_0) t_1) x t) (μ (x : (subst t_0 x t)) t_1)]
-    ;; TODO: Broken: needs capture avoiding, but currently require
-    ;; binders to be the same in term/type, so this is not a local
-    ;; change.
-    [(subst (Π (x_0 : t_0) t_1) x t) (Π (x_0 : (subst t_0 x t)) (subst t_1 x t)) ]
-    [(subst (λ (x_0 : t_0) t_1) x t) (λ (x_0 : (subst t_0 x t)) (subst t_1 x t))]
-    [(subst (μ (x_0 : t_0) t_1) x t) (μ (x_0 : (subst t_0 x t)) (subst t_1 x t))]
+    [(subst (any (x : t_0) t_1) x t)
+     (any (x : (subst t_0 x t)) t_1)]
+    [(subst (any (x_0 : t_0) t_1) x t)
+     (any (x_new : (subst (subst-vars (x_0 x_new) t_0) x t))
+       (subst (subst-vars (x_0 x_new) t_1) x t))
+     (where x_new
+            ,(variable-not-in
+               (term (x_0 t_0 x t t_1))
+               (term x_0)))]
     [(subst (e_0 e_1) x t) ((subst e_0 x t) (subst e_1 x t))]
     [(subst (case e (x_0 e_0) ...) x t)
      (case (subst e x t)
        (x_0 (subst e_0 x t)) ...)])
   (module+ test
+    (check-true (t? (term (Π (a : A) (Π (b : B) ((and A) B))))))
     (check-equal?
       (term (Π (a : S) (Π (b : B) ((and S) B))))
       (term (subst (Π (a : A) (Π (b : B) ((and A) B))) A S))))
@@ -142,12 +149,12 @@
   ;; TODO: Congruence-closure instead of β
   (define ==β
     (reduction-relation cic-redL
-      (==> ((Π (x : t_0) t_1) t_2)
-           (subst t_1 x t_2))
-      (==> ((λ (x : t) e_0) e_1)
-           (subst e_0 x e_1))
       (==> ((μ (x : t) e_0) e_1)
            ((subst e_0 x (μ (x : t) e_0)) e_1))
+      (==> ((λ (x : t_0) t_1) t_2)
+           (subst t_1 x t_2))
+      (==> ((Π (x : t_0) t_1) t_2)
+           (subst t_1 x t_2))
       (==> (case e_9
              (x_0 e_0) ... (x e) (x_r e_r) ...)
            (inductive-apply e e_9)
@@ -158,7 +165,8 @@
 
   (define-metafunction cic-redL
     reduce : e -> e
-    [(reduce e) ,(car (apply-reduction-relation* ==β (term e)))])
+    [(reduce e) t_1
+     (where t_1 ,(car (apply-reduction-relation* ==β (term e))))])
   (module+ test
     (check-equal? (term (reduce (Unv 0))) (term (Unv 0)))
     (check-equal? (term (reduce ((λ (x : t) x) (Unv 0)))) (term (Unv 0)))
@@ -323,12 +331,12 @@
     [-----------------
      (wf ∅ ∅)]
 
-    [(types Σ Γ t t_0)
+    [(type-infer Σ Γ t t_0)
      (wf Σ Γ)
      -----------------
      (wf Σ (Γ x : t))]
 
-    [(types Σ ∅ t t_0)
+    [(type-infer Σ ∅ t t_0)
      (wf Σ ∅)
      (side-condition (positive t (result-type Σ t)))
      -----------------
@@ -349,58 +357,106 @@
     (check-false (term (terminates? (μ (x : (Unv 0)) (λ (y : (Unv 0)) (x y))))))
     (check-true (term (terminates? (μ (x : (Unv 0)) (λ (y : (Unv 0)) y))))))
 
+  (define-judgment-form cicL
+    #:mode (α-equivalent I I)
+    #:contract (α-equivalent t t)
+
+    [----------------- "α-x"
+     (α-equivalent x x)]
+
+    [----------------- "α-U"
+     (α-equivalent U U)]
+
+    [(α-equivalent t_1 (subst t_3 x_1 x_0))
+     (α-equivalent t_0 t_2)
+     ----------------- "α-binder"
+     (α-equivalent (any (x_0 : t_0) t_1)
+                   (any (x_1 : t_2) t_3))]
+
+    [(α-equivalent e_0 e_2)
+     (α-equivalent e_1 e_3)
+     ----------------- "α-app"
+     (α-equivalent (e_0 e_1) (e_2 e_3))]
+
+    [(α-equivalent e_0 e_1)
+     (α-equivalent e_r0 e_r1) ...
+     ----------------- "α-case"
+     (α-equivalent (case e_0 (x_r0 e_r0) ..._1)
+                   (case e_1 (x_r1 e_r1) ..._1))])
+  (module+ test
+    (define-syntax-rule (check-holds (e ...))
+      (check-true
+        (judgment-holds (e ...))))
+    (define-syntax-rule (check-not-holds (e ...))
+      (check-false
+        (judgment-holds (e ...))))
+
+    (check-holds (α-equivalent x x))
+    (check-not-holds (α-equivalent x y))
+    (check-holds (α-equivalent (λ (x : A) x)
+                               (λ (y : A) y))))
+
+  (define-judgment-form cicL
+    #:mode (equivalent I I)
+    #:contract (equivalent t t)
+
+    [(where t_2 (reduce t_0))
+     (where t_3 (reduce t_1))
+     (α-equivalent t_2 t_3)
+     ----------------- "≡-αβ"
+     (equivalent t_0 t_1)])
+
   (define-judgment-form cic-typingL
-    #:mode (types I I I O)
-    #:contract (types Σ Γ e t)
+    #:mode (type-infer I I I O)
+    #:contract (type-infer Σ Γ e t)
 
     [(unv-ok U_0 U_1)
      (wf Σ Γ)
      ----------------- "DTR-Axiom"
-     (types Σ Γ U_0 U_1)]
+     (type-infer Σ Γ U_0 U_1)]
 
     [(where t (lookup Σ x))
      ----------------- "DTR-Inductive"
-     (types Σ Γ x t)]
+     (type-infer Σ Γ x t)]
 
-    ;; TODO: Require alpha-equiv here, at least.
     [(where t (lookup Γ x))
      ----------------- "DTR-Start"
-     (types Σ Γ x t)]
+     (type-infer Σ Γ x t)]
 
-    [(types Σ Γ t_0 U_1)
-     (types Σ (Γ x : t_0) t U_2)
+    [(type-infer Σ Γ t_0 U_1)
+     (type-infer Σ (Γ x : t_0) t U_2)
      (unv-kind U_1 U_2 U)
      ----------------- "DTR-Product"
-     (types Σ Γ (Π (x : t_0) t) U)]
+     (type-infer Σ Γ (Π (x : t_0) t) U)]
 
-    [(types Σ Γ e_0 (Π (x_0 : t_0) t_1))
-     (types Σ Γ e_1 t_0)
+    [(type-infer Σ Γ e_0 (Π (x_0 : t_0) t_1))
+     (type-infer Σ Γ e_1 t_2)
+     (equivalent t_0 t_2)
      ----------------- "DTR-Application"
-     (types Σ Γ (e_0 e_1) (subst t_1 x_0 e_1))]
+     (type-infer Σ Γ (e_0 e_1) (subst t_1 x_0 e_1))]
 
-    ;; TODO: This restriction that the names be the same is a little annoying
-    [(types Σ (Γ x : t_0) e t_1)
-     (types Σ Γ (Π (x : t_0) t_1) U)
+    [(type-infer Σ (Γ x : t_0) e t_1)
+     (type-infer Σ Γ (Π (x : t_0) t_1) U)
      ----------------- "DTR-Abstraction"
-     (types Σ Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
+     (type-infer Σ Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
 
     [(side-condition (terminates? (μ (x : t_0) e)))
-     (types Σ (Γ x : t_0) e t_0)
-     (types Σ Γ t_0 U)
+     (type-infer Σ (Γ x : t_0) e t_0)
+     (type-infer Σ Γ t_0 U)
      ----------------- "DTR-Fix"
-     (types Σ Γ (μ (x : t_0) e) t_0)]
+     (type-infer Σ Γ (μ (x : t_0) e) t_0)]
 
-    [(types Σ Γ e t_9)
+    [(type-infer Σ Γ e t_9)
      (where t_1 (inductive-name t_9))
      (side-condition (constructors-for Σ t_1 (x_0 x_1 ...)))
-     (types Σ Γ e_0 t_00)
-     (types Σ Γ e_1 t_11) ...
+     (type-infer Σ Γ e_0 t_00)
+     (type-infer Σ Γ e_1 t_11) ...
      ;; TODO Some of these meta-functions aren't very consistent in terms
      ;; of interface
      (where t (branch-type t_1 (lookup Σ x_0) t_00))
      (side-condition (branch-types-match Σ (x_1 ...) (t_11 ...) t t_1))
      ----------------- "DTR-Case"
-     (types Σ Γ (case e (x_0 e_0) (x_1 e_1) ...) t)]
+     (type-infer Σ Γ (case e (x_0 e_0) (x_1 e_1) ...) t)]
 
     ;; TODO: This shouldn't be a special case, but I failed to forall
     ;; quantify properly over the branches in the above case, and I'm lazy.
@@ -423,60 +479,59 @@
      (types Σ Γ t_1 U)
      ----------------- "DTR-Conversion"
      (types Σ Γ e t_1)])
+
+  (define-judgment-form cic-typingL
+    #:mode (type-check I I I I)
+    #:contract (type-check Σ Γ e t)
+
+    [(type-infer Σ Γ e t_0)
+     (equivalent t t_0)
+     ----------------- "DTR-Check"
+     (type-check Σ Γ e t)])
   (module+ test
-    (check-true (judgment-holds (types ∅ ∅ (Unv 0) (Unv 1))))
-    (check-true (judgment-holds (types ∅ (∅ x : (Unv 0)) (Unv 0) (Unv 1))))
-    (check-true (judgment-holds (types ∅ (∅ x : (Unv 0)) x (Unv 0))))
-    (check-true (judgment-holds (types ∅ ((∅ x_0 : (Unv 0)) x_1 : (Unv 0))
-                                       (Π (x_3 : x_0) x_1) (Unv 0))))
+    (check-holds (type-infer ∅ ∅ (Unv 0) (Unv 1)))
+    (check-holds (type-infer ∅ (∅ x : (Unv 0)) (Unv 0) (Unv 1)))
+    (check-holds (type-infer ∅ (∅ x : (Unv 0)) x (Unv 0)))
+    (check-holds (type-infer ∅ ((∅ x_0 : (Unv 0)) x_1 : (Unv 0))
+                             (Π (x_3 : x_0) x_1) (Unv 0)))
+    (check-holds (type-infer ∅ (∅ x_0 : (Unv 0)) x_0 U_1))
+    (check-holds (type-infer ∅ ((∅ x_0 : (Unv 0)) x_2 : x_0) (Unv 0) U_2))
+    (check-holds (unv-kind (Unv 0) (Unv 0) (Unv 0)))
+    (check-holds (type-infer ∅ (∅ x_0 : (Unv 0)) (Π (x_2 : x_0) (Unv 0)) t))
 
-    (check-true (judgment-holds (types ∅ (∅ x_0 : (Unv 0)) x_0 U_1)))
-    (check-true (judgment-holds (types ∅ ((∅ x_0 : (Unv 0)) x_2 : x_0) (Unv 0) U_2)))
-    (check-true (judgment-holds (unv-kind (Unv 0) (Unv 0) (Unv 0))))
-    (check-true (judgment-holds (types ∅ (∅ x_0 : (Unv 0)) (Π (x_2 : x_0) (Unv 0)) t)))
-
-    (check-true (judgment-holds (types ∅ ∅ (λ (x : (Unv 0)) x) (Π (x : (Unv 0)) (Unv 0)))))
-    (check-true (judgment-holds (types ∅ ∅ (λ (y : (Unv 0)) (λ (x : y) x))
-                                       (Π (y : (Unv 0)) (Π (x : y) y)))))
+    (check-holds (type-infer ∅ ∅ (λ (x : (Unv 0)) x) (Π (x : (Unv 0)) (Unv 0))))
+    (check-holds (type-infer ∅ ∅ (λ (y : (Unv 0)) (λ (x : y) x))
+                             (Π (y : (Unv 0)) (Π (x : y) y))))
 
     (check-equal? (list (term (Unv 1)))
       (judgment-holds
-        (types ∅ ((∅ x1 : (Unv 0)) x2 : (Unv 0)) (Π (t6 : x1) (Π (t2 : x2) (Unv 0)))
+        (type-infer ∅ ((∅ x1 : (Unv 0)) x2 : (Unv 0)) (Π (t6 : x1) (Π (t2 : x2) (Unv 0)))
                U)
         U))
-    (check-true
-      (judgment-holds
-        (types ∅ ∅ (Π (x2 : (Unv 0)) (Unv 0))
-               U)))
-    (check-true
-      (judgment-holds
-        (types ∅ (∅ x1 : (Unv 0)) (λ (x2 : (Unv 0)) (Π (t6 : x1) (Π (t2 : x2) (Unv 0))))
-               t)))
-    (check-true
-      (judgment-holds (types ((∅ truth : (Unv 0)) T : truth)
-                             ∅
-                             T
-                             truth)))
-    (check-true
-      (judgment-holds (types ((∅ truth : (Unv 0)) T : truth)
+    (check-holds
+      (type-infer ∅ ∅ (Π (x2 : (Unv 0)) (Unv 0)) U))
+    (check-holds
+      (type-infer ∅ (∅ x1 : (Unv 0)) (λ (x2 : (Unv 0)) (Π (t6 : x1) (Π (t2 : x2) (Unv 0))))
+                  t))
+    (check-holds (type-infer ((∅ truth : (Unv 0)) T : truth)
+                             ∅ T truth))
+    (check-holds (type-infer ((∅ truth : (Unv 0)) T : truth)
                              ∅
                              (Unv 0)
-                             (Unv 1))))
-    (check-true
-      (judgment-holds (types ((∅ truth : (Unv 0)) T : truth)
+                             (Unv 1)))
+    (check-holds (type-infer ((∅ truth : (Unv 0)) T : truth)
                              ∅
                              (case T (T (Unv 0)))
-                             (Unv 1))))
+                             (Unv 1)))
 
-    (check-false
-      (judgment-holds (types ((∅ truth : (Unv 0)) T : truth)
-                             ∅
-                             (case T (T (Unv 0)) (T (Unv 0)))
-                             (Unv 1))))
+    (check-not-holds
+      (type-infer ((∅ truth : (Unv 0)) T : truth)
+                  ∅
+                  (case T (T (Unv 0)) (T (Unv 0)))
+                  (Unv 1)))
     (define-syntax-rule (nat-test syn ...)
-      (check-true (judgment-holds
-                    (types (((∅ nat : (Unv 0)) zero : nat) s : (Π (x : nat) nat))
-                           syn ...))))
+      (check-holds (type-infer (((∅ nat : (Unv 0)) zero : nat) s : (Π (x : nat) nat))
+                               syn ...)))
     (nat-test ∅ (Π (x : nat) nat) (Unv 0))
     (nat-test ∅ (λ (x : nat) x) (Π (x : nat) nat))
     (nat-test ∅ (case zero (zero zero) (s (λ (x : nat) x)))
@@ -489,75 +544,68 @@
               nat)
     (nat-test ∅ (case zero (zero (s zero)) (s (λ (x : nat) (s (s x)))))
               nat)
-    (check-false (judgment-holds
-                    (types (((∅ nat : (Unv 0)) zero : nat) s : (Π (x : nat) nat))
-                           ∅
-                           (case zero (zero (s zero)))
-                           nat)))
+    (check-not-holds (type-infer (((∅ nat : (Unv 0)) zero : nat) s : (Π (x : nat) nat))
+                                 ∅
+                                 (case zero (zero (s zero)))
+                                 nat))
     (define lam (term (λ (nat : (Unv 0)) nat)))
     (check-equal?
       (list (term (Π (nat : (Unv 0)) (Unv 0))))
-      (judgment-holds (types ,Σ0 ∅ ,lam t) t))
+      (judgment-holds (type-infer ,Σ0 ∅ ,lam t) t))
     (check-equal?
       (list (term (Π (nat : (Unv 0)) (Unv 0))))
-      (judgment-holds (types ,Σ2 ∅ ,lam t) t))
+      (judgment-holds (type-infer ,Σ2 ∅ ,lam t) t))
     (check-equal?
       (list (term (Π (x : (Π (y : (Unv 0)) y)) nat)))
-      (judgment-holds (types (∅ nat : (Unv 0)) ∅ (λ (x : (Π (y : (Unv 0)) y)) (x nat))
+      (judgment-holds (type-infer (∅ nat : (Unv 0)) ∅ (λ (x : (Π (y : (Unv 0)) y)) (x nat))
                             t) t))
     (check-equal?
       (list (term (Π (y : (Unv 0)) (Unv 0))))
-      (judgment-holds (types (∅ nat : (Unv 0)) ∅ (λ (y : (Unv 0)) y) t) t))
+      (judgment-holds (type-infer (∅ nat : (Unv 0)) ∅ (λ (y : (Unv 0)) y) t) t))
     (check-equal?
       (list (term (Unv 0)))
-      (judgment-holds (types (∅ nat : (Unv 0)) ∅
+      (judgment-holds (type-infer (∅ nat : (Unv 0)) ∅
                             ((λ (x : (Π (y : (Unv 0)) (Unv 0))) (x nat))
                              (λ (y : (Unv 0)) y))
                             t) t))
     (check-equal?
       (list (term (Unv 0)) (term (Unv 1)))
       (judgment-holds
-        (types ,Σ4 ∅ (Π (S : (Unv 0)) (Π (B : (Unv 0)) (Π (a : S) (Π (b : B) ((and S) B)))))
+        (type-infer ,Σ4 ∅ (Π (S : (Unv 0)) (Π (B : (Unv 0)) (Π (a : S) (Π (b : B) ((and S) B)))))
                U) U))
-    (check-true
-      (judgment-holds (types ,Σ4 (∅ S : (Unv 0)) conj (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Π (a : A) (Π (b : B) ((and A) B))))))))
-    (check-true
-      (judgment-holds (types ,Σ4 (∅ S : (Unv 0)) S (Unv 0))))
-    (check-true
-      (judgment-holds (types ,Σ4 (∅ S : (Unv 0)) (conj S)
-                             (Π (B : (Unv 0)) (Π (a : S) (Π (b : B) ((and S) B)))))))
-    (check-true
-      (judgment-holds (types ,Σ4 (∅ S : (Unv 0)) (conj S)
-                             (Π (B : (Unv 0)) (Π (a : S) (Π (b : B) ((and S) B)))))))
-    (check-true
-      (judgment-holds (types ,Σ4 ∅ (λ (S : (Unv 0)) (conj S))
-                             (Π (S : (Unv 0)) (Π (B : (Unv 0)) (Π (a : S) (Π (b : B) ((and S) B))))))))
-    (check-true
-      (judgment-holds (types ((,Σ4 true : (Unv 0)) tt : true) ∅
+    (check-holds
+      (type-infer ,Σ4 (∅ S : (Unv 0)) conj (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Π (a : A) (Π (b : B) ((and A) B)))))))
+    (check-holds (type-infer ,Σ4 (∅ S : (Unv 0)) S (Unv 0)))
+    (check-holds (type-check ,Σ4 (∅ S : (Unv 0)) (conj S)
+                             (Π (B : (Unv 0)) (Π (a : S) (Π (b : B) ((and S) B))))))
+    (check-holds (type-check ,Σ4 (∅ S : (Unv 0)) (conj S)
+                             (Π (B : (Unv 0)) (Π (a : S) (Π (b : B) ((and S) B))))))
+    (check-holds (type-check ,Σ4 ∅ (λ (S : (Unv 0)) (conj S))
+                             (Π (S : (Unv 0)) (Π (B : (Unv 0)) (Π (a : S) (Π (b : B) ((and S) B)))))))
+    (check-holds (type-check ((,Σ4 true : (Unv 0)) tt : true) ∅
                              ((((conj true) true) tt) tt)
-                             ((and true) true))))
-    (check-true
-      (judgment-holds (types ((,Σ4 true : (Unv 0)) tt : true) ∅
+                             ((and true) true)))
+    (check-holds (type-infer ((,Σ4 true : (Unv 0)) tt : true) ∅
                              (case ((((conj true) true) tt) tt)
-                               (conj (λ (A : (Unv 0))
-                                        (λ (B : (Unv 0))
-                                           (λ (a : A)
-                                              (λ (b : B) a))))))
-                             A)))
+                                   (conj (λ (A : (Unv 0))
+                                            (λ (B : (Unv 0))
+                                               (λ (a : A)
+                                                  (λ (b : B) a))))))
+                             A))
     (define sigma (term (((((((∅ true : (Unv 0)) T : true) false : (Unv 0)) equal : (Π (A : (Unv 0))
                                                               (Π (B : (Unv 0)) (Unv 0))))
         nat : (Unv 0)) heap : (Unv 0)) pre : (Π (temp808 : heap) (Unv 0)))))
     (define gamma (term (∅ temp863 : pre)))
-    (check-true (judgment-holds (wf ,sigma ∅)))
-    (check-true (judgment-holds (wf ,sigma ,gamma)))
-    (check-true
-      (judgment-holds (types ,sigma ,gamma (Unv 0) t)))
-    (check-true
-      (judgment-holds (types ,sigma ,gamma pre t)))
-    (check-true
-      (judgment-holds (types ,sigma (,gamma tmp863 : pre) (Unv 0) (Unv 1))))
-    (check-true
-      (judgment-holds (types ,sigma (,gamma x : false) (case x) t)))))
+    (check-holds (wf ,sigma ∅))
+    (check-holds (wf ,sigma ,gamma))
+    (check-holds
+      (type-infer ,sigma ,gamma (Unv 0) t))
+    (check-holds
+      (type-infer ,sigma ,gamma pre t))
+    (check-holds
+      (type-infer ,sigma (,gamma tmp863 : pre) (Unv 0) (Unv 1)))
+    (check-holds
+      (type-infer ,sigma (,gamma x : false) (case x) t))))
 
 ;; This module just provide module language sugar over the redex model.
 
@@ -681,13 +729,18 @@
     ;; TODO: Still absurdly slow. Probably doing n^2 checks of sigma and
     ;; gamma. And lookup on sigma, gamma are linear, so probably n^2 lookup time.
     (define (type-infer/term t)
-      (let ([t (judgment-holds (types ,(sigma) ,(gamma) ,t t_0) t_0)])
+      (let ([t (judgment-holds (type-infer ,(sigma) ,(gamma) ,t t_0) t_0)])
         (and (pair? t) (car t))))
+
+    (define (type-check/term? e t)
+      (and (judgment-holds (type-check ,(sigma) ,(gamma) ,e ,t)) #t))
 
     (define (syntax->curnel-syntax syn) (denote syn (cur->datum syn)))
 
     (define (denote syn t)
-      #`(term (reduce (subst-all #,(datum->syntax syn t) #,(first (bind-subst)) #,(second (bind-subst))))))
+      (quasisyntax/loc
+        syn
+        (term (reduce (subst-all #,(datum->syntax syn t) #,(first (bind-subst)) #,(second (bind-subst)))))))
 
     ;; TODO: Blanket disarming is probably a bad idea.
     (define orig-insp (variable-reference->module-declaration-inspector
@@ -746,19 +799,20 @@
       reified-term)
 
     ;; Reflection tools
+    (define (normalize/syn syn)
+      (denote syn (term (reduce (subst-all ,(cur->datum syn) ,(first (bind-subst)) ,(second (bind-subst)))))))
+
+    (define (run-cur->datum syn)
+      (cur->datum (normalize/syn syn)))
 
     ;; TODO: OOps, type-infer doesn't return a cur term but a redex term
     ;; wrapped in syntax bla. This is bad.
     (define (type-infer/syn syn)
-      (let ([t (type-infer/term (cur->datum syn))])
+      (let ([t (type-infer/term (run-cur->datum syn))])
         (and t (datum->syntax syn t))))
 
     (define (type-check/syn? syn type)
-      (let ([t (type-infer/term (cur->datum syn))])
-        (equal? t (cur->datum type))))
-
-    (define (normalize/syn syn)
-      (denote syn (term (reduce (subst-all ,(cur->datum syn) ,(first (bind-subst)) ,(second (bind-subst)))))))
+      (type-check/term? (run-cur->datum syn) (run-cur->datum type)))
 
     ;; Takes a Cur term syn and an arbitrary number of identifiers ls. The cur term is
     ;; expanded until expansion reaches a Curnel form, or one of the

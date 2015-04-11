@@ -18,7 +18,7 @@
 
 (define-theorem thm:anything-implies-true (forall (P : Type) true))
 
-(qed (run thm:anything-implies-true) (lambda (P : Type) T))
+(qed thm:anything-implies-true (lambda (P : Type) T))
 
 (data false : Type)
 
@@ -37,7 +37,7 @@
     (case* ab
       ((conj (P : Type) (Q : Type) (x : P) (y : Q)) (conj Q P y x)))))
 
-#;(qed thm:and-is-symmetric proof:and-is-symmetric)
+(qed thm:and-is-symmetric proof:and-is-symmetric)
 
 (define-theorem thm:proj1
   (forall* (A : Type) (B : Type) (c : (and A B)) A))
