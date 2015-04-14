@@ -53,14 +53,14 @@
         (when (attribute latex-file)
           (with-output-to-file (syntax->datum #'latex-file)
             (thunk
-              (format "\\fbox{$~a$}$~n$\\begin{mathpar}~n~a~n\end{mathpar}$$"
-                      (syntax->datum #'(n types* ...))
-                      (string-trim
-                        (for/fold ([str ""])
-                                  ([rule (attribute rules.latex)])
-                          (format "~a~a\\and~n" str rule))
-                        "\\and"
-                        #:left? #f)))
+              (printf (format "\\fbox{$~a$}$~n$\\begin{mathpar}~n~a~n\\end{mathpar}$$"
+                       (syntax->datum #'(n types* ...))
+                       (string-trim
+                         (for/fold ([str ""])
+                                   ([rule (attribute rules.latex)])
+                                   (format "~a~a\\and~n" str rule))
+                         "\\and"
+                         #:left? #f))))
             #:exists 'append))
         #`(begin
             #,@(if (attribute coq-file)
@@ -187,7 +187,7 @@
                      #:left? #f))]))))
   (define (generate-latex-bnf file-name vars clauses)
     (with-output-to-file file-name
-      (thunk (output-latex-bnf vars clauses))
+      (thunk (printf (output-latex-bnf vars clauses)))
       #:exists 'append)))
 (module+ test
   (require "stdlib/sugar.rkt")
@@ -231,11 +231,19 @@
 (data var : Type (avar : (-> nat var)))
 
 (define (var-equal? (v1 : var) (v2 : var))
-  (case* v1
-    [(avar (n1 : nat))
-     (case* v2
-       [(avar (n2 : nat))
+  (case* var v1 (lambda* (v : var) bool)
+    [(avar (n1 : nat)) IH: ()
+     (case* var v2 (lambda* (v : var) bool)
+       [(avar (n2 : nat)) IH: ()
         (nat-equal? n1 n2)])]))
+(module+ test
+  (require rackunit)
+  (check-equal?
+    (var-equal? (avar z) (avar z))
+    btrue)
+  (check-equal?
+    (var-equal? (avar z) (avar (s z)))
+    bfalse))
 
 ;; See stlc.rkt for examples
 
@@ -263,7 +271,7 @@
                               #'begin)
        ;; TODO: Need to add these to a literal set and export it
        ;; Or, maybe overwrite syntax-parse
-       #:literals (lambda forall data real-app case define-theorem
+       #:literals (lambda forall data real-app elim define-theorem
                           define qed begin Type)
        [(begin e ...)
         (for/fold ([str ""])
@@ -303,7 +311,7 @@
                     (output-coq #'body)))
           "")]
        [(lambda ~! (x:id (~datum :) t) body:expr)
-        (format "(fun ~a : ~a => ~a)" (syntax-e #'x) (output-coq #'t)
+        (format "(fun ~a : ~a => ~a)" (output-coq #'x) (output-coq #'t)
                 (output-coq #'body))]
        [(forall ~! (x:id (~datum :) t) body:expr)
         (format "(forall ~a : ~a, ~a)" (syntax-e #'x) (output-coq #'t)
@@ -322,21 +330,14 @@
                           (output-coq #'t))]))))
           "")]
        [(Type i) "Type"]
-       [(case e (ec eb) ...)
-        (format "(match ~a with~n~aend)"
-                (output-coq #'e)
-                (for/fold ([strs ""])
-                          ([con   (syntax->list #'(ec ...))]
-                           [body  (syntax->list #'(eb ...))])
-                  (let* ([ids (generate-temporaries (constructor-args con))]
-                         [names (map (compose ~a syntax->datum) ids)])
-                    (format "~a| (~a) => ~a~n" strs
-                      (for/fold ([str (output-coq con)])
-                                ([n names])
-                        (format "~a ~a" str n))
-                      (for/fold ([body (output-coq body)])
-                                ([n names])
-                        (format "(~a ~a)" body n))))))]
+       [(elim var e P m ...)
+        (format "(~a_rect ~a~a ~a)"
+          (output-coq #'var)
+          (output-coq #'P)
+          (for/fold ([x ""])
+                    ([m (syntax->list #'(m ...))])
+            (format "~a ~a" x (output-coq m)))
+          (output-coq #'e))]
        [(real-app e1 e2)
         (format "(~a ~a)" (output-coq #'e1) (output-coq #'e2))]
        [e:id (sanitize-id (format "~a" (syntax->datum #'e)))])))
@@ -377,14 +378,15 @@
                                 (meow g e t)]))
                (coq-defns))])
       (check-regexp-match
-        "Inductive meow : \\(forall temp. : gamma, \\(forall temp. : term, \\(forall temp. : type, Type\\)\\)\\) :="
+        "Inductive meow : \\(forall .+ : gamma, \\(forall .+ : term, \\(forall .+ : type, Type\\)\\)\\) :="
         (first (string-split t "\n")))
       (check-regexp-match
         "\\| T-Bla : \\(forall g : gamma, \\(forall e : term, \\(forall t : type, \\(\\(\\(meow g\\) e\\) t\\)\\)\\)\\)\\."
         (second (string-split t "\n"))))
-    (let ([t (output-coq #'(case z (z z) (s (lambda (n : nat) (s n)))))])
+    (let ([t (output-coq #'(elim nat e (lambda (x : nat) nat) z
+                             (lambda* (x : nat) (ih-x : nat) ih-x)))])
       (check-regexp-match
-        "\\(match z with\n\\| \\(z\\) => z\n\\| \\(s .+\\) => \\(\\(fun n : nat => \\(s n\\)\\) .+\\)\nend\\)"
+        "\\(nat_rect \\(fun x : nat => nat\\) z \\(fun x : nat => \\(fun ih_x : nat => ih_x\\)\\) e\\)"
         t))
     (check-regexp-match
       "Theorem thm_plus_commutes : \\(forall n : nat, \\(forall m : nat, \\(\\(\\(== nat\\) \\(\\(plus n\\) m\\)\\) \\(\\(plus m\\) n\\)\\)\\)\\).\n"

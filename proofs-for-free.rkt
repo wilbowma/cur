@@ -77,6 +77,7 @@
 (define (CPSf-relation (f1 : CPSf) (f2 : CPSf))
   ;; TODO: Fix run so I can simply use (run CPSf) to perform
   ;; substitution
+  (translate (run CPSf))
   (translate (forall* (ans : Type) (k : (-> X ans)) ans)))
 #;(module+ test
   (require rackunit)

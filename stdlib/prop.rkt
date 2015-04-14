@@ -18,7 +18,7 @@
 
 (define-theorem thm:anything-implies-true (forall (P : Type) true))
 
-(qed (run thm:anything-implies-true) (lambda (P : Type) T))
+(qed thm:anything-implies-true (lambda (P : Type) T))
 
 (data false : Type)
 
@@ -31,20 +31,23 @@
 (define-theorem thm:and-is-symmetric
   (forall* (P : Type) (Q : Type) (ab : (and P Q)) (and Q P)))
 
-;; TODO: BAH! pattern matching on inductive families is still broken.
 (define proof:and-is-symmetric
   (lambda* (P : Type) (Q : Type) (ab : (and P Q))
-    (case* ab
-      ((conj (P : Type) (Q : Type) (x : P) (y : Q)) (conj Q P y x)))))
+    (case* and ab
+      (lambda* (P : Type) (Q : Type) (ab : (and P Q))
+         (and Q P))
+      ((conj (P : Type) (Q : Type) (x : P) (y : Q)) IH: () (conj Q P y x)))))
 
-#;(qed thm:and-is-symmetric proof:and-is-symmetric)
+(qed thm:and-is-symmetric proof:and-is-symmetric)
 
 (define-theorem thm:proj1
   (forall* (A : Type) (B : Type) (c : (and A B)) A))
 
 (define proof:proj1
   (lambda* (A : Type) (B : Type) (c : (and A B))
-    (case c (conj (lambda* (A : Type) (B : Type) (a : A) (b : B) a)))))
+    (case* and c
+      (lambda* (A : Type) (B : Type) (c : (and A B)) A)
+      ((conj (A : Type) (B : Type) (a : A) (b : B)) IH: () a))))
 
 (qed thm:proj1 proof:proj1)
 
@@ -53,7 +56,9 @@
 
 (define proof:proj2
   (lambda* (A : Type) (B : Type) (c : (and A B))
-    (case c (conj (lambda* (A : Type) (B : Type) (a : A) (b : B) b)))))
+    (case* and c
+      (lambda* (A : Type) (B : Type) (c : (and A B)) B)
+      ((conj (A : Type) (B : Type) (a : A) (b : B)) IH: () b))))
 
 (qed thm:proj2 proof:proj2)
 

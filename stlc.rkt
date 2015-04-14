@@ -17,13 +17,14 @@
   (emp-gamma : gamma)
   (extend-gamma : (->* gamma var stlc-type gamma)))
 
-(define-rec (lookup-gamma (g : gamma) (x : var) : (maybe stlc-type))
-  (case* g
+(define (lookup-gamma (g : gamma) (x : var))
+  (case* gamma g (lambda* (g : gamma) (maybe stlc-type))
     [emp-gamma (none stlc-type)]
     [(extend-gamma (g1 : gamma) (v1 : var) (t1 : stlc-type))
+     IH: ((ih-g1 : (maybe stlc-type)))
      (if (var-equal? v1 x)
          (some stlc-type t1)
-         (lookup-gamma g1 x))]))
+         ih-g1)]))
 
 (define-relation (has-type gamma stlc-term stlc-type)
   #:output-coq "stlc.v"

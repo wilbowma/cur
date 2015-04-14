@@ -66,22 +66,30 @@
     [(_ (name (a : t) ... : t_res) body)
      #'(define name (fix (name : (forall* (a : t) ... t_res))
                       (lambda* (a : t) ... body)))]))
+
 (begin-for-syntax
   (define (rewrite-clause clause)
-    (syntax-case clause (:)
-      [((con (a : A) ...) body) #'(con (lambda* (a : A) ... body))]
-      [(e body) #'(e body)])))
+    (syntax-case clause (: IH:)
+      [((con (a : A) ...) IH: ((x : t) ...) body)
+       #'(lambda* (a : A) ... (x : t) ... body)]
+      [(e body) #'body])))
 
+;; TODO: Expects clauses in same order as constructors as specified when
+;; TODO: inductive D is defined.
 (define-syntax (case* syn)
   (syntax-case syn ()
-    [(_ e clause* ...)
-     #`(case e #,@(map rewrite-clause (syntax->list #'(clause* ...))))]))
+    [(_ D e P clause* ...)
+     #`(elim D e P #,@(map rewrite-clause (syntax->list #'(clause* ...))))]))
 
 (define-syntax-rule (define-theorem name prop)
   (define name prop))
 
-;; TODO: Current implementation doesn't do beta/eta while type-checking
-;; because reasons. So manually insert a run in the type annotation
-(define-syntax-rule (qed thm pf)
-  ((lambda (x : (run thm)) Type) pf))
+(define-syntax (qed stx)
+  (syntax-case stx ()
+    [(_ t pf)
+     (begin
+       (unless (type-check/syn? #'pf #'t)
+         (raise-syntax-error 'qed "Invalid proof"
+           #'pf #'t))
+       #'pf)]))
 
