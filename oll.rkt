@@ -53,14 +53,14 @@
         (when (attribute latex-file)
           (with-output-to-file (syntax->datum #'latex-file)
             (thunk
-              (format "\\fbox{$~a$}$~n$\\begin{mathpar}~n~a~n\end{mathpar}$$"
-                      (syntax->datum #'(n types* ...))
-                      (string-trim
-                        (for/fold ([str ""])
-                                  ([rule (attribute rules.latex)])
-                          (format "~a~a\\and~n" str rule))
-                        "\\and"
-                        #:left? #f)))
+              (printf (format "\\fbox{$~a$}$~n$\\begin{mathpar}~n~a~n\\end{mathpar}$$"
+                       (syntax->datum #'(n types* ...))
+                       (string-trim
+                         (for/fold ([str ""])
+                                   ([rule (attribute rules.latex)])
+                                   (format "~a~a\\and~n" str rule))
+                         "\\and"
+                         #:left? #f))))
             #:exists 'append))
         #`(begin
             #,@(if (attribute coq-file)
@@ -187,7 +187,7 @@
                      #:left? #f))]))))
   (define (generate-latex-bnf file-name vars clauses)
     (with-output-to-file file-name
-      (thunk (output-latex-bnf vars clauses))
+      (thunk (printf (output-latex-bnf vars clauses)))
       #:exists 'append)))
 (module+ test
   (require "stdlib/sugar.rkt")
