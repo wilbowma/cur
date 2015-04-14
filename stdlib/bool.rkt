@@ -11,7 +11,7 @@
      ;; Compute the motive
      (let ([M #`(lambda (x : #,(type-infer/syn #'t))
                   #,(type-infer/syn #'s))])
-       #`(elim bool t #,M s f))]))
+       (quasisyntax/loc syn (elim bool t #,M s f)))]))
 
 (define (bnot (x : bool)) (if x bfalse btrue))
 (module+ test

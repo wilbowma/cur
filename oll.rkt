@@ -231,11 +231,19 @@
 (data var : Type (avar : (-> nat var)))
 
 (define (var-equal? (v1 : var) (v2 : var))
-  (case* v1
-    [(avar (n1 : nat))
-     (case* v2
-       [(avar (n2 : nat))
+  (case* var v1 (lambda* (v : var) bool)
+    [(avar (n1 : nat)) IH: ()
+     (case* var v2 (lambda* (v : var) bool)
+       [(avar (n2 : nat)) IH: ()
         (nat-equal? n1 n2)])]))
+(module+ test
+  (require rackunit)
+  (check-equal?
+    (var-equal? (avar z) (avar z))
+    btrue)
+  (check-equal?
+    (var-equal? (avar z) (avar (s z)))
+    bfalse))
 
 ;; See stlc.rkt for examples
 
@@ -263,7 +271,7 @@
                               #'begin)
        ;; TODO: Need to add these to a literal set and export it
        ;; Or, maybe overwrite syntax-parse
-       #:literals (lambda forall data real-app case define-theorem
+       #:literals (lambda forall data real-app elim define-theorem
                           define qed begin Type)
        [(begin e ...)
         (for/fold ([str ""])
@@ -322,21 +330,14 @@
                           (output-coq #'t))]))))
           "")]
        [(Type i) "Type"]
-       [(case e (ec eb) ...)
-        (format "(match ~a with~n~aend)"
-                (output-coq #'e)
-                (for/fold ([strs ""])
-                          ([con   (syntax->list #'(ec ...))]
-                           [body  (syntax->list #'(eb ...))])
-                  (let* ([ids (generate-temporaries (constructor-args con))]
-                         [names (map (compose ~a syntax->datum) ids)])
-                    (format "~a| (~a) => ~a~n" strs
-                      (for/fold ([str (output-coq con)])
-                                ([n names])
-                        (format "~a ~a" str n))
-                      (for/fold ([body (output-coq body)])
-                                ([n names])
-                        (format "(~a ~a)" body n))))))]
+       [(elim var e P m ...)
+        (format "(~a_rect ~a~a ~a)"
+          (output-coq #'var)
+          (output-coq #'P)
+          (for/fold ([x ""])
+                    ([m (syntax->list #'(m ...))])
+            (format "~a ~a" (output-coq m)))
+          (output-coq #'e))]
        [(real-app e1 e2)
         (format "(~a ~a)" (output-coq #'e1) (output-coq #'e2))]
        [e:id (sanitize-id (format "~a" (syntax->datum #'e)))])))

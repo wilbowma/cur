@@ -84,8 +84,12 @@
 (define-syntax-rule (define-theorem name prop)
   (define name prop))
 
-;; TODO: Current implementation doesn't do beta/eta while type-checking
-;; because reasons. So manually insert a run in the type annotation
-(define-syntax-rule (qed thm pf)
-  ((lambda (x : (run thm)) Type) pf))
+(define-syntax (qed stx)
+  (syntax-case stx ()
+    [(_ t pf)
+     (begin
+       (unless (type-check/syn? #'pf #'t)
+         (raise-syntax-error 'qed "Invalid proof"
+           #'pf #'t))
+       #'pf)]))
 
