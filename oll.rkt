@@ -311,7 +311,7 @@
                     (output-coq #'body)))
           "")]
        [(lambda ~! (x:id (~datum :) t) body:expr)
-        (format "(fun ~a : ~a => ~a)" (syntax-e #'x) (output-coq #'t)
+        (format "(fun ~a : ~a => ~a)" (output-coq #'x) (output-coq #'t)
                 (output-coq #'body))]
        [(forall ~! (x:id (~datum :) t) body:expr)
         (format "(forall ~a : ~a, ~a)" (syntax-e #'x) (output-coq #'t)
@@ -336,7 +336,7 @@
           (output-coq #'P)
           (for/fold ([x ""])
                     ([m (syntax->list #'(m ...))])
-            (format "~a ~a" (output-coq m)))
+            (format "~a ~a" x (output-coq m)))
           (output-coq #'e))]
        [(real-app e1 e2)
         (format "(~a ~a)" (output-coq #'e1) (output-coq #'e2))]
@@ -378,14 +378,15 @@
                                 (meow g e t)]))
                (coq-defns))])
       (check-regexp-match
-        "Inductive meow : \\(forall temp. : gamma, \\(forall temp. : term, \\(forall temp. : type, Type\\)\\)\\) :="
+        "Inductive meow : \\(forall .+ : gamma, \\(forall .+ : term, \\(forall .+ : type, Type\\)\\)\\) :="
         (first (string-split t "\n")))
       (check-regexp-match
         "\\| T-Bla : \\(forall g : gamma, \\(forall e : term, \\(forall t : type, \\(\\(\\(meow g\\) e\\) t\\)\\)\\)\\)\\."
         (second (string-split t "\n"))))
-    (let ([t (output-coq #'(case z (z z) (s (lambda (n : nat) (s n)))))])
+    (let ([t (output-coq #'(elim nat e (lambda (x : nat) nat) z
+                             (lambda* (x : nat) (ih-x : nat) ih-x)))])
       (check-regexp-match
-        "\\(match z with\n\\| \\(z\\) => z\n\\| \\(s .+\\) => \\(\\(fun n : nat => \\(s n\\)\\) .+\\)\nend\\)"
+        "\\(nat_rect \\(fun x : nat => nat\\) z \\(fun x : nat => \\(fun ih_x : nat => ih_x\\)\\) e\\)"
         t))
     (check-regexp-match
       "Theorem thm_plus_commutes : \\(forall n : nat, \\(forall m : nat, \\(\\(\\(== nat\\) \\(\\(plus n\\) m\\)\\) \\(\\(plus m\\) n\\)\\)\\)\\).\n"
