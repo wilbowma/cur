@@ -16,7 +16,7 @@ cur (plural curs)
 Getting started
 ===============
 
-Requires redex-lib version 1.6 if you want answer in a reasonable amount
+Requires redex-lib version 1.6 if you want answers in a reasonable amount
 of time. Otherwise, the type-checker may require exponential time
 or worse.
 
