@@ -119,8 +119,9 @@
     (check-holds (α-equivalent (λ (x : A) x)
                                (λ (y : A) y))))
 
-
-
+  (define-metafunction cicL
+    fresh-x : t ... -> x
+    [(fresh-x t ...) ,(variable-not-in (term (t ...)) (term x))])
 
   ;; NB: Substitution is hard
   ;; NB: Copy and pasted from Redex examples
@@ -144,6 +145,7 @@
     [(subst (any (x_0 : t_0) t_1) x t)
      (any (x_new : (subst (subst-vars (x_0 x_new) t_0) x t))
        (subst (subst-vars (x_0 x_new) t_1) x t))
+     ;; TODO: Use "fresh-x" meta-function
      (where x_new
             ,(variable-not-in
                (term (x_0 t_0 x t t_1))
@@ -217,6 +219,7 @@
      ((append-Σ Σ_2 Σ_1) (x : t ((x_c : t_c) ...)))])
 
   ;; TODO: Test
+  ;; TODO: Maybe this should be called "apply-to-telescope"
   (define-metafunction cic-redL
     apply-telescope : t Ξ -> t
     [(apply-telescope t hole) t]
@@ -672,13 +675,34 @@
      (type-infer Σ Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
 
     [(type-infer Σ Γ x_D (in-hole Ξ U_D))
-     (type-infer Σ Γ e_D (in-hole Θ_ai x_D))
-     (type-infer Σ Γ e_P (in-hole Ξ_1 (Π (x : (in-hole Θ_Ξ x_D)) U_P)))
-     (equivalent Σ (in-hole Ξ (Unv 0)) (in-hole Ξ_1 (Unv 0)))
-     ;; methods
-     (telescope-types Σ Γ Θ_m (methods-for x_D Ξ e_P (constructors-for Σ x_D)))
+     ;; A fresh name for the motive
+     (where x_P (fresh-x x_D (in-hole Ξ U_D)))
+     (where x (fresh-x x_P x_D (in-hole Ξ U_D)))
+     ;; The telescope (∀ a -> ... -> (D a ...) hole), i.e.,
+     ;; of the parameters and the inductive type applied to the
+     ;; parameters
+     (where Ξ_P*D (in-hole Ξ (Π (x : (apply-telescope x_D Ξ)) hole)))
+     ;; The types of the methods for this inductive.
+     (where Ξ_m (methods-for x_D Ξ x_P (constructors-for Σ x_D)))
      ----------------- "DTR-Elim_D"
-     (type-infer Σ Γ (in-hole Θ_m (((elim x_D) e_D) e_P)) (reduce Σ ((in-hole Θ_ai e_P) e_D)))])
+     (type-infer Σ Γ (elim x_D)
+       ;; The type of elim_D is something like:
+       ;;  (∀ (P : (∀ a -> ... -> (D a ...) -> Type))
+       ;;     (method_ci ...) -> ... ->
+       ;;     (a -> ... -> (D a ...) ->
+       ;;       (P a ... (D a ...))))
+       ;; Formally, A motive P, which takes all the parameters of the
+       ;; type x_D, and a discriminant of x_D applied to those
+       ;; parameters
+       ;; TODO: (Unv 0) is too restricted
+       (Π (x_P : (in-hole Ξ_P*D (Unv 0)))
+          ;; The methods Ξ_m for each constructor of type x_D
+          (in-hole Ξ_m
+            ;; And finally, the parameters and discriminant
+            (in-hole Ξ_P*D
+              ;; The result is (P a ... (x_D a ...)), i.e., the motive
+              ;; applied to the paramters and discriminant
+              (apply-telescope x_P Ξ_P*D)))))])
 
   (define-judgment-form cic-typingL
     #:mode (type-check I I I I)
@@ -726,6 +750,9 @@
                                   (methods-for truth hole
                                                (λ (x : truth) (Unv 1))
                                                ((T : truth)))))
+    (check-true
+      (judgment-holds
+        (type-infer ,Σtruth ∅ (elim truth) t) t))
     (check-holds (type-check (∅ (truth : (Unv 0) ((T : truth))))
                         ∅
                         ((((elim truth) T) (λ (x : truth) (Unv 1))) (Unv 0))
