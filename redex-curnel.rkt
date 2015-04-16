@@ -260,7 +260,7 @@
        (in-hole Θ_i (hole (in-hole Θ_r x_ci)))
        (x_c0 ... x_ci x_c1 ...))
      ((elim-recur x_D e_P Θ Θ_m Θ_i (x_c0 ... x_ci x_c1 ...))
-      (in-hole Θ (((elim x_D) (in-hole Θ_r x_ci)) e_P)))]
+      (in-hole (Θ (in-hole Θ_r x_ci)) ((elim x_D) e_P)))]
     [(elim-recur x_D e_P Θ Θ_i Θ_nr (x ...)) hole])
   (module+ test
     (check-true
@@ -271,14 +271,20 @@
               ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
               (hole zero)
               (zero s)))
-      (term (hole (((((elim nat) zero) (λ (x : nat) nat)) (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x))))))))
+      (term (hole (((((elim nat) (λ (x : nat) nat))
+                      (s zero))
+                      (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
+                   zero))))
     (check-equal?
       (term (elim-recur nat (λ (x : nat) nat)
               ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
               ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
               (hole (s zero))
               (zero s)))
-      (term (hole (((((elim nat) (s zero)) (λ (x : nat) nat)) (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))))))
+      (term (hole (((((elim nat) (λ (x : nat) nat))
+                      (s zero))
+                      (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
+                   (s zero))))))
 
   (define-judgment-form cic-redL
     #:mode (length-match I I)
@@ -295,14 +301,32 @@
       (--> (Σ (in-hole E ((any (x : t_0) t_1) t_2)))
            (Σ (in-hole E (subst t_1 x t_2)))
            -->β)
-      (--> (Σ (in-hole E (in-hole Θ_m (((elim x_D) (in-hole Θ_i x_ci)) e_P))))
+      (--> (Σ (in-hole E (in-hole Θ ((elim x_D) e_P))))
            (Σ (in-hole E (in-hole Θ_r (in-hole Θ_i e_mi))))
-           (where ((x_c : t_c) ... (x_ci : t_ci) (x_cr : t_cr) ...) (constructors-for Σ x_D))
+           ;; The elim form must appear applied like so:
+           ;; (elim x_D e_P m_0 ... m_i m_j ... m_n p ... (c_i p ... a ...))
+           ;; Where:
+           ;    x_D       is the inductive being eliminated
+           ;    e_P       is the motive
+           ;    m_{0..n}  are the methods
+           ;    p ...     are the parameters of x_D
+           ;    c_i       is a constructor of x_d
+           ;    a ...     are the non-parameter arguments to c_i
+           ;; Unfortunately, Θ contexts turn all this inside out:
+           ;; TODO: Write better abstractions for this notation
+           (where (in-hole (Θ_p (in-hole Θ_i x_ci)) Θ_m)
+                  Θ)
+           (where (in-hole Θ_a Θ_p)
+                  Θ_i)
+           (where ((x_c* : t_c*) ...)
+                  (constructors-for Σ x_D))
+           (where (_ ... x_ci _ ...)
+                  (x_c* ...))
            ;; There should be a number of methods equal to the number of
            ;; constructors; to ensure E doesn't capture methods
-           (judgment-holds (length-match Θ_m (x_c ... x_ci x_cr ...)))
+           (judgment-holds (length-match Θ_m (x_c* ...)))
            (where e_mi (method-lookup Σ x_D x_ci Θ_m))
-           (where Θ_r (elim-recur x_D e_P Θ_m Θ_m Θ_i (x_c ... x_ci x_cr ...)))
+           (where Θ_r (elim-recur x_D e_P Θ_m Θ_m Θ_i (x_c* ...)))
            -->elim)))
 
   (define-metafunction cic-redL
