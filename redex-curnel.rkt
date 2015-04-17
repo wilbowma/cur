@@ -168,7 +168,11 @@
      (subst-all (subst t x_0 e_0) (x ...) (e ...))])
 
   (define-extended-language cic-redL cicL
-    (E   ::= hole (v E) (E e) (Π (x : E) e)) ;; call-by-value
+    ;; call-by-value, plus reduce under Π (helps with typing checking)
+    (E   ::= hole (v E) (E e) 
+             (Π (x : (in-hole Θ x)) E) 
+             (Π (x : v) E) 
+             (Π (x : E) e))
     ;; Σ (signature). (inductive-name : type ((constructor : type) ...))
     (Σ   ::= ∅ (Σ (x : t ((x : t) ...))))
     (Ξ Φ ::= hole (Π (x : t) Ξ)) ;;(Telescope)
@@ -334,15 +338,15 @@
     reduce : Σ e -> e
     [(reduce Σ e) e_r
      (where (_ e_r) ,(car (apply-reduction-relation* cic--> (term (Σ e)))))])
+  ;; TODO: Move equivalence up here, and use in these tests.
   (module+ test
     (check-equal? (term (reduce ∅ (Unv 0))) (term (Unv 0)))
     (check-equal? (term (reduce ∅ ((λ (x : t) x) (Unv 0)))) (term (Unv 0)))
     (check-equal? (term (reduce ∅ ((Π (x : t) x) (Unv 0)))) (term (Unv 0)))
-    ;; NB: Currently not reducing under binders. I forget why.
     (check-equal? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) x_0) (Unv 0)))))
                   (term (Π (x : t) (Unv 0))))
     (check-equal? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) (x_0 x)) x))))
-                  (term (Π (x : t) ((Π (x_0 : t) (x_0 x)) x))))
+                  (term (Π (x : t) (x x))))
     (check-equal? (term (reduce ,Σ ((((((elim nat) Type) (λ (x : nat) nat))
                                        (s zero))
                                        (λ (x : nat) (λ (ih-x : nat)
@@ -814,16 +818,6 @@
     (nat-test ∅ s (Π (x : nat) nat))
     (nat-test ∅ (s zero) nat)
     ;; TODO: Meta-function auto-currying and such
-    (check-true
-      (judgment-holds
-        (type-infer ,Σ ∅ (((elim nat) (Unv 0)) (λ (x : nat) nat)) t) t))
-    (check-true
-      (judgment-holds
-        (type-infer ,Σ ∅ ((((elim nat) (Unv 0)) (λ (x : nat) nat)) zero) t) t))
-    #;(Π (m-zero1 : ((λ (x : nat) nat) zero))
-       (Π (m-s1 : (Π (x1 : nat) (Π (ih-x1 : ((λ (x : nat) nat) x1))
-                                   ((λ (x : nat) nat) (s x1)))))
-          (Π (x3 : nat) ((λ (x : nat) nat) x3))))
     (check-holds
       (type-infer ,Σ ∅ (((((elim nat) (Unv 0)) (λ (x : nat) nat))
                            zero)
@@ -834,7 +828,7 @@
                     (λ (x : nat) (λ (ih-x : nat) x)))
                    zero)
               nat)
-   (nat-test ∅ ((((((elim nat) (Unv 0)) (λ (x : nat) nat))
+    (nat-test ∅ ((((((elim nat) (Unv 0)) (λ (x : nat) nat))
                     (s zero))
                     (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                    zero)
@@ -911,13 +905,14 @@
              (in-hole Ξ (Π (x : (in-hole Θ_Ξ and)) U_P))))
     (check-holds
       (type-check (,Σ4 (true : (Unv 0) ((tt : true)))) ∅
-             (((((elim and) (Unv 0))
-                (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B))
-                                               true))))
-               (λ (A : (Unv 0))
-                  (λ (B : (Unv 0))
-                     (λ (a : A)
-                        (λ (b : B) tt)))))
+             (((((((elim and) (Unv 0))
+                  (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B))
+                                                 true))))
+                 (λ (A : (Unv 0))
+                    (λ (B : (Unv 0))
+                       (λ (a : A)
+                          (λ (b : B) tt)))))
+                true) true)
               ((((conj true) true) tt) tt))
              true))
     (check-true (Γ? (term (((∅ P : (Unv 0)) Q : (Unv 0)) ab : ((and P) Q)))))
@@ -947,14 +942,14 @@
     (check-holds
       (type-check ,Σ4
                   (((∅ P : (Unv 0)) Q : (Unv 0)) ab : ((and P) Q))
-             (((((elim and) (Unv 0))
-                (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B))
-                                               ((and B) A)))))
-               (λ (A : (Unv 0))
-                  (λ (B : (Unv 0))
-                     (λ (a : A)
-                        (λ (b : B) ((((conj B) A) b) a))))))
-              ab)
+             (((((((elim and) (Unv 0))
+                  (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B))
+                                                 ((and B) A)))))
+                 (λ (A : (Unv 0))
+                    (λ (B : (Unv 0))
+                       (λ (a : A)
+                          (λ (b : B) ((((conj B) A) b) a))))))
+                P) Q) ab)
              ((and Q) P)))
     (check-holds
       (type-check (,Σ4 (true : (Unv 0) ((tt : true)))) ∅
@@ -967,13 +962,14 @@
              t))
     (check-holds
       (type-check (,Σ4 (true : (Unv 0) ((tt : true)))) ∅
-             (((((elim and) (Unv 0))
-                (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B))
-                                               ((and B) A)))))
-               (λ (A : (Unv 0))
-                  (λ (B : (Unv 0))
-                     (λ (a : A)
-                        (λ (b : B) ((((conj B) A) b) a))))))
+             (((((((elim and) (Unv 0))
+                  (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B))
+                                                 ((and B) A)))))
+                 (λ (A : (Unv 0))
+                    (λ (B : (Unv 0))
+                       (λ (a : A)
+                          (λ (b : B) ((((conj B) A) b) a))))))
+                true) true)
               ((((conj true) true) tt) tt))
              ((and true) true)))
     (define gamma (term (∅ temp863 : pre)))
@@ -997,9 +993,10 @@
       (type-infer ,sigma (,gamma x : false) (λ (y : false) (Π (x : Type) x))
              (in-hole Ξ (Π (x : (in-hole Θ false)) U))))
     (check-true
-      (redex-match? cic-typingL ((in-hole Θ_m ((((elim x_D) U) e_P))) e_D)
-                    (term ((((elim false) (Unv 1)) (λ (y : false) (Π (x : Type) x)))
-                           x))))
+      (redex-match? cic-typingL
+        ((in-hole Θ_m (((elim x_D) U) e_P)) e_D)
+        (term ((((elim false) (Unv 1)) (λ (y : false) (Π (x : Type) x)))
+               x))))
     (check-holds
       (type-check ,sigma (,gamma x : false)
              ((((elim false) (Unv 0)) (λ (y : false) (Π (x : Type) x))) x)
