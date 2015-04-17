@@ -120,8 +120,8 @@
                                (λ (y : A) y))))
 
   (define-metafunction cicL
-    fresh-x : t ... -> x
-    [(fresh-x t ...) ,(variable-not-in (term (t ...)) (term x))])
+    fresh-x : any ... -> x
+    [(fresh-x any ...) ,(variable-not-in (term (any ...)) (term x))])
 
   ;; NB: Substitution is hard
   ;; NB: Copy and pasted from Redex examples
@@ -168,7 +168,7 @@
      (subst-all (subst t x_0 e_0) (x ...) (e ...))])
 
   (define-extended-language cic-redL cicL
-    (E   ::= hole (v E) (E e)) ;; call-by-value
+    (E   ::= hole (v E) (E e) (Π (x : E) e)) ;; call-by-value
     ;; Σ (signature). (inductive-name : type ((constructor : type) ...))
     (Σ   ::= ∅ (Σ (x : t ((x : t) ...))))
     (Ξ Φ ::= hole (Π (x : t) Ξ)) ;;(Telescope)
@@ -254,34 +254,34 @@
   ;; arguments of an inductive constructor.
   ;; TODO: Poorly documented, and poorly tested.
   (define-metafunction cic-redL
-    elim-recur : x e Θ Θ Θ (x ...) -> Θ
-    [(elim-recur x_D e_P Θ
+    elim-recur : x U e Θ Θ Θ (x ...) -> Θ
+    [(elim-recur x_D U e_P Θ
        (in-hole Θ_m (hole e_mi))
        (in-hole Θ_i (hole (in-hole Θ_r x_ci)))
        (x_c0 ... x_ci x_c1 ...))
-     ((elim-recur x_D e_P Θ Θ_m Θ_i (x_c0 ... x_ci x_c1 ...))
-      (in-hole (Θ (in-hole Θ_r x_ci)) ((elim x_D) e_P)))]
-    [(elim-recur x_D e_P Θ Θ_i Θ_nr (x ...)) hole])
+     ((elim-recur x_D U e_P Θ Θ_m Θ_i (x_c0 ... x_ci x_c1 ...))
+      (in-hole (Θ (in-hole Θ_r x_ci)) (((elim x_D) U) e_P)))]
+    [(elim-recur x_D U e_P Θ Θ_i Θ_nr (x ...)) hole])
   (module+ test
     (check-true
       (redex-match? cic-redL (in-hole Θ_i (hole (in-hole Θ_r zero))) (term (hole zero))))
     (check-equal?
-      (term (elim-recur nat (λ (x : nat) nat)
+      (term (elim-recur nat Type (λ (x : nat) nat)
               ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
               ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
               (hole zero)
               (zero s)))
-      (term (hole (((((elim nat) (λ (x : nat) nat))
+      (term (hole ((((((elim nat) Type) (λ (x : nat) nat))
                       (s zero))
                       (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                    zero))))
     (check-equal?
-      (term (elim-recur nat (λ (x : nat) nat)
+      (term (elim-recur nat Type (λ (x : nat) nat)
               ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
               ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
               (hole (s zero))
               (zero s)))
-      (term (hole (((((elim nat) (λ (x : nat) nat))
+      (term (hole ((((((elim nat) Type) (λ (x : nat) nat))
                       (s zero))
                       (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                    (s zero))))))
@@ -301,12 +301,13 @@
       (--> (Σ (in-hole E ((any (x : t_0) t_1) t_2)))
            (Σ (in-hole E (subst t_1 x t_2)))
            -->β)
-      (--> (Σ (in-hole E (in-hole Θ ((elim x_D) e_P))))
+      (--> (Σ (in-hole E (in-hole Θ (((elim x_D) U) e_P))))
            (Σ (in-hole E (in-hole Θ_r (in-hole Θ_i e_mi))))
            ;; The elim form must appear applied like so:
-           ;; (elim x_D e_P m_0 ... m_i m_j ... m_n p ... (c_i p ... a ...))
+           ;; (elim x_D U e_P m_0 ... m_i m_j ... m_n p ... (c_i p ... a ...))
            ;; Where:
            ;    x_D       is the inductive being eliminated
+           ;    U         is the sort of the motive
            ;    e_P       is the motive
            ;    m_{0..n}  are the methods
            ;    p ...     are the parameters of x_D
@@ -326,7 +327,7 @@
            ;; constructors; to ensure E doesn't capture methods
            (judgment-holds (length-match Θ_m (x_c* ...)))
            (where e_mi (method-lookup Σ x_D x_ci Θ_m))
-           (where Θ_r (elim-recur x_D e_P Θ_m Θ_m Θ_i (x_c* ...)))
+           (where Θ_r (elim-recur x_D U e_P Θ_m Θ_m Θ_i (x_c* ...)))
            -->elim)))
 
   (define-metafunction cic-redL
@@ -342,26 +343,30 @@
                   (term (Π (x : t) (Unv 0))))
     (check-equal? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) (x_0 x)) x))))
                   (term (Π (x : t) ((Π (x_0 : t) (x_0 x)) x))))
-    (check-equal? (term (reduce ,Σ (((((elim nat) zero) (λ (x : nat) nat))
-                                    (s zero))
-                                    (λ (x : nat) (λ (ih-x : nat)
-                                        (s (s x)))))))
+    (check-equal? (term (reduce ,Σ ((((((elim nat) Type) (λ (x : nat) nat))
+                                       (s zero))
+                                       (λ (x : nat) (λ (ih-x : nat)
+                                         (s (s x)))))
+                                     zero)))
                   (term (s zero)))
-    (check-equal? (term (reduce ,Σ (((((elim nat) (s zero)) (λ (x : nat) nat))
-                                    (s zero))
-                                    (λ (x : nat) (λ (ih-x : nat)
-                                        (s (s x)))))))
+    (check-equal? (term (reduce ,Σ ((((((elim nat) Type) (λ (x : nat) nat))
+                                       (s zero))
+                                       (λ (x : nat) (λ (ih-x : nat)
+                                         (s (s x)))))
+                                      (s zero))))
                   (term (s (s zero))))
-    (check-equal? (term (reduce ,Σ (((((elim nat) (s (s (s zero)))) (λ (x : nat) nat))
-                                     (s zero))
-                                     (λ (x : nat) (λ (ih-x : nat) (s (s x)))))))
+    (check-equal? (term (reduce ,Σ ((((((elim nat) Type) (λ (x : nat) nat))
+                                       (s zero))
+                                       (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
+                                     (s (s (s zero))))))
                   (term (s (s (s (s zero))))))
 
     (check-equal?
       (term (reduce ,Σ
-        (((((elim nat) (s (s zero))) (λ (x : nat) nat))
-          (s (s zero)))
-         (λ (x : nat) (λ (ih-x : nat) (s ih-x))))))
+        ((((((elim nat) Type) (λ (x : nat) nat))
+            (s (s zero)))
+            (λ (x : nat) (λ (ih-x : nat) (s ih-x))))
+         (s (s zero)))))
       (term (s (s (s (s zero)))))))
 
   (define-judgment-form cic-redL
@@ -688,10 +693,10 @@
      (type-infer Σ Γ (Π (x : t_0) t) U)]
 
     [(type-infer Σ Γ e_0 (Π (x_0 : t_0) t_1))
-     (type-infer Σ Γ e_1 t_2)
-     (equivalent Σ t_0 t_2)
+     (type-check Σ Γ e_1 t_0)
+     (where t_3 (reduce Σ ((Π (x_0 : t_0) t_1) e_1)))
      ----------------- "DTR-Application"
-     (type-infer Σ Γ (e_0 e_1) (subst t_1 x_0 e_1))]
+     (type-infer Σ Γ (e_0 e_1) t_3)]
 
     [(type-infer Σ (Γ x : t_0) e t_1)
      (type-infer Σ Γ (Π (x : t_0) t_1) U)
@@ -699,27 +704,31 @@
      (type-infer Σ Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
 
     [(type-infer Σ Γ x_D (in-hole Ξ U_D))
-     ;; A fresh name for the motive
-     (where x_P (fresh-x x_D (in-hole Ξ U_D)))
-     (where x (fresh-x x_P x_D (in-hole Ξ U_D)))
+     ;; A fresh name to bind the discriminant
+     (where x (fresh-x Σ Γ x_D Ξ))
      ;; The telescope (∀ a -> ... -> (D a ...) hole), i.e.,
      ;; of the parameters and the inductive type applied to the
      ;; parameters
      (where Ξ_P*D (in-hole Ξ (Π (x : (apply-telescope x_D Ξ)) hole)))
+     ;; A fresh name for the motive
+     (where x_P (fresh-x Σ Γ x_D Ξ Ξ_P*D x))
      ;; The types of the methods for this inductive.
      (where Ξ_m (methods-for x_D Ξ x_P (constructors-for Σ x_D)))
      ----------------- "DTR-Elim_D"
-     (type-infer Σ Γ (elim x_D)
-       ;; The type of elim_D is something like:
-       ;;  (∀ (P : (∀ a -> ... -> (D a ...) -> Type))
+     (type-infer Σ Γ ((elim x_D) U)
+       ;; The type of ((elim x_D) U) is something like:
+       ;;  (∀ (P : (∀ a -> ... -> (D a ...) -> U))
        ;;     (method_ci ...) -> ... ->
        ;;     (a -> ... -> (D a ...) ->
        ;;       (P a ... (D a ...))))
-       ;; Formally, A motive P, which takes all the parameters of the
-       ;; type x_D, and a discriminant of x_D applied to those
-       ;; parameters
-       ;; TODO: (Unv 0) is too restricted
-       (Π (x_P : (in-hole Ξ_P*D (Unv 0)))
+       ;;
+       ;; x_D   is an inductively defined type
+       ;; U     is the sort the motive
+       ;; x_P   is the name of the motive
+       ;; Ξ_P*D is the telescope of the parameters of x_D and
+       ;;       the witness of type x_D (applied to the parameters)
+       ;; Ξ_m   is the telescope of the methods for x_D
+       (Π (x_P : (in-hole Ξ_P*D U))
           ;; The methods Ξ_m for each constructor of type x_D
           (in-hole Ξ_m
             ;; And finally, the parameters and discriminant
@@ -760,8 +769,8 @@
     ;; TODO: Clean up/Reorganize these tests
     (check-true
       (redex-match? cic-typingL
-                    (in-hole Θ_m (((elim x_D) e_D) e_P))
-                    (term ((((elim truth) T) (Π (x : truth) (Unv 1))) (Unv 0)))))
+                    (in-hole Θ_m ((((elim x_D) U) e_D) e_P))
+                    (term (((((elim truth) Type) T) (Π (x : truth) (Unv 1))) (Unv 0)))))
     (define Σtruth (term (∅ (truth : (Unv 0) ((T : truth))))))
     (check-holds (type-infer ,Σtruth ∅ truth (in-hole Ξ U)))
     (check-holds (type-infer ,Σtruth ∅ T (in-hole Θ_ai truth)))
@@ -774,57 +783,76 @@
                                   (methods-for truth hole
                                                (λ (x : truth) (Unv 1))
                                                ((T : truth)))))
-    (check-true
-      (judgment-holds
-        (type-infer ,Σtruth ∅ (elim truth) t) t))
+    (check-holds (type-infer ,Σtruth ∅ ((elim truth) Type) t))
     (check-holds (type-check (∅ (truth : (Unv 0) ((T : truth))))
-                        ∅
-                        ((((elim truth) T) (λ (x : truth) (Unv 1))) (Unv 0))
-                        (Unv 1)))
-
+                            ∅
+                            (((((elim truth) (Unv 2)) (λ (x : truth) (Unv 1))) (Unv 0))
+                             T)
+                            (Unv 1)))
     (check-not-holds (type-check (∅ (truth : (Unv 0) ((T : truth))))
                             ∅
-                            (((((elim truth) T) (Unv 1)) Type) Type)
+                            (((((elim truth) (Unv 1)) Type) Type) T)
                             (Unv 1)))
     (check-holds
       (type-infer ∅ ∅ (Π (x2 : (Unv 0)) (Unv 0)) U))
     (check-holds
       (type-infer ∅ (∅ x1 : (Unv 0)) (λ (x2 : (Unv 0)) (Π (t6 : x1) (Π (t2 : x2) (Unv 0))))
                   t))
-    (define-syntax-rule (nat-test syn ...)
-      (check-holds (type-infer ,Σ syn ...)))
-    (nat-test ∅ (Π (x : nat) nat) (Unv 0))
-    (nat-test ∅ (λ (x : nat) x) (Π (x : nat) nat))
-
     (check-holds
       (type-infer ,Σ ∅ nat (in-hole Ξ U)))
     (check-holds
       (type-infer ,Σ ∅ zero (in-hole Θ_ai nat)))
     (check-holds
       (type-infer ,Σ ∅ (λ (x : nat) nat)
-             (in-hole Ξ (Π (x : (in-hole Θ nat)) U))))
-    (nat-test ∅ (((((elim nat) zero) (λ (x : nat) nat)) zero)
-                 (λ (x : nat) (λ (ih-x : nat) x)))
-              nat)
+                  (in-hole Ξ (Π (x : (in-hole Θ nat)) U))))
+    (define-syntax-rule (nat-test syn ...)
+      (check-holds (type-check ,Σ syn ...)))
+    (nat-test ∅ (Π (x : nat) nat) (Unv 0))
+    (nat-test ∅ (λ (x : nat) x) (Π (x : nat) nat))
     (nat-test ∅ nat (Unv 0))
     (nat-test ∅ zero nat)
     (nat-test ∅ s (Π (x : nat) nat))
     (nat-test ∅ (s zero) nat)
-    (nat-test ∅ (((((elim nat) zero) (λ (x : nat) nat))
-                  (s zero))
-                  (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
+    ;; TODO: Meta-function auto-currying and such
+    (check-true
+      (judgment-holds
+        (type-infer ,Σ ∅ (((elim nat) (Unv 0)) (λ (x : nat) nat)) t) t))
+    (check-true
+      (judgment-holds
+        (type-infer ,Σ ∅ ((((elim nat) (Unv 0)) (λ (x : nat) nat)) zero) t) t))
+    #;(Π (m-zero1 : ((λ (x : nat) nat) zero))
+       (Π (m-s1 : (Π (x1 : nat) (Π (ih-x1 : ((λ (x : nat) nat) x1))
+                                   ((λ (x : nat) nat) (s x1)))))
+          (Π (x3 : nat) ((λ (x : nat) nat) x3))))
+    (check-holds
+      (type-infer ,Σ ∅ (((((elim nat) (Unv 0)) (λ (x : nat) nat))
+                           zero)
+                           (λ (x : nat) (λ (ih-x : nat) x)))
+                  t))
+    (nat-test ∅ ((((((elim nat) (Unv 0)) (λ (x : nat) nat))
+                    zero)
+                    (λ (x : nat) (λ (ih-x : nat) x)))
+                   zero)
+              nat)
+   (nat-test ∅ ((((((elim nat) (Unv 0)) (λ (x : nat) nat))
+                    (s zero))
+                    (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
+                   zero)
               nat)
     (nat-test (∅ n : nat)
-      (((((elim nat) n) (λ (x : nat) nat)) zero) (λ (x : nat) (λ (ih-x : nat) x)))
+      ((((((elim nat) (Unv 0)) (λ (x : nat) nat)) zero) (λ (x : nat) (λ (ih-x : nat) x))) n)
       nat)
     (check-holds
       (type-check (,Σ (bool : (Unv 0) ((btrue : bool) (bfalse : bool))))
              (∅ n2 : nat)
-             (((((elim nat) n2) (λ (x : nat) bool)) btrue) (λ (x : nat) (λ (ih-x : bool) bfalse)))
+             ((((((elim nat) (Unv 0)) (λ (x : nat) bool))
+                  btrue)
+                  (λ (x : nat) (λ (ih-x : bool) bfalse)))
+                n2)
              bool))
     (check-not-holds
       (type-check ,Σ ∅
-             ((((elim nat) zero) nat) (s zero))
+             (((((elim nat) (Unv 0)) nat) (s zero)) zero)
              nat))
     (define lam (term (λ (nat : (Unv 0)) nat)))
     (check-equal?
@@ -883,13 +911,14 @@
              (in-hole Ξ (Π (x : (in-hole Θ_Ξ and)) U_P))))
     (check-holds
       (type-check (,Σ4 (true : (Unv 0) ((tt : true)))) ∅
-             ((((elim and) ((((conj true) true) tt) tt))
-               (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B))
-                                              true))))
-              (λ (A : (Unv 0))
-                 (λ (B : (Unv 0))
-                    (λ (a : A)
-                       (λ (b : B) tt)))))
+             (((((elim and) (Unv 0))
+                (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B))
+                                               true))))
+               (λ (A : (Unv 0))
+                  (λ (B : (Unv 0))
+                     (λ (a : A)
+                        (λ (b : B) tt)))))
+              ((((conj true) true) tt) tt))
              true))
     (check-true (Γ? (term (((∅ P : (Unv 0)) Q : (Unv 0)) ab : ((and P) Q)))))
     (check-holds
@@ -918,13 +947,14 @@
     (check-holds
       (type-check ,Σ4
                   (((∅ P : (Unv 0)) Q : (Unv 0)) ab : ((and P) Q))
-             ((((elim and) ab)
-               (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B))
-                                              ((and B) A)))))
-              (λ (A : (Unv 0))
-                 (λ (B : (Unv 0))
-                    (λ (a : A)
-                       (λ (b : B) ((((conj B) A) b) a))))))
+             (((((elim and) (Unv 0))
+                (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B))
+                                               ((and B) A)))))
+               (λ (A : (Unv 0))
+                  (λ (B : (Unv 0))
+                     (λ (a : A)
+                        (λ (b : B) ((((conj B) A) b) a))))))
+              ab)
              ((and Q) P)))
     (check-holds
       (type-check (,Σ4 (true : (Unv 0) ((tt : true)))) ∅
@@ -937,13 +967,14 @@
              t))
     (check-holds
       (type-check (,Σ4 (true : (Unv 0) ((tt : true)))) ∅
-             ((((elim and) ((((conj true) true) tt) tt))
-               (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B))
-                                              ((and B) A)))))
-              (λ (A : (Unv 0))
-                 (λ (B : (Unv 0))
-                    (λ (a : A)
-                       (λ (b : B) ((((conj B) A) b) a))))))
+             (((((elim and) (Unv 0))
+                (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B))
+                                               ((and B) A)))))
+               (λ (A : (Unv 0))
+                  (λ (B : (Unv 0))
+                     (λ (a : A)
+                        (λ (b : B) ((((conj B) A) b) a))))))
+              ((((conj true) true) tt) tt))
              ((and true) true)))
     (define gamma (term (∅ temp863 : pre)))
     (check-holds (wf ,sigma ∅))
@@ -966,11 +997,12 @@
       (type-infer ,sigma (,gamma x : false) (λ (y : false) (Π (x : Type) x))
              (in-hole Ξ (Π (x : (in-hole Θ false)) U))))
     (check-true
-      (redex-match? cic-typingL (in-hole Θ_m (((elim x_D) e_D) e_P))
-                    (term (((elim false) x) (λ (y : false) (Π (x : Type) x))))))
+      (redex-match? cic-typingL ((in-hole Θ_m ((((elim x_D) U) e_P))) e_D)
+                    (term ((((elim false) (Unv 1)) (λ (y : false) (Π (x : Type) x)))
+                           x))))
     (check-holds
       (type-check ,sigma (,gamma x : false)
-             (((elim false) x) (λ (y : false) (Π (x : Type) x)))
+             ((((elim false) (Unv 0)) (λ (y : false) (Π (x : Type) x))) x)
              (Π (x : (Unv 0)) x)))))
 
 ;; This module just provide module language sugar over the redex model.
