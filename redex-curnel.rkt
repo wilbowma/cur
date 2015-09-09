@@ -119,9 +119,6 @@
     (check-holds (α-equivalent (λ (x : A) x)
                                (λ (y : A) y))))
 
-
-
-
   ;; NB: Substitution is hard
   ;; NB: Copy and pasted from Redex examples
   (define-metafunction cicL
@@ -165,6 +162,8 @@
     [(subst-all t (x_0 x ...) (e_0 e ...))
      (subst-all (subst t x_0 e_0) (x ...) (e ...))])
 
+  ;; TODO: I think a lot of things can be simplified if I rethink how
+  ;; TODO: model contexts, telescopes, and such.
   (define-extended-language cic-redL cicL
     (E   ::= hole (v E) (E e)) ;; call-by-value
     ;; Σ (signature). (inductive-name : type ((constructor : type) ...))
@@ -217,6 +216,7 @@
      ((append-Σ Σ_2 Σ_1) (x : t ((x_c : t_c) ...)))])
 
   ;; TODO: Test
+  ;; TODO: Isn't this just plug?
   (define-metafunction cic-redL
     apply-telescope : t Ξ -> t
     [(apply-telescope t hole) t]
@@ -985,7 +985,8 @@
       cur-expand
       type-infer/syn
       type-check/syn?
-      normalize/syn)
+      normalize/syn
+      cur-equal?)
     run)
 
   (begin-for-syntax
@@ -1138,6 +1139,10 @@
 
     (define (run-cur->datum syn)
       (cur->datum (normalize/syn syn)))
+
+    ;; Are these two terms equivalent in type-systems internal equational reasoning?
+    (define (cur-equal? e1 e2)
+      (and (judgment-holds (equivalent ,(sigma) ,(run-cur->datum e1) ,(run-cur->datum e2)) #t)))
 
     ;; TODO: OOps, type-infer doesn't return a cur term but a redex term
     ;; wrapped in syntax bla. This is bad.
