@@ -985,7 +985,8 @@
       cur-expand
       type-infer/syn
       type-check/syn?
-      normalize/syn)
+      normalize/syn
+      cur-equal?)
     run)
 
   (begin-for-syntax
@@ -1138,6 +1139,10 @@
 
     (define (run-cur->datum syn)
       (cur->datum (normalize/syn syn)))
+
+    ;; Are these two terms equivalent in type-systems internal equational reasoning?
+    (define (cur-equal? e1 e2)
+      (and (judgment-holds (equivalent ,(sigma) ,(run-cur->datum e1) ,(run-cur->datum e2)) #t)))
 
     ;; TODO: OOps, type-infer doesn't return a cur term but a redex term
     ;; wrapped in syntax bla. This is bad.

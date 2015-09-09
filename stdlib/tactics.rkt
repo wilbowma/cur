@@ -34,9 +34,8 @@
 ;;   current-proof: A (Either Ctxt Expr), representing the proof so far.
 ;;                  current-proof is an Expr, the proof is complete.
 
-(define-syntax-parameter hole
-  (lambda (stx) (raise-syntax-error "HOLEEEEE!")))
 (begin-for-syntax
+  (define hole 'hole)
   (define-struct proof-state (env goals current-goal current-proof))
 
   (define current-proof-state (make-parameter #f))
@@ -48,7 +47,7 @@
   (define (new-proof-state prop)
     (unless prop
       (raise-syntax-error 'qed "You can't use qed without a first using define-theorem"))
-    (proof-state (make-hash) (make-hash) prop values))
+    (proof-state (make-immutable-hash) (make-immutable-hash) prop values))
 
   ;; push-env adds a mapping from name to P in (proof-state-env ps).
   ;; Proof-State -> Symbol -> Goal -> Proof-State
@@ -68,7 +67,11 @@
   (define (update-current-proof ps pf)
     ;; TODO: Check for proof completion?
     (struct-copy proof-state ps
-      [current-proof (plug-ctxt (proof-state-current-proof ps) pf)])))
+      [current-proof (plug-ctxt (proof-state-current-proof ps) pf)]))
+
+  (define (update-current-goal ps goal)
+    (struct-copy proof-state ps
+      [current-goal goal])))
 
 ;; A tactic is a Racket function that manipulates the current proof state.
 ;; Tactic : Args ... Proof-State -> Proof-State
@@ -79,6 +82,7 @@
 (define-syntax (define-tactic syn)
   (syntax-case syn ()
     [(_ (name args ... ps) body ...)
+     ;; TODO: quasisyntax/loc
      #'(begin-for-syntax
          (define (name args ... ps)
            body ...))]
@@ -89,39 +93,41 @@
 ;; (define-goal-tactic (command-name args ... ctx goal-list current-goal) body)
 
 (define-tactic (intro name ps)
-  ;; TODO: Probably need to cur-expand current-goal
+  ;; TODO: Maybe cur-expand current-goal by default
   ;; TODO: Goals should probably be Curnel terms
   (syntax-parse (cur-expand (proof-state-current-goal ps))
     [(forall (x:id : P:expr) body:expr)
-     (update-current-proof
-       (push-env ps (syntax-e name) #'P)
-       (lambda (x) #`(λ (x : P) #,x)))]
+     (update-current-goal
+       (update-current-proof
+        (push-env ps (syntax-e name) #'P)
+        (lambda (x) #`(λ (x : P) #,x)))
+       #'body)]
     [_ (error 'intro "Can only intro when current goal is of the form (∀ (x : P) body)")]))
 
-;(define-tactic (obvious env goals current-goal)
-;  (match current-goal
-;    [(∀ (x : P) body)
-;     ;; TODO: These patterns seem to indicate env, goals, current-goal
-;     ;; TODO: should just be parameters, manipulated in a stateful manner.
-;     ;; TODO: No; don't be silly. Should instead define wrappers that allow
-;     ;; TODO: you to focus on just what you care about.
-;     (match-let ([(list env goals current-goal body)
-;                  (obvious (push-env env name P) goals body)])
-;       (list env goals current-goal `(λ (,x : ,P) ,body)))]
-;    [(? assumption?) (by-assumption env goals current-goal)]
-;    [(? inductive?) (by-constructor env goals current-goal)]
-;    [_ (error 'obvious "This isn't all that obvious to me.")]))
-;
-;(define-tactic (by-assumption env goals current-goal)
-;  (match current-goal
-;    [(? assumption P)
-;     ;; TODO: How should "completing" a goal work? should the tactic
-;     ;; TODO: handle this, or the systen? Probably the system... detect when an
-;     ;; TODO: expr with 0 holes has been returned, and type-check against
-;     ;; TODO: current goal.
-;     (list env goals current-goal (env-search-by-prop env P))]
-;    ;; TODO: Check uses of error vs errorf, or whatever
-;    [_ (error 'by-assumption "You have not assumed this.")]))
+(begin-for-syntax
+  (define (assumption ps type)
+    (for/first ([(k v) (in-dict (proof-state-env ps))]
+                #:when (cur-equal? v type))
+      k)))
+(define-tactic (by-assumption ps)
+  (cond
+    [(assumption ps (cur-expand (proof-state-current-goal ps)))
+     => (curry update-current-proof ps)]
+    [else (error 'by-assumption "Cannot find an assumption that matches the goal")]))
+
+;; TODO: requires more support from curnel
+#;(begin-for-syntax
+  (define (inductive? ps type)
+    ))
+(define-tactic (obvious ps)
+  (syntax-parse (cur-expand (proof-state-current-goal ps))
+    [(forall (x : P) t)
+     (obvious (intro #'x ps))]
+    [t:expr
+     (cond
+       [(assumption ps #'t) (by-assumption ps)]
+       ;[(inductive? ps #'t) (by-constructor ps)]
+       [else (error 'obvious "This is not all that obvious to me.")])]))
 
 ;; Tactic DSL grammar:
 ;;   tactic-script ::= (qed (tactic-name args ...))
@@ -151,11 +157,12 @@
   (syntax-case syn ()
     [(_ (f args* ...) ...)
      (let* ([t (current-theorem)]
-           [pf (proof-state-current-proof
-                 (syntax-local-eval #`(let* ([ps (new-proof-state #'#,t)]
-                                             [ps (f #'args* ... ps)] ...)
-                                            ps)))])
-          (displayln (current-theorem))
+            [pf (proof-state-current-proof
+                  (syntax-local-eval #`(let* ([ps (new-proof-state #'#,t)]
+                                              [ps (f #'args* ... ps)] ...)
+                                             ps)))])
+          (when (procedure? pf)
+             (raise-syntax-error 'qed "Proof contains holes" (pf hole)))
           (unless (type-check/syn? pf t)
              (raise-syntax-error 'qed "Invalid proof" pf t))
           pf)]))
@@ -164,4 +171,7 @@
   (define-theorem meow (forall (x : bool) bool))
   (qed
     (intro x)
-    #;(by-assumption)))
+    (by-assumption))
+  (define-theorem meow1 (forall (x : bool) bool))
+  (qed (obvious))
+  )
