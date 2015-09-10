@@ -118,7 +118,6 @@
                   (syntax-local-eval
                     ;; Thread proof state through tactic calls, and eval
                     ;; at compile-time.
-
                     #`(let* ([ps (new-proof-state #'#,t)]
                              [ps (f #'args* ... ps)]
                              ...)
@@ -143,9 +142,8 @@
   (syntax-case syn ()
     [(_ (name args ... ps) body ...)
      (quasisyntax/loc syn
-        (begin-for-syntax
-          (define (name args ... ps)
-                  body ...)))]
+        (define-for-syntax (name args ... ps)
+          body ...))]
     [(_ name function)
      (raise-syntax-error "Syntax not yet defined")]))
 
@@ -202,7 +200,37 @@
       [current-goal (proof-state-original-goal ps)]
       [current-proof empty-proof]))
 
-(define-tactic (print ps) (print-proof-state ps) ps)
+(define-tactic (show ps) (print-proof-state ps) ps)
+
+(begin-for-syntax
+  (define-namespace-anchor a))
+
+;; Interactive you say? Sure whatevs, DIY
+(define-tactic (interactive ps)
+  (printf "Starting interactive tactic session:~n")
+  (let loop ([ps ps] [cmds '()])
+    (show ps)
+    (let ([cmd (read-syntax)])
+      (syntax-case cmd (quit)
+        [(quit)
+         (begin
+           (printf "Your tactic script:~n")
+           (pretty-print cmds)
+           (newline)
+           ps)]
+        ;; TODO: eval is bad. Maybe use (read-eval-print-loop) and its
+        ;; TODO: config parameters.
+        [(tactic arg ...)
+          (with-handlers (#;[exn:fail:syntax?
+                            (lambda (e)
+                                    (printf "~a is not a tactic.~n"
+                                            (syntax->datum #'tactic))
+                                    (loop ps cmds))])
+            (displayln (syntax-local-eval #'(begin tactic)))
+            (loop (apply (eval-syntax #'tactic
+                           (namespace-anchor->namespace a))
+                         (append (syntax->list #'(arg ...)) (list ps)))
+                  (cons cmd cmds)))]))))
 
 ;; TODO:
 ;; Open interactive REPL for tactic DSL; exit with QED command, which
@@ -218,13 +246,16 @@
   (define-theorem meow1 (forall (x : bool) bool))
   (proof
     (obvious)
-    (print))
+    (show))
   (define-theorem meow2 (forall (x : bool) bool))
   (proof
     (intro x)
     (restart)
     (intro x)
     (by-assumption))
+  ;(define-theorem meow3 (forall (x : bool) bool))
+  ;(proof
+  ;  (interactive))
   ;; TODO: Add check-cur-equal? for unit testing?
   #;(check-pred (curry cur-equal? '(lambda (x : bool) x)))
   )

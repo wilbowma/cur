@@ -949,6 +949,7 @@
     only-in
     all-defined-out
     rename-in
+    submod
     #%module-begin
     begin
     (rename-out
@@ -975,6 +976,7 @@
     ;; DYI syntax extension
     define-syntax
     begin-for-syntax
+    define-for-syntax
     (for-syntax (all-from-out syntax/parse))
     syntax-case
     syntax-rules
