@@ -46,13 +46,16 @@
   ;;   current-proof: A (Either Ctxt Expr), representing the proof so far.
   ;;                  current-proof is an Expr, the proof is complete.
   (define-struct proof-state (env goals current-goal current-proof
-                                  original-goal))
+                              original-goal))
 
   (define (print-proof-state ps)
     (for ([(k v) (in-dict (proof-state-env ps))])
-      (printf "~n~a : ~a~n" k (syntax->datum v))
-      (printf "--------------------------------~n")
-      (printf "~a~n~n" (syntax->datum (proof-state-current-goal ps)))))
+      (printf "~n~a : ~a~n" k (syntax->datum v)))
+    (printf "--------------------------------~n")
+    (cond
+      [(proof-state-current-goal ps) =>
+       (lambda (x) (printf "~a~n~n" (syntax->datum x)))]
+      [else (printf "Goal complete!~n~n")]))
 
   (define current-proof-state (make-parameter #f))
 
@@ -88,7 +91,35 @@
 
   (define (update-current-goal ps goal)
     (struct-copy proof-state ps
-      [current-goal goal])))
+      [current-goal goal]))
+
+  (define-namespace-anchor tactics)
+
+  (define (lookup-tactic sym)
+    (namespace-variable-value sym #f #f (namespace-anchor->namespace tactics)))
+
+  (define (lookup-tactic-syn syn)
+    (namespace-variable-value (syntax->datum syn)
+      #f #f (namespace-anchor->namespace tactics))))
+
+;;; ======================================================================
+
+;; A tactic is a Racket function that manipulates the current proof state.
+;; Tactic : Args ... Proof-State -> Proof-State
+
+;;; Syntax for defining tactics.
+;; (define-tactic command-name function)
+;; (define-tactic (command-name args ... Proof-State) body)
+(define-syntax (define-tactic syn)
+  (syntax-case syn ()
+    [(_ (name args ... ps) body ...)
+     (quasisyntax/loc syn
+       (define-for-syntax (name args ... ps) body ...))]
+    [(_ name function)
+     (raise-syntax-error "Syntax not yet defined")]))
+
+;; (define-goal-tactic command-name function)
+;; (define-goal-tactic (command-name args ... ctx goal-list current-goal) body)
 
 ;; Define a theorem, with similar semantics to Coq theorems in that you
 ;; can define the theorem then define the proof next.
@@ -115,41 +146,20 @@
          "You can't use proof without a first using define-theorem"))
      (let* ([t (current-theorem)]
             [pf (proof-state-current-proof
-                  (syntax-local-eval
-                    ;; Thread proof state through tactic calls, and eval
-                    ;; at compile-time.
-                    #`(let* ([ps (new-proof-state #'#,t)]
-                             [ps (f #'args* ... ps)]
-                             ...)
-                            ps)))])
+                  ;; Thread proof state through tactic calls, and eval
+                  ;; at compile-time.
+                  (for/fold ([ps (new-proof-state t)])
+                            ([f (map lookup-tactic-syn (syntax->list #'(f ...)))]
+                             [args (map syntax->list
+                                        (syntax->list #'((args* ...) ...)))])
+                    (apply f (append args (list ps)))))])
           (when (ctxt? pf)
-             (raise-syntax-error 'qed "Proof contains holes" (pf hole)))
+            (raise-syntax-error 'qed "Proof contains holes" (pf hole)))
           (unless (type-check/syn? pf t)
-             (raise-syntax-error 'qed "Invalid proof" pf t))
+            (raise-syntax-error 'qed "Invalid proof" pf t))
           pf)]))
 
-;;; ======================================================================
-
-;;; TACTICS
-
-;; A tactic is a Racket function that manipulates the current proof state.
-;; Tactic : Args ... Proof-State -> Proof-State
-
-;;; Syntax for defining tactics.
-;; (define-tactic command-name function)
-;; (define-tactic (command-name args ... Proof-State) body)
-(define-syntax (define-tactic syn)
-  (syntax-case syn ()
-    [(_ (name args ... ps) body ...)
-     (quasisyntax/loc syn
-        (define-for-syntax (name args ... ps)
-          body ...))]
-    [(_ name function)
-     (raise-syntax-error "Syntax not yet defined")]))
-
-;; (define-goal-tactic command-name function)
-;; (define-goal-tactic (command-name args ... ctx goal-list current-goal) body)
-
+;;; TODO: Everything below here should probably be in a separate module
 ;;; ======================================================================
 
 ;;; TACTICS
@@ -162,8 +172,9 @@
     [(forall (x:id : P:expr) body:expr)
      (update-current-goal
        (update-current-proof
+        ;; TODO: Should hide syntax-e in push-env
         (push-env ps (syntax-e name) #'P)
-        (lambda (x) #`(λ (x : P) #,x)))
+        (lambda (x) #`(λ (#,x : P) #,x)))
        #'body)]
     [_ (error 'intro "Can only intro when current goal is of the form (∀ (x : P) body)")]))
 
@@ -176,7 +187,7 @@
 (define-tactic (by-assumption ps)
   (cond
     [(assumption ps (cur-expand (proof-state-current-goal ps)))
-     => (curry update-current-proof ps)]
+     => (curry update-current-proof (update-current-goal ps #f))]
     [else (error 'by-assumption "Cannot find an assumption that matches the goal")]))
 
 ;; TODO: requires more support from curnel
@@ -197,39 +208,44 @@
 
 (define-tactic (restart ps)
   (struct-copy proof-state ps
-      [current-goal (proof-state-original-goal ps)]
-      [current-proof empty-proof]))
+    [current-goal (proof-state-original-goal ps)]
+    [current-proof empty-proof]))
 
-(define-tactic (show ps) (print-proof-state ps) ps)
+(define-tactic (print ps) (print-proof-state ps) ps)
 
-(begin-for-syntax
-  (define-namespace-anchor a))
+(define-tactic (forget x ps)
+  (struct-copy proof-state ps
+    [env (dict-remove (syntax-e x) (proof-state-env ps))]))
 
 ;; Interactive you say? Sure whatevs, DIY
 (define-tactic (interactive ps)
   (printf "Starting interactive tactic session:~n")
+  (printf "Type (quit) to quit.~n")
   (let loop ([ps ps] [cmds '()])
-    (show ps)
+    (print ps)
     (let ([cmd (read-syntax)])
       (syntax-case cmd (quit)
         [(quit)
          (begin
            (printf "Your tactic script:~n")
-           (pretty-print cmds)
+           (pretty-print (map syntax->datum cmds))
            (newline)
            ps)]
-        ;; TODO: eval is bad. Maybe use (read-eval-print-loop) and its
+        ;; TODO: Maybe use (read-eval-print-loop) and its
         ;; TODO: config parameters.
         [(tactic arg ...)
-          (with-handlers (#;[exn:fail:syntax?
+          (with-handlers (#;[exn:fail:contract?
                             (lambda (e)
-                                    (printf "~a is not a tactic.~n"
-                                            (syntax->datum #'tactic))
-                                    (loop ps cmds))])
-            (displayln (syntax-local-eval #'(begin tactic)))
-            (loop (apply (eval-syntax #'tactic
-                           (namespace-anchor->namespace a))
-                         (append (syntax->list #'(arg ...)) (list ps)))
+                              (printf "tactic ~a expected different arguments.~n"
+                                (syntax->datum #'tactic))
+                              (loop ps cmds))]
+                          [exn:fail:syntax?
+                            (lambda (e)
+                              (printf "~a is not a tactic.~n"
+                                (syntax->datum #'tactic))
+                              (loop ps cmds))])
+            (loop (apply (lookup-tactic-syn #'tactic)
+                    (append (syntax->list #'(arg ...)) (list ps)))
                   (cons cmd cmds)))]))))
 
 ;; TODO:
@@ -246,16 +262,16 @@
   (define-theorem meow1 (forall (x : bool) bool))
   (proof
     (obvious)
-    (show))
+    (print))
   (define-theorem meow2 (forall (x : bool) bool))
   (proof
     (intro x)
     (restart)
     (intro x)
     (by-assumption))
-  ;(define-theorem meow3 (forall (x : bool) bool))
-  ;(proof
-  ;  (interactive))
+  (define-theorem meow3 (forall (x : bool) bool))
+  (proof
+    (interactive))
   ;; TODO: Add check-cur-equal? for unit testing?
   #;(check-pred (curry cur-equal? '(lambda (x : bool) x)))
   )
