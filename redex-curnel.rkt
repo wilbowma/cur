@@ -949,6 +949,7 @@
     only-in
     all-defined-out
     rename-in
+    prefix-in
     submod
     #%module-begin
     begin

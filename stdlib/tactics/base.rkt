@@ -135,13 +135,15 @@
 ;;; Syntax for defining tactics.
 ;; (define-tactic command-name function)
 ;; (define-tactic (command-name args ... Proof-State) body)
+;; TODO: Srsly?
 (define-syntax (define-tactic syn)
   (syntax-case syn ()
     [(_ (name args ... ps) body ...)
      (quasisyntax/loc syn
        (define-for-syntax (name args ... ps) body ...))]
     [(_ name function)
-     (raise-syntax-error "Syntax not yet defined")]))
+     (quasisyntax/loc syn
+       (define-for-syntax name function))]))
 
 ;; (define-goal-tactic command-name function)
 ;; (define-goal-tactic (command-name args ... ctx goal-list current-goal) body)
