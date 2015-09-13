@@ -80,7 +80,7 @@
         [(quit)
          (begin
            (printf "Your tactic script:~n")
-           (pretty-print (map syntax->datum cmds))
+           (pretty-print (reverse (map syntax->datum cmds)))
            (newline)
            ps)]
         ;; TODO: Maybe use (read-eval-print-loop) and its

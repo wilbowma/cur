@@ -104,7 +104,7 @@
          (if (< (random 10) 4)
              (begin
                (printf "Don't forget this. It took you long enough:~n")
-               (pretty-print (map syntax->datum cmds))
+               (pretty-print (reverse (map syntax->datum cmds)))
                (newline)
                ps)
              (begin
