@@ -1,7 +1,7 @@
-#lang s-exp "cur.rkt"
+#lang s-exp "../cur.rkt"
 (require
-  "stdlib/sugar.rkt"
-  "stdlib/prop.rkt"
+  "../stdlib/sugar.rkt"
+  "../stdlib/prop.rkt"
   racket/trace
   (for-syntax racket/syntax))
 

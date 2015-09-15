@@ -1,11 +1,11 @@
-#lang s-exp "cur.rkt"
+#lang s-exp "../cur.rkt"
 
 ;; Use racket libraries over your dependently typed code!?!?
 ;; TODO: actually, I'm not sure this should work quite as well as it
 ;; seems to with check-equal?
 (require rackunit)
 (require
-  (only-in "cur.rkt"
+  (only-in "../cur.rkt"
     [#%app real-app]
     [define real-define]))
 
