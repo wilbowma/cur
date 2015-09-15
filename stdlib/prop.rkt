@@ -1,4 +1,4 @@
-#lang s-exp "../redex-curnel.rkt"
+#lang s-exp "../cur.rkt"
 (require "sugar.rkt")
 ;; TODO: Handle multiple provide forms properly
 ;; TODO: Handle (all-defined-out) properly

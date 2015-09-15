@@ -1,11 +1,13 @@
-#lang s-exp "redex-curnel.rkt"
+#lang s-exp "cur.rkt"
 
 ;; Use racket libraries over your dependently typed code!?!?
 ;; TODO: actually, I'm not sure this should work quite as well as it
 ;; seems to with check-equal?
 (require rackunit)
-(require (only-in "redex-curnel.rkt" [#%app real-app]
-                  [define real-define]))
+(require
+  (only-in "cur.rkt"
+    [#%app real-app]
+    [define real-define]))
 
 (define-syntax (#%app syn)
   (syntax-case syn ()

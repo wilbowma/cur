@@ -1,6 +1,11 @@
-#lang s-exp "redex-curnel.rkt"
-(require "stdlib/nat.rkt" "stdlib/sugar.rkt" "oll.rkt"
-         "stdlib/maybe.rkt" "stdlib/bool.rkt" "stdlib/prop.rkt")
+#lang s-exp "cur.rkt"
+(require
+  "stdlib/nat.rkt"
+  "stdlib/sugar.rkt"
+  "oll.rkt"
+  "stdlib/maybe.rkt"
+  "stdlib/bool.rkt"
+  "stdlib/prop.rkt")
 
 (define-language stlc
   #:vars (x)

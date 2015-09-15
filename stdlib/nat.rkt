@@ -1,4 +1,4 @@
-#lang s-exp "../redex-curnel.rkt"
+#lang s-exp "../cur.rkt"
 (require "sugar.rkt" "bool.rkt")
 ;; TODO: override (all-defined-out) to enable exporting all these
 ;; properly.

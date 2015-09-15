@@ -1,6 +1,9 @@
-#lang s-exp "redex-curnel.rkt"
-(require "stdlib/sugar.rkt" "stdlib/prop.rkt" racket/trace 
-         (for-syntax racket/syntax))
+#lang s-exp "cur.rkt"
+(require
+  "stdlib/sugar.rkt"
+  "stdlib/prop.rkt"
+  racket/trace
+  (for-syntax racket/syntax))
 
 ;; ---------
 (begin-for-syntax

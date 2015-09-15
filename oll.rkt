@@ -1,4 +1,4 @@
-#lang s-exp "redex-curnel.rkt"
+#lang s-exp "cur.rkt"
 ;; OLL: The OTT-Like Library
 ;; TODO: Add latex extraction
 ;; TODO: Automagically create a parser from bnf grammar

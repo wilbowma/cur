@@ -1,4 +1,4 @@
-#lang s-exp "../../redex-curnel.rkt"
+#lang s-exp "../../cur.rkt"
 (require
   "base.rkt"
   (prefix-in basic: "standard.rkt")

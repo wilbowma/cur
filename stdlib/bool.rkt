@@ -1,4 +1,4 @@
-#lang s-exp "../redex-curnel.rkt"
+#lang s-exp "../cur.rkt"
 (provide bool btrue bfalse if bnot)
 
 (data bool : Type

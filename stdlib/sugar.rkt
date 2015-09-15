@@ -1,19 +1,22 @@
-#lang s-exp "../redex-curnel.rkt"
-(provide ->
-         ->*
-         forall*
-         lambda*
-         #%app
-         define
-         case*
-         define-type
-         define-theorem
-         qed
-         real-app
-         define-rec)
+#lang s-exp "../cur.rkt"
+(provide
+  ->
+  ->*
+  forall*
+  lambda*
+  #%app
+  define
+  case*
+  define-type
+  define-theorem
+  qed
+  real-app
+  define-rec)
 
-(require (only-in "../redex-curnel.rkt" [#%app real-app]
-                  [define real-define]))
+(require
+  (only-in "../cur.rkt"
+    [#%app real-app]
+    [define real-define]))
 
 
 (define-syntax (-> syn)
