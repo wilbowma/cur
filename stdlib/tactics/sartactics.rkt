@@ -1,7 +1,7 @@
 #lang s-exp "../../redex-curnel.rkt"
 (require
   "base.rkt"
-  (prefix-in basic: "basic.rkt")
+  (prefix-in basic: "standard.rkt")
   (for-syntax racket/syntax))
 
 (provide
@@ -94,7 +94,7 @@
   (printf "Starting interactive tactic session. Prepared to be sassed:~n")
   (printf "Type (quit) to quit.~n")
   (let loop ([ps ps] [cmds '()])
-    (if (proof-complete? ps)
+    (if (proof-state-proof-complete? ps)
         (basic:print ps)
         (print ps))
     (let ([cmd (read-syntax)])

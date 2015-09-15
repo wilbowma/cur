@@ -13,33 +13,28 @@
     by-assumption
     interactive))
 
-;;; TACTICS
-;;; A tactic is a function from proof state to proof state
-
-;; TODO: Tactics probably should not error for failure. Perhaps return
-;; TODO: proof state unmodified, or raise an exception.
+#| TODO:
+ | Tactics should probably not error on failure. Perhaps Maybe monad, or list monad, or return proof
+ | state unmodified, or raise exception, or ...
+ |#
 (define-tactic (intro name ps)
-  ;; TODO: Maybe cur-expand current-goal by default
-  (syntax-parse (cur-expand (proof-state-current-goal ps))
+  ;; TODO: Provide cur-match, which wraps syntax-parse and uses cur-expand.
+  (syntax-parse (cur-expand (proof-state-current-goal-ref ps))
     [(forall (x:id : P:expr) body:expr)
-     (update-current-goal
-       (update-current-proof
-        ;; TODO: Should hide syntax-e in push-env
-        (push-env ps (syntax-e name) #'P)
-        (lambda (x) #`(λ (#,x : P) #,x)))
-       #'body)]
+     (let* ([ps (proof-state-extend-env ps name #'P)]
+            [ps (proof-state-current-goal-set ps #'body)]
+            [ps (proof-state-fill-proof-hole ps (lambda (x) #`(lambda (#,name : P) #,x)))])
+       ps)]
     [_ (error 'intro "Can only intro when current goal is of the form (∀ (x : P) body)")]))
-
-(begin-for-syntax
-  (define (assumption ps type)
-    (for/first ([(k v) (in-dict (proof-state-env ps))]
-                #:when (cur-equal? v type))
-      k)))
 
 (define-tactic (by-assumption ps)
   (cond
-    [(assumption ps (cur-expand (proof-state-current-goal ps)))
-     => (curry update-current-proof (update-current-goal ps #f))]
+    [(proof-state-env-ref-by-type ps (proof-state-current-goal-ref ps))
+     =>
+     (lambda (x)
+       (let* ([ps (proof-state-fill-proof-hole ps x)]
+              [ps (proof-state-current-goal-set ps #f)])
+         ps))]
     [else (error 'by-assumption "Cannot find an assumption that matches the goal")]))
 
 ;; TODO: requires more support from curnel
@@ -49,19 +44,17 @@
 
 ;; Do the obvious thing
 (define-tactic (obvious ps)
-  (syntax-parse (cur-expand (proof-state-current-goal ps))
+  (syntax-parse (cur-expand (proof-state-current-goal-ref ps))
     [(forall (x : P) t)
      (obvious (intro #'x ps))]
     [t:expr
      (cond
-       [(assumption ps #'t) (by-assumption ps)]
+       ;; TODO: This would be cleaner if I could say "try all these things and do whichever works".
+       [(proof-state-env-ref-by-type ps #'t) (by-assumption ps)]
        ;[(inductive? ps #'t) (by-constructor ps)]
        [else (error 'obvious "This is not all that obvious to me.")])]))
 
-(define-tactic (restart ps)
-  (struct-copy proof-state ps
-    [current-goal (proof-state-original-goal ps)]
-    [current-proof empty-proof]))
+(define-tactic (restart ps) (new-proof-state (proof-state-theorem ps)))
 
 (define-tactic (print ps) (print-proof-state ps) ps)
 
@@ -80,6 +73,8 @@
         [(quit)
          (begin
            (printf "Your tactic script:~n")
+           ;; TODO: Using clever trickery, could problem write a version of interactive that actually
+           ;; modifies the file.
            (pretty-print (reverse (map syntax->datum cmds)))
            (newline)
            ps)]
@@ -127,7 +122,7 @@
   (proof (obvious))
   ;; TODO: Fix this unit test so it doesn't require interaction
   (define-theorem meow4 (forall (x : bool) bool))
-  #;(proof
+  (proof
     (interactive))
   ;; TODO: Add check-cur-equal? for unit testing?
   #;(check-pred (curry cur-equal? '(lambda (x : bool) x)))
