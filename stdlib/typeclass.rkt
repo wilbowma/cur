@@ -8,27 +8,32 @@
     racket/dict
     racket/list))
 
+;;; NB: This module is extremely unhygienic.
+#| TODO:
+ | These typeclasses are kind of broken. There are no typeclass constraints so....
+ |#
 (begin-for-syntax
-  ;; NB: Need this thing to be global w.r.t. the runtime, i.e., exist once
-  ;; NB: and for all no matter how many things import typeclass, i.e., not
-  ;; NB: local to this module
-  (define bla (make-hash)))
+  #| NB:
+   | Need this thing to be global w.r.t. the runtime, i.e., exist once
+   | and for all no matter how many things import typeclass, i.e., not
+   | local to this module.
+   |#
+  (define typeclasses (make-hash)))
 (define-syntax (typeclass syn)
   (syntax-case syn (: Type)
-    [(_ (class (param : Type))
-        (name : type) ...)
-     ;; TODO: Doing 2 loops over names, stop being stupid
-     (hash-set! bla (syntax->datum #'class)
-                (for/list ([p (syntax->list #'((name : type) ...))])
-                  (let ([p (syntax->list p)])
-                    `(,(syntax->datum (first p)) . ,#`(lambda (param : Type) #,(third p))))))
+    [(_ (class (param : Type)) (name : type) ...)
      #`(begin
-         #,@(for/list ([name (syntax->list #'(name ...))])
-              ;; NB: Due to implementation below, methods on typeclass
-              ;; NB: must dispatch on type of first argument.
-              ;; NB: Also prevents currying/point-free style.
-              ;; NB: Maybe type system hooks to get "type of current hole"
-              ;; NB: would help?
+         #,@(for/list ([name (syntax->list #'(name ...))]
+                       [type (syntax->list #'(type ...))])
+              (dict-set!
+                (dict-ref! typeclasses (syntax->datum #'class) (make-hash))
+                (syntax->datum name)
+                #`(lambda (param : Type) #,type))
+              #| NB:
+               | Due to implementation below, methods on typeclass must dispatch on type of first
+               | argument. Also prevents currying/point-free style. Maybe type system hooks to get
+               | "type of current hole" would help? Related: tactics/base.rkt
+               |#
               #`(define-syntax (#,name syn)
                   (syntax-case syn ()
                     [(_ arg args (... ...))
@@ -37,31 +42,34 @@
                         args (... ...))]))))]))
 
 (define-syntax (impl syn)
+  #| TODO:
+   | Need racket-like define so I can extract name/args/defs.
+   |#
   (define (process-def def)
     (syntax-case def (define)
       [(define (name (a : t) ...) body ...)
-       (values #'name #'(lambda* (a : t) ... body ...))]
+       (values (syntax->datum #'name) #'(lambda* (a : t) ... body ...))]
       [(define name body)
-       (values #'name #'body)]))
+       (values (syntax->datum #'name) #'body)]))
   (syntax-case syn ()
-    [(_ (class param)
-        ;; TODO: Need racket-like define so I can extract
-        ;; TODO: name/args/defs, or use local-expand or something
-        defs ...)
+    [(_ (class param) defs ...)
      #`(begin
-       #,@(for/list ([def (syntax->list #'(defs ...))])
-            (let-values ([(name body) (process-def def)])
-              (unless (type-check/syn? body #`(#,(dict-ref
-                                                   (dict-ref bla (syntax->datum #'class))
-                                                   (syntax->datum name))
-                                               param))
-                      (raise-syntax-error 'impl
-                        ;"Invalid implementation of typeclass ~a. Must have type ~a."
-                        "Invalid implementation of typeclass."
-                        #'class
-                        #'body))
-              #`(define #,(format-id syn "~a-~a" name #'param)
-                        #,body))))]))
+         #,@(for/list ([def (syntax->list #'(defs ...))])
+              (let-values ([(name body) (process-def def)])
+                (unless (type-check/syn?
+                          body
+                          #`(#,(dict-ref
+                                 (dict-ref typeclasses (syntax->datum #'class))
+                                 name)
+                             param))
+                  (raise-syntax-error
+                    'impl
+                    ;"Invalid implementation of typeclass ~a. Must have type ~a."
+                    "Invalid implementation of typeclass."
+                    #'class
+                    #'body))
+                #`(define #,(format-id syn "~a-~a" name #'param)
+                    #,body))))]))
 
 (module+ test
   (require rackunit)
