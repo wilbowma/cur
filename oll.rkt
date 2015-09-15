@@ -1,17 +1,22 @@
 #lang s-exp "cur.rkt"
 ;; OLL: The OTT-Like Library
-;; TODO: Add latex extraction
 ;; TODO: Automagically create a parser from bnf grammar
-(require "stdlib/sugar.rkt" "stdlib/nat.rkt" racket/trace)
+(require "stdlib/sugar.rkt" "stdlib/nat.rkt")
 
-(provide define-relation define-language var avar var-equal?
-         generate-coq #;(rename-out [oll-define-theorem define-theorem]))
+(provide
+  define-relation
+  define-language
+  var
+  avar
+  var-equal?
+  generate-coq
+  #;(rename-out [oll-define-theorem define-theorem]))
 
 (begin-for-syntax
   (define-syntax-class dash
     (pattern x:id
-           #:fail-unless (regexp-match #rx"-+" (symbol->string (syntax-e #'x)))
-           "Invalid dash"))
+             #:fail-unless (regexp-match #rx"-+" (symbol->string (syntax-e #'x)))
+             "Invalid dash"))
 
   (define-syntax-class decl (pattern (x:id (~datum :) t:id)))
 
@@ -58,7 +63,7 @@
                        (string-trim
                          (for/fold ([str ""])
                                    ([rule (attribute rules.latex)])
-                                   (format "~a~a\\and~n" str rule))
+                           (format "~a~a\\and~n" str rule))
                          "\\and"
                          #:left? #f))))
             #:exists 'append))
@@ -73,8 +78,8 @@
   (require racket/syntax)
   (define (new-name name . id*)
     (apply format-id name (for/fold ([str "~a"])
-                                  ([_ id*])
-                          (string-append str "-~a")) name (map syntax->datum id*)))
+                                    ([_ id*])
+                            (string-append str "-~a")) name (map syntax->datum id*)))
 
   (define (fresh-name id)
     (datum->syntax id (gensym (syntax->datum id)))))

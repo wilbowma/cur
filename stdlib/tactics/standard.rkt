@@ -18,8 +18,7 @@
  | state unmodified, or raise exception, or ...
  |#
 (define-tactic (intro name ps)
-  ;; TODO: Provide cur-match, which wraps syntax-parse and uses cur-expand.
-  (syntax-parse (cur-expand (proof-state-current-goal-ref ps))
+  (cur-match (proof-state-current-goal-ref ps)
     [(forall (x:id : P:expr) body:expr)
      (let* ([ps (proof-state-extend-env ps name #'P)]
             [ps (proof-state-current-goal-set ps #'body)]
@@ -44,7 +43,7 @@
 
 ;; Do the obvious thing
 (define-tactic (obvious ps)
-  (syntax-parse (cur-expand (proof-state-current-goal-ref ps))
+  (cur-match (proof-state-current-goal-ref ps)
     [(forall (x : P) t)
      (obvious (intro #'x ps))]
     [t:expr

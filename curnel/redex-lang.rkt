@@ -1,17 +1,13 @@
 #lang racket/base
 ;; This module just provide module language sugar over the redex model.
 
-;; TODO: Strip to racket/base as much as possible.
-;; TODO: Remove trace,pretty, debugging stuff
 (require
-  racket/pretty
   "redex-core.rkt"
   redex/reduction-semantics
   racket/provide-syntax
   (for-syntax
     (except-in racket import)
     syntax/parse
-    racket/pretty
     racket/syntax
     (except-in racket/provide-transform export)
     racket/require-transform
@@ -133,8 +129,7 @@
       (term (reduce #,(sigma) (subst-all #,(datum->syntax syn t) #,(first (bind-subst)) #,(second (bind-subst)))))))
 
   ;; TODO: Blanket disarming is probably a bad idea.
-  (define orig-insp (variable-reference->module-declaration-inspector
-                      (#%variable-reference)))
+  (define orig-insp (variable-reference->module-declaration-inspector (#%variable-reference)))
   (define (disarm syn) (syntax-disarm syn orig-insp))
 
   ;; Locally expand everything down to core forms.
@@ -225,7 +220,7 @@
         (append (syntax-e #'(Type dep-inductive dep-lambda dep-app dep-elim dep-forall dep-var))
                 ls)))))
 
-;; TODO: OOps, run doesn't return a cur term but a redex term
+;; TODO: Oops, run doesn't return a cur term but a redex term
 ;; wrapped in syntax bla. This is bad.
 (define-syntax (run syn)
   (syntax-case syn ()
