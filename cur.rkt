@@ -18,9 +18,11 @@
 
 (require
   (rename-in "curnel/redex-lang.rkt" [provide real-provide])
+  (only-in racket/base eof)
   (for-syntax 'extra)
   'extra)
 (provide
+  eof
   (rename-out [real-provide provide])
   (for-syntax (all-from-out 'extra))
   (all-from-out

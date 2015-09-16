@@ -1,4 +1,8 @@
-#lang s-exp "../cur.rkt"
+#lang racket/base
+;; #lang s-exp "../cur.rkt"
+
+(error "Known bug: examples.rkt way out of date")
+#| TODO NB XXX This file is woefully out of date
 
 ;; Use racket libraries over your dependently typed code!?!?
 ;; TODO: actually, I'm not sure this should work quite as well as it
@@ -448,3 +452,4 @@
    (has-type g e2 t1)
    ---------------------- T-App
    (has-type g (app e1 e2) t2)])
+|#
