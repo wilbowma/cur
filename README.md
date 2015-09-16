@@ -12,6 +12,13 @@ cur (plural curs)
 2. (archaic) A detestable person.
 ```
 
+Disclaimer
+==========
+Cur is currently under active hackery and is not fit for use for any
+particular purpose. It is fraught with unreadable code, errors, and
+hacks that should never have been written by a reasonable human being.
+These may or may not be fixed shortly.
+
 Getting started
 ===============
 
