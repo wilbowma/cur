@@ -89,7 +89,7 @@
     (list
       "Na."
       "How about instead I just delete all your work?"
-      "I don't think your ready yet.")))
+      "I don't think you're ready yet.")))
 (define-tactic (interactive ps)
   (printf "Starting interactive tactic session. Prepared to be sassed:~n")
   (printf "Type (quit) to quit.~n")
