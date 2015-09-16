@@ -15,9 +15,30 @@ cur (plural curs)
 Getting started
 ===============
 
-Requires redex-lib version 1.6 if you want answers in a reasonable amount
-of time. Otherwise, the type-checker may require exponential time
-or worse.
+Install cur via `raco pkg install git://github.com/wilbowma/cur.git`.
+Setup will likely result in a ton of errors that are safe to ignore.
+
+Try it out. Save the following to `test.rkt`, then run `racket test.rkt`.
+
+```racket
+#lang cur
+(require cur/stdlib/bool)
+
+(if btrue
+    bfalse
+    btrue)
+
+(data True : Type
+  (I : True))
+
+I
+```
+
+There is currently little documentation, so your best bet is to look at
+the source code in the `stdlib` for examples.
+
+Going further
+=============
 
 Open up `examples/example.rkt` to see a tour of Cur's features.
 
