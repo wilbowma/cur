@@ -15,7 +15,7 @@ cur (plural curs)
 Getting started
 ===============
 
-Install cur via `raco pkg install git://github.com/wilbowma/cur.git`.
+Install cur via `raco pkg install cur`.
 Setup will likely result in a ton of errors that are safe to ignore.
 
 Try it out. Save the following to `test.rkt`, then run `racket test.rkt`.
