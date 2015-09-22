@@ -39,7 +39,8 @@
 
     [dep-elim elim]
 
-    [dep-var #%top]
+    [dep-top #%top]
+    [dep-top #%top-interaction]
 
     ;      [dep-datum #%datum]
     [dep-define define])
@@ -138,7 +139,7 @@
       (local-expand
         syn
         'expression
-        (append (syntax-e #'(term reduce subst-all dep-var #%app λ Π elim Unv #%datum))))))
+        (append (syntax-e #'(term reduce subst-all dep-top #%app λ Π elim Unv #%datum))))))
 
   ;; Only type-check at the top-level, to prevent exponential
   ;; type-checking. Redex is expensive enough.
@@ -188,6 +189,7 @@
     reified-term)
 
   ;; Reflection tools
+  ;; TODO: Why is this not just (define (normalize/syn syn) (denote syn syn))
   (define (normalize/syn syn)
     (denote
       syn
@@ -217,7 +219,7 @@
       (local-expand
         syn
         'expression
-        (append (syntax-e #'(Type dep-inductive dep-lambda dep-app dep-elim dep-forall dep-var))
+        (append (syntax-e #'(Type dep-inductive dep-lambda dep-app dep-elim dep-forall dep-top))
                 ls)))))
 
 ;; TODO: Oops, run doesn't return a cur term but a redex term
@@ -415,9 +417,9 @@
        (quasisyntax/loc syn (elim D e P method ...)))]))
 
 ;; TODO: Not sure if this is the correct behavior for #%top
-(define-syntax (dep-var syn)
+(define-syntax (dep-top syn)
   (syntax-case syn ()
-    [(_ . id) #`(term (reduce #,(sigma) id))]))
+    [(_ . id) (denote syn #'id)]))
 
 ;; TODO: Syntax-parse
 (define-syntax (dep-define syn)

@@ -17,14 +17,15 @@
            [pattern body] ...)])))
 
 (require
-  (rename-in "curnel/redex-lang.rkt" [provide real-provide])
+  (rename-in "curnel/redex-lang.rkt" [provide -provide])
   (only-in racket/base eof)
   (for-syntax 'extra)
   'extra)
 (provide
-  eof
-  (rename-out [real-provide provide])
+  (rename-out [-provide provide])
   (for-syntax (all-from-out 'extra))
-  (all-from-out
-    'extra
-    "curnel/redex-lang.rkt"))
+  (except-out
+    (all-from-out
+     'extra
+     "curnel/redex-lang.rkt")
+    -provide))

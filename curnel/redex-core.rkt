@@ -303,8 +303,9 @@
 
 (define-metafunction cic-redL
   reduce : Σ e -> e
-  [(reduce Σ e) e_r
-                (where (_ e_r) ,(car (apply-reduction-relation* cic--> (term (Σ e)))))])
+  [(reduce Σ e)
+   e_r
+   (where (_ e_r) ,(car (apply-reduction-relation* cic--> (term (Σ e)))))])
 (module+ test
   (check-equal? (term (reduce ∅ (Unv 0))) (term (Unv 0)))
   (check-equal? (term (reduce ∅ ((λ (x : t) x) (Unv 0)))) (term (Unv 0)))
