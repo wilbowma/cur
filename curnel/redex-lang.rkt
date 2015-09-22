@@ -406,6 +406,7 @@
 (define-syntax (dep-inductive syn)
   (syntax-case syn (:)
     [(_ i : ti (x1 : t1) ...)
+     ;; TODO: Probably should occur only in definition context? and also, should not really produce void
      (begin
        (extend-Σ/syn! sigma #'i #'ti #'((x1 : t1) ...))
        #'(void))]))
@@ -419,7 +420,7 @@
 ;; TODO: Not sure if this is the correct behavior for #%top
 (define-syntax (dep-top syn)
   (syntax-case syn ()
-    [(_ . id) (denote syn #'id)]))
+    [(_ . id) (normalize/syn #'id)]))
 
 ;; TODO: Syntax-parse
 (define-syntax (dep-define syn)
