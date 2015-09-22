@@ -121,7 +121,7 @@
   (proof (obvious))
   ;; TODO: Fix this unit test so it doesn't require interaction
   (define-theorem meow4 (forall (x : bool) bool))
-  (proof
+  #;(proof
     (interactive))
   ;; TODO: Add check-cur-equal? for unit testing?
   #;(check-pred (curry cur-equal? '(lambda (x : bool) x)))

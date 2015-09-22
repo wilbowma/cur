@@ -1,3 +1,6 @@
+#lang racket/base
+(error "Known bug: proofs-for-free.rkt way out of date")
+#| TODO NB XXX This file is woefully out of date
 #lang s-exp "../cur.rkt"
 (require
   "../stdlib/sugar.rkt"
@@ -80,7 +83,7 @@
 (define (CPSf-relation (f1 : CPSf) (f2 : CPSf))
   ;; TODO: Fix run so I can simply use (run CPSf) to perform
   ;; substitution
-  (translate (run CPSf))
+  #;(translate (run CPSf))
   (translate (forall* (ans : Type) (k : (-> X ans)) ans)))
 #;(module+ test
   (require rackunit)
@@ -108,3 +111,4 @@
     ))
 
 #;(paramCPSf f X X rel k k)
+|#
