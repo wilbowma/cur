@@ -1,14 +1,9 @@
 #lang scribble/manual
 @(require
+   "defs.rkt"
    racket/function)
 
-@(define (todo . args)
-   (apply margin-note* "TODO: " args))
-
-@(define (gtech x)
-   (tech x #:doc '(lib "scribblings/guide/guide.scrbl")))
-
-@title{Cur}
+@title[#:style '(toc)]{Cur}
 @author[@author+email["William J. Bowman" "wjb@williamjbowman.com"]]
 
 @defmodule[cur #:lang]
@@ -37,41 +32,7 @@ and evaluating @racketmodname[cur] forms at compile-time.
 Programmers can use these reflection feature with little fear, as the resulting @tech{curnel forms}
 will always be type-checked prior to running.
 
-@table-of-contents[]
+@local-table-of-contents[]
 
-@section{Curnel Forms}
-@deftech{Curnel forms} are the core forms provided @racketmodname[cur].
-These form come directly from the trusted core and are all that remain at @gtech{runtime}.
-The core of @racketmodname[cur] is essentially TT.
-For a very understandable in-depth look at TT, see chapter 2 of
-@hyperlink["https://eb.host.cs.st-andrews.ac.uk/writings/thesis.pdf"
-           "Practical Implementation of a Dependently Typed Functional Programming Language"], by
-Edwin C. Brady.
-
-@(require racket/sandbox scribble/eval)
-@(define curnel-eval
-   (parameterize ([sandbox-output 'string]
-                  [sandbox-error-output 'string]
-                  [sandbox-memory-limit 500])
-     (make-module-evaluator "#lang cur")))
-
-
-@;(require (for-label cur/curnel/redex-lang))
-@defform*[((lambda (id : type-expr) body-expr)
-           (λ (id : type-expr) body-expr))]{
-Produces a single arity procedure, binding the identifier id in body-expr and in the type of
-body-expr.
-Both type-expr and body-expr can contain non-curnel forms, such as macros.}
-@examples[#:eval curnel-eval
-          (lambda (x : Type) x)
-          (lambda (x : Type) x)]
-
-@examples[#:eval curnel-eval
-          (define-syntax-rule (computed-type _) Type)
-          (lambda (x : (computed-type bool)) x)
-          (lambda (x : Type) x)]
-
-@examples[#:eval curnel-eval
-          (lambda (a : Type) (lambda (x : a) x))]
-
-@section{Reflection Forms}
+@include-section{curnel.scrbl}
+@;@include-section{reflection.scrbl}
