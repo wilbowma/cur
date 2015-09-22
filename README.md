@@ -23,7 +23,6 @@ Getting started
 ===============
 
 Install cur via `raco pkg install cur`.
-Setup will likely result in a ton of errors that are safe to ignore.
 
 Try it out. Save the following to `test.rkt`, then run `racket test.rkt`.
 
@@ -41,8 +40,9 @@ Try it out. Save the following to `test.rkt`, then run `racket test.rkt`.
 I
 ```
 
-There is currently little documentation, so your best bet is to look at
-the source code in the `stdlib` for examples.
+See the docs: `raco docs cur`.
+
+The standard library is currently undocumented, so just see the source.
 
 Going further
 =============
