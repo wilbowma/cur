@@ -10,10 +10,9 @@
 
 The language @racketmodname[cur] is a dependently-typed language that arbitrary Racket meta-programs
 can manipulate.
-The core language of @racketmodname[cur] is essentially TT@todo{citation
-e.g. https://eb.host.cs.st-andrews.ac.uk/writings/thesis.pdf chapter 2}.
+The core language of @racketmodname[cur] is essentially TT.
 The trusted core provides nothing beyond this language.
-However, untrusted user-land code provides, via Racket meta-programming, features such as modules, top-level
+However, untrusted code provides, via Racket meta-programming, features such as modules, top-level
 definitions, multi-arity functions, implicit partial application, syntax notations, a tactic DSL,
 interactive tactics, and a programming language meta-theory DSL.
 These features run at compile time and generate @tech{curnel forms}, forms in the core language,
@@ -32,7 +31,16 @@ and evaluating @racketmodname[cur] forms at compile-time.
 Programmers can use these reflection feature with little fear, as the resulting @tech{curnel forms}
 will always be type-checked prior to running.
 
+The @tech{curnel forms} are provided by the trusted core of the language.
+The reflection forms and procedures are provided by mostly untrusted, but privileged, code.
+These features require knowledge of and manipulation of the language implementation and could not be
+implemented by a user via a library.
+Everything else in @racketmodname[cur] is provided by untrusted user-land code---code that any user
+(with sufficient meta-programming expertise) could write and ship as a library.
+
+@todo{Some repetition}
+
 @local-table-of-contents[]
 
 @include-section{curnel.scrbl}
-@;@include-section{reflection.scrbl}
+@include-section{reflection.scrbl}

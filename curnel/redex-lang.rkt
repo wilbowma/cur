@@ -224,6 +224,7 @@
 
 ;; TODO: Oops, run doesn't return a cur term but a redex term
 ;; wrapped in syntax bla. This is bad.
+;; TODO: Should be provided by user-land code.
 (define-syntax (run syn)
   (syntax-case syn ()
     [(_ expr) (normalize/syn #'expr)]))
