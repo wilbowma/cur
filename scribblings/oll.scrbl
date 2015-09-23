@@ -4,14 +4,13 @@
 @title{OLL: Ott-like Library}
 
 @defmodule[cur/oll]
-The OLL provides syntax extensions for defining programming languages as
-inductive data. The library is inspired by Ott, which provides an
-language that resembles math notation for generating Coq definitions.
-The purpose of the OLL is not to replace Ott, but to demonstrate how
-powerful syntactic meta-programming can bring features previously only
-provided by external tools into the language.
+The OLL provides syntax extensions for defining programming languages as inductive data. The library
+is inspired by Ott@todo{Citation needed}, which provides an language that resembles math notation for
+generating Coq definitions.  The purpose of the OLL is not to replace Ott, but to demonstrate how
+powerful syntactic meta-programming can bring features previously only provided by external tools into
+the language.
 
-@defform[(define-lanugage name
+@defform[(define-language name
            maybe-vars
            maybe-output-coq
            maybe-output-latex
