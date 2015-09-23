@@ -73,9 +73,16 @@
 ;;; TODO: I'm partially implementing lens here.
 ;;; TODO: Interface is mildly inconsistent.
 (begin-for-syntax
+  (define new-proof values)
+
+  (define (proof? p)
+    (or (syntax? p) (procedure? p)))
+
+  (define (complete-proof? p)
+    (syntax? p))
+
   (define-struct proof-state (env goals current-goal proof theorem))
 
-  (define new-proof values)
 
   (define (new-proof-state prop)
     (proof-state
@@ -87,7 +94,7 @@
 
   ;; Given a Proof-State, return #t if the current-proof is complete
   ;; (i.e. is a Expr and not a Ctxt), #f otherwise.
-  (define (proof-state-proof-complete? ps) (not (procedure? (proof-state-proof ps))))
+  (define (proof-state-proof-complete? ps) (complete-proof? (proof-state-proof ps)))
 
   ;;; Extra accessors
 
