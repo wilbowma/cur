@@ -8,8 +8,15 @@ built-in or provided by the language. However, any user can use meta-programming
 Cur. A tactic system ships in the standard library, written entirely in user-land code.
 
 @section{Proof State and Defining Tactics}
-In Cur, a @deftech{tactic} is a Racket function from @tech{proof state} to @tech{proof state} that
-runs at @gtech{phase} 1.
+@defmodule[cur/stdlib/tactics/base]
+
+@defform*[((define-tactic (name id ... id-ps))
+           (define-tactic name procedure-expr))]{
+Defines a new @tech{tactic}, at @gtech{phase} 1. A @deftech{tactic} is a Racket function from
+@tech{proof state} to @tech{proof state} that runs at @gtech{phase} 1. A @tech{tactic} takes any
+number of arguments, plus the @tech{proof state}. The @tech{proof state} must be the final argument of
+the tactic.
+}
 
 @defproc[(proof? [p any/c])
          boolean?]{
@@ -58,8 +65,136 @@ Returns @racket[#t] is the proof of the @racket[proof-state?] @racket[ps] is a
 @racket[complete-proof?], and @racket[#f] otherwise.
 }
 
+@defproc[(proof-state-goal-ref [ps proof-sate?] [i natural-number/c])
+         syntax?]{
+Returns the @racket[i]th @tech{goal} from the proof state @racket[ps].
+}
+
+@defproc[(proof-state-current-goal-ref [ps proof-state?])
+         syntax?]{
+Returns the @tech{goal} using the index from
+@racket[(proof-state-current-goal ps)].
+}
+
+@defproc[(proof-state-env-ref [ps proof-state?] [name symbol?])
+         syntax?]{
+Returns the type of the assumption @racket[name] in the local
+environment of @racket[ps].
+}
+
+@defproc[(proof-state-env-ref-by-type [ps proof-state?] [type syntax?])
+         (or/c symbol? #f)]{
+Returns the name of the assumption of type @racket[type] from the local
+environment of @racket[ps], or @racket[#f] is no
+assumption with @racket[type] exists.
+}
+
+@defproc[(proof-state-extend-env [ps proof-state?]
+                                 [name (or/c symbol?  identifier?)]
+                                 [type syntax?])
+         proof-state?]{
+Returns a proof state with the local environment of
+@racket[ps] updated to include the assumption @racket[name] of type
+@racket[type].
+}
+
+@defproc[(proof-state-current-goal-set [ps proof-state?]
+                                       [goal syntax?])
+         proof-state?]{
+Returns a proof state with the current goal in the goals list of
+@racket[ps] changed to @racket[goal].
+}
+
+@defproc[(proof-state-fill-proof-hole [ps proof-state?] [pf proof?])
+         proof-state?]{
+Returns a proof state with the current holes of the proof filled with
+@racket[pf].
+}
+
+@defproc[(proof-state-extend-proof-context [ps proof-state?]
+                                           [ctxt procedure?])
+         proof-state?]{
+Updates the proof in @racket[ps] by playing the current proof inside the
+holes of @racket[ctxt].
+}
+
+@defproc[(print-proof-state [ps proof-state?])
+         void?]{
+Pretty-prints @racket[ps] to the @racket[current-output-port].
+}
+
+@defproc[(lookup-tactic [name (or/c symbol? identifier?)])
+         procedure?]{
+Returns the tactic defined with name @racket[name]. Only works when the
+tactic is defined and a theorem has been defined but not proved.
+}
+
+@defform[(define-theorem name prop)]{
+Defines a new theorem.
+}
+
+@defform[(proof (tactic args ...) ...)]{
+Proves the theorem previously defined with @racket[define-theorem].  Currently, this proof is not
+saved anywhere, only checked against the most recent theorem defined via @racket[define-theorem].
+
+Note that the proof state is implicitly given to each call by @racket[proof] and should not appear as
+an explicit argument.
+}
+
+@todo{Examples, better documentation (e.g. don't say "returns a proof state"; the signature says so)}
+
 @section{Standard Tactics}
+The tactic system includes several standard tactics.
+
+@defmodule[cur/stdlib/tactics/standard]
+
+@defproc[(intro [name identifier?] [ps proof-state?])
+         proof-state?]{
+Matches when the current goal has the form @racket[(forall (id : type-expr) body-expr)], introducing
+the assumption @racket[id : type-expr] into the local environment of @racket[ps].
+}
+
+@defproc[(by-assumption [ps proof-state?])
+         proof-state?]{
+Matches with the current goal has a type that matches an assumption in the local environment of
+@racket[ps]. Completes the goal.
+}
+
+@defproc[(obvious [ps proof-state?])
+         proof-state?]{
+Attempts to prove the current goal by doing the obvious thing.
+}
+
+@defproc[(restart [ps proof-state?])
+         proof-state?]{
+Resets @racket[ps] to its state when the proof began. Clears the proof and goals, reinitializing the
+goals to the original theorem.
+}
+
+@defproc[(print [ps proof-state?])
+         proof-state?]{
+Prints @racket[ps], returning it unmodified.
+}
+
+@defproc[(forget [x identifier?] [ps proof-state?])
+         proof-state?]{
+Removes the assumption @racket[x] from the local environment of @racket[ps].
+}
 
 @section{Interactive Tactic}
+In Cur, interactivity is just a user-defined tactic.
+
+@defproc[(interactive [ps proof-state?])
+         proof-state?]{
+Starts a REPL that prints @racket[ps], reads a tactic (as @racket[proof] would), evaluates the
+tactic, and repeats. To quit, use @racket[(quit)].
+}
 
 @section{SarTactic (Sarcastic Tactics)}
+@defmodule[cur/stdlib/tactics/sartactic]
+
+The SarTactic library provides amusing wrappers around the standard tactics. This library exists
+mostly for the author's own amusement, and to ensure the extensibility of the tactic system.
+
+It defines the same tactics as @racketmodname[cur/stdlib/tactics/standard], but each tactics will
+insult the user, and will only work some of the time.
