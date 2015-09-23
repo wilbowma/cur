@@ -3,61 +3,61 @@
 ;; TODO: Handle multiple provide forms properly
 ;; TODO: Handle (all-defined-out) properly
 (provide
-  true T
+  True T
   thm:anything-implies-true
-  false
-  not
-  and
+  False
+  Not
+  And
   conj
   thm:and-is-symmetric proof:and-is-symmetric
   thm:proj1 proof:proj1
   thm:proj2 proof:proj2
   == refl)
 
-(data true : Type (T : true))
+(data True : Type (T : True))
 
-(define-theorem thm:anything-implies-true (forall (P : Type) true))
+(define-theorem thm:anything-implies-true (forall (P : Type) True))
 
 (qed thm:anything-implies-true (lambda (P : Type) T))
 
-(data false : Type)
+(data False : Type)
 
-(define-type (not (A : Type)) (-> A false))
+(define-type (Not (A : Type)) (-> A False))
 
-(data and : (forall* (A : Type) (B : Type) Type)
+(data And : (forall* (A : Type) (B : Type) Type)
   (conj : (forall* (A : Type) (B : Type)
-            (x : A) (y : B) (and A B))))
+            (x : A) (y : B) (And A B))))
 
 (define-theorem thm:and-is-symmetric
-  (forall* (P : Type) (Q : Type) (ab : (and P Q)) (and Q P)))
+  (forall* (P : Type) (Q : Type) (ab : (And P Q)) (And Q P)))
 
 (define proof:and-is-symmetric
-  (lambda* (P : Type) (Q : Type) (ab : (and P Q))
-    (case* and ab
-      (lambda* (P : Type) (Q : Type) (ab : (and P Q))
-         (and Q P))
+  (lambda* (P : Type) (Q : Type) (ab : (And P Q))
+    (case* And ab
+      (lambda* (P : Type) (Q : Type) (ab : (And P Q))
+         (And Q P))
       ((conj (P : Type) (Q : Type) (x : P) (y : Q)) IH: () (conj Q P y x)))))
 
 (qed thm:and-is-symmetric proof:and-is-symmetric)
 
 (define-theorem thm:proj1
-  (forall* (A : Type) (B : Type) (c : (and A B)) A))
+  (forall* (A : Type) (B : Type) (c : (And A B)) A))
 
 (define proof:proj1
-  (lambda* (A : Type) (B : Type) (c : (and A B))
-    (case* and c
-      (lambda* (A : Type) (B : Type) (c : (and A B)) A)
+  (lambda* (A : Type) (B : Type) (c : (And A B))
+    (case* And c
+      (lambda* (A : Type) (B : Type) (c : (And A B)) A)
       ((conj (A : Type) (B : Type) (a : A) (b : B)) IH: () a))))
 
 (qed thm:proj1 proof:proj1)
 
 (define-theorem thm:proj2
-  (forall* (A : Type) (B : Type) (c : (and A B)) B))
+  (forall* (A : Type) (B : Type) (c : (And A B)) B))
 
 (define proof:proj2
-  (lambda* (A : Type) (B : Type) (c : (and A B))
-    (case* and c
-      (lambda* (A : Type) (B : Type) (c : (and A B)) B)
+  (lambda* (A : Type) (B : Type) (c : (And A B))
+    (case* And c
+      (lambda* (A : Type) (B : Type) (c : (And A B)) B)
       ((conj (A : Type) (B : Type) (a : A) (b : B)) IH: () b))))
 
 (qed thm:proj2 proof:proj2)

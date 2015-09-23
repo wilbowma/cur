@@ -1,19 +1,19 @@
 #lang s-exp "../cur.rkt"
 (require "sugar.rkt")
-(provide maybe none some)
+(provide Maybe none some)
 
-(data maybe : (forall (A : Type) Type)
-  (none : (forall (A : Type) (maybe A)))
-  (some : (forall* (A : Type) (a : A) (maybe A))))
+(data Maybe : (forall (A : Type) Type)
+  (none : (forall (A : Type) (Maybe A)))
+  (some : (forall* (A : Type) (a : A) (Maybe A))))
 
 (module+ test
   (require rackunit "bool.rkt")
   #;(check-equal?
-    (case* maybe (some bool btrue)
-      (lambda (x : (maybe bool)) bool)
+    (case* Maybe (some Bool true)
+      (lambda (x : (Maybe Bool)) Bool)
       [(none (A : Type)) IH: ()
-       bfalse]
+       false]
       [(some (A : Type) (x : A)) IH: ()
        ;; TODO: Don't know how to use dependency yet
-       (if x btrue bfalse)])
-    btrue))
+       (if x true false)])
+    true))

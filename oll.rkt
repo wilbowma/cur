@@ -6,7 +6,7 @@
 (provide
   define-relation
   define-language
-  var
+  Var
   avar
   var-equal?
   generate-coq
@@ -216,7 +216,7 @@
 (define-syntax (define-language syn)
   (syntax-parse syn
     [(_ name:id (~do (lang-name #'name))
-        (~do (nts (hash-set (make-immutable-hash) 'var #'var)))
+        (~do (nts (hash-set (make-immutable-hash) 'var #'Var)))
         (~optional (~seq #:vars (x*:id ...)
            (~do (nts (for/fold ([ht (nts)])
                                ([v (syntax->datum #'(x* ...))])
@@ -233,22 +233,22 @@
                  #'())
            #,output))]))
 
-(data var : Type (avar : (-> nat var)))
+(data Var : Type (avar : (-> Nat Var)))
 
-(define (var-equal? (v1 : var) (v2 : var))
-  (case* var v1 (lambda* (v : var) bool)
-    [(avar (n1 : nat)) IH: ()
-     (case* var v2 (lambda* (v : var) bool)
-       [(avar (n2 : nat)) IH: ()
+(define (var-equal? (v1 : Var) (v2 : Var))
+  (case* Var v1 (lambda* (v : Var) Bool)
+    [(avar (n1 : Nat)) IH: ()
+     (case* Var v2 (lambda* (v : Var) Bool)
+       [(avar (n2 : Nat)) IH: ()
         (nat-equal? n1 n2)])]))
 (module+ test
   (require rackunit)
   (check-equal?
     (var-equal? (avar z) (avar z))
-    btrue)
+    true)
   (check-equal?
     (var-equal? (avar z) (avar (s z)))
-    bfalse))
+    false))
 
 ;; See stlc.rkt for examples
 

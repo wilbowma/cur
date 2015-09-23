@@ -129,7 +129,7 @@
   (require
     rackunit
     "../bool.rkt")
-  (define-theorem meow (forall (x : bool) bool))
+  (define-theorem meow (forall (x : Bool) Bool))
   #;(proof
     (interactive))
   )

@@ -80,7 +80,7 @@ computing part of the term from another Cur term.
 @racketmodname[cur/stdlib/nat] are loaded. Also, could be moved outside the privileged code.}
 
 @examples[#:eval curnel-eval
-          (lambda (x : (run (if btrue bool nat))) x)]
+          (lambda (x : (run (if true Bool Nat))) x)]
 
 }
 

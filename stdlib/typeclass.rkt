@@ -74,23 +74,23 @@
 (module+ test
   (require rackunit)
   (typeclass (Eqv (A : Type))
-    (equal? : (forall* (a : A) (b : A) bool)))
-  (impl (Eqv bool)
-    (define (equal? (a : bool) (b : bool))
+    (equal? : (forall* (a : A) (b : A) Bool)))
+  (impl (Eqv Bool)
+    (define (equal? (a : Bool) (b : Bool))
       (if a
-          (if b btrue bfalse)
-          (if b bfalse btrue))))
-  (impl (Eqv nat)
+          (if b true false)
+          (if b false true))))
+  (impl (Eqv Nat)
     (define equal? nat-equal?))
   (check-equal?
     (equal? z z)
-    btrue)
+    true)
   (check-equal?
     (equal? z (s z))
-    bfalse)
+    false)
   (check-equal?
-    (equal? btrue bfalse)
-    bfalse)
+    (equal? true false)
+    false)
   (check-equal?
-    (equal? btrue btrue)
-    btrue))
+    (equal? true true)
+    true))

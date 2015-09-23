@@ -1,9 +1,10 @@
 #lang s-exp "../cur.rkt"
-(provide bool btrue bfalse if bnot)
+(require "sugar.rkt")
+(provide Bool true false if not and or)
 
-(data bool : Type
-  (btrue : bool)
-  (bfalse : bool))
+(data Bool : Type
+  (true : Bool)
+  (false : Bool))
 
 (define-syntax (if syn)
   (syntax-case syn ()
@@ -11,10 +12,11 @@
      ;; Compute the motive
      (let ([M #`(lambda (x : #,(type-infer/syn #'t))
                   #,(type-infer/syn #'s))])
-       (quasisyntax/loc syn (elim bool t #,M s f)))]))
+       (quasisyntax/loc syn (elim Bool t #,M s f)))]))
 
-(define (bnot (x : bool)) (if x bfalse btrue))
+(define (not (x : Bool)) (if x false true))
+
 (module+ test
   (require rackunit)
-  (check-equal? (bnot btrue) bfalse)
-  (check-equal? (bnot bfalse) btrue))
+  (check-equal? (not true) false)
+  (check-equal? (not false) true))

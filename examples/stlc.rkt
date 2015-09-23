@@ -18,61 +18,61 @@
                   (let (x x) = e in e)))
 
 ;; TODO: Abstract this over stlc-type, and provide from in OLL
-(data gamma : Type
-  (emp-gamma : gamma)
-  (extend-gamma : (->* gamma var stlc-type gamma)))
+(data Gamma : Type
+  (emp-gamma : Gamma)
+  (extend-gamma : (->* Gamma Var stlc-type Gamma)))
 
-(define (lookup-gamma (g : gamma) (x : var))
-  (case* gamma g (lambda* (g : gamma) (maybe stlc-type))
+(define (lookup-gamma (g : Gamma) (x : Var))
+  (case* Gamma g (lambda* (g : Gamma) (Maybe stlc-type))
     [emp-gamma (none stlc-type)]
-    [(extend-gamma (g1 : gamma) (v1 : var) (t1 : stlc-type))
-     IH: ((ih-g1 : (maybe stlc-type)))
+    [(extend-gamma (g1 : Gamma) (v1 : Var) (t1 : stlc-type))
+     IH: ((ih-g1 : (Maybe stlc-type)))
      (if (var-equal? v1 x)
          (some stlc-type t1)
          ih-g1)]))
 
-(define-relation (has-type gamma stlc-term stlc-type)
+(define-relation (has-type Gamma stlc-term stlc-type)
   #:output-coq "stlc.v"
   #:output-latex "stlc.tex"
-  [(g : gamma)
+  [(g : Gamma)
    ------------------------ T-Unit
    (has-type g (stlc-val-->-stlc-term stlc-unit) stlc-unitty)]
 
-  [(g : gamma)
+  [(g : Gamma)
    ------------------------ T-True
    (has-type g (stlc-val-->-stlc-term stlc-true) stlc-boolty)]
 
-  [(g : gamma)
+  [(g : Gamma)
    ------------------------ T-False
    (has-type g (stlc-val-->-stlc-term stlc-false) stlc-boolty)]
 
-  [(g : gamma) (x : var) (t : stlc-type)
-   (== (maybe stlc-type) (lookup-gamma g x) (some stlc-type t))
+  [(g : Gamma) (x : Var) (t : stlc-type)
+   (== (Maybe stlc-type) (lookup-gamma g x) (some stlc-type t))
    ------------------------ T-Var
-   (has-type g (var-->-stlc-term x) t)]
+   (has-type g (Var-->-stlc-term x) t)]
 
-  [(g : gamma) (e1 : stlc-term) (e2 : stlc-term)
+  [(g : Gamma) (e1 : stlc-term) (e2 : stlc-term)
                (t1 : stlc-type) (t2 : stlc-type)
    (has-type g e1 t1)
    (has-type g e2 t2)
    ---------------------- T-Pair
    (has-type g (stlc-cons e1 e2) (stlc-* t1 t2))]
 
-  [(g : gamma) (e1 : stlc-term) (e2 : stlc-term)
+  [(g : Gamma) (e1 : stlc-term) (e2 : stlc-term)
                (t1 : stlc-type) (t2 : stlc-type)
                (t : stlc-type)
-               (x : var) (y : var)
+               (x : Var) (y : Var)
    (has-type g e1 (stlc-* t1 t2))
    (has-type (extend-gamma (extend-gamma g x t1) y t2) e2 t)
    ---------------------- T-Let
    (has-type g (stlc-let x y e1 e2) t)]
 
-  [(g : gamma) (e1 : stlc-term) (t1 : stlc-type) (t2 : stlc-type) (x : var)
+  [(g : Gamma) (e1 : stlc-term) (t1 : stlc-type) (t2 : stlc-type) (x : Var)
    (has-type (extend-gamma g x t1) e1 t2)
    ---------------------- T-Fun
    (has-type g (stlc-lambda x t1 e1) (stlc--> t1 t2))]
 
-  [(g : gamma) (e1 : stlc-term) (e2 : stlc-term)
+  [(g : Gamma) (e1 : stlc-term) (e2 : stlc-term)
                (t1 : stlc-type) (t2 : stlc-type)
    (has-type g e1 (stlc--> t1 t2))
    (has-type g e2 t1)
@@ -98,7 +98,7 @@
          (normalize/syn
            #`((lambda* (x : stlc-term)
                       (stlc-lambda (avar #,oldindex) #,(stlc #'t) #,(stlc #'e)))
-             (var-->-stlc-term (avar #,oldindex)))))]
+             (Var-->-stlc-term (avar #,oldindex)))))]
       [(quote (e1 e2))
        #`(stlc-cons #,(stlc #'e1) #,(stlc #'e2))]
       [(let (x y) = e1 in e2)
@@ -108,8 +108,8 @@
          #`((lambda* (x : stlc-term) (y : stlc-term)
               (stlc-let (avar #,x) (avar #,y) #,(stlc #'t) #,(stlc #'e1)
                    #,(stlc #'e2)))
-            (var-->-stlc-term (avar #,x))
-            (var-->-stlc-term (avar #,y))))
+            (Var-->-stlc-term (avar #,x))
+            (Var-->-stlc-term (avar #,y))))
        #`(let x  i #,(stlc #'e1))]
       [(e1 e2)
        #`(stlc-app #,(stlc #'e1) #,(stlc #'e2))]
@@ -130,10 +130,10 @@
   (require rackunit)
   (check-equal?
     (begin-stlc (lambda (x : 1) x))
-    (stlc-lambda (avar z) stlc-unitty (var-->-stlc-term (avar z))))
+    (stlc-lambda (avar z) stlc-unitty (Var-->-stlc-term (avar z))))
   (check-equal?
     (begin-stlc ((lambda (x : 1) x) ()))
-    (stlc-app (stlc-lambda (avar z) stlc-unitty (var-->-stlc-term (avar z)))
+    (stlc-app (stlc-lambda (avar z) stlc-unitty (Var-->-stlc-term (avar z)))
               (stlc-val-->-stlc-term stlc-unit)))
   (check-equal?
     (begin-stlc '(() ()))
