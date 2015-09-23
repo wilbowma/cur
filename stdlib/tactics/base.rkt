@@ -13,6 +13,8 @@
     proof-state-proof
     proof-state-theorem
     new-proof
+    proof?
+    complete-proof?
     new-proof-state
     proof-state-proof-complete?
     proof-state-goal-ref
