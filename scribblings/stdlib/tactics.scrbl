@@ -16,6 +16,16 @@ Defines a new @tech{tactic}, at @gtech{phase} 1. A @deftech{tactic} is a Racket 
 @tech{proof state} to @tech{proof state} that runs at @gtech{phase} 1. A @tech{tactic} takes any
 number of arguments, plus the @tech{proof state}. The @tech{proof state} must be the final argument of
 the tactic.
+
+Examples:
+@racketblock[
+(define-tactic (do-nothing ps)
+  ps)
+
+(define-tactic (switch-goal i ps)
+  (struct-copy proof-state ps
+    [current-goal i]))
+]
 }
 
 @defproc[(proof? [p any/c])
@@ -139,6 +149,18 @@ saved anywhere, only checked against the most recent theorem defined via @racket
 
 Note that the proof state is implicitly given to each call by @racket[proof] and should not appear as
 an explicit argument.
+
+Examples:
+@racketblock[
+(define-theorem a-silly-theorem (forall (x : Nat) Nat))
+(proof
+  (intro x)
+  (by-assumption))
+
+(define-theorem falseo (forall (x : Type) x))
+(proof
+  (interactive))
+]
 }
 
 @todo{Examples, better documentation (e.g. don't say "returns a proof state"; the signature says so)}
