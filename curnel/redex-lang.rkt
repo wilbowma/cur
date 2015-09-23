@@ -423,12 +423,11 @@
   (syntax-case syn ()
     [(_ . id) (normalize/syn #'id)]))
 
-;; TODO: Syntax-parse
 (define-syntax (dep-define syn)
-  (syntax-case syn (:)
-    [(_ (name (x : t)) e)
+  (syntax-parse syn
+    [(_ (name:id (x:id : t)) e)
      #'(dep-define name (dep-lambda (x : t) e))]
-    [(_ id e)
+    [(_ id:id e)
      (let ([e (cur->datum #'e)]
            [id (syntax->datum #'id)])
        (extend-Γ/term! gamma id (type-infer/term e))
