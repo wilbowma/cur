@@ -39,7 +39,7 @@
   (t e ::= v (t t))
   #:binding-forms
   (λ (x : t) e #:refers-to x)
-  (Π (x : t) t #:refers-to x))
+  (Π (x : t_0) t_1 #:refers-to x))
 
 (define x? (redex-match? cicL x))
 (define t? (redex-match? cicL t))
@@ -303,6 +303,14 @@
    (side-condition (α-equivalent? t_2 t_3))
    ----------------- "≡-αβ"
    (equivalent Σ t_0 t_1)])
+(module+ test
+  (define-syntax-rule (check-equivalent e1 e2)
+    (check-holds (equivalent ∅ e1 e2)))
+  (check-equivalent
+    (λ (x : Type) x) (λ (y : Type) y))
+  (check-equivalent
+    (Π (x : Type) x) (Π (y : Type) y))
+  )
 
 (define-extended-language cic-typingL cic-redL
   ;; NB: There may be a bijection between Γ and Ξ. That's
@@ -657,8 +665,8 @@
   (check-holds (unv-kind (Unv 0) (Unv 0) (Unv 0)))
   (check-holds (type-infer ∅ (∅ x_0 : (Unv 0)) (Π (x_2 : x_0) (Unv 0)) t))
 
-  (check-holds (type-infer ∅ ∅ (λ (x : (Unv 0)) x) (Π (x : (Unv 0)) (Unv 0))))
-  (check-holds (type-infer ∅ ∅ (λ (y : (Unv 0)) (λ (x : y) x))
+  (check-holds (type-check ∅ ∅ (λ (x : (Unv 0)) x) (Π (x : (Unv 0)) (Unv 0))))
+  (check-holds (type-check ∅ ∅ (λ (y : (Unv 0)) (λ (x : y) x))
                            (Π (y : (Unv 0)) (Π (x : y) y))))
 
   (check-equal? (list (term (Unv 1)))
@@ -734,25 +742,25 @@
                 ((((elim nat) zero) nat) (s zero))
                 nat))
   (define lam (term (λ (nat : (Unv 0)) nat)))
-  (check-equal?
-    (list (term (Π (nat : (Unv 0)) (Unv 0))))
-    (judgment-holds (type-infer ,Σ0 ∅ ,lam t) t))
-  (check-equal?
-    (list (term (Π (nat : (Unv 0)) (Unv 0))))
-    (judgment-holds (type-infer ,Σ ∅ ,lam t) t))
-  (check-equal?
-    (list (term (Π (x : (Π (y : (Unv 0)) y)) nat)))
-    (judgment-holds (type-infer (∅ (nat : (Unv 0) ())) ∅ (λ (x : (Π (y : (Unv 0)) y)) (x nat))
-                                t) t))
-  (check-equal?
-    (list (term (Π (y : (Unv 0)) (Unv 0))))
-    (judgment-holds (type-infer (∅ (nat : (Unv 0) ())) ∅ (λ (y : (Unv 0)) y) t) t))
-  (check-equal?
-    (list (term (Unv 0)))
-    (judgment-holds (type-infer (∅ (nat : (Unv 0) ())) ∅
-                                ((λ (x : (Π (y : (Unv 0)) (Unv 0))) (x nat))
-                                 (λ (y : (Unv 0)) y))
-                                t) t))
+  (check-equivalent
+    (Π (nat : (Unv 0)) (Unv 0))
+    ,(car (judgment-holds (type-infer ,Σ0 ∅ ,lam t) t)))
+  (check-equivalent
+    (Π (nat : (Unv 0)) (Unv 0))
+    ,(car (judgment-holds (type-infer ,Σ ∅ ,lam t) t)))
+  (check-equivalent
+    (Π (x : (Π (y : (Unv 0)) y)) nat)
+    ,(car (judgment-holds (type-infer (∅ (nat : (Unv 0) ())) ∅ (λ (x : (Π (y : (Unv 0)) y)) (x nat))
+                                  t) t)))
+  (check-equivalent
+    (Π (y : (Unv 0)) (Unv 0))
+    ,(car (judgment-holds (type-infer (∅ (nat : (Unv 0) ())) ∅ (λ (y : (Unv 0)) y) t) t)))
+  (check-equivalent
+    (Unv 0)
+    ,(car (judgment-holds (type-infer (∅ (nat : (Unv 0) ())) ∅
+                                 ((λ (x : (Π (y : (Unv 0)) (Unv 0))) (x nat))
+                                  (λ (y : (Unv 0)) y))
+                                 t) t)))
   (check-equal?
     (list (term (Unv 0)) (term (Unv 1)))
     (judgment-holds
