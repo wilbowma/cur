@@ -19,10 +19,11 @@
   only-in
   all-defined-out
   rename-in
+  rename-out
+  prefix-out
   prefix-in
   submod
   #%module-begin
-  begin
   (rename-out
     [dep-module+ module+]
     [dep-provide provide]
@@ -40,10 +41,12 @@
     [dep-elim elim]
 
     [dep-top #%top]
-    [dep-top #%top-interaction]
+    [dep-top-interaction #%top-interaction]
 
     ;      [dep-datum #%datum]
     [dep-define define])
+  begin
+  void
   Type
   ;; DYI syntax extension
   define-syntax
@@ -66,18 +69,20 @@
 (begin-for-syntax
   ;; TODO: Gamma and Sigma seem to get reset inside a module+
   (define gamma
-    (make-parameter (term ∅)
-                    (lambda (x)
-                      (unless (Γ? x)
-                        (error 'core-error "We built a bad gamma ~s" x))
-                      x)))
+    (make-parameter
+      (term ∅)
+      (lambda (x)
+        (unless (Γ? x)
+          (error 'core-error "We built a bad gamma ~s" x))
+        x)))
 
   (define sigma
-    (make-parameter (term ∅)
-                    (lambda (x)
-                      (unless (Σ? x)
-                        (error 'core-error "We built a bad sigma ~s" x))
-                      x)))
+    (make-parameter
+      (term ∅)
+      (lambda (x)
+        (unless (Σ? x)
+          (error 'core-error "We built a bad sigma ~s" x))
+        x)))
 
   (define (extend-Γ/term env x t)
     (term (,(env) ,x : ,t)))
@@ -139,7 +144,7 @@
       (local-expand
         syn
         'expression
-        (append (syntax-e #'(term reduce subst-all dep-top #%app λ Π elim Unv #%datum))))))
+        (append (syntax-e #'(term reduce subst-all dep-top #%app λ Π elim Unv #%datum void))))))
 
   ;; Only type-check at the top-level, to prevent exponential
   ;; type-checking. Redex is expensive enough.
@@ -266,10 +271,11 @@
 (define-syntax (export-envs syn)
   (syntax-case syn ()
     [(_ gamma-out sigma-out bind-out)
-     #`(begin-for-syntax
-         (define gamma-out (term #,(gamma)))
-         (define sigma-out (term #,(sigma)))
-         (define bind-out '#,(bind-subst)))]))
+     (begin
+       #`(begin-for-syntax
+          (define gamma-out (term #,(gamma)))
+          (define sigma-out (term #,(sigma)))
+          (define bind-out '#,(bind-subst))))]))
 
 ;; TODO: This can only handle a single provide form, otherwise generates multiple *-out
 (define-syntax (dep-provide syn)
@@ -421,7 +427,32 @@
 ;; TODO: Not sure if this is the correct behavior for #%top
 (define-syntax (dep-top syn)
   (syntax-case syn ()
-    [(_ . id) (normalize/syn #'id)]))
+    [(_ . id)
+     ;; TODO NB FIXME: HACKS HACKS HACKS
+     (let ([t (core-expand #'id)])
+       (if (equal? (syntax->datum t) '(void))
+           #'(void)
+           (normalize/syn t)))]))
+
+(define-syntax (dep-top-interaction syn)
+  (syntax-case syn ()
+    [(_ . form)
+     (begin
+       ;; TODO NB FIXME: HACKS HACKS HACKS
+       #`(begin
+           (export-envs gamma-out sigma-out bind-out)
+           (begin-for-syntax
+             ;; Try to detect when we are in DrRacket, and do the right thing.
+             (when (equal? 'debug-error-display-handler (object-name (error-display-handler)))
+                 (cond
+                   [(null? (namespace-mapped-symbols))
+                    (displayln "You will need to add a (provide ...) in the definitions area for the evaluator to load Cur definitions correctly.")]
+                   [(eq? 3 (length (namespace-mapped-symbols)))
+                    (bind-subst (namespace-variable-value (first (namespace-mapped-symbols))))
+                    (gamma (namespace-variable-value (second (namespace-mapped-symbols))))
+                    (sigma (namespace-variable-value (third (namespace-mapped-symbols))))]
+                   [else (void)])))
+          form))]))
 
 (define-syntax (dep-define syn)
   (syntax-parse syn
