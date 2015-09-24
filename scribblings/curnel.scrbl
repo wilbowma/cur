@@ -85,9 +85,6 @@ Defines an inductive datatype named @racket[id] of type @racket[type-expr], with
 Currently, Cur does not attempt to ensure the well-foundedness of the inductive definition.
 For instance, Cur does not currently perform strict positivity checking.
 
-
-@margin-note{The reader should pretend the errors that read "void: expected more" are not there.}
-
 @examples[#:eval curnel-eval
           (data Bool : Type
                 (true : Bool)
