@@ -24,25 +24,27 @@ Getting started
 
 Install cur via `raco pkg install cur`.
 
-Try it out. Save the following to `test.rkt`, then run `racket test.rkt`.
+Try it out: open up DrRacket and put the following in the definition area:
 
 ```racket
 #lang cur
-(require cur/stdlib/bool)
+(require 
+ cur/stdlib/bool
+ cur/stdlib/nat)
 
-(if btrue
-    bfalse
-    btrue)
+(if true
+    false
+    true)
+```
 
-(data True : Type
-  (I : True))
-
-I
+Try entering the following in the interaction area:
+```racket
+(sub1 (s (s z)))
 ```
 
 See the docs: `raco docs cur`.
 
-The standard library is currently undocumented, so just see the source.
+Most of the standard library is currently undocumented, so just see the source.
 
 Going further
 =============
