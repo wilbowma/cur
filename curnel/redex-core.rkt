@@ -36,7 +36,10 @@
   (U ::= (Unv i))
   (x ::= variable-not-otherwise-mentioned)
   (v ::= (Π (x : t) t) (λ (x : t) t) elim x U)
-  (t e ::= v (t t)))
+  (t e ::= v (t t))
+  #:binding-forms
+  (λ (x : t) e #:refers-to x)
+  (Π (x : t) t #:refers-to x))
 
 (define x? (redex-match? cicL x))
 (define t? (redex-match? cicL t))
@@ -93,67 +96,21 @@
    ----------------
    (unv-kind (Unv i_1) (Unv i_2) (Unv i_3))])
 
-(define-judgment-form cicL
-  #:mode (α-equivalent I I)
-  #:contract (α-equivalent t t)
-
-  [----------------- "α-x"
-                     (α-equivalent x x)]
-
-  [----------------- "α-U"
-                     (α-equivalent U U)]
-
-  [(α-equivalent t_1 (subst t_3 x_1 x_0))
-   (α-equivalent t_0 t_2)
-   ----------------- "α-binder"
-   (α-equivalent (any (x_0 : t_0) t_1)
-                 (any (x_1 : t_2) t_3))]
-
-  [(α-equivalent e_0 e_2)
-   (α-equivalent e_1 e_3)
-   ----------------- "α-app"
-   (α-equivalent (e_0 e_1) (e_2 e_3))])
-(module+ test
-  (check-holds (α-equivalent x x))
-  (check-not-holds (α-equivalent x y))
-  (check-holds (α-equivalent (λ (x : A) x) (λ (y : A) y))))
-
-;; NB: Substitution is hard
-;; NB: Copy and pasted from Redex examples
 (define-metafunction cicL
-  subst-vars : (x any) ... any -> any
-  [(subst-vars (x_1 any_1) x_1) any_1]
-  [(subst-vars (x_1 any_1) (any_2 ...))
-   ((subst-vars (x_1 any_1) any_2) ...)]
-  [(subst-vars (x_1 any_1) any_2) any_2]
-  [(subst-vars (x_1 any_1) (x_2 any_2) ... any_3)
-   (subst-vars (x_1 any_1) (subst-vars (x_2 any_2) ... any_3))]
-  [(subst-vars any) any])
-
+  α-equivalent? : t t -> #t or #f
+  [(α-equivalent? t_0 t_1)
+   ,(alpha-equivalent? cicL (term t_0) (term t_1)) ])
 (define-metafunction cicL
   subst : t x t -> t
-  [(subst U x t) U]
-  [(subst x x t) t]
-  [(subst x_0 x t) x_0]
-  [(subst (any (x : t_0) t_1) x t)
-   (any (x : (subst t_0 x t)) t_1)]
-  [(subst (any (x_0 : t_0) t_1) x t)
-   (any (x_new : (subst (subst-vars (x_0 x_new) t_0) x t))
-        (subst (subst-vars (x_0 x_new) t_1) x t))
-   (where x_new
-          ,(variable-not-in
-             (term (x_0 t_0 x t t_1))
-             (term x_0)))]
-  [(subst (e_0 e_1) x t) ((subst e_0 x t) (subst e_1 x t))]
-  [(subst elim x t) elim])
+  [(subst t_0 x t_1)
+   ,(substitute cicL (term t_0) (term x) (term t_1))])
 (module+ test
   (check-true (t? (term (Π (a : A) (Π (b : B) ((and A) B))))))
-  (check-holds
-    (α-equivalent
-      (Π (a : S) (Π (b : B) ((and S) B)))
-      (subst (Π (a : A) (Π (b : B) ((and A) B))) A S))))
-;; NB:
-;; TODO: Why do I not have tests for substitutions?!?!?!?!?!?!?!!?!?!?!?!?!?!!??!?!
+  (check-true
+    (term
+      (α-equivalent?
+        (Π (a : S) (Π (b : B) ((and S) B)))
+        (subst (Π (a : A) (Π (b : B) ((and A) B))) A S)))))
 
 (define-metafunction cicL
   subst-all : t (x ...) (e ...) -> t
@@ -343,7 +300,7 @@
 
   [(where t_2 (reduce Σ t_0))
    (where t_3 (reduce Σ t_1))
-   (α-equivalent t_2 t_3)
+   (side-condition (α-equivalent? t_2 t_3))
    ----------------- "≡-αβ"
    (equivalent Σ t_0 t_1)])
 
