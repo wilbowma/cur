@@ -8,3 +8,4 @@ Cur has a small standard library, primary for demonstration purposes.
 @local-table-of-contents[]
 
 @include-section{stdlib/tactics.scrbl}
+@include-section{stdlib/sugar.scrbl}
