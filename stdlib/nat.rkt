@@ -15,16 +15,17 @@
   (check-equal? (add1 (s z)) (s (s z))))
 
 (define (sub1 (n : Nat))
-  (case* Nat n (lambda (x : Nat) Nat)
+  (case n
     [z z]
     [(s (x : Nat)) IH: ((ih-n : Nat)) x]))
 (module+ test
   (check-equal? (sub1 (s z)) z))
 
 (define (plus (n1 : Nat) (n2 : Nat))
-  (case* Nat n1 (lambda (x : Nat) Nat)
+  (case n1
     [z n2]
-    [(s (x : Nat)) IH: ((ih-n1 : Nat))
+    [(s (x : Nat))
+     IH: ((ih-n1 : Nat))
      (s ih-n1)]))
 (module+ test
   (check-equal? (plus z z) z)

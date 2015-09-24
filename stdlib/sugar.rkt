@@ -6,12 +6,8 @@
   lambda*
   #%app
   define
-  case*
-  define-type
-  define-theorem
-  qed
-  real-app
-  define-rec)
+  case
+  define-type)
 
 (require
   (only-in "../cur.rkt"
@@ -79,10 +75,17 @@
 
 ;; TODO: Expects clauses in same order as constructors as specified when
 ;; TODO: inductive D is defined.
-(define-syntax (case* syn)
-  (syntax-case syn ()
-    [(_ D e P clause* ...)
-     #`(elim D e P #,@(map rewrite-clause (syntax->list #'(clause* ...))))]))
+(define-syntax (case syn)
+  ;; duplicated code
+  (define (clause-body syn)
+    (syntax-case (car (syntax->list syn)) (: IH:)
+      [((con (a : A) ...) IH: ((x : t) ...) body) #'body]
+      [(e body) #'body]))
+  (syntax-case syn (=>)
+    [(_ e clause* ...)
+     (let* ([D (type-infer/syn #'e)]
+            [M (type-infer/syn (clause-body #'(clause* ...)))])
+       #`(elim #,D e (lambda (x : #,D) #,M) #,@(map rewrite-clause (syntax->list #'(clause* ...)))))]))
 
 (define-syntax-rule (define-theorem name prop)
   (define name prop))

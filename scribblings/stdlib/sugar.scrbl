@@ -83,7 +83,7 @@ defining curried functions via @racket[lambda*].
 Like @racket[define], but uses @racket[forall*] instead of @racket[lambda*].
 }
 
-@defform[(case* D e P [pattern maybe-IH body] ...)
+@defform[(case* e [pattern maybe-IH body] ...)
          #:grammar
          [(pattern
             constructor
@@ -98,7 +98,7 @@ defined.
 
 @examples[#:eval curnel-eval
           (require cur/stdlib/nat)
-          (case* Nat z (lambda (x : Nat) Bool)
+          (case z
             [z true]
             [(s (n : Nat))
              IH: ((_ : Bool))
