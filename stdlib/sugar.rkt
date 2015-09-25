@@ -6,9 +6,15 @@
   lambda*
   #%app
   define
-  case
   define-type
-  run)
+  case
+  case*
+  run
+
+  ;; don't use these
+  define-theorem
+  qed
+  )
 
 (require
   (only-in "../cur.rkt"
@@ -87,6 +93,11 @@
      (let* ([D (type-infer/syn #'e)]
             [M (type-infer/syn (clause-body #'(clause* ...)))])
        #`(elim #,D e (lambda (x : #,D) #,M) #,@(map rewrite-clause (syntax->list #'(clause* ...)))))]))
+
+(define-syntax (case* syn)
+  (syntax-case syn (=>)
+    [(_ D e M clause* ...)
+     #`(elim D e M #,@(map rewrite-clause (syntax->list #'(clause* ...))))]))
 
 (define-syntax-rule (define-theorem name prop)
   (define name prop))

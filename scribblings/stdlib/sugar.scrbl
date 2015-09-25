@@ -83,7 +83,7 @@ defining curried functions via @racket[lambda*].
 Like @racket[define], but uses @racket[forall*] instead of @racket[lambda*].
 }
 
-@defform[(case* e [pattern maybe-IH body] ...)
+@defform[(case e [pattern maybe-IH body] ...)
          #:grammar
          [(pattern
             constructor
@@ -104,6 +104,28 @@ defined.
              IH: ((_ : Bool))
              false])]
 }
+
+@defform[(case* type e motive [pattern maybe-IH body] ...)
+         #:grammar
+         [(pattern
+            constructor
+            (code:line)
+            (code:line (constructor (x : t) ...)))
+          (maybe-IH
+            (code:line)
+            (code:line IH: ((x : t) ...)))]]{
+A pattern-matcher-like syntax for inductive elimination that does not try to infer the type or motive.
+Necessary for more advanced types, like @racket[And], because @racket[case] is not very smart.
+
+@examples[#:eval curnel-eval
+          (require cur/stdlib/nat)
+          (case* Nat z (lambda (x : Bool) Nat)
+            [z true]
+            [(s (n : Nat))
+             IH: ((_ : Bool))
+             false])]
+}
+
 @defform[(run syn)]{
 Like @racket[normalize/syn], but is a syntactic form which allows a Cur term to be written by
 computing part of the term from another Cur term.

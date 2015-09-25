@@ -1,7 +1,10 @@
 #lang s-exp "cur.rkt"
 ;; OLL: The OTT-Like Library
 ;; TODO: Automagically create a parser from bnf grammar
-(require "stdlib/sugar.rkt" "stdlib/nat.rkt")
+(require
+  "stdlib/sugar.rkt"
+  "stdlib/nat.rkt"
+  (only-in "curnel/redex-lang.rkt" [#%app real-app]))
 
 (provide
   define-relation
@@ -236,9 +239,9 @@
 (data Var : Type (avar : (-> Nat Var)))
 
 (define (var-equal? (v1 : Var) (v2 : Var))
-  (case* Var v1 (lambda* (v : Var) Bool)
+  (case* Var v1 (lambda (v : Var) Bool)
     [(avar (n1 : Nat)) IH: ()
-     (case* Var v2 (lambda* (v : Var) Bool)
+     (case* Var v2 (lambda (v : Var) Bool)
        [(avar (n2 : Nat)) IH: ()
         (nat-equal? n1 n2)])]))
 (module+ test
