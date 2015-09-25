@@ -260,6 +260,7 @@
 ;; Create the recursive applications of elim to the recursive
 ;; arguments of an inductive constructor.
 ;; TODO: Poorly documented, and poorly tested.
+;; Probably the source of issue #20
 (define-metafunction cic-redL
     elim-recur : x U e Θ Θ Θ (x ...) -> Θ
     [(elim-recur x_D U e_P Θ
@@ -313,7 +314,6 @@
          #|
           | The elim form must appear applied like so:
           | (elim x_D U e_P m_0 ... m_i m_j ... m_n p ... (c_i p ... a ...))
-          | -->
           |
           | Where:
           |   x_D       is the inductive being eliminated
@@ -328,18 +328,24 @@
           |#
          (where (in-hole (Θ_p (in-hole Θ_i x_ci)) Θ_m)
                 Θ)
+         ;; Check that Θ_p actually matches the parameters of x_D, to ensure it doesn't capture other
+         ;; arguments.
          (where Ξ (parameters-of Σ x_D))
          (judgment-holds (telescope-types Σ ∅ Θ_p Ξ))
+         ;; Ensure the constructor x_ci is applied to Θ_p first, then some arguments Θ_a
          (where (in-hole Θ_a Θ_p)
                 Θ_i)
+         ;; Ensure x_ci is actually a constructor for x_D
          (where ((x_c* : t_c*) ...)
                 (constructors-for Σ x_D))
          (where (_ ... x_ci _ ...)
                 (x_c* ...))
-         ;; There should be a number of methods equal to the number of
-         ;; constructors; to ensure E doesn't capture methods
+         ;; There should be a number of methods equal to the number of constructors; to ensure E
+         ;; doesn't capture methods and Θ_m doesn't capture other arguments
          (judgment-holds (length-match Θ_m (x_c* ...)))
+         ;; Find the method for constructor x_ci, relying on the order of the arguments.
          (where e_mi (method-lookup Σ x_D x_ci Θ_m))
+         ;; Generate the inductive recursion
          (where Θ_r (elim-recur x_D U e_P Θ_m Θ_m Θ_i (x_c* ...)))
          -->elim)))
 
