@@ -67,12 +67,6 @@
     [(define id body)
      #'(real-define id body)]))
 
-(define-syntax (define-rec syn)
-  (syntax-case syn (:)
-    [(_ (name (a : t) ... : t_res) body)
-     #'(define name (fix (name : (forall* (a : t) ... t_res))
-                      (lambda* (a : t) ... body)))]))
-
 (begin-for-syntax
   (define (rewrite-clause clause)
     (syntax-case clause (: IH:)
