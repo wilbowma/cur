@@ -4,7 +4,7 @@
 (require
   "stdlib/sugar.rkt"
   "stdlib/nat.rkt"
-  (only-in "curnel/redex-lang.rkt" [#%app real-app]))
+  (only-in "curnel/redex-lang.rkt" [#%app real-app] [elim real-elim]))
 
 (provide
   define-relation
@@ -279,7 +279,7 @@
                               #'begin)
        ;; TODO: Need to add these to a literal set and export it
        ;; Or, maybe overwrite syntax-parse
-       #:literals (lambda forall data real-app elim define-theorem
+       #:literals (lambda forall data real-app real-elim define-theorem
                           define qed begin Type)
        [(begin e ...)
         (for/fold ([str ""])
@@ -338,14 +338,8 @@
                           (output-coq #'t))]))))
           "")]
        [(Type i) "Type"]
-       [(elim var e P m ...)
-        (format "(~a_rect ~a~a ~a)"
-          (output-coq #'var)
-          (output-coq #'P)
-          (for/fold ([x ""])
-                    ([m (syntax->list #'(m ...))])
-            (format "~a ~a" x (output-coq m)))
-          (output-coq #'e))]
+       [(real-elim var t)
+        (format "~a_rect" (output-coq #'var))]
        [(real-app e1 e2)
         (format "(~a ~a)" (output-coq #'e1) (output-coq #'e2))]
        [e:id (sanitize-id (format "~a" (syntax->datum #'e)))])))
@@ -391,10 +385,11 @@
       (check-regexp-match
         "\\| T-Bla : \\(forall g : gamma, \\(forall e : term, \\(forall t : type, \\(\\(\\(meow g\\) e\\) t\\)\\)\\)\\)\\."
         (second (string-split t "\n"))))
-    (let ([t (output-coq #'(elim nat e (lambda (x : nat) nat) z
-                             (lambda* (x : nat) (ih-x : nat) ih-x)))])
+    (let ([t (output-coq #'(elim nat Type (lambda (x : nat) nat) z
+                             (lambda* (x : nat) (ih-x : nat) ih-x)
+                             e))])
       (check-regexp-match
-        "\\(nat_rect \\(fun x : nat => nat\\) z \\(fun x : nat => \\(fun ih_x : nat => ih_x\\)\\) e\\)"
+        "\\(\\(\\(\\(nat_rect \\(fun x : nat => nat\\)\\) z\\) \\(fun x : nat => \\(fun ih_x : nat => ih_x\\)\\)\\) e\\)"
         t))
     (check-regexp-match
       "Theorem thm_plus_commutes : \\(forall n : nat, \\(forall m : nat, \\(\\(\\(== nat\\) \\(\\(plus n\\) m\\)\\) \\(\\(plus m\\) n\\)\\)\\)\\).\n"
