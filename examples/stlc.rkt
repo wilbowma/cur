@@ -23,7 +23,7 @@
   (extend-gamma : (->* Gamma Var stlc-type Gamma)))
 
 (define (lookup-gamma (g : Gamma) (x : Var))
-  (case* Gamma g (lambda* (g : Gamma) (Maybe stlc-type))
+  (case* Gamma Type g () (lambda* (g : Gamma) (Maybe stlc-type))
     [emp-gamma (none stlc-type)]
     [(extend-gamma (g1 : Gamma) (v1 : Var) (t1 : stlc-type))
      IH: ((ih-g1 : (Maybe stlc-type)))

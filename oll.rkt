@@ -239,9 +239,9 @@
 (data Var : Type (avar : (-> Nat Var)))
 
 (define (var-equal? (v1 : Var) (v2 : Var))
-  (case* Var v1 (lambda (v : Var) Bool)
+  (case* Var Type v1 () (lambda (v : Var) Bool)
     [(avar (n1 : Nat)) IH: ()
-     (case* Var v2 (lambda (v : Var) Bool)
+     (case* Var Type v2 () (lambda (v : Var) Bool)
        [(avar (n2 : Nat)) IH: ()
         (nat-equal? n1 n2)])]))
 (module+ test

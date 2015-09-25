@@ -105,7 +105,7 @@ defined.
              false])]
 }
 
-@defform[(case* type e motive [pattern maybe-IH body] ...)
+@defform[(case* type motive-result-type e (parameters ...) motive [pattern maybe-IH body] ...)
          #:grammar
          [(pattern
             constructor
@@ -117,13 +117,20 @@ defined.
 A pattern-matcher-like syntax for inductive elimination that does not try to infer the type or motive.
 Necessary for more advanced types, like @racket[And], because @racket[case] is not very smart.
 
+@margin-note{Don't worry about all that output from requiring prop}
 @examples[#:eval curnel-eval
           (require cur/stdlib/nat)
-          (case* Nat z (lambda (x : Bool) Nat)
+          (case* Nat Type z () (lambda (x : Nat) Bool)
             [z true]
             [(s (n : Nat))
              IH: ((_ : Bool))
-             false])]
+             false])
+          (require cur/stdlib/prop)
+          (case* And Type (conj Bool Nat true z) (Bool Nat)
+            (lambda* (A : Type) (B : Type) (ab : (And A B)) A)
+            [(conj (A : Type) (B : Type) (a : A) (b : B))
+             IH: ()
+             a])]
 }
 
 @defform[(run syn)]{

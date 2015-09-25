@@ -96,10 +96,11 @@ For instance, Cur does not currently perform strict positivity checking.
           ((((conj Bool) Bool) true) false)]
 }
 
-@defform[(elim type-expr expr motive method* ...)]{
-Eliminates the expression @racket[expr] of the inductively defined type @racket[type-expr], using
-@racket[motive], where the methods for each constructor for @racket[type-expr] are given by
-@racket[method*].
+@defform[(elim type motive-result-type)]{
+Returns the inductive eliminator for @racket[type] where the result type of the motive is
+@racket[motive-result-type]. The eliminator expects a motive, methods for each of the constructors of the
+inductive type @racket[type], parameters @racket[p ...] for the inductive @racket[type], and finally a
+type of @racket[(type p ...)].
 
 The following example runs @racket[(sub1 (s z))].
 
@@ -107,9 +108,11 @@ The following example runs @racket[(sub1 (s z))].
           (data Nat : Type
             (z : Nat)
             (s : (forall (n : Nat) Nat)))
-          (elim Nat (s z) (lambda (x : Nat) Nat)
-                z
-                (lambda (n : Nat) (lambda (IH : Nat) n)))]
+          (((((elim Nat Type)
+              (lambda (x : Nat) Nat))
+             z)
+            (lambda (n : Nat) (lambda (IH : Nat) n)))
+           (s z))]
 }
 
 @defform[(define id expr)]{
@@ -120,9 +123,9 @@ Binds @racket[id] to the result of @racket[expr].
             (z : Nat)
             (s : (forall (n : Nat) Nat)))
           (define sub1 (lambda (n : Nat)
-                         (elim Nat n (lambda (x : Nat) Nat)
-                               z
-                               (lambda (n : Nat) (lambda (IH : Nat) n)))))
+                         (((((elim Nat Type) (lambda (x : Nat) Nat))
+                           z)
+                          (lambda (n : Nat) (lambda (IH : Nat) n))) n)))
           (sub1 (s (s z)))
           (sub1 (s z))
           (sub1 z)]
