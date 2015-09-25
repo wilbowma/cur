@@ -33,12 +33,12 @@
 
 ;; Credit to this function goes to Max
 (define nat-equal?
-  ((elim Nat Type) (lambda (x : Nat) (-> Nat Bool))
-    ((elim Nat Type) (lambda (x : Nat) Bool)
+  (elim Nat Type (lambda (x : Nat) (-> Nat Bool))
+    (elim Nat Type (lambda (x : Nat) Bool)
           true
           (lambda* (x : Nat) (ih-n2 : Bool) false))
     (lambda* (x : Nat) (ih : (-> Nat Bool))
-      ((elim Nat Type) (lambda (x : Nat) Bool)
+      (elim Nat Type (lambda (x : Nat) Bool)
             false
             (lambda* (x : Nat) (ih-bla : Bool)
                      (ih x))))))

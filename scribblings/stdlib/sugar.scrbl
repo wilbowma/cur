@@ -78,6 +78,18 @@ Like the @racket[define] provided by @racketmodname[cur/curnel/redex-lang], but 
 defining curried functions via @racket[lambda*].
 }
 
+@defform[(elim type motive-result-type e ...)]{
+Like the @racket[elim] provided by @racketmodname[cur/curnel/redex-lang], but supports
+automatically curries the remaining arguments @racket[e ...].
+
+@examples[#:eval curnel-eval
+          (require cur/stdlib/bool)
+          (elim Bool Type (lambda (x : Bool) Bool)
+            false
+            true
+            true)]
+}
+
 @defform*[((define-type name type)
            (define-type (name (a : t) ...) body))]{
 Like @racket[define], but uses @racket[forall*] instead of @racket[lambda*].

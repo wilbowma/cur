@@ -6,6 +6,7 @@
   lambda*
   #%app
   define
+  elim
   define-type
   case
   case*
@@ -18,6 +19,7 @@
 
 (require
   (only-in "../cur.rkt"
+    [elim real-elim]
     [#%app real-app]
     [define real-define]))
 
@@ -67,6 +69,9 @@
     [(define id body)
      #'(real-define id body)]))
 
+(define-syntax-rule (elim t1 t2 e ...)
+  ((real-elim t1 t2) e ...))
+
 (begin-for-syntax
   (define (rewrite-clause clause)
     (syntax-case clause (: IH:)
@@ -88,13 +93,13 @@
      (let* ([D (type-infer/syn #'e)]
             [M (type-infer/syn (clause-body #'(clause* ...)))]
             [U (type-infer/syn M)])
-       #`((elim #,D #,U) (lambda (x : #,D) #,M) #,@(map rewrite-clause (syntax->list #'(clause* ...)))
+       #`(elim #,D #,U (lambda (x : #,D) #,M) #,@(map rewrite-clause (syntax->list #'(clause* ...)))
                e))]))
 
 (define-syntax (case* syn)
   (syntax-case syn ()
     [(_ D U e (p ...) P clause* ...)
-     #`((elim D U) P #,@(map rewrite-clause (syntax->list #'(clause* ...))) p ... e)]))
+     #`(elim D U P #,@(map rewrite-clause (syntax->list #'(clause* ...))) p ... e)]))
 
 (define-syntax-rule (define-theorem name prop)
   (define name prop))
