@@ -7,7 +7,8 @@
   #%app
   define
   case
-  define-type)
+  define-type
+  run)
 
 (require
   (only-in "../cur.rkt"
@@ -99,3 +100,6 @@
            #'pf #'t))
        #'pf)]))
 
+(define-syntax (run syn)
+  (syntax-case syn ()
+    [(_ expr) (normalize/syn #'expr)]))

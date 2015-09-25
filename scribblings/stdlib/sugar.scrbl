@@ -104,3 +104,14 @@ defined.
              IH: ((_ : Bool))
              false])]
 }
+@defform[(run syn)]{
+Like @racket[normalize/syn], but is a syntactic form which allows a Cur term to be written by
+computing part of the term from another Cur term.
+
+@margin-note{This one is a real working example, assuming the @racketmodname[cur/stdlib/bool] and
+@racketmodname[cur/stdlib/nat] are loaded. Also, could be moved outside the privileged code.}
+
+@examples[#:eval curnel-eval
+          (lambda (x : (run (if true Bool Nat))) x)]
+
+}

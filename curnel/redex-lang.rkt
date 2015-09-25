@@ -63,8 +63,7 @@
     type-infer/syn
     type-check/syn?
     normalize/syn
-    cur-equal?)
-  run)
+    cur-equal?))
 
 (begin-for-syntax
   ;; TODO: Gamma and Sigma seem to get reset inside a module+
@@ -194,7 +193,10 @@
     reified-term)
 
   ;; Reflection tools
-  ;; TODO: Why is this not just (define (normalize/syn syn) (denote syn syn))
+  #| TODO:
+   | Why is this not just (define (normalize/syn syn) (denote syn syn))?
+   | Well, because that has a very different meaning. Apparently.
+   |#
   (define (normalize/syn syn)
     (denote
       syn
@@ -226,13 +228,6 @@
         'expression
         (append (syntax-e #'(Type dep-inductive dep-lambda dep-app dep-elim dep-forall dep-top))
                 ls)))))
-
-;; TODO: Oops, run doesn't return a cur term but a redex term
-;; wrapped in syntax bla. This is bad.
-;; TODO: Should be provided by user-land code.
-(define-syntax (run syn)
-  (syntax-case syn ()
-    [(_ expr) (normalize/syn #'expr)]))
 
 ;; -----------------------------------------------------------------
 ;; Require/provide macros
@@ -456,8 +451,6 @@
 
 (define-syntax (dep-define syn)
   (syntax-parse syn
-    [(_ (name:id (x:id : t)) e)
-     #'(dep-define name (dep-lambda (x : t) e))]
     [(_ id:id e)
      (let ([e (cur->datum #'e)]
            [id (syntax->datum #'id)])
