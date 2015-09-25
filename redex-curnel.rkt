@@ -308,20 +308,27 @@
            -->β)
       (--> (Σ (in-hole E (in-hole Θ (((elim x_D) U) e_P))))
            (Σ (in-hole E (in-hole Θ_r (in-hole Θ_i e_mi))))
-           ;; The elim form must appear applied like so:
-           ;; (elim x_D U e_P m_0 ... m_i m_j ... m_n p ... (c_i p ... a ...))
-           ;; Where:
-           ;    x_D       is the inductive being eliminated
-           ;    U         is the sort of the motive
-           ;    e_P       is the motive
-           ;    m_{0..n}  are the methods
-           ;    p ...     are the parameters of x_D
-           ;    c_i       is a constructor of x_d
-           ;    a ...     are the non-parameter arguments to c_i
-           ;; Unfortunately, Θ contexts turn all this inside out:
-           ;; TODO: Write better abstractions for this notation
+           #|
+            |
+            | The elim form must appear applied like so:
+            | (elim x_D U e_P m_0 ... m_i m_j ... m_n p ... (c_i p ... a ...))
+            | -->
+            |
+            | Where:
+            |   x_D       is the inductive being eliminated
+            |   U         is the sort of the motive
+            |   e_P       is the motive
+            |   m_{0..n}  are the methods
+            |   p ...     are the parameters of x_D
+            |   c_i       is a constructor of x_d
+            |   a ...     are the non-parameter arguments to c_i
+            | Unfortunately, Θ contexts turn all this inside out:
+            | TODO: Write better abstractions for this notation
+            |#
            (where (in-hole (Θ_p (in-hole Θ_i x_ci)) Θ_m)
                   Θ)
+           (where Ξ (parameters-of Σ x_D))
+           (judgment-holds (telescope-types Σ ∅ Θ_p Ξ))
            (where (in-hole Θ_a Θ_p)
                   Θ_i)
            (where ((x_c* : t_c*) ...)
@@ -604,6 +611,15 @@
     (check-equal?
       (term (constructor-of ,Σ s))
       (term nat)))
+
+  ;; TODO: inlined at least in type-infer
+  ;; TODO: Define generic traversals of Σ and Γ ?
+  (define-metafunction cic-redL
+    parameters-of : Σ x -> Ξ
+    [(parameters-of (Σ (x_D : (in-hole Ξ U) ((x : t) ...))) x_D)
+     Ξ]
+    [(parameters-of (Σ (x_1 : t_1 ((x : t) ...))) x_D)
+     (parameters-of Σ x_D)])
 
   ;; Returns the constructors for the inductively defined type x_D in
   ;; the signature Σ
@@ -1011,10 +1027,10 @@
     (check-holds
       (type-check ,Σ ∅ ,zero? (Π (x : nat) bool)))
     (check-equal?
-      (term (reduce ,Σ (,zero? z)))
+      (term (reduce ,Σ (,zero? zero)))
       (term true))
     (check-equal?
-      (term (reduce ,Σ (,zero? (s z))))
+      (term (reduce ,Σ (,zero? (s zero))))
       (term false))
     (define ih-equal?
       (term (((((elim nat) Type) (λ (x : nat) bool))
@@ -1025,20 +1041,26 @@
                   ,ih-equal?
                   (Π (x : nat) bool)))
     (check-holds
+      (type-infer ,Σ ∅ nat (Unv 0)))
+    (check-holds
+      (type-infer ,Σ ∅ bool (Unv 0)))
+    (check-holds
+      (type-infer ,Σ ∅ (λ (x : nat) (Π (x : nat) bool)) (Π (x : nat) (Unv 0))))
+    (define nat-equal?
+      (term (((((elim nat) Type) (λ (x : nat) (Π (x : nat) bool)))
+         ,zero?)
+        (λ (x : nat) (λ (x_ih : (Π (x : nat) bool))
+                            ,ih-equal?)))))
+    (check-holds
       (type-check ,Σ ∅
-                  (((((((elim nat) Type) (λ (x : nat) (Π (x : nat) bool)))
-                      ,zero?)
-                     (λ (x : nat) (λ (x_ih : (Π (x : nat) bool))
-                                         ,ih-equal?)))
-                    z) (s z))
+                  ,nat-equal?
                   (Π (x : nat) (Π (y : nat) bool))))
     (check-equal?
-      (term (reduce ,Σ (((((((elim nat) Type) (λ (x : nat) (Π (x : nat) bool)))
-                 ,zero?)
-                (λ (x : nat) (λ (x_ih : (Π (x : nat) bool))
-                                    ,ih-equal?)))
-               z) (s z))))
-      false)))
+      (term (reduce ,Σ ((,nat-equal? zero) (s zero))))
+      (term false))
+    (check-equal?
+      (term (reduce ,Σ ((,nat-equal? (s zero)) zero)))
+      (term false))))
 
 ;; This module just provide module language sugar over the redex model.
 

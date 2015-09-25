@@ -78,8 +78,8 @@
 ;; TODO: inductive D is defined.
 (define-syntax (case* syn)
   (syntax-case syn ()
-    [(_ D U e P clause* ...)
-     #`(elim D U P #,@(map rewrite-clause (syntax->list #'(clause* ...))) e)]))
+    [(_ D U e (p ...) P clause* ...)
+     #`(elim D U P #,@(map rewrite-clause (syntax->list #'(clause* ...))) p ... e)]))
 
 (define-syntax-rule (define-theorem name prop)
   (define name prop))
