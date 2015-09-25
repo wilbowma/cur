@@ -96,11 +96,13 @@ For instance, Cur does not currently perform strict positivity checking.
           ((((conj Bool) Bool) true) false)]
 }
 
-@defform[(elim type motive-result-type)]{
-Returns the inductive eliminator for @racket[type] where the result type of the motive is
-@racket[motive-result-type]. The eliminator expects a motive, methods for each of the constructors of the
-inductive type @racket[type], parameters @racket[p ...] for the inductive @racket[type], and finally a
-type of @racket[(type p ...)].
+@defform[(elim type motive-universe)]{
+Returns the inductive eliminator for @racket[type] where the @racket[motive-universe] is the universe
+of the motive.
+The eliminator expects the next argument to be the motive, the next @racket[N] arguments to be the methods for
+each of the @racket[N] constructors of the inductive type @racket[type], the next @racket[P] arguments
+to be the parameters @racket[p_0 ... p_P] of the inductive @racket[type], and the final argument to be the term to
+eliminate of type @racket[(type p_0 ... p_P)].
 
 The following example runs @racket[(sub1 (s z))].
 
