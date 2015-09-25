@@ -47,4 +47,36 @@
   (check-equal? (nat-equal? z (s z)) false)
   (check-equal? (nat-equal? (s z) (s z)) true))
 
+(define (even? (n : Nat))
+  (elim Nat Type (lambda (x : Nat) Bool)
+        false
+        (lambda* (n : Nat) (odd? : Bool)
+           (not odd?))
+        n))
 
+(define (odd? (n : Nat))
+  (and (not (even? n))
+    (not (nat-equal? n z))))
+
+(module+ test
+  (check-equal?
+    (even? z)
+    false)
+  (check-equal?
+    (even? (s z))
+    false)
+  (check-equal?
+    (even? (s (s z)))
+    true)
+  (check-equal?
+    (odd? z)
+    false)
+  (check-equal?
+    (odd? (s z))
+    true)
+  (check-equal?
+    (odd? (s (s z)))
+    false)
+  (check-equal?
+    (odd? (s (s (s z))))
+    true))
