@@ -4,6 +4,11 @@
   ->*
   forall*
   lambda*
+  (rename-out
+    [-> →]
+    [->* →*]
+    [lambda* λ*]
+    [forall* ∀*])
   #%app
   define
   elim
@@ -116,3 +121,24 @@
 (define-syntax (run syn)
   (syntax-case syn ()
     [(_ expr) (normalize/syn #'expr)]))
+
+(module+ test
+  (require rackunit (submod ".."))
+
+  (check-equal?
+    ((λ* (x : (Type 1)) (y : (∀* (x : (Type 1)) (Type 1))) (y x))
+     Type
+     (λ (x : (Type 1)) x))
+    Type)
+
+  (check-equal?
+    ((λ* (x : (Type 1)) (y : (→* (Type 1) (Type 1))) (y x))
+     Type
+     (λ (x : (Type 1)) x))
+    Type)
+
+  (check-equal?
+    ((λ* (x : (Type 1)) (y : (→ (Type 1) (Type 1))) (y x))
+     Type
+     (λ (x : (Type 1)) x))
+    Type))
