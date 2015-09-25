@@ -32,18 +32,16 @@
   (check-equal? (plus (s (s z)) (s (s z))) (s (s (s (s z))))))
 
 ;; Credit to this function goes to Max
-(define (nat-equal? (n1 : Nat))
-  (elim Nat n1 (lambda (x : Nat) (-> Nat Bool))
-    (lambda (n2 : Nat)
-      (elim Nat n2 (lambda (x : Nat) Bool)
-        true
-        (lambda* (x : Nat) (ih-n2 : Bool) false)))
+(define nat-equal?
+  (elim Nat Type (lambda (x : Nat) (-> Nat Bool))
+    (elim Nat Type (lambda (x : Nat) Bool)
+          true
+          (lambda* (x : Nat) (ih-n2 : Bool) false))
     (lambda* (x : Nat) (ih : (-> Nat Bool))
-      (lambda (n2 : Nat)
-        (elim Nat n2 (lambda (x : Nat) Bool)
-          false
-          (lambda* (x : Nat) (ih-bla : Bool)
-            (ih x)))))))
+      (elim Nat Type (lambda (x : Nat) Bool)
+            false
+            (lambda* (x : Nat) (ih-bla : Bool)
+                     (ih x))))))
 (module+ test
   (check-equal? (nat-equal? z z) true)
   (check-equal? (nat-equal? z (s z)) false)

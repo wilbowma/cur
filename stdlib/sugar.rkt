@@ -76,6 +76,7 @@
 
 ;; TODO: Expects clauses in same order as constructors as specified when
 ;; TODO: inductive D is defined.
+;; TODO: Assumes D has no parameters
 (define-syntax (case syn)
   ;; duplicated code
   (define (clause-body syn)
@@ -85,13 +86,15 @@
   (syntax-case syn (=>)
     [(_ e clause* ...)
      (let* ([D (type-infer/syn #'e)]
-            [M (type-infer/syn (clause-body #'(clause* ...)))])
-       #`(elim #,D e (lambda (x : #,D) #,M) #,@(map rewrite-clause (syntax->list #'(clause* ...)))))]))
+            [M (type-infer/syn (clause-body #'(clause* ...)))]
+            [U (type-infer/syn M)])
+       #`(elim #,D U (lambda (x : #,D) #,M) #,@(map rewrite-clause (syntax->list #'(clause* ...)))
+               e))]))
 
 (define-syntax (case* syn)
-  (syntax-case syn (=>)
-    [(_ D e M clause* ...)
-     #`(elim D e M #,@(map rewrite-clause (syntax->list #'(clause* ...))))]))
+  (syntax-case syn ()
+    [(_ D U e (p ...) P clause* ...)
+     #`(elim D U P #,@(map rewrite-clause (syntax->list #'(clause* ...))) p ... e)]))
 
 (define-syntax-rule (define-theorem name prop)
   (define name prop))

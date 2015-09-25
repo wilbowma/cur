@@ -9,7 +9,8 @@
 (module+ test
   (require rackunit "bool.rkt")
   #;(check-equal?
-    (case (some Bool true)
+    (case* Maybe Type (some Bool true) (Bool)
+      (lambda* (A : Type) (x : (Maybe A)) A)
       [(none (A : Type)) IH: ()
        false]
       [(some (A : Type) (x : A)) IH: ()

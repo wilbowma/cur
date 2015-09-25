@@ -33,7 +33,7 @@
 
 (define proof:and-is-symmetric
   (lambda* (P : Type) (Q : Type) (ab : (And P Q))
-    (case* And ab
+    (case* And Type ab (P Q)
       (lambda* (P : Type) (Q : Type) (ab : (And P Q))
          (And Q P))
       ((conj (P : Type) (Q : Type) (x : P) (y : Q)) IH: () (conj Q P y x)))))
@@ -45,7 +45,7 @@
 
 (define proof:proj1
   (lambda* (A : Type) (B : Type) (c : (And A B))
-    (case* And c
+    (case* And Type c (A B)
       (lambda* (A : Type) (B : Type) (c : (And A B)) A)
       ((conj (A : Type) (B : Type) (a : A) (b : B)) IH: () a))))
 
@@ -56,7 +56,7 @@
 
 (define proof:proj2
   (lambda* (A : Type) (B : Type) (c : (And A B))
-    (case* And c
+    (case* And Type c (A B)
       (lambda* (A : Type) (B : Type) (c : (And A B)) B)
       ((conj (A : Type) (B : Type) (a : A) (b : B)) IH: () b))))
 
