@@ -1,9 +1,9 @@
 #lang s-exp "../cur.rkt"
 (provide
-  ->
-  ->*
-  forall*
-  lambda*
+  -> →
+  ->* →*
+  forall* ∀*
+  lambda* λ*
   #%app
   define
   elim
@@ -28,11 +28,21 @@
   (syntax-case syn ()
     [(_ t1 t2) #`(forall (#,(gensym) : t1) t2)]))
 
+(define-syntax →
+  (syntax-rules ()
+    [(_ e ...)
+     (-> e ...)]))
+
 (define-syntax ->*
   (syntax-rules ()
     [(->* a) a]
     [(->* a a* ...)
      (-> a (->* a* ...))]))
+
+(define-syntax →*
+  (syntax-rules ()
+    [(_ e ...)
+     (->* e ...)]))
 
 (define-syntax forall*
   (syntax-rules (:)
@@ -41,12 +51,22 @@
         (forall* (ar : tr) ... b))]
     [(_ b) b]))
 
+(define-syntax ∀*
+  (syntax-rules ()
+    [(_ e ...)
+     (forall* e ...)]))
+
 (define-syntax lambda*
   (syntax-rules (:)
     [(_ (a : t) (ar : tr) ... b)
      (lambda (a : t)
        (lambda* (ar : tr) ... b))]
     [(_ b) b]))
+
+(define-syntax λ*
+  (syntax-rules ()
+    [(_ e ...)
+     (lambda* e ...)]))
 
 (define-syntax (#%app syn)
   (syntax-case syn ()
