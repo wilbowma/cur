@@ -52,7 +52,7 @@
     (list
       "Hahahahahahahaha."
       "Lawl."
-      "Why don't you just do it right the first time?"
+      "Why didn't you just do it right the first time?"
       "Stupid human."
       "I've been waiting for this.")))
 (define-tactic (restart ps)
@@ -88,10 +88,10 @@
   (define no-quit-jabs
     (list
       "Na."
-      "How about instead I just delete all your work?"
+      "How about instead I just delete all of your work?"
       "I don't think you're ready yet.")))
 (define-tactic (interactive ps)
-  (printf "Starting interactive tactic session. Prepared to be sassed:~n")
+  (printf "Starting interactive tactic session. Prepare to be sassed:~n")
   (printf "Type (quit) to quit.~n")
   (let loop ([ps ps] [cmds '()])
     (if (proof-state-proof-complete? ps)
