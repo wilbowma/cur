@@ -174,14 +174,10 @@
                     [e (parameterize ([gamma (extend-Γ/term gamma x t)])
                          (cur->datum #'e))])
                (term (,(syntax->datum #'b) (,x : ,t) ,e)))]
-            [(elim t e P m ...)
-             (let* ([t (cur->datum #'t)]
-                    [e (cur->datum #'e)]
-                    [P (cur->datum #'P)]
-                    [e (term (((elim ,t) ,e) ,P))])
-               (for/fold ([e e])
-                         ([m (syntax->list #'(m ...))])
-                 (term (,e ,(cur->datum m)))))]
+            [(elim t1 t2)
+             (let* ([t1 (cur->datum #'t1)]
+                    [t2 (cur->datum #'t2)])
+               (term ((elim ,t1) ,t2)))]
             [(#%app e1 e2)
              (term (,(cur->datum #'e1) ,(cur->datum #'e2)))]))))
     (unless (and inner-expand? (type-infer/term reified-term))
@@ -414,10 +410,10 @@
        #'(void))]))
 
 (define-syntax (dep-elim syn)
-  (syntax-case syn (:)
-    [(_ D e P method ...)
+  (syntax-case syn ()
+    [(_ D T)
      (syntax->curnel-syntax
-       (quasisyntax/loc syn (elim D e P method ...)))]))
+       (quasisyntax/loc syn (elim D T)))]))
 
 ;; TODO: Not sure if this is the correct behavior for #%top
 (define-syntax (dep-top syn)
