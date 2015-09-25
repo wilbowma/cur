@@ -169,9 +169,9 @@
 
   (define-extended-language cic-redL cicL
     ;; call-by-value, plus reduce under Π (helps with typing checking)
-    (E   ::= hole (v E) (E e) 
-             (Π (x : (in-hole Θ x)) E) 
-             (Π (x : v) E) 
+    (E   ::= hole (v E) (E e)
+             (Π (x : (in-hole Θ x)) E)
+             (Π (x : v) E)
              (Π (x : E) e))
     ;; Σ (signature). (inductive-name : type ((constructor : type) ...))
     (Σ   ::= ∅ (Σ (x : t ((x : t) ...))))
@@ -186,7 +186,8 @@
 
   (module+ test
     ;; TODO: Rename these signatures, and use them in all future tests.
-    (define Σ (term (∅ (nat : (Unv 0) ((zero : nat) (s : (Π (x : nat) nat)))))))
+    (define Σ (term ((∅ (nat : (Unv 0) ((zero : nat) (s : (Π (x : nat) nat)))))
+                        (bool : (Unv 0) ((true : bool) (false : bool))))))
     (define Σ0 (term ∅))
     (define Σ3 (term (∅ (and : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0))) ()))))
     (define Σ4 (term (∅ (and : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
@@ -1000,7 +1001,44 @@
     (check-holds
       (type-check ,sigma (,gamma x : false)
              ((((elim false) (Unv 0)) (λ (y : false) (Π (x : Type) x))) x)
-             (Π (x : (Unv 0)) x)))))
+             (Π (x : (Unv 0)) x)))
+
+    ;; nat-equal? tests
+    (define zero?
+      (term (((((elim nat) Type) (λ (x : nat) bool))
+                         true)
+                        (λ (x : nat) (λ (x_ih : bool) false)))))
+    (check-holds
+      (type-check ,Σ ∅ ,zero? (Π (x : nat) bool)))
+    (check-equal?
+      (term (reduce ,Σ (,zero? z)))
+      (term true))
+    (check-equal?
+      (term (reduce ,Σ (,zero? (s z))))
+      (term false))
+    (define ih-equal?
+      (term (((((elim nat) Type) (λ (x : nat) bool))
+         false)
+        (λ (x : nat) (λ (y : bool) (x_ih x))))))
+    (check-holds
+      (type-check ,Σ (∅ x_ih : (Π (x : nat) bool))
+                  ,ih-equal?
+                  (Π (x : nat) bool)))
+    (check-holds
+      (type-check ,Σ ∅
+                  (((((((elim nat) Type) (λ (x : nat) (Π (x : nat) bool)))
+                      ,zero?)
+                     (λ (x : nat) (λ (x_ih : (Π (x : nat) bool))
+                                         ,ih-equal?)))
+                    z) (s z))
+                  (Π (x : nat) (Π (y : nat) bool))))
+    (check-equal?
+      (term (reduce ,Σ (((((((elim nat) Type) (λ (x : nat) (Π (x : nat) bool)))
+                 ,zero?)
+                (λ (x : nat) (λ (x_ih : (Π (x : nat) bool))
+                                    ,ih-equal?)))
+               z) (s z))))
+      false)))
 
 ;; This module just provide module language sugar over the redex model.
 
