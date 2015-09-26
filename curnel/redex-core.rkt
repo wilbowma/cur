@@ -330,7 +330,7 @@
                 Θ)
          ;; Check that Θ_p actually matches the parameters of x_D, to ensure it doesn't capture other
          ;; arguments.
-         (where Ξ (parameters-of Σ x_D))
+         (judgment-holds (_parameters-of Σ x_D Ξ))
          (judgment-holds (telescope-types Σ ∅ Θ_p Ξ))
          ;; Ensure the constructor x_ci is applied to Θ_p first, then some arguments Θ_a
          (where (in-hole Θ_a Θ_p)
@@ -564,33 +564,33 @@
 ;; defined type x_D, whose parameters/indices are Ξ_pi and whose
 ;; constructors are ((x_ci : t_ci) ...), with motive t_P.
 (define-metafunction cic-redL
-  methods-for : x Ξ t ((x : t) ...) -> Ξ
-  [(methods-for x_D Ξ_pi t_P ()) hole]
-  [(methods-for x_D Ξ_pi t_P ((x_ci : (in-hole Ξ_pi (in-hole Φ (in-hole Θ x_D))))
+  methods-for : x t ((x : t) ...) -> Ξ
+  [(methods-for x_D t_P ()) hole]
+  [(methods-for x_D t_P ((x_ci : (in-hole Φ (in-hole Θ x_D)))
                                     (x_c : t) ...))
-   (Π (x_mi : (in-hole Ξ_pi (in-hole Φ (in-hole Φ_h
-                                                ;; NB: Manually reducing types because no conversion
-                                                ;; NB: rule
-                                                ;; TODO: Thread through Σ for reduce
-                                                ;; TODO: Might be able to remove this now that I have
-                                                ;; TODO: equivalence in type-check
-                                                (reduce ∅ ((in-hole Θ t_P) (apply-telescopes x_ci (Ξ_pi Φ))))))))
-      (methods-for x_D Ξ_pi t_P ((x_c : t) ...)))
+   (Π (x_mi : (in-hole Φ (in-hole Φ_h
+                                  ;; NB: Manually reducing types because no conversion
+                                  ;; NB: rule
+                                  ;; TODO: Thread through Σ for reduce
+                                  ;; TODO: Might be able to remove this now that I have
+                                  ;; TODO: equivalence in type-check
+                                  (reduce ∅ ((in-hole Θ t_P) (apply-telescope x_ci Φ))))))
+      (methods-for x_D t_P ((x_c : t) ...)))
    (where Φ_h (hypotheses-for x_D t_P (inductive-args x_D Φ)))
    ;; NB: Lol hygiene
    (where x_mi ,(string->symbol (format "~a-~a" 'm (term x_ci))))])
 (module+ test
   (check-equal?
-    (term (methods-for nat hole P ((zero : nat) (s : (Π (x : nat) nat)))))
+    (term (methods-for nat P ((zero : nat) (s : (Π (x : nat) nat)))))
     (term (Π (m-zero : (P zero))
              (Π (m-s : (Π (x : nat) (Π (ih-x : (P x)) (P (s x)))))
                 hole))))
   (check-equal?
-    (term (methods-for nat hole (λ (x : nat) nat) ((zero : nat) (s : (Π (x : nat) nat)))))
+    (term (methods-for nat (λ (x : nat) nat) ((zero : nat) (s : (Π (x : nat) nat)))))
     (term (Π (m-zero : nat) (Π (m-s : (Π (x : nat) (Π (ih-x : nat) nat)))
                                    hole))))
   (check-equal?
-    (term (methods-for and (Π (A : Type) (Π (B : Type) hole))
+    (term (methods-for and
                        (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) true)))
                        ((conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B)
                                                                              ((and A) B)))))))))
@@ -601,7 +601,7 @@
   (check-true (t? (term (λ (y : false) (Π (x : Type) x)))))
   (check-true (redex-match? cicL ((x : t) ...) (term ())))
   (check-equal?
-    (term (methods-for false hole (λ (y : false) (Π (x : Type) x))
+    (term (methods-for false (λ (y : false) (Π (x : Type) x))
                        ()))
     (term hole)))
 
@@ -621,14 +621,39 @@
     (term (constructor-of ,Σ s))
     (term nat)))
 
-;; TODO: inlined at least in type-infer
 ;; TODO: Define generic traversals of Σ and Γ ?
+;; Figure out what the parameters of an inductive type are, based on the constructor.
+(define-judgment-form cic-typingL
+  #:mode (_parameters-of I I O)
+  #:contract (_parameters-of Σ x Ξ)
+
+  [(side-condition ,(map (curry equal? (term Ξ)) (term (Ξ_* ...))))
+   (side-condition ,(map (curry equal? (term x_D)) (term (x_D* ...))))
+   ;; Not enough conditions to be right, but enough to mostly work
+   -----------------
+   (_parameters-of (Σ (x_D : (in-hole Ξ t_D)
+                          ((x : (in-hole Ξ_* (in-hole Φ (in-hole Θ_* x_D*)))) ...)))
+                  x_D
+                  Ξ)]
+
+  [(_parameters-of Σ x_D Ξ)
+   (side-condition ,(not (equal? (term x_1) (term x_D))))
+   ---------------------
+   (_parameters-of (Σ (x_1 : t_1 ((x : t) ...))) x_D Ξ)]
+  )
+
+
 (define-metafunction cic-redL
   parameters-of : Σ x -> Ξ
-  [(parameters-of (Σ (x_D : (in-hole Ξ U) ((x : t) ...))) x_D)
-   Ξ]
-  [(parameters-of (Σ (x_1 : t_1 ((x : t) ...))) x_D)
-   (parameters-of Σ x_D)])
+  [(parameters-of Σ x_D)
+   ,(car (judgment-holds (_parameters-of Σ x_D Ξ) Ξ))])
+(module+ test
+  (check-equal?
+    (term (parameters-of ,Σ nat))
+    (term hole))
+  (check-equal?
+    (judgment-holds (_parameters-of ,Σ4 and Ξ) Ξ)
+    (term (Π (A : Type) (Π (B : Type) hole)))))
 
 ;; Returns the constructors for the inductively defined type x_D in
 ;; the signature Σ
@@ -669,7 +694,7 @@
                   (term ((hole zero) (λ (x : nat) x)))))
   (check-holds
     (telescope-types ,Σ ∅ (hole zero)
-                     (methods-for nat hole
+                     (methods-for nat
                                   (λ (x : nat) nat)
                                   ((zero : nat)))))
   (check-holds
@@ -679,20 +704,20 @@
     (telescope-types ,Σ ∅
                      ((hole zero)
                       (λ (x : nat) (λ (ih-x : nat) x)))
-                     (methods-for nat hole
+                     (methods-for nat
                                   (λ (x : nat) nat)
                                   (constructors-for ,Σ nat))))
   (check-holds
     (telescope-types (,Σ4 (true : (Unv 0) ((tt : true))))
                      ∅ (hole (λ (A : (Unv 0)) (λ (B : (Unv 0))
                                                     (λ (a : A) (λ (b : B) tt)))))
-                     (methods-for and (Π (A : Type) (Π (B : Type) hole))
+                     (methods-for and
                                   (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) true)))
                                   (constructors-for ,Σ4 and))))
   (check-holds
     (telescope-types ,sigma (∅ x : false)
                      hole
-                     (methods-for false hole (λ (y : false) (Π (x : Type) x))
+                     (methods-for false (λ (y : false) (Π (x : Type) x))
                                   ()))))
 
 ;; TODO: Bi-directional and inference?
@@ -733,7 +758,8 @@
    ----------------- "DTR-Abstraction"
    (type-infer Σ Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
 
-  [(type-infer Σ Γ x_D (in-hole Ξ U_D))
+  [(type-infer Σ Γ x_D (in-hole Ξ t_D))
+   (_parameters-of Σ x_D Ξ)
    ;; A fresh name to bind the discriminant
    (where x (fresh-x Σ Γ x_D Ξ))
    ;; The telescope (∀ a -> ... -> (D a ...) hole), i.e.,
@@ -743,7 +769,7 @@
    ;; A fresh name for the motive
    (where x_P (fresh-x Σ Γ x_D Ξ Ξ_P*D x))
    ;; The types of the methods for this inductive.
-   (where Ξ_m (methods-for x_D Ξ x_P (constructors-for Σ x_D)))
+   (where Ξ_m (methods-for x_D x_P (constructors-for Σ x_D)))
    ----------------- "DTR-Elim_D"
    (type-infer Σ Γ ((elim x_D) U)
      ;; The type of ((elim x_D) U) is something like:
@@ -807,10 +833,10 @@
   (check-holds (type-infer ,Σtruth ∅ (λ (x : truth) (Unv 1))
                            (in-hole Ξ (Π (x : (in-hole Θ truth)) U))))
   (check-equal?
-    (term (methods-for truth hole (λ (x : truth) (Unv 1)) ((T : truth))))
+    (term (methods-for truth (λ (x : truth) (Unv 1)) ((T : truth))))
     (term (Π (m-T : (Unv 1)) hole)))
   (check-holds (telescope-types ,Σtruth ∅ (hole (Unv 0))
-                                (methods-for truth hole
+                                (methods-for truth
                                              (λ (x : truth) (Unv 1))
                                              ((T : truth)))))
   (check-holds (type-infer ,Σtruth ∅ ((elim truth) Type) t))
@@ -1076,4 +1102,10 @@
     (term false))
   (check-equal?
     (term (reduce ,Σ ((,nat-equal? (s zero)) zero)))
-    (term false)))
+    (term false))
+
+  ;; == tests
+  (define Σ= (term (,Σ (== : (Π (A : Type) (Π (a : A) (Π (b : A) Type)))
+                             ((refl : (Π (A : Type) (a : A) (== A a a))))))))
+
+  )
