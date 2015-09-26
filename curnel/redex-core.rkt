@@ -313,7 +313,7 @@
          (Σ (in-hole E (in-hole Θ_r (in-hole Θ_i e_mi))))
          #|
           | The elim form must appear applied like so:
-          | (elim x_D U e_P m_0 ... m_i m_j ... m_n p ... (c_i p ... a ...))
+          | (elim x_D U e_P m_0 ... m_i m_j ... m_n p ... (c_i a ...))
           |
           | Where:
           |   x_D       is the inductive being eliminated
@@ -331,10 +331,7 @@
          ;; Check that Θ_p actually matches the parameters of x_D, to ensure it doesn't capture other
          ;; arguments.
          (judgment-holds (_parameters-of Σ x_D Ξ))
-         (judgment-holds (telescope-types Σ ∅ Θ_p Ξ))
-         ;; Ensure the constructor x_ci is applied to Θ_p first, then some arguments Θ_a
-         (where (in-hole Θ_a Θ_p)
-                Θ_i)
+         (judgment-holds (type-infer Σ ∅ (in-hole (Θ_p (in-hole Θ_i x_ci)) e_P) t))
          ;; Ensure x_ci is actually a constructor for x_D
          (where ((x_c* : t_c*) ...)
                 (constructors-for Σ x_D))
@@ -346,7 +343,7 @@
          ;; Find the method for constructor x_ci, relying on the order of the arguments.
          (where e_mi (method-lookup Σ x_D x_ci Θ_m))
          ;; Generate the inductive recursion
-         (where Θ_r (elim-recur x_D U e_P Θ_m Θ_m Θ_i (x_c* ...)))
+         (where Θ_r (elim-recur x_D U e_P (in-hole Θ_p Θ_m) Θ_m Θ_i (x_c* ...)))
          -->elim)))
 
 (define-metafunction cic-redL
@@ -1105,7 +1102,32 @@
     (term false))
 
   ;; == tests
-  (define Σ= (term (,Σ (== : (Π (A : Type) (Π (a : A) (Π (b : A) Type)))
-                             ((refl : (Π (A : Type) (a : A) (== A a a))))))))
+  (define Σ= (term (,Σ (== : (Π (A : (Unv 0)) (Π (a : A) (Π (b : A) (Unv 0))))
+                             ((refl : (Π (A : (Unv 0)) (Π (a : A) (((== A) a) a)))))))))
+  (check-true (Σ? Σ=))
 
-  )
+  (define refl-elim
+    (term ((((((((elim ==) (Unv 0)) (λ (A1 : (Unv 0)) (λ (x1 : A1) (λ (y1 : A1) (λ (p2 : (((==
+                                                                                              A1)
+                                                                                              x1)
+                                                                                             y1))
+                                                                                      nat)))))
+              (λ (A1 : (Unv 0)) (λ (x1 : A1) zero))) bool) true) true) ((refl bool) true))))
+  (check-holds
+    (type-check ,Σ= ∅ ,refl-elim nat))
+  (check-true
+    (redex-match?
+      cic-redL
+      (Σ (in-hole E (in-hole Θ (((elim x_D) U) e_P))))
+      (term (,Σ= ,refl-elim))))
+  (check-true
+    (redex-match?
+      cic-redL
+      (in-hole (Θ_p (in-hole Θ_i x_ci)) Θ_m)
+      (term (((((hole
+              (λ (A1 : (Unv 0)) (λ (x1 : A1) zero))) bool) true) true) ((refl bool) true)))))
+  (check-holds
+    (_parameters-of ,Σ= == (Π (A : Type) (Π (x : A) hole))))
+  (check-equal?
+    (term (reduce ,Σ= ,refl-elim))
+    (term zero)))
