@@ -62,6 +62,7 @@
 
 (qed thm:proj2 proof:proj2)
 
+#| TODO: Disabled until #22 fixed
 (data Or : (forall* (A : Type) (B : Type) Type)
   (left : (forall* (A : Type) (B : Type) (a : A) (Or A B)))
   (right : (forall* (A : Type) (B : Type) (b : B) (Or A B))))
@@ -79,6 +80,7 @@
       A A c)))
 
 (qed thm:A-or-A proof:A-or-A)
+|#
 
 (data == : (forall* (A : Type) (x : A) (-> A Type))
   (refl : (forall* (A : Type) (x : A) (== A x x))))

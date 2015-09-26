@@ -47,6 +47,7 @@
   (check-equal? (nat-equal? z (s z)) false)
   (check-equal? (nat-equal? (s z) (s z)) true))
 
+#| TODO: Disabled until #20 fixed
 (define (even? (n : Nat))
   (elim Nat Type (lambda (x : Nat) Bool)
         false
@@ -80,3 +81,4 @@
   (check-equal?
     (odd? (s (s (s z))))
     true))
+|#
