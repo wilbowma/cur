@@ -17,6 +17,7 @@
   ;; Basic syntax
   for-syntax
   only-in
+  except-in
   all-defined-out
   rename-in
   rename-out
@@ -44,9 +45,9 @@
     [dep-top-interaction #%top-interaction]
 
     ;      [dep-datum #%datum]
-    [dep-define define])
+    [dep-define define]
+    [dep-void void])
   begin
-  void
   Type
   ;; DYI syntax extension
   define-syntax
@@ -414,6 +415,8 @@
     [(_ D T)
      (syntax->curnel-syntax
        (quasisyntax/loc syn (elim D T)))]))
+
+(define-syntax-rule (dep-void) (void))
 
 ;; TODO: Not sure if this is the correct behavior for #%top
 (define-syntax (dep-top syn)

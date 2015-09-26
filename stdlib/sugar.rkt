@@ -1,4 +1,4 @@
-#lang s-exp "../cur.rkt"
+#lang s-exp "../curnel/redex-lang.rkt"
 (provide
   ->
   ->*
@@ -16,6 +16,7 @@
   case
   case*
   run
+  query-type
 
   ;; don't use these
   define-theorem
@@ -121,6 +122,14 @@
 (define-syntax (run syn)
   (syntax-case syn ()
     [(_ expr) (normalize/syn #'expr)]))
+
+(define-syntax (query-type syn)
+  (syntax-case syn ()
+    [(_ term)
+     (begin
+       (printf "\"~a\" has type \"~a\"~n" (syntax->datum #'term) (syntax->datum (type-infer/syn #'term)))
+       ;; Void is undocumented and a hack, but sort of works
+       #'(void))]))
 
 (module+ test
   (require rackunit (submod ".."))

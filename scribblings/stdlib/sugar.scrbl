@@ -149,10 +149,15 @@ Necessary for more advanced types, like @racket[And], because @racket[case] is n
 Like @racket[normalize/syn], but is a syntactic form which allows a Cur term to be written by
 computing part of the term from another Cur term.
 
-@margin-note{This one is a real working example, assuming the @racketmodname[cur/stdlib/bool] and
-@racketmodname[cur/stdlib/nat] are loaded. Also, could be moved outside the privileged code.}
-
 @examples[#:eval curnel-eval
           (lambda (x : (run (if true Bool Nat))) x)]
+
+}
+
+@defform[(query-type expr)]{
+Print the type of @racket[expr], at compile-time. Similar to Coq's @racketfont{Check}.
+
+@examples[#:eval curnel-eval
+          (query-type Bool)]
 
 }
