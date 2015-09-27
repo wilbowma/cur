@@ -35,7 +35,8 @@
   (i ::= natural)
   (U ::= (Unv i))
   (x ::= variable-not-otherwise-mentioned)
-  (v ::= (Π (x : t) t) (λ (x : t) t) elim x U)
+  (v ::= (Π (x : t) t) (λ (x : t) t) elim x U capp)
+  (capp ::= (x v) (capp v))
   (t e ::= v (t t)))
 
 (define x? (redex-match? cicL x))
@@ -62,7 +63,12 @@
   (check-true (e? (term (λ (x_0 : (Unv 0)) x_0))))
   (check-true (v? (term (λ (x_0 : (Unv 0)) x_0))))
   (check-true (t? (term (λ (x_0 : (Unv 0)) x_0))))
-  (check-true (t? (term (λ (x_0 : (Unv 0)) x_0)))))
+  (check-true (t? (term (λ (x_0 : (Unv 0)) x_0))))
+  (check-true
+    (v? (term (refl Nat))))
+  (check-true
+    (v? (term ((refl Nat) z))))
+  )
 
 ;; 'A'
 ;; Types of Universes
