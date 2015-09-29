@@ -60,6 +60,7 @@
   (for-syntax (all-from-out racket))
   ;; reflection
   (for-syntax
+    cur->datum
     cur-expand
     type-infer/syn
     type-check/syn?
@@ -127,13 +128,6 @@
   (define (type-check/term? e t)
     (and (judgment-holds (type-check ,(sigma) ,(gamma) ,e ,t)) #t))
 
-  (define (syntax->curnel-syntax syn) (denote syn (cur->datum syn)))
-
-  (define (denote syn t)
-    (quasisyntax/loc
-      syn
-      (term (reduce #,(sigma) (subst-all #,(datum->syntax syn t) #,(first (bind-subst)) #,(second (bind-subst)))))))
-
   ;; TODO: Blanket disarming is probably a bad idea.
   (define orig-insp (variable-reference->module-declaration-inspector (#%variable-reference)))
   (define (disarm syn) (syntax-disarm syn orig-insp))
@@ -152,7 +146,7 @@
   ;; algorithm to find the smallest ill-typed term.
   (define inner-expand? (make-parameter #f))
 
-  ;; Expand a piece of syntax into a curnel redex term
+  ;; Reifiy cur syntax into curnel datum
   (define (cur->datum syn)
     ;; Main loop; avoid type
     (define reified-term
@@ -189,31 +183,63 @@
                           syn))
     reified-term)
 
-  ;; Reflection tools
-  #| TODO:
-   | Why is this not just (define (normalize/syn syn) (denote syn syn))?
-   | Well, because that has a very different meaning. Apparently.
-   |#
-  (define (normalize/syn syn)
-    (denote
-      syn
-      (term (reduce ,(sigma) (subst-all ,(cur->datum syn) ,(first (bind-subst)) ,(second (bind-subst)))))))
+  (define (datum->cur syn t)
+    (match t
+      [(list (quote term) e)
+       (quasisyntax/loc
+         syn
+         (datum->cur syn e))]
+      [(list (quote Unv) i)
+       (quasisyntax/loc
+         syn
+         (Type #,i))]
+      [(list (quote Π) (list x (quote :) t) body)
+       (quasisyntax/loc
+         syn
+         (dep-forall (#,(datum->syntax syn x) : #,(datum->cur syn t)) #,(datum->cur syn body)))]
+      [(list (quote λ) (list x (quote :) t) body)
+       (quasisyntax/loc
+         syn
+         (dep-lambda (#,(datum->syntax syn x) : #,(datum->cur syn t)) #,(datum->cur syn body)))]
+      [(list (list (quote elim) t1) t2)
+       (quasisyntax/loc
+         syn
+         (dep-elim #,(datum->cur syn t1) #,(datum->cur syn t2)))]
+      [(list e1 e2)
+       (quasisyntax/loc
+         syn
+         (dep-app #,(datum->cur syn e1) #,(datum->cur syn e2)))]
+      [_
+       (quasisyntax/loc
+         syn
+         #,(datum->syntax syn t))]))
 
-  (define (run-cur->datum syn)
-    (cur->datum (normalize/syn syn)))
+  (define (eval-cur syn)
+    (term (reduce ,(sigma) (subst-all ,(cur->datum syn) ,(first (bind-subst)) ,(second (bind-subst))))))
+
+  (define (syntax->curnel-syntax syn)
+    (quasisyntax/loc
+      syn
+      (term (reduce #,(sigma) (subst-all #,(cur->datum syn) #,(first (bind-subst)) #,(second (bind-subst)))))))
+
+  ;; Reflection tools
+
+  (define (normalize/syn syn)
+    (datum->cur
+      syn
+      (eval-cur syn)))
+
 
   ;; Are these two terms equivalent in type-systems internal equational reasoning?
   (define (cur-equal? e1 e2)
-    (and (judgment-holds (equivalent ,(sigma) ,(run-cur->datum e1) ,(run-cur->datum e2)) #t)))
+    (and (judgment-holds (equivalent ,(sigma) ,(eval-cur e1) ,(eval-cur e2)) #t)))
 
-  ;; TODO: OOps, type-infer doesn't return a cur term but a redex term
-  ;; wrapped in syntax bla. This is bad.
   (define (type-infer/syn syn)
-    (let ([t (type-infer/term (run-cur->datum syn))])
-      (and t (datum->syntax syn t))))
+    (let ([t (type-infer/term (eval-cur syn))])
+      (and t (datum->cur syn t))))
 
   (define (type-check/syn? syn type)
-    (type-check/term? (run-cur->datum syn) (run-cur->datum type)))
+    (type-check/term? (eval-cur syn) (eval-cur type)))
 
   ;; Takes a Cur term syn and an arbitrary number of identifiers ls. The cur term is
   ;; expanded until expansion reaches a Curnel form, or one of the
@@ -376,7 +402,6 @@
 ;; Core wrapper macros
 ;;
 ;; TODO: Can these be simplified further?
-#;(define-syntax (dep-datum syn) (denote #'syn))
 (define-syntax (dep-lambda syn)
   (syntax-case syn (:)
     [(_ (x : t) e)
@@ -426,7 +451,7 @@
      (let ([t (core-expand #'id)])
        (if (equal? (syntax->datum t) '(void))
            #'(void)
-           (normalize/syn t)))]))
+           (syntax->curnel-syntax t)))]))
 
 (define-syntax (dep-top-interaction syn)
   (syntax-case syn ()
