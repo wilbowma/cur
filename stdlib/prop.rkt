@@ -84,3 +84,14 @@
 
 (data == : (forall* (A : Type) (x : A) (-> A Type))
   (refl : (forall* (A : Type) (x : A) (== A x x))))
+
+(module+ test
+  (require rackunit "bool.rkt" "nat.rkt")
+  (check-equal?
+    (elim == Type (λ* (A : Type) (x : A) (y : A) (p : (== A x y)) Nat)
+         (λ* (A : Type) (x : A) z)
+         Bool
+         true
+         true
+         (refl Bool true))
+    z))
