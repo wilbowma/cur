@@ -173,7 +173,7 @@
             [(elim t1 t2)
              (let* ([t1 (cur->datum #'t1)]
                     [t2 (cur->datum #'t2)])
-               (term ((elim ,t1) ,t2)))]
+               (term (elim ,t1 ,t2)))]
             [(#%app e1 e2)
              (term (,(cur->datum #'e1) ,(cur->datum #'e2)))]))))
     (unless (and inner-expand? (type-infer/term reified-term))

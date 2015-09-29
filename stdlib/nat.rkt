@@ -47,22 +47,20 @@
   (check-equal? (nat-equal? z (s z)) false)
   (check-equal? (nat-equal? (s z) (s z)) true))
 
-#| TODO: Disabled until #20 fixed
 (define (even? (n : Nat))
   (elim Nat Type (lambda (x : Nat) Bool)
-        false
+        true
         (lambda* (n : Nat) (odd? : Bool)
            (not odd?))
         n))
 
 (define (odd? (n : Nat))
-  (and (not (even? n))
-    (not (nat-equal? n z))))
+  (not (even? n)))
 
 (module+ test
   (check-equal?
     (even? z)
-    false)
+    true)
   (check-equal?
     (even? (s z))
     false)
@@ -81,4 +79,4 @@
   (check-equal?
     (odd? (s (s (s z))))
     true))
-|#
+
