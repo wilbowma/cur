@@ -41,9 +41,9 @@ Returns the type of the Cur term @racket[syn], or @racket[#f] if no type could b
 
 @examples[
 (eval:alts (type-infer/syn #'(lambda (x : Type) x))
-           (eval:result @racket[#'(Π (x : (Unv 0)) (Unv 0))] "" ""))
+           (eval:result @racket[#'(forall (x : (Type 0)) (Type 0))] "" ""))
 (eval:alts (type-infer/syn #'Type)
-           (eval:result @racket[#'(Unv 1)] "" ""))
+           (eval:result @racket[#'(Type 1)] "" ""))
 ]
 }
 
@@ -52,10 +52,12 @@ Returns the type of the Cur term @racket[syn], or @racket[#f] if no type could b
 Returns @racket[#t] if the Cur term @racket[syn] is well-typed, or @racket[#f] otherwise.
 
 @examples[
-(eval:alts (type-infer/syn #'(lambda (x : Type) x))
-           (eval:result @racket[#'(Π (x : (Unv 0)) (Unv 0))] "" ""))
-(eval:alts (type-infer/syn #'Type)
-           (eval:result @racket[#'(Unv 1)] "" ""))
+(eval:alts (type-check/syn? #'(lambda (x : Type) x))
+           (eval:result @racket[#t] "" ""))
+(eval:alts (type-check/syn? #'Type)
+           (eval:result @racket[#t] "" ""))
+(eval:alts (type-check/syn? #'x)
+           (eval:result @racket[#f] "" ""))
 ]
 }
 
@@ -68,6 +70,21 @@ Runs the Cur term @racket[syn] to a value.
            (eval:result @racket[#'Bool] "" ""))
 (eval:alts (normalize/syn #'(sub1 (s (s z))))
            (eval:result @racket[#'(s z)] "" ""))
+]
+}
+
+@defproc[(step/syn [syn syntax?])
+         syntax?]{
+Runs the Cur term @racket[syn] for one step.
+
+@examples[
+(eval:alts (step/syn #'((lambda (x : Type) x) Bool))
+           (eval:result @racket[#'Bool] "" ""))
+(eval:alts (step/syn #'(sub1 (s (s z))))
+           (eval:result @racket[#'(((((elim Nat (Type 0))
+                                      (lambda (x2 : Nat) Nat)) z)
+                                    (lambda (x2 : Nat) (lambda (ih-n2 : Nat) x2)))
+                                   (s (s z)))] "" ""))
 ]
 }
 
@@ -87,3 +104,14 @@ equal modulo α and β-equivalence.
 ]
 }
 
+
+@defproc[(cur->datum [s syntax?])
+         (or/c symbol? list?)]{
+Converts @racket[s] to a datum representation of the @tech{curnel form}, after expansion.
+@examples[
+
+
+(eval:alts (cur-?datum #'(lambda (a : Type) a))
+           (eval:result @racket['(λ (a : (Unv 0) a))] "" ""))
+]
+}

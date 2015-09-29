@@ -356,10 +356,19 @@
          -->elim)))
 
 (define-metafunction cic-redL
+  step : Σ e -> e
+  [(step Σ e)
+   e_r
+   (where (_ e_r) ,(car (apply-reduction-relation cic--> (term (Σ e)))))])
+
+(define-metafunction cic-redL
   reduce : Σ e -> e
   [(reduce Σ e)
    e_r
-   (where (_ e_r) ,(car (apply-reduction-relation* cic--> (term (Σ e)))))])
+   (where (_ e_r) ,(let ([r (apply-reduction-relation* cic--> (term (Σ e)))])
+                     (unless (null? (cdr r))
+                       (error "Church-rosser broken" r))
+                     (car r)))])
 ;; TODO: Move equivalence up here, and use in these tests.
 (module+ test
   (check-equal? (term (reduce ∅ (Unv 0))) (term (Unv 0)))
@@ -393,7 +402,37 @@
                      (s (s zero)))
                     (λ (x : nat) (λ (ih-x : nat) (s ih-x))))
                    (s (s zero)))))
-    (term (s (s (s (s zero)))))))
+    (term (s (s (s (s zero))))))
+  (check-equal?
+    (term (step ,Σ
+                  ((((((elim nat) Type) (λ (x : nat) nat))
+                     (s (s zero)))
+                    (λ (x : nat) (λ (ih-x : nat) (s ih-x))))
+                   (s (s zero)))))
+    (term
+      (((λ (x : nat) (λ (ih-x : nat) (s ih-x)))
+        (s zero))
+       ((((((elim nat) Type) (λ (x : nat) nat))
+          (s (s zero)))
+         (λ (x : nat) (λ (ih-x : nat) (s ih-x))))
+        (s zero)))))
+  (check-equal?
+    (term (step ,Σ (step ,Σ
+                 (((λ (x : nat) (λ (ih-x : nat) (s ih-x)))
+                   (s zero))
+                  ((((((elim nat) Type) (λ (x : nat) nat))
+                     (s (s zero)))
+                    (λ (x : nat) (λ (ih-x : nat) (s ih-x))))
+                   (s zero))))))
+    (term
+      ;; TODO: Should be checking equivalence, not equal with DYI alpha equivalence
+      ((λ (ih-x1 : nat) (s ih-x1))
+       (((λ (x : nat) (λ (ih-x : nat) (s ih-x)))
+         zero)
+        ((((((elim nat) Type) (λ (x : nat) nat))
+           (s (s zero)))
+          (λ (x : nat) (λ (ih-x : nat) (s ih-x))))
+         zero))))))
 
 (define-judgment-form cic-redL
   #:mode (equivalent I I I)

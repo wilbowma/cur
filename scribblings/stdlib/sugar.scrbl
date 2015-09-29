@@ -154,6 +154,23 @@ computing part of the term from another Cur term.
 
 }
 
+@defform[(step syn)]{
+Like @racket[run], but uses @racket[step/syn] to evaluate only one step and prints intermediate
+results before returning the result of evaluation.
+
+@examples[#:eval curnel-eval
+          (step (plus z z))]
+
+}
+
+@defform[(step-n natural syn)]{
+Like @racket[step], but expands to @racket[natural] calls to @racket[step].
+
+@examples[#:eval curnel-eval
+          (step-n 3 (plus z z))]
+
+}
+
 @defform[(query-type expr)]{
 Print the type of @racket[expr], at compile-time. Similar to Coq's @racketfont{Check}.
 

@@ -65,6 +65,7 @@
     type-infer/syn
     type-check/syn?
     normalize/syn
+    step/syn
     cur-equal?))
 
 (begin-for-syntax
@@ -229,6 +230,10 @@
       syn
       (eval-cur syn)))
 
+  (define (step/syn syn)
+    (datum->cur
+      syn
+      (term (step ,(sigma) (subst-all ,(cur->datum syn) ,(first (bind-subst)) ,(second (bind-subst)))))))
 
   ;; Are these two terms equivalent in type-systems internal equational reasoning?
   (define (cur-equal? e1 e2)

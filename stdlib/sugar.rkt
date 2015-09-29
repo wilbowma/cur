@@ -1,4 +1,4 @@
-#lang s-exp "../curnel/redex-lang.rkt"
+#lang s-exp "../cur.rkt"
 (provide
   ->
   ->*
@@ -16,6 +16,8 @@
   case
   case*
   run
+  step
+  step-n
   query-type
 
   ;; don't use these
@@ -122,6 +124,21 @@
 (define-syntax (run syn)
   (syntax-case syn ()
     [(_ expr) (normalize/syn #'expr)]))
+
+(define-syntax (step syn)
+  (syntax-case syn ()
+    [(_ expr)
+     (let ([t (step/syn #'expr)])
+       (displayln (cur->datum t))
+       t)]))
+
+(define-syntax (step-n syn)
+  (syntax-case syn ()
+    [(_ n expr)
+     (for/fold
+       ([expr #'expr])
+       ([i (in-range (syntax->datum #'n))])
+       #`(step #,expr))]))
 
 (define-syntax (query-type syn)
   (syntax-case syn ()
