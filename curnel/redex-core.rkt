@@ -34,12 +34,15 @@
   (i ::= natural)
   (U ::= (Unv i))
   (x ::= variable-not-otherwise-mentioned)
-  (t e ::= (Π (x : t) t) (λ (x : t) t) (elim t t) x U (t t)))
+  (t e ::= (Π (x : t) t) (λ (x : t) t) (elim t t) x U (t t))
+  ;; Σ (signature). (inductive-name : type ((constructor : type) ...))
+  (Σ   ::= ∅ (Σ (x : t ((x : t) ...)))))
 
 (define x? (redex-match? ttL x))
 (define t? (redex-match? ttL t))
 (define e? (redex-match? ttL e))
 (define U? (redex-match? ttL U))
+(define Σ? (redex-match? ttL Σ))
 
 (module+ test
   (define-term Type (Unv 0))
@@ -58,7 +61,78 @@
   (check-true (U? (term Type)))
   (check-true (e? (term (λ (x_0 : (Unv 0)) x_0))))
   (check-true (t? (term (λ (x_0 : (Unv 0)) x_0))))
-  (check-true (t? (term (λ (x_0 : (Unv 0)) x_0)))))
+  (check-true (t? (term (λ (x_0 : (Unv 0)) x_0))))
+
+  ;; TODO: Rename these signatures, and use them in all future tests.
+  (define Σ (term ((∅ (nat : (Unv 0) ((zero : nat) (s : (Π (x : nat) nat)))))
+                        (bool : (Unv 0) ((true : bool) (false : bool))))))
+  (define Σ0 (term ∅))
+  (define Σ3 (term (∅ (and : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0))) ()))))
+  (define Σ4 (term (∅ (and : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
+                             ((conj : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Π (a : A) (Π (b : B) ((and A) B)))))))))))
+  (check-true (Σ? Σ0))
+  (check-true (Σ? Σ))
+  (check-true (Σ? Σ4))
+  (check-true (Σ? Σ3))
+  (check-true (Σ? Σ4))
+  (define sigma (term ((((((∅ (true : (Unv 0) ((T : true))))
+                           (false : (Unv 0) ()))
+                          (equal : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
+                                 ()))
+                         (nat : (Unv 0) ()))
+                        (heap : (Unv 0) ()))
+                       (pre : (Π (temp808 : heap) (Unv 0)) ()))))
+  (check-true (Σ? (term (∅ (true : (Unv 0) ((T : true)))))))
+  (check-true (Σ? (term (∅ (false : (Unv 0) ())))))
+  (check-true (Σ? (term (∅ (equal : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
+                                  ())))))
+  (check-true (Σ? (term (∅ (nat : (Unv 0) ())))))
+  (check-true (Σ? (term (∅ (pre : (Π (temp808 : heap) (Unv 0)) ())))))
+
+  (check-true (Σ? (term ((∅ (true : (Unv 0) ((T : true)))) (false : (Unv 0) ())))))
+  (check-true (Σ? (term (((∅ (true : (Unv 0) ((T : true)))) (false : (Unv 0) ()))
+                                                            (equal : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
+                                                                   ())))))
+  (check-true (Σ? sigma)))
+
+(define-metafunction ttL
+  append-Σ : Σ Σ -> Σ
+  [(append-Σ Σ ∅) Σ]
+  [(append-Σ Σ_2 (Σ_1 (x : t ((x_c : t_c) ...))))
+   ((append-Σ Σ_2 Σ_1) (x : t ((x_c : t_c) ...)))])
+
+;; Returns the inductively defined type that x constructs
+;; NB: Depends on clause order
+(define-metafunction ttL
+  constructor-of : Σ x -> x
+  [(constructor-of (Σ (x : t ((x_0 : t_0) ... (x_c : t_c) (x_1 : t_1) ...))) x_c)
+   x]
+  [(constructor-of (Σ (x_1 : t_1 ((x_c : t) ...))) x)
+   (constructor-of Σ x)])
+(module+ test
+  (check-equal?
+    (term (constructor-of ,Σ zero))
+    (term nat))
+  (check-equal?
+    (term (constructor-of ,Σ s))
+    (term nat)))
+
+;; Returns the constructors for the inductively defined type x_D in the signature Σ
+(define-metafunction ttL
+  constructors-for : Σ x -> ((x : t) ...) or #f
+  ;; NB: Depends on clause order
+  [(constructors-for ∅ x_D) #f]
+  [(constructors-for (Σ (x_D : t_D ((x : t) ...))) x_D)
+   ((x : t) ...)]
+  [(constructors-for (Σ (x_1 : t_1 ((x : t) ...))) x_D)
+   (constructors-for Σ x_D)])
+(module+ test
+  (check-equal?
+    (term (constructors-for ,Σ nat))
+    (term ((zero : nat) (s : (Π (x : nat) nat)))))
+  (check-equal?
+    (term (constructors-for ,sigma false))
+    (term ())))
 
 ;; 'A'
 ;; Types of Universes
@@ -172,14 +246,10 @@
   (E   ::= hole (E e) (v E)
              (Π (x : v) E)
              (Π (x : E) e))
-  ;; TODO: Σ should probably be moved to ttL, since elim is there.
-  ;; Σ (signature). (inductive-name : type ((constructor : type) ...))
-  (Σ   ::= ∅ (Σ (x : t ((x : t) ...))))
-  (Ξ Φ ::= hole (Π (x : t) Ξ)) ;;(Telescope)
+    (Ξ Φ ::= hole (Π (x : t) Ξ)) ;;(Telescope)
   ;; NB: Does an apply context correspond to a substitution (γ)?
   (Θ   ::= hole (Θ e)) ;;(Apply context)
   (Θv  ::= hole (Θv v)))
-(define Σ? (redex-match? tt-redL Σ))
 (define Ξ? (redex-match? tt-redL Ξ))
 (define Φ? (redex-match? tt-redL Φ))
 (define Θ? (redex-match? tt-redL Θ))
@@ -190,44 +260,7 @@
 (module+ test
   (check-true (v? (term (λ (x_0 : (Unv 0)) x_0))))
   (check-true (v? (term (refl Nat))))
-  (check-true (v? (term ((refl Nat) z))))
-  ;; TODO: Rename these signatures, and use them in all future tests.
-  (define Σ (term ((∅ (nat : (Unv 0) ((zero : nat) (s : (Π (x : nat) nat)))))
-                        (bool : (Unv 0) ((true : bool) (false : bool))))))
-  (define Σ0 (term ∅))
-  (define Σ3 (term (∅ (and : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0))) ()))))
-  (define Σ4 (term (∅ (and : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
-                             ((conj : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Π (a : A) (Π (b : B) ((and A) B)))))))))))
-  (check-true (Σ? Σ0))
-  (check-true (Σ? Σ))
-  (check-true (Σ? Σ4))
-  (check-true (Σ? Σ3))
-  (check-true (Σ? Σ4))
-  (define sigma (term ((((((∅ (true : (Unv 0) ((T : true))))
-                           (false : (Unv 0) ()))
-                          (equal : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
-                                 ()))
-                         (nat : (Unv 0) ()))
-                        (heap : (Unv 0) ()))
-                       (pre : (Π (temp808 : heap) (Unv 0)) ()))))
-  (check-true (Σ? (term (∅ (true : (Unv 0) ((T : true)))))))
-  (check-true (Σ? (term (∅ (false : (Unv 0) ())))))
-  (check-true (Σ? (term (∅ (equal : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
-                                  ())))))
-  (check-true (Σ? (term (∅ (nat : (Unv 0) ())))))
-  (check-true (Σ? (term (∅ (pre : (Π (temp808 : heap) (Unv 0)) ())))))
-
-  (check-true (Σ? (term ((∅ (true : (Unv 0) ((T : true)))) (false : (Unv 0) ())))))
-  (check-true (Σ? (term (((∅ (true : (Unv 0) ((T : true)))) (false : (Unv 0) ()))
-                                                            (equal : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
-                                                                   ())))))
-  (check-true (Σ? sigma)))
-
-(define-metafunction tt-redL
-  append-Σ : Σ Σ -> Σ
-  [(append-Σ Σ ∅) Σ]
-  [(append-Σ Σ_2 (Σ_1 (x : t ((x_c : t_c) ...))))
-   ((append-Σ Σ_2 Σ_1) (x : t ((x_c : t_c) ...)))])
+  (check-true (v? (term ((refl Nat) z)))))
 
 ;; TODO: Test
 ;; TODO: Maybe this should be called "apply-to-telescope"
@@ -656,22 +689,6 @@
                        ()))
     (term hole)))
 
-;; Returns the inductively defined type that x constructs
-;; NB: Depends on clause order
-(define-metafunction tt-redL
-  constructor-of : Σ x -> x
-  [(constructor-of (Σ (x : t ((x_0 : t_0) ... (x_c : t_c) (x_1 : t_1) ...)))
-                   x_c) x]
-  [(constructor-of (Σ (x_1 : t_1 ((x_c : t) ...))) x)
-   (constructor-of Σ x)])
-(module+ test
-  (check-equal?
-    (term (constructor-of ,Σ zero))
-    (term nat))
-  (check-equal?
-    (term (constructor-of ,Σ s))
-    (term nat)))
-
 ;; TODO: Define generic traversals of Σ and Γ ?
 (define-metafunction tt-redL
   parameters-of : Σ x -> Ξ
@@ -686,24 +703,6 @@
   (check-equal?
     (term (parameters-of ,Σ4 and))
     (term (Π (A : Type) (Π (B : Type) hole)))))
-
-;; Returns the constructors for the inductively defined type x_D in
-;; the signature Σ
-(define-metafunction tt-redL
-  constructors-for : Σ x -> ((x : t) ...) or #f
-  ;; NB: Depends on clause order
-  [(constructors-for ∅ x_D) #f]
-  [(constructors-for (Σ (x_D : t_D ((x : t) ...))) x_D)
-   ((x : t) ...)]
-  [(constructors-for (Σ (x_1 : t_1 ((x : t) ...))) x_D)
-   (constructors-for Σ x_D)])
-(module+ test
-  (check-equal?
-    (term (constructors-for ,Σ nat))
-    (term ((zero : nat) (s : (Π (x : nat) nat)))))
-  (check-equal?
-    (term (constructors-for ,sigma false))
-    (term ())))
 
 ;; Holds when an apply context Θ provides arguments that match the
 ;; telescope Ξ
