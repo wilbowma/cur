@@ -120,14 +120,17 @@
           [exprs (second (bind-subst))])
       (bind-subst (list (cons x vars) (cons t exprs)))))
 
+  (define (subst-bindings t)
+    (term (subst-all ,t ,(first (bind-subst)) ,(second (bind-subst)))))
+
   ;; TODO: Still absurdly slow. Probably doing n^2 checks of sigma and
   ;; gamma. And lookup on sigma, gamma are linear, so probably n^2 lookup time.
   (define (type-infer/term t)
-    (let ([t (judgment-holds (type-infer ,(sigma) ,(gamma) ,t t_0) t_0)])
+    (let ([t (judgment-holds (type-infer ,(sigma) ,(gamma) ,(subst-bindings t) t_0) t_0)])
       (and (pair? t) (car t))))
 
   (define (type-check/term? e t)
-    (and (judgment-holds (type-check ,(sigma) ,(gamma) ,e ,t)) #t))
+    (and (judgment-holds (type-check ,(sigma) ,(gamma) ,(subst-bindings e) ,(subst-bindings t))) #t))
 
   ;; TODO: Blanket disarming is probably a bad idea.
   (define orig-insp (variable-reference->module-declaration-inspector (#%variable-reference)))
@@ -216,11 +219,12 @@
          #,(datum->syntax syn t))]))
 
   (define (eval-cur syn)
-    (term (reduce ,(sigma) (subst-all ,(cur->datum syn) ,(first (bind-subst)) ,(second (bind-subst))))))
+    (term (reduce ,(sigma) ,(subst-bindings (cur->datum syn)))))
 
   (define (syntax->curnel-syntax syn)
     (quasisyntax/loc
       syn
+      ;; TODO: this subst-all should be #,(subst-bindings (cur->datum syn)), but doesn't work
       (term (reduce #,(sigma) (subst-all #,(cur->datum syn) #,(first (bind-subst)) #,(second (bind-subst)))))))
 
   ;; Reflection tools
@@ -233,7 +237,7 @@
   (define (step/syn syn)
     (datum->cur
       syn
-      (term (step ,(sigma) (subst-all ,(cur->datum syn) ,(first (bind-subst)) ,(second (bind-subst)))))))
+      (term (step ,(sigma) ,(subst-bindings (cur->datum syn))))))
 
   ;; Are these two terms equivalent in type-systems internal equational reasoning?
   (define (cur-equal? e1 e2)

@@ -94,4 +94,16 @@
          true
          true
          (refl Bool true))
-    z))
+    z)
+
+  (define (id (A : Type) (x : A)) x)
+
+  (check-equal?
+    ((id (== True T T))
+     (refl True (run (id True T))))
+    (refl True T))
+
+  (check-equal?
+    ((id (== True T T))
+     (refl True (id True T)))
+    (refl True T)))
