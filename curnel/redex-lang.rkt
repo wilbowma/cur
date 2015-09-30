@@ -11,7 +11,7 @@
     racket/syntax
     (except-in racket/provide-transform export)
     racket/require-transform
-    (except-in "redex-core.rkt" remove)
+    "redex-core.rkt"
     redex/reduction-semantics))
 (provide
   ;; Basic syntax
@@ -86,6 +86,7 @@
           (error 'core-error "We built a bad sigma ~s" x))
         x)))
 
+  ;; These should be provided by core, so details of envs can be hidden.
   (define (extend-Γ/term env x t)
     (term (,(env) ,x : ,t)))
 
@@ -269,8 +270,8 @@
   (define (cur-identifier-bound? id)
     (let ([x (syntax->datum id)])
       (and (x? x)
-        (or (term (lookup-Γ ,(gamma) ,x))
-          (term (lookup-Σ ,(sigma) ,x))))))
+        (or (term (Γ-ref ,(gamma) ,x))
+          (term (Σ-ref-type ,(sigma) ,x))))))
 
   (define (filter-cur-exports syn modes)
     (partition (compose cur-identifier-bound? export-local-id)
@@ -336,7 +337,7 @@
                        ;; TODO: Do not DIY gensym
                        (set! gn (add1 gn))
                        (set! out-gammas
-                             #`(#,@out-gammas (gamma (term (append-Γ
+                             #`(#,@out-gammas (gamma (term (Γ-union
                                                              ,(gamma)
                                                              ,#,new-id)))))
                        (cons (struct-copy import imp [local-id new-id])
@@ -349,7 +350,7 @@
                        ;; TODO: Do not DIY gensym
                        (set! sn (add1 sn))
                        (set! out-sigmas
-                             #`(#,@out-sigmas (sigma (term (append-Σ
+                             #`(#,@out-sigmas (sigma (term (Σ-union
                                                              ,(sigma)
                                                              ,#,new-id)))))
                        (cons (struct-copy import imp [local-id new-id])
