@@ -182,8 +182,16 @@
   [(α-equivalent e_0 e_2)
    (α-equivalent e_1 e_3)
    ----------------- "α-app"
-   (α-equivalent (e_0 e_1) (e_2 e_3))])
+   (α-equivalent (e_0 e_1) (e_2 e_3))]
+
+  [(α-equivalent e_0 e_2)
+   (α-equivalent e_1 e_3)
+   ----------------- "α-elim"
+   (α-equivalent (elim e_0 e_1) (elim e_2 e_3))])
 (module+ test
+  ;; NB: Hack to allow checking contexts without explicitly defining on contexts
+  (define-syntax-rule (check-equiv? e1 e2)
+    (check (lambda (x y) (term (α-equivalent (in-hole ,x Type) (in-hole ,y Type)))) e1 e2))
   (check-holds (α-equivalent x x))
   (check-not-holds (α-equivalent x y))
   (check-holds (α-equivalent (λ (x : A) x) (λ (y : A) y))))
@@ -214,11 +222,7 @@
   [(subst (any (x_0 : t_0) t_1) x t)
    (any (x_new : (subst (subst-vars (x_0 x_new) t_0) x t))
         (subst (subst-vars (x_0 x_new) t_1) x t))
-     ;; TODO: Use "fresh-x" meta-function
-   (where x_new
-          ,(variable-not-in
-             (term (x_0 t_0 x t t_1))
-             (term x_0)))]
+   (where x_new (fresh-x x_0 t_0 x t t_1))]
   [(subst (e_0 e_1) x t) ((subst e_0 x t) (subst e_1 x t))]
   [(subst (elim e_0 e_1) x t) (elim (subst e_0 x t) (subst e_1 x t))])
 (module+ test
@@ -456,7 +460,7 @@
           (s (s zero)))
          (λ (x : nat) (λ (ih-x : nat) (s ih-x))))
         (s zero)))))
-  (check-equal?
+  (check-equiv?
     (term (step ,Σ (step ,Σ
                  (((λ (x : nat) (λ (ih-x : nat) (s ih-x)))
                    (s zero))
@@ -465,7 +469,6 @@
                     (λ (x : nat) (λ (ih-x : nat) (s ih-x))))
                    (s zero))))))
     (term
-      ;; TODO: Should be checking equivalence, not equal with DYI alpha equivalence
       ((λ (ih-x1 : nat) (s ih-x1))
        (((λ (x : nat) (λ (ih-x : nat) (s ih-x)))
          zero)
@@ -626,12 +629,11 @@
 (define-metafunction tt-redL
   hypotheses-for : x t Φ -> Φ
   [(hypotheses-for x_D t_P hole) hole]
-  [(hypotheses-for x_D t_P (Π (x : (in-hole Φ (in-hole Θ x_D))) Φ_1))
+  [(hypotheses-for x_D t_P (name any_0 (Π (x : (in-hole Φ (in-hole Θ x_D))) Φ_1)))
    ;; TODO: Thread through Σ for reduce
    (Π (x_h : (in-hole Φ (reduce ∅ ((in-hole Θ t_P) (apply-telescope x Φ)))))
       (hypotheses-for x_D t_P Φ_1))
-   ;; NB: Lol hygiene
-   (where x_h ,(string->symbol (format "~a-~a" 'ih (term x))))])
+   (where x_h (fresh-x x_D t_P any_0))])
 
 ;; Returns the inductive arguments to a constructor for the
 ;; inducitvely defined type x_D, where the telescope Φ are the
@@ -650,8 +652,8 @@
 (define-metafunction tt-redL
   methods-for : x t ((x : t) ...) -> Ξ
   [(methods-for x_D t_P ()) hole]
-  [(methods-for x_D t_P ((x_ci : (in-hole Φ (in-hole Θ x_D)))
-                                    (x_c : t) ...))
+  [(methods-for x_D t_P (name any_0 ((x_ci : (in-hole Φ (in-hole Θ x_D)))
+                          (x_c : t) ...)))
    (Π (x_mi : (in-hole Φ (in-hole Φ_h
                                   ;; NB: Manually reducing types because no conversion
                                   ;; NB: rule
@@ -661,19 +663,18 @@
                                   (reduce ∅ ((in-hole Θ t_P) (apply-telescope x_ci Φ))))))
       (methods-for x_D t_P ((x_c : t) ...)))
    (where Φ_h (hypotheses-for x_D t_P (inductive-args x_D Φ)))
-   ;; NB: Lol hygiene
-   (where x_mi ,(string->symbol (format "~a-~a" 'm (term x_ci))))])
+   (where x_mi (fresh-x x_D t_P any_0))])
 (module+ test
-  (check-equal?
+  (check-equiv?
     (term (methods-for nat P ((zero : nat) (s : (Π (x : nat) nat)))))
     (term (Π (m-zero : (P zero))
              (Π (m-s : (Π (x : nat) (Π (ih-x : (P x)) (P (s x)))))
                 hole))))
-  (check-equal?
+  (check-equiv?
     (term (methods-for nat (λ (x : nat) nat) ((zero : nat) (s : (Π (x : nat) nat)))))
     (term (Π (m-zero : nat) (Π (m-s : (Π (x : nat) (Π (ih-x : nat) nat)))
                                    hole))))
-  (check-equal?
+  (check-equiv?
     (term (methods-for and
                        (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) true)))
                        ((conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B)
@@ -863,7 +864,7 @@
   (check-holds (type-infer ,Σtruth ∅ T (in-hole Θ_ai truth)))
   (check-holds (type-infer ,Σtruth ∅ (λ (x : truth) (Unv 1))
                            (in-hole Ξ (Π (x : (in-hole Θ truth)) U))))
-  (check-equal?
+  (check-equiv?
     (term (methods-for truth (λ (x : truth) (Unv 1)) ((T : truth))))
     (term (Π (m-T : (Unv 1)) hole)))
   (check-holds (telescope-types ,Σtruth ∅ (hole (Unv 0))
