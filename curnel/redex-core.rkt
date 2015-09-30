@@ -196,10 +196,6 @@
   (check-not-holds (α-equivalent x y))
   (check-holds (α-equivalent (λ (x : A) x) (λ (y : A) y))))
 
-(define-metafunction ttL
-  fresh-x : any ... -> x
-  [(fresh-x any ...) ,(variable-not-in (term (any ...)) (term x))])
-
 ;; NB: Substitution is hard
 ;; NB: Copy and pasted from Redex examples
 (define-metafunction ttL
@@ -222,7 +218,7 @@
   [(subst (any (x_0 : t_0) t_1) x t)
    (any (x_new : (subst (subst-vars (x_0 x_new) t_0) x t))
         (subst (subst-vars (x_0 x_new) t_1) x t))
-   (where x_new (fresh-x x_0 t_0 x t t_1))]
+   (where x_new ,(variable-not-in (term (x_0 t_0 x t t_1)) (term x_0)))]
   [(subst (e_0 e_1) x t) ((subst e_0 x t) (subst e_1 x t))]
   [(subst (elim e_0 e_1) x t) (elim (subst e_0 x t) (subst e_1 x t))])
 (module+ test
@@ -633,7 +629,7 @@
    ;; TODO: Thread through Σ for reduce
    (Π (x_h : (in-hole Φ (reduce ∅ ((in-hole Θ t_P) (apply-telescope x Φ)))))
       (hypotheses-for x_D t_P Φ_1))
-   (where x_h (fresh-x x_D t_P any_0))])
+   (where x_h ,(variable-not-in (term (x_D t_P any_0)) 'x-ih))])
 
 ;; Returns the inductive arguments to a constructor for the
 ;; inducitvely defined type x_D, where the telescope Φ are the
@@ -663,7 +659,7 @@
                                   (reduce ∅ ((in-hole Θ t_P) (apply-telescope x_ci Φ))))))
       (methods-for x_D t_P ((x_c : t) ...)))
    (where Φ_h (hypotheses-for x_D t_P (inductive-args x_D Φ)))
-   (where x_mi (fresh-x x_D t_P any_0))])
+   (where x_mi ,(variable-not-in (term (x_D t_P any_0)) 'x-mi))])
 (module+ test
   (check-equiv?
     (term (methods-for nat P ((zero : nat) (s : (Π (x : nat) nat)))))
@@ -793,13 +789,13 @@
   [(type-infer Σ Γ x_D (in-hole Ξ t_D))
    (where Ξ (parameters-of Σ x_D))
    ;; A fresh name to bind the discriminant
-   (where x (fresh-x Σ Γ x_D Ξ))
+   (where x ,(variable-not-in (term (Σ Γ x_D Ξ)) 'x-D))
    ;; The telescope (∀ a -> ... -> (D a ...) hole), i.e.,
    ;; of the parameters and the inductive type applied to the
    ;; parameters
    (where Ξ_P*D (in-hole Ξ (Π (x : (apply-telescope x_D Ξ)) hole)))
    ;; A fresh name for the motive
-   (where x_P (fresh-x Σ Γ x_D Ξ Ξ_P*D x))
+   (where x_P ,(variable-not-in (term (Σ Γ x_D Ξ Ξ_P*D x)) 'x-P))
    ;; The types of the methods for this inductive.
    (where Ξ_m (methods-for x_D x_P (constructors-for Σ x_D)))
    ----------------- "DTR-Elim_D"
