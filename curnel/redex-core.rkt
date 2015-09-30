@@ -95,43 +95,51 @@
                                                                    ())))))
   (check-true (Σ? sigma)))
 
+;; NB: Depends on clause order
 (define-metafunction ttL
-  append-Σ : Σ Σ -> Σ
-  [(append-Σ Σ ∅) Σ]
-  [(append-Σ Σ_2 (Σ_1 (x : t ((x_c : t_c) ...))))
-   ((append-Σ Σ_2 Σ_1) (x : t ((x_c : t_c) ...)))])
+  Σ-ref : Σ x -> t or #f
+  [(Σ-ref ∅ x) #f]
+  [(Σ-ref (Σ (x : t ((x_1 : t_1) ...))) x) t]
+  [(Σ-ref (Σ (x_0 : t_0 ((x_1 : t_1) ... (x : t) (x_2 : t_2) ...))) x) t]
+  [(Σ-ref (Σ (x_0 : t_0 ((x_1 : t_1) ...))) x) (Σ-ref Σ x)])
+
+(define-metafunction ttL
+  Σ-union : Σ Σ -> Σ
+  [(Σ-union Σ ∅) Σ]
+  [(Σ-union Σ_2 (Σ_1 (x : t ((x_c : t_c) ...))))
+   ((Σ-union Σ_2 Σ_1) (x : t ((x_c : t_c) ...)))])
 
 ;; Returns the inductively defined type that x constructs
 ;; NB: Depends on clause order
 (define-metafunction ttL
-  constructor-of : Σ x -> x
-  [(constructor-of (Σ (x : t ((x_0 : t_0) ... (x_c : t_c) (x_1 : t_1) ...))) x_c)
+  Σ-key-by-constructor : Σ x -> x
+  [(Σ-key-by-constructor (Σ (x : t ((x_0 : t_0) ... (x_c : t_c) (x_1 : t_1) ...))) x_c)
    x]
-  [(constructor-of (Σ (x_1 : t_1 ((x_c : t) ...))) x)
-   (constructor-of Σ x)])
+  [(Σ-key-by-constructor (Σ (x_1 : t_1 ((x_c : t) ...))) x)
+   (Σ-key-by-constructor Σ x)])
 (module+ test
   (check-equal?
-    (term (constructor-of ,Σ zero))
+    (term (Σ-key-by-constructor ,Σ zero))
     (term nat))
   (check-equal?
-    (term (constructor-of ,Σ s))
+    (term (Σ-key-by-constructor ,Σ s))
     (term nat)))
 
 ;; Returns the constructors for the inductively defined type x_D in the signature Σ
 (define-metafunction ttL
-  constructors-for : Σ x -> ((x : t) ...) or #f
+  Σ-ref-constructors : Σ x -> ((x : t) ...) or #f
   ;; NB: Depends on clause order
-  [(constructors-for ∅ x_D) #f]
-  [(constructors-for (Σ (x_D : t_D ((x : t) ...))) x_D)
+  [(Σ-ref-constructors ∅ x_D) #f]
+  [(Σ-ref-constructors (Σ (x_D : t_D ((x : t) ...))) x_D)
    ((x : t) ...)]
-  [(constructors-for (Σ (x_1 : t_1 ((x : t) ...))) x_D)
-   (constructors-for Σ x_D)])
+  [(Σ-ref-constructors (Σ (x_1 : t_1 ((x : t) ...))) x_D)
+   (Σ-ref-constructors Σ x_D)])
 (module+ test
   (check-equal?
-    (term (constructors-for ,Σ nat))
+    (term (Σ-ref-constructors ,Σ nat))
     (term ((zero : nat) (s : (Π (x : nat) nat)))))
   (check-equal?
-    (term (constructors-for ,sigma false))
+    (term (Σ-ref-constructors ,sigma false))
     (term ())))
 
 ;; 'A'
@@ -151,13 +159,13 @@
   #:contract (unv-kind U U U)
 
   [----------------
-    (unv-kind (Unv 0) (Unv 0) (Unv 0))]
+   (unv-kind (Unv 0) (Unv 0) (Unv 0))]
 
   [----------------
-    (unv-kind (Unv 0) (Unv i) (Unv i))]
+   (unv-kind (Unv 0) (Unv i) (Unv i))]
 
   [----------------
-    (unv-kind (Unv i) (Unv 0) (Unv 0))]
+   (unv-kind (Unv i) (Unv 0) (Unv 0))]
 
   [(where i_3 ,(max (term i_1) (term i_2)))
    ----------------
@@ -286,7 +294,7 @@
   method-lookup : Σ x x (Θ e) -> e
   [(method-lookup Σ x_D x_ci Θ)
    (select-arg x_ci (x_0 ...) Θ)
-   (where ((x_0 : t_0) ...) (constructors-for Σ x_D))])
+   (where ((x_0 : t_0) ...) (Σ-ref-constructors Σ x_D))])
 (module+ test
   (check-equal?
     (term (method-lookup ,Σ nat s
@@ -299,14 +307,14 @@
 ;; TODO: Poorly documented, and poorly tested.
 ;; Probably the source of issue #20
 (define-metafunction tt-redL
-    elim-recur : x U e Θ Θ Θ (x ...) -> Θ
-    [(elim-recur x_D U e_P Θ
-       (in-hole Θ_m (hole e_mi))
-       (in-hole Θ_i (hole (in-hole Θ_r x_ci)))
-       (x_c0 ... x_ci x_c1 ...))
-     ((elim-recur x_D U e_P Θ Θ_m Θ_i (x_c0 ... x_ci x_c1 ...))
-      (in-hole (Θ (in-hole Θ_r x_ci)) ((elim x_D U) e_P)))]
-    [(elim-recur x_D U e_P Θ Θ_i Θ_nr (x ...)) hole])
+  elim-recur : x U e Θ Θ Θ (x ...) -> Θ
+  [(elim-recur x_D U e_P Θ
+               (in-hole Θ_m (hole e_mi))
+               (in-hole Θ_i (hole (in-hole Θ_r x_ci)))
+               (x_c0 ... x_ci x_c1 ...))
+   ((elim-recur x_D U e_P Θ Θ_m Θ_i (x_c0 ... x_ci x_c1 ...))
+    (in-hole (Θ (in-hole Θ_r x_ci)) ((elim x_D U) e_P)))]
+  [(elim-recur x_D U e_P Θ Θ_i Θ_nr (x ...)) hole])
 (module+ test
   (check-true
     (redex-match? tt-redL (in-hole Θ_i (hole (in-hole Θ_r zero))) (term (hole zero))))
@@ -379,10 +387,10 @@
                 Θv)
          ;; Check that Θ_p actually matches the parameters of x_D, to ensure it doesn't capture other
          ;; arguments.
-         (judgment-holds (telescope-match Θv_p (parameters-of Σ x_D)))
+         (judgment-holds (telescope-match Θv_p (Σ-ref-parameters Σ x_D)))
          ;; Ensure x_ci is actually a constructor for x_D
          (where ((x_c* : t_c*) ...)
-                (constructors-for Σ x_D))
+                (Σ-ref-constructors Σ x_D))
          (where (_ ... x_ci _ ...)
                 (x_c* ...))
          ;; There should be a number of methods equal to the number of constructors; to ensure E
@@ -404,11 +412,11 @@
   reduce : Σ e -> e
   [(reduce Σ e)
    e_r
-   (where (_ e_r) ,(let ([r (apply-reduction-relation* tt--> (term (Σ e))
-                                                       #:cache-all? #t)])
-                     (unless (null? (cdr r))
-                       (error "Church-rosser broken" r))
-                     (car r)))])
+   (where (_ e_r)
+     ,(let ([r (apply-reduction-relation* tt--> (term (Σ e)) #:cache-all? #t)])
+        (unless (null? (cdr r))
+          (error "Church-rosser broken" r))
+        (car r)))])
 ;; TODO: Move equivalence up here, and use in these tests.
 (module+ test
   (check-equal? (term (reduce ∅ (Unv 0))) (term (Unv 0)))
@@ -490,32 +498,24 @@
 (define Γ? (redex-match? tt-typingL Γ))
 
 (define-metafunction tt-typingL
-  append-Γ : Γ Γ -> Γ
-  [(append-Γ Γ ∅) Γ]
-  [(append-Γ Γ_2 (Γ_1 x : t))
-   ((append-Γ Γ_2 Γ_1) x : t)])
+  Γ-union : Γ Γ -> Γ
+  [(Γ-union Γ ∅) Γ]
+  [(Γ-union Γ_2 (Γ_1 x : t))
+   ((Γ-union Γ_2 Γ_1) x : t)])
 
 ;; NB: Depends on clause order
 (define-metafunction tt-typingL
-  lookup-Γ : Γ x -> t or #f
-  [(lookup-Γ ∅ x) #f]
-  [(lookup-Γ (Γ x : t) x) t]
-  [(lookup-Γ (Γ x_0 : t_0) x_1) (lookup-Γ Γ x_1)])
-
-;; NB: Depends on clause order
-(define-metafunction tt-redL
-  lookup-Σ : Σ x -> t or #f
-  [(lookup-Σ ∅ x) #f]
-  [(lookup-Σ (Σ (x : t ((x_1 : t_1) ...))) x) t]
-  [(lookup-Σ (Σ (x_0 : t_0 ((x_1 : t_1) ... (x : t) (x_2 : t_2) ...))) x) t]
-  [(lookup-Σ (Σ (x_0 : t_0 ((x_1 : t_1) ...))) x) (lookup-Σ Σ x)])
+  Γ-ref : Γ x -> t or #f
+  [(Γ-ref ∅ x) #f]
+  [(Γ-ref (Γ x : t) x) t]
+  [(Γ-ref (Γ x_0 : t_0) x_1) (Γ-ref Γ x_1)])
 
 ;; NB: Depends on clause order
 (define-metafunction tt-typingL
-  remove : Γ x -> Γ
-  [(remove ∅ x) ∅]
-  [(remove (Γ x : t) x) Γ]
-  [(remove (Γ x_0 : t_0) x_1) (remove Γ x_1)])
+  Γ-remove : Γ x -> Γ
+  [(Γ-remove ∅ x) ∅]
+  [(Γ-remove (Γ x : t) x) Γ]
+  [(Γ-remove (Γ x_0 : t_0) x_1) (Γ-remove Γ x_1)])
 
 ;; TODO: Add positivity checking.
 (define-metafunction ttL
@@ -688,17 +688,17 @@
 
 ;; TODO: Define generic traversals of Σ and Γ ?
 (define-metafunction tt-redL
-  parameters-of : Σ x -> Ξ
-  [(parameters-of (Σ (x_D : (in-hole Ξ U) ((x : t) ...))) x_D)
+  Σ-ref-parameters : Σ x -> Ξ
+  [(Σ-ref-parameters (Σ (x_D : (in-hole Ξ U) ((x : t) ...))) x_D)
    Ξ]
-  [(parameters-of (Σ (x_1 : t_1 ((x : t) ...))) x_D)
-   (parameters-of Σ x_D)])
+  [(Σ-ref-parameters (Σ (x_1 : t_1 ((x : t) ...))) x_D)
+   (Σ-ref-parameters Σ x_D)])
 (module+ test
   (check-equal?
-    (term (parameters-of ,Σ nat))
+    (term (Σ-ref-parameters ,Σ nat))
     (term hole))
   (check-equal?
-    (term (parameters-of ,Σ4 and))
+    (term (Σ-ref-parameters ,Σ4 and))
     (term (Π (A : Type) (Π (B : Type) hole)))))
 
 ;; Holds when an apply context Θ provides arguments that match the
@@ -734,14 +734,14 @@
                       (λ (x : nat) (λ (ih-x : nat) x)))
                      (methods-for nat
                                   (λ (x : nat) nat)
-                                  (constructors-for ,Σ nat))))
+                                  (Σ-ref-constructors ,Σ nat))))
   (check-holds
     (telescope-types (,Σ4 (true : (Unv 0) ((tt : true))))
                      ∅ (hole (λ (A : (Unv 0)) (λ (B : (Unv 0))
                                                     (λ (a : A) (λ (b : B) tt)))))
                      (methods-for and
                                   (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) true)))
-                                  (constructors-for ,Σ4 and))))
+                                  (Σ-ref-constructors ,Σ4 and))))
   (check-holds
     (telescope-types ,sigma (∅ x : false)
                      hole
@@ -761,11 +761,11 @@
    ----------------- "DTR-Axiom"
    (type-infer Σ Γ U_0 U_1)]
 
-  [(where t (lookup-Σ Σ x))
+  [(where t (Σ-ref Σ x))
    ----------------- "DTR-Inductive"
    (type-infer Σ Γ x t)]
 
-  [(where t (lookup-Γ Γ x))
+  [(where t (Γ-ref Γ x))
    ----------------- "DTR-Start"
    (type-infer Σ Γ x t)]
 
@@ -787,7 +787,7 @@
    (type-infer Σ Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
 
   [(type-infer Σ Γ x_D (in-hole Ξ t_D))
-   (where Ξ (parameters-of Σ x_D))
+   (where Ξ (Σ-ref-parameters Σ x_D))
    ;; A fresh name to bind the discriminant
    (where x ,(variable-not-in (term (Σ Γ x_D Ξ)) 'x-D))
    ;; The telescope (∀ a -> ... -> (D a ...) hole), i.e.,
@@ -797,7 +797,7 @@
    ;; A fresh name for the motive
    (where x_P ,(variable-not-in (term (Σ Γ x_D Ξ Ξ_P*D x)) 'x-P))
    ;; The types of the methods for this inductive.
-   (where Ξ_m (methods-for x_D x_P (constructors-for Σ x_D)))
+   (where Ξ_m (methods-for x_D x_P (Σ-ref-constructors Σ x_D)))
    ----------------- "DTR-Elim_D"
    (type-infer Σ Γ (elim x_D U)
      ;; The type of (elim x_D U) is something like:
@@ -1158,7 +1158,7 @@
       (term (((((hole
               (λ (A1 : (Unv 0)) (λ (x1 : A1) zero))) bool) true) true) ((refl bool) true)))))
   (check-equal?
-    (term (parameters-of ,Σ= ==))
+    (term (Σ-ref-parameters ,Σ= ==))
     (term (Π (A : Type) (Π (a : A) (Π (b : A) hole)))))
   (check-equal?
     (term (reduce ,Σ= ,refl-elim))
