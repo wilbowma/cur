@@ -20,23 +20,26 @@
     (check-false
       (judgment-holds (e ...)))))
 
-;; References:
-;; http://www3.di.uminho.pt/~mjf/pub/SFV-CIC-2up.pdf
-;; https://www.cs.uoregon.edu/research/summerschool/summer11/lectures/oplss-herbelin1.pdf
-;; http://www.emn.fr/z-info/ntabareau/papers/universe_polymorphism.pdf
-;; http://people.cs.kuleuven.be/~jesper.cockx/Without-K/Pattern-matching-without-K.pdf
-;; http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.37.74
-;; http://eb.host.cs.st-andrews.ac.uk/writings/thesis.pdf
+#| References:
+ |  http://www3.di.uminho.pt/~mjf/pub/SFV-CIC-2up.pdf
+ |  https://www.cs.uoregon.edu/research/summerschool/summer11/lectures/oplss-herbelin1.pdf
+ |  http://www.emn.fr/z-info/ntabareau/papers/universe_polymorphism.pdf
+ |  http://people.cs.kuleuven.be/~jesper.cockx/Without-K/Pattern-matching-without-K.pdf
+ |  http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.37.74
+ |  http://eb.host.cs.st-andrews.ac.uk/writings/thesis.pdf
+ |#
 
-;; ttL is the core language of Cur. Very similar to TT (Idirs core) and Luo's UTT. Surface
-;; langauge should provide short-hand, such as -> for non-dependent function types, and type
-;; inference.
+#| ttL is the core language of Cur. Very similar to TT (Idirs core) and Luo's UTT. Surface
+ | langauge should provide short-hand, such as -> for non-dependent function types, and type
+ | inference.
+ |#
 (define-language ttL
   (i ::= natural)
   (U ::= (Unv i))
   (x ::= variable-not-otherwise-mentioned)
   (t e ::= (Π (x : t) t) (λ (x : t) t) (elim t t) x U (t t))
   ;; Σ (signature). (inductive-name : type ((constructor : type) ...))
+  ;; Σ is a map from a name x, to it's type and a map of it's constructors to their types
   (Σ   ::= ∅ (Σ (x : t ((x : t) ...)))))
 
 (define x? (redex-match? ttL x))
@@ -96,6 +99,9 @@
                                                                    ())))))
   (check-true (Σ? sigma)))
 
+;;; ------------------------------------------------------------------------
+;;; Primitive Operations on signatures Σ (those operations that do not require contexts)
+
 ;; NB: Depends on clause order
 (define-metafunction ttL
   Σ-ref : Σ x -> t or #f
@@ -118,6 +124,7 @@
    x]
   [(Σ-key-by-constructor (Σ (x_1 : t_1 ((x_c : t) ...))) x)
    (Σ-key-by-constructor Σ x)])
+
 (module+ test
   (check-equal?
     (term (Σ-key-by-constructor ,Σ zero))
@@ -135,6 +142,7 @@
    ((x : t) ...)]
   [(Σ-ref-constructors (Σ (x_1 : t_1 ((x : t) ...))) x_D)
    (Σ-ref-constructors Σ x_D)])
+
 (module+ test
   (check-equal?
     (term (Σ-ref-constructors ,Σ nat))
@@ -143,7 +151,9 @@
     (term (Σ-ref-constructors ,sigma false))
     (term ())))
 
-;; 'A'
+;;; ------------------------------------------------------------------------
+;;; Universe typing
+
 ;; Types of Universes
 (define-judgment-form ttL
   #:mode (unv-ok I O)
@@ -153,8 +163,7 @@
    -----------------
    (unv-ok (Unv i_0) (Unv i_1))])
 
-;; 'R'
-;; Kinding, I think
+;; Based on CIC predicativity rules
 (define-judgment-form ttL
   #:mode (unv-kind I I O)
   #:contract (unv-kind U U U)
@@ -171,6 +180,9 @@
   [(where i_3 ,(max (term i_1) (term i_2)))
    ----------------
    (unv-kind (Unv i_1) (Unv i_2) (Unv i_3))])
+
+;;; ------------------------------------------------------------------------
+;;; Substitution and α-equivalence
 
 (define-judgment-form ttL
   #:mode (α-equivalent I I)
@@ -197,8 +209,9 @@
    (α-equivalent e_1 e_3)
    ----------------- "α-elim"
    (α-equivalent (elim e_0 e_1) (elim e_2 e_3))])
+
 (module+ test
-  ;; NB: Hack to allow checking contexts without explicitly defining on contexts
+  ;; NB: Hack to allow checking contexts or terms without explicitly defining on contexts
   (default-equiv (lambda (x y) (term (α-equivalent (in-hole ,x Type) (in-hole ,y Type)))))
   (define-syntax-rule (check-equiv? e1 e2)
     (check (default-equiv) e1 e2))
@@ -208,7 +221,6 @@
   (check-not-equiv? (term x) (term y))
   (check-equiv? (term (λ (x : A) x)) (term (λ (y : A) y))))
 
-;; NB: Substitution is hard
 ;; NB: Copy and pasted from Redex examples
 (define-metafunction ttL
   subst-vars : (x any) ... any -> any
@@ -220,6 +232,7 @@
    (subst-vars (x_1 any_1) (subst-vars (x_2 any_2) ... any_3))]
   [(subst-vars any) any])
 
+;; NB TODO: Why do I not have tests for substitutions?!?!?!?!?!?!?!!?!?!?!?!?!?!!??!?!
 (define-metafunction ttL
   subst : t x t -> t
   [(subst U x t) U]
@@ -233,13 +246,12 @@
    (where x_new ,(variable-not-in (term (x_0 t_0 x t t_1)) (term x_0)))]
   [(subst (e_0 e_1) x t) ((subst e_0 x t) (subst e_1 x t))]
   [(subst (elim e_0 e_1) x t) (elim (subst e_0 x t) (subst e_1 x t))])
+
 (module+ test
   (check-true (t? (term (Π (a : A) (Π (b : B) ((and A) B))))))
   (check-equiv?
     (term (Π (a : S) (Π (b : B) ((and S) B))))
     (term (subst (Π (a : A) (Π (b : B) ((and A) B))) A S))))
-;; NB:
-;; TODO: Why do I not have tests for substitutions?!?!?!?!?!?!?!!?!?!?!?!?!?!!??!?!
 
 (define-metafunction ttL
   subst-all : t (x ...) (e ...) -> t
@@ -247,24 +259,165 @@
   [(subst-all t (x_0 x ...) (e_0 e ...))
    (subst-all (subst t x_0 e_0) (x ...) (e ...))])
 
+;;; ------------------------------------------------------------------------
+;;; Operations that involve contexts.
+
+(define-extended-language tt-ctxtL ttL
+  ;; Telescope
+  (Ξ Φ ::= hole (Π (x : t) Ξ))
+  ;; Apply context
+  (Θ   ::= hole (Θ e)))
+
+(define Ξ? (redex-match? tt-ctxtL Ξ))
+(define Φ? (redex-match? tt-ctxtL Φ))
+(define Θ? (redex-match? tt-ctxtL Θ))
+
+;; TODO: Test
+;; TODO: Maybe this should be called "apply-to-telescope"
+(define-metafunction tt-ctxtL
+  apply-telescope : t Ξ -> t
+  [(apply-telescope t hole) t]
+  [(apply-telescope t_0 (Π (x : t) Ξ)) (apply-telescope (t_0 x) Ξ)])
+
+(define-metafunction tt-ctxtL
+  apply-telescopes : t (Ξ ...) -> t
+  [(apply-telescopes t ()) t]
+  [(apply-telescopes t (Ξ_0 Ξ_rest ...))
+   (apply-telescopes (apply-telescope t Ξ_0) (Ξ_rest ...))])
+
+;; NB: Depends on clause order
+(define-metafunction tt-ctxtL
+  select-arg : x (x ...) (Θ e) -> e
+  [(select-arg x (x x_r ...) (in-hole Θ (hole e))) e]
+  [(select-arg x (x_1 x_r ...) (in-hole Θ (hole e)))
+   (select-arg x (x_r ...) Θ)])
+
+(define-metafunction tt-ctxtL
+  method-lookup : Σ x x (Θ e) -> e
+  [(method-lookup Σ x_D x_ci Θ)
+   (select-arg x_ci (x_0 ...) Θ)
+   (where ((x_0 : t_0) ...) (Σ-ref-constructors Σ x_D))])
+
+(module+ test
+  (check-equiv?
+    (term (method-lookup ,Σ nat s
+                         ((hole (s zero))
+                          (λ (x : nat) (λ (ih-x : nat) (s (s zero)))))))
+    (term (λ (x : nat) (λ (ih-x : nat) (s (s zero)))))))
+
+(define-judgment-form tt-ctxtL
+  #:mode (length-match I I)
+  #:contract (length-match Θ (x ...))
+  [----------------------
+   (length-match hole ())]
+
+  [(length-match Θ (x_r ...))
+   ----------------------
+   (length-match (Θ e) (x x_r ...))])
+
+(define-judgment-form tt-ctxtL
+  #:mode (telescope-match I I)
+  #:contract (telescope-match Θ Ξ)
+
+  [---------------------------
+   (telescope-match hole hole)]
+
+  [(telescope-match Θ Ξ)
+   ---------------------------
+   (telescope-match (Θ e) (Π (x : t) Ξ))])
+
+;; Returns the inductive hypotheses required for eliminating the
+;; inductively defined type x_D with motive t_P, where the telescope
+;; Φ are the inductive arguments to a constructor for x_D
+(define-metafunction tt-ctxtL
+  hypotheses-for : x t Φ -> Φ
+  [(hypotheses-for x_D t_P hole) hole]
+  [(hypotheses-for x_D t_P (name any_0 (Π (x : (in-hole Φ (in-hole Θ x_D))) Φ_1)))
+   (Π (x_h : (in-hole Φ ((in-hole Θ t_P) (apply-telescope x Φ))))
+      (hypotheses-for x_D t_P Φ_1))
+   (where x_h ,(variable-not-in (term (x_D t_P any_0)) 'x-ih))])
+
+;; Returns the inductive arguments to a constructor for the
+;; inducitvely defined type x_D, where the telescope Φ are the
+;; non-parameter arguments to the constructor.
+(define-metafunction tt-ctxtL
+  inductive-args : x Φ -> Φ
+  [(inductive-args x_D hole) hole]
+  [(inductive-args x_D (Π (x : (in-hole Φ (in-hole Θ x_D))) Φ_1))
+   (Π (x : (in-hole Φ (in-hole Θ x_D))) (inductive-args x_D Φ_1))]
+  ;; NB: Depends on clause order
+  [(inductive-args x_D (Π (x : t) Φ_1))
+   (inductive-args x_D Φ_1)])
+
+;; Returns the methods required for eliminating the inductively
+;; defined type x_D, whose constructors are ((x_ci : t_ci) ...), with motive t_P.
+(define-metafunction tt-ctxtL
+  methods-for : x t ((x : t) ...) -> Ξ
+  [(methods-for x_D t_P ()) hole]
+  [(methods-for x_D t_P (name any_0 ((x_ci : (in-hole Φ (in-hole Θ x_D)))
+                          (x_c : t) ...)))
+   (Π (x_mi : (in-hole Φ (in-hole Φ_h ((in-hole Θ t_P) (apply-telescope x_ci Φ)))))
+      (methods-for x_D t_P ((x_c : t) ...)))
+   (where Φ_h (hypotheses-for x_D t_P (inductive-args x_D Φ)))
+   (where x_mi ,(variable-not-in (term (x_D t_P any_0)) 'x-mi))])
+
+(module+ test
+  (check-equiv?
+    (term (methods-for nat P ((zero : nat) (s : (Π (x : nat) nat)))))
+    (term (Π (m-zero : (P zero))
+             (Π (m-s : (Π (x : nat) (Π (ih-x : (P x)) (P (s x)))))
+                hole))))
+  ;; NB: does not pass because of removed reduction from methods-for
+  (check-equiv?
+    (term (methods-for nat (λ (x : nat) nat) ((zero : nat) (s : (Π (x : nat) nat)))))
+    (term (Π (m-zero : nat) (Π (m-s : (Π (x : nat) (Π (ih-x : nat) nat)))
+                                   hole))))
+  ;; NB: does not pass because of removed reduction from methods-for
+  (check-equiv?
+    (term (methods-for and
+                       (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) true)))
+                       ((conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B)
+                                                                             ((and A) B)))))))))
+    (term (Π (m-conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) true)))))
+             hole)))
+  (check-true (x? (term false)))
+  (check-true (Ξ? (term hole)))
+  (check-true (t? (term (λ (y : false) (Π (x : Type) x)))))
+  (check-true (redex-match? ttL ((x : t) ...) (term ())))
+  (check-equiv?
+    (term (methods-for false (λ (y : false) (Π (x : Type) x))
+                       ()))
+    (term hole)))
+
+;; TODO: Define generic traversals of Σ and Γ ?
+(define-metafunction tt-ctxtL
+  Σ-ref-parameters : Σ x -> Ξ
+  [(Σ-ref-parameters (Σ (x_D : (in-hole Ξ U) ((x : t) ...))) x_D)
+   Ξ]
+  [(Σ-ref-parameters (Σ (x_1 : t_1 ((x : t) ...))) x_D)
+   (Σ-ref-parameters Σ x_D)])
+
+(module+ test
+  (check-equiv?
+    (term (Σ-ref-parameters ,Σ nat))
+    (term hole))
+  (check-equiv?
+    (term (Σ-ref-parameters ,Σ4 and))
+    (term (Π (A : Type) (Π (B : Type) hole)))))
+
+;;; ------------------------------------------------------------------------
+;;; Dynamic semantics
+
 ;; TODO: I think a lot of things can be simplified if I rethink how
 ;; TODO: model contexts, telescopes, and such.
-(define-extended-language tt-redL ttL
+(define-extended-language tt-redL tt-ctxtL
   ;; NB: (in-hole Θv (elim x U)) is only a value when it's a partially applied elim.
   ;; TODO: Perhaps (elim x U) should step to an eta-expanded version of elim
   (v   ::= x U (Π (x : t) t) (λ (x : t) t) (elim x U) (in-hole Θv x) (in-hole Θv (elim x U)))
   ;; call-by-value, plus reduce under Π (helps with typing checking)
-  (E   ::= hole (E e) (v E)
-             (Π (x : v) E)
-             (Π (x : E) e))
-    (Ξ Φ ::= hole (Π (x : t) Ξ)) ;;(Telescope)
-  ;; NB: Does an apply context correspond to a substitution (γ)?
-  (Θ   ::= hole (Θ e)) ;;(Apply context)
+  (E   ::= hole (E e) (v E) (Π (x : v) E) (Π (x : E) e))
   (Θv  ::= hole (Θv v)))
 
-(define Ξ? (redex-match? tt-redL Ξ))
-(define Φ? (redex-match? tt-redL Φ))
-(define Θ? (redex-match? tt-redL Θ))
 (define Θv? (redex-match? tt-redL Θv))
 (define E? (redex-match? tt-redL E))
 (define v? (redex-match? tt-redL v))
@@ -273,38 +426,6 @@
   (check-true (v? (term (λ (x_0 : (Unv 0)) x_0))))
   (check-true (v? (term (refl Nat))))
   (check-true (v? (term ((refl Nat) z)))))
-
-;; TODO: Test
-;; TODO: Maybe this should be called "apply-to-telescope"
-(define-metafunction tt-redL
-  apply-telescope : t Ξ -> t
-  [(apply-telescope t hole) t]
-  [(apply-telescope t_0 (Π (x : t) Ξ)) (apply-telescope (t_0 x) Ξ)])
-
-(define-metafunction tt-redL
-  apply-telescopes : t (Ξ ...) -> t
-  [(apply-telescopes t ()) t]
-  [(apply-telescopes t (Ξ_0 Ξ_rest ...))
-   (apply-telescopes (apply-telescope t Ξ_0) (Ξ_rest ...))])
-
-;; NB: Depends on clause order
-(define-metafunction tt-redL
-  select-arg : x (x ...) (Θ e) -> e
-  [(select-arg x (x x_r ...) (in-hole Θ (hole e))) e]
-  [(select-arg x (x_1 x_r ...) (in-hole Θ (hole e)))
-   (select-arg x (x_r ...) Θ)])
-
-(define-metafunction tt-redL
-  method-lookup : Σ x x (Θ e) -> e
-  [(method-lookup Σ x_D x_ci Θ)
-   (select-arg x_ci (x_0 ...) Θ)
-   (where ((x_0 : t_0) ...) (Σ-ref-constructors Σ x_D))])
-(module+ test
-  (check-equiv?
-    (term (method-lookup ,Σ nat s
-                         ((hole (s zero))
-                          (λ (x : nat) (λ (ih-x : nat) (s (s zero)))))))
-    (term (λ (x : nat) (λ (ih-x : nat) (s (s zero)))))))
 
 ;; Create the recursive applications of elim to the recursive
 ;; arguments of an inductive constructor.
@@ -319,6 +440,7 @@
    ((elim-recur x_D U e_P Θ Θ_m Θ_i (x_c0 ... x_ci x_c1 ...))
     (in-hole (Θ (in-hole Θ_r x_ci)) ((elim x_D U) e_P)))]
   [(elim-recur x_D U e_P Θ Θ_i Θ_nr (x ...)) hole])
+
 (module+ test
   (check-true
     (redex-match? tt-redL (in-hole Θ_i (hole (in-hole Θ_r zero))) (term (hole zero))))
@@ -342,28 +464,6 @@
                    (s zero))
                   (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                  (s zero))))))
-
-(define-judgment-form tt-redL
-  #:mode (length-match I I)
-  #:contract (length-match Θ (x ...))
-  [----------------------
-   (length-match hole ())]
-
-  [(length-match Θ (x_r ...))
-   ----------------------
-   (length-match (Θ e) (x x_r ...))])
-
-(define-judgment-form tt-redL
-  #:mode (telescope-match I I)
-  #:contract (telescope-match Θ Ξ)
-
-  [---------------------------
-   (telescope-match hole hole)]
-
-  [(telescope-match Θ Ξ)
-   ---------------------------
-   (telescope-match (Θ e) (Π (x : t) Ξ))])
-
 
 (define tt-->
   (reduction-relation tt-redL
@@ -421,6 +521,7 @@
         (unless (null? (cdr r))
           (error "Church-rosser broken" r))
         (car r)))])
+
 ;; TODO: Move equivalence up here, and use in these tests.
 (module+ test
   (check-equiv? (term (reduce ∅ (Unv 0))) (term (Unv 0)))
@@ -623,87 +724,6 @@
   (check-holds (wf (∅ (nat : (Unv 0) ())) (∅ x : nat)))
   (check-holds (wf (∅ (nat : (Unv 0) ())) (∅ x : (Π (x : nat) nat)))))
 
-;; Returns the inductive hypotheses required for eliminating the
-;; inductively defined type x_D with motive t_P, where the telescope
-;; Φ are the inductive arguments to a constructor for x_D
-(define-metafunction tt-redL
-  hypotheses-for : x t Φ -> Φ
-  [(hypotheses-for x_D t_P hole) hole]
-  [(hypotheses-for x_D t_P (name any_0 (Π (x : (in-hole Φ (in-hole Θ x_D))) Φ_1)))
-   ;; TODO: Thread through Σ for reduce
-   (Π (x_h : (in-hole Φ (reduce ∅ ((in-hole Θ t_P) (apply-telescope x Φ)))))
-      (hypotheses-for x_D t_P Φ_1))
-   (where x_h ,(variable-not-in (term (x_D t_P any_0)) 'x-ih))])
-
-;; Returns the inductive arguments to a constructor for the
-;; inducitvely defined type x_D, where the telescope Φ are the
-;; non-parameter arguments to the constructor.
-(define-metafunction tt-redL
-  inductive-args : x Φ -> Φ
-  [(inductive-args x_D hole) hole]
-  [(inductive-args x_D (Π (x : (in-hole Φ (in-hole Θ x_D))) Φ_1))
-   (Π (x : (in-hole Φ (in-hole Θ x_D))) (inductive-args x_D Φ_1))]
-  ;; NB: Depends on clause order
-  [(inductive-args x_D (Π (x : t) Φ_1))
-   (inductive-args x_D Φ_1)])
-
-;; Returns the methods required for eliminating the inductively
-;; defined type x_D, whose constructors are ((x_ci : t_ci) ...), with motive t_P.
-(define-metafunction tt-redL
-  methods-for : x t ((x : t) ...) -> Ξ
-  [(methods-for x_D t_P ()) hole]
-  [(methods-for x_D t_P (name any_0 ((x_ci : (in-hole Φ (in-hole Θ x_D)))
-                          (x_c : t) ...)))
-   (Π (x_mi : (in-hole Φ (in-hole Φ_h
-                                  ;; NB: Manually reducing types because no conversion
-                                  ;; NB: rule
-                                  ;; TODO: Thread through Σ for reduce
-                                  ;; TODO: Might be able to remove this now that I have
-                                  ;; TODO: equivalence in type-check
-                                  (reduce ∅ ((in-hole Θ t_P) (apply-telescope x_ci Φ))))))
-      (methods-for x_D t_P ((x_c : t) ...)))
-   (where Φ_h (hypotheses-for x_D t_P (inductive-args x_D Φ)))
-   (where x_mi ,(variable-not-in (term (x_D t_P any_0)) 'x-mi))])
-(module+ test
-  (check-equiv?
-    (term (methods-for nat P ((zero : nat) (s : (Π (x : nat) nat)))))
-    (term (Π (m-zero : (P zero))
-             (Π (m-s : (Π (x : nat) (Π (ih-x : (P x)) (P (s x)))))
-                hole))))
-  (check-equiv?
-    (term (methods-for nat (λ (x : nat) nat) ((zero : nat) (s : (Π (x : nat) nat)))))
-    (term (Π (m-zero : nat) (Π (m-s : (Π (x : nat) (Π (ih-x : nat) nat)))
-                                   hole))))
-  (check-equiv?
-    (term (methods-for and
-                       (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) true)))
-                       ((conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B)
-                                                                             ((and A) B)))))))))
-    (term (Π (m-conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) true)))))
-             hole)))
-  (check-true (x? (term false)))
-  (check-true (Ξ? (term hole)))
-  (check-true (t? (term (λ (y : false) (Π (x : Type) x)))))
-  (check-true (redex-match? ttL ((x : t) ...) (term ())))
-  (check-equiv?
-    (term (methods-for false (λ (y : false) (Π (x : Type) x))
-                       ()))
-    (term hole)))
-
-;; TODO: Define generic traversals of Σ and Γ ?
-(define-metafunction tt-redL
-  Σ-ref-parameters : Σ x -> Ξ
-  [(Σ-ref-parameters (Σ (x_D : (in-hole Ξ U) ((x : t) ...))) x_D)
-   Ξ]
-  [(Σ-ref-parameters (Σ (x_1 : t_1 ((x : t) ...))) x_D)
-   (Σ-ref-parameters Σ x_D)])
-(module+ test
-  (check-equiv?
-    (term (Σ-ref-parameters ,Σ nat))
-    (term hole))
-  (check-equiv?
-    (term (Σ-ref-parameters ,Σ4 and))
-    (term (Π (A : Type) (Π (B : Type) hole)))))
 
 ;; Holds when an apply context Θ provides arguments that match the
 ;; telescope Ξ
@@ -864,6 +884,8 @@
   (check-holds (type-infer ,Σtruth ∅ T (in-hole Θ_ai truth)))
   (check-holds (type-infer ,Σtruth ∅ (λ (x : truth) (Unv 1))
                            (in-hole Ξ (Π (x : (in-hole Θ truth)) U))))
+
+  ;; NB: Does not pass due to removed reduction in methods-for
   (check-equiv?
     (term (methods-for truth (λ (x : truth) (Unv 1)) ((T : truth))))
     (term (Π (m-T : (Unv 1)) hole)))
