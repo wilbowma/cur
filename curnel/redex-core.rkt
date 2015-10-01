@@ -355,32 +355,59 @@
 ;; Σ-constructor-method-telescope : Σ x_D x_c t_P -> Ξ
 ;; Σ-constructor-inductive-telescope : Σ x_D x_c -> Ξ
 ;; Σ-constructor-inductive-hypotheses : Σ x_D x_c t_P -> Ξ
+;; Returns the inductive arguments to the constructor x_ci of the
+;; inducitvely defined type x_D
 
-;; Returns the inductive hypotheses required for eliminating the
-;; inductively defined type x_D with motive t_P, where the telescope
-;; Φ are the inductive arguments to a constructor for x_D
+;; Inner loop for Σ-constructor-noninductive-telescope
 (define-metafunction tt-ctxtL
-  hypotheses-for : x t Φ -> Φ
-  [(hypotheses-for x_D t_P hole) hole]
-  [(hypotheses-for x_D t_P (name any_0 (Π (x : (in-hole Φ (in-hole Θ x_D))) Φ_1)))
+  noninductive-loop : x Φ -> Φ
+  [(noninductive-loop x_D hole) hole]
+  [(noninductive-loop x_D (Π (x : (in-hole Φ (in-hole Θ x_D))) Φ_1))
+   (noninductive-loop x_D Φ_1)]
+  [(noninductive-loop x_D (Π (x : t) Φ_1))
+   (Π (x : t) (noninductive-loop x_D Φ_1))])
+
+;; Returns the noninductive arguments to the constructor x_ci of the inductively defined type x_D
+(define-metafunction tt-ctxtL
+  Σ-constructor-noninductive-telescope : Σ x x -> Ξ
+  [(Σ-constructor-noninductive-telescope Σ x_D x_ci)
+   (noninductive-loop (Σ-constructor-telescope))])
+
+;; Inner loop for Σ-constructor-inductive-telescope
+;; NB: Depends on clause order
+(define-metafunction tt-ctxtL
+  inductive-loop : x Φ -> Φ
+  [(inductive-loop x_D hole) hole]
+  [(inductive-loop x_D (Π (x : (in-hole Φ (in-hole Θ x_D))) Φ_1))
+   (Π (x : (in-hole Φ (in-hole Θ x_D))) (inductive-loop x_D Φ_1))]
+  [(inductive-loop x_D (Π (x : t) Φ_1))
+   (inductive-loop x_D Φ_1)])
+
+;; Returns the inductive arguments to the constructor x_ci of the inducitvely defined type x_D
+(define-metafunction tt-ctxtL
+  Σ-constructor-inductive-telescope : Σ x x -> Ξ
+  [(Σ-constructor-inductive-telescope Σ x_D x_ci)
+   (inductive-loop (Σ-constructor-telescope))])
+
+;; Returns the inductive hypotheses required for eliminating the inductively defined type x_D with
+;; motive t_P, where the telescope Φ are the inductive arguments to a constructor for x_D
+(define-metafunction tt-ctxtL
+  hypotheses-loop : x t Φ -> Φ
+  [(hypotheses-loop x_D t_P hole) hole]
+  [(hypotheses-loop x_D t_P (name any_0 (Π (x : (in-hole Φ (in-hole Θ x_D))) Φ_1)))
    (Π (x_h : (in-hole Φ ((in-hole Θ t_P) (Ξ-apply Φ x))))
-      (hypotheses-for x_D t_P Φ_1))
+      (hypotheses-loop x_D t_P Φ_1))
    (where x_h ,(variable-not-in (term (x_D t_P any_0)) 'x-ih))])
 
-;; Returns the inductive arguments to a constructor for the
-;; inducitvely defined type x_D, where the telescope Φ are the
-;; non-parameter arguments to the constructor.
+;; Returns the inductive hypotheses required for the elimination method of constructor x_ci for
+;; inductive type x_D, when eliminating with motive t_P.
 (define-metafunction tt-ctxtL
-  inductive-args : x Φ -> Φ
-  [(inductive-args x_D hole) hole]
-  [(inductive-args x_D (Π (x : (in-hole Φ (in-hole Θ x_D))) Φ_1))
-   (Π (x : (in-hole Φ (in-hole Θ x_D))) (inductive-args x_D Φ_1))]
-  ;; NB: Depends on clause order
-  [(inductive-args x_D (Π (x : t) Φ_1))
-   (inductive-args x_D Φ_1)])
+  Σ-constructor-inductive-hypotheses : Σ x x t -> Ξ
+  [(Σ-constructor-inductive-hypotheses Σ x_D x_ci t_P)
+   (hypotheses-loop x_D t_P (Σ-constructor-inductive-telescope Σ x_D x_ci))])
 
-;; Returns the methods required for eliminating the inductively
-;; defined type x_D, whose constructors are ((x_ci : t_ci) ...), with motive t_P.
+;; Returns the methods required for eliminating the inductively defined type x_D, whose constructors
+;; are ((x_ci : t_ci) ...), with motive t_P.
 (define-metafunction tt-ctxtL
   methods-for : x t ((x : t) ...) -> Ξ
   [(methods-for x_D t_P ()) hole]
@@ -388,7 +415,7 @@
                           (x_c : t) ...)))
    (Π (x_mi : (in-hole Φ (in-hole Φ_h ((in-hole Θ t_P) (Ξ-apply Φ x_ci)))))
       (methods-for x_D t_P ((x_c : t) ...)))
-   (where Φ_h (hypotheses-for x_D t_P (inductive-args x_D Φ)))
+   (where Φ_h (hypotheses-loop x_D t_P (inductive-loop x_D Φ)))
    (where x_mi ,(variable-not-in (term (x_D t_P any_0)) 'x-mi))])
 
 (module+ test
