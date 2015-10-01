@@ -2,7 +2,6 @@
 
 (require
   racket/function
-  (only-in racket/set set=?)
   redex/reduction-semantics)
 
 (provide
@@ -11,7 +10,9 @@
 (set-cache-size! 10000)
 
 (module+ test
-  (require rackunit)
+  (require
+    rackunit
+    (only-in racket/set set=?))
   (define-syntax-rule (check-holds (e ...))
     (check-true
       (judgment-holds (e ...))))
@@ -198,11 +199,14 @@
    (α-equivalent (elim e_0 e_1) (elim e_2 e_3))])
 (module+ test
   ;; NB: Hack to allow checking contexts without explicitly defining on contexts
+  (default-equiv (lambda (x y) (term (α-equivalent (in-hole ,x Type) (in-hole ,y Type)))))
   (define-syntax-rule (check-equiv? e1 e2)
-    (check (lambda (x y) (term (α-equivalent (in-hole ,x Type) (in-hole ,y Type)))) e1 e2))
-  (check-holds (α-equivalent x x))
-  (check-not-holds (α-equivalent x y))
-  (check-holds (α-equivalent (λ (x : A) x) (λ (y : A) y))))
+    (check (default-equiv) e1 e2))
+  (define-syntax-rule (check-not-equiv? e1 e2)
+    (check (compose not (default-equiv)) e1 e2))
+  (check-equiv? (term x) (term x))
+  (check-not-equiv? (term x) (term y))
+  (check-equiv? (term (λ (x : A) x)) (term (λ (y : A) y))))
 
 ;; NB: Substitution is hard
 ;; NB: Copy and pasted from Redex examples
@@ -231,10 +235,9 @@
   [(subst (elim e_0 e_1) x t) (elim (subst e_0 x t) (subst e_1 x t))])
 (module+ test
   (check-true (t? (term (Π (a : A) (Π (b : B) ((and A) B))))))
-  (check-holds
-    (α-equivalent
-      (Π (a : S) (Π (b : B) ((and S) B)))
-      (subst (Π (a : A) (Π (b : B) ((and A) B))) A S))))
+  (check-equiv?
+    (term (Π (a : S) (Π (b : B) ((and S) B))))
+    (term (subst (Π (a : A) (Π (b : B) ((and A) B))) A S))))
 ;; NB:
 ;; TODO: Why do I not have tests for substitutions?!?!?!?!?!?!?!!?!?!?!?!?!?!!??!?!
 
@@ -258,6 +261,7 @@
   ;; NB: Does an apply context correspond to a substitution (γ)?
   (Θ   ::= hole (Θ e)) ;;(Apply context)
   (Θv  ::= hole (Θv v)))
+
 (define Ξ? (redex-match? tt-redL Ξ))
 (define Φ? (redex-match? tt-redL Φ))
 (define Θ? (redex-match? tt-redL Θ))
@@ -296,7 +300,7 @@
    (select-arg x_ci (x_0 ...) Θ)
    (where ((x_0 : t_0) ...) (Σ-ref-constructors Σ x_D))])
 (module+ test
-  (check-equal?
+  (check-equiv?
     (term (method-lookup ,Σ nat s
                          ((hole (s zero))
                           (λ (x : nat) (λ (ih-x : nat) (s (s zero)))))))
@@ -318,7 +322,7 @@
 (module+ test
   (check-true
     (redex-match? tt-redL (in-hole Θ_i (hole (in-hole Θ_r zero))) (term (hole zero))))
-  (check-equal?
+  (check-equiv?
     (term (elim-recur nat Type (λ (x : nat) nat)
                       ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                       ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
@@ -328,7 +332,7 @@
                    (s zero))
                   (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                  zero))))
-  (check-equal?
+  (check-equiv?
     (term (elim-recur nat Type (λ (x : nat) nat)
                       ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                       ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
@@ -419,39 +423,39 @@
         (car r)))])
 ;; TODO: Move equivalence up here, and use in these tests.
 (module+ test
-  (check-equal? (term (reduce ∅ (Unv 0))) (term (Unv 0)))
-  (check-equal? (term (reduce ∅ ((λ (x : t) x) (Unv 0)))) (term (Unv 0)))
-  (check-equal? (term (reduce ∅ ((Π (x : t) x) (Unv 0)))) (term (Unv 0)))
-  (check-equal? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) x_0) (Unv 0)))))
+  (check-equiv? (term (reduce ∅ (Unv 0))) (term (Unv 0)))
+  (check-equiv? (term (reduce ∅ ((λ (x : t) x) (Unv 0)))) (term (Unv 0)))
+  (check-equiv? (term (reduce ∅ ((Π (x : t) x) (Unv 0)))) (term (Unv 0)))
+  (check-equiv? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) x_0) (Unv 0)))))
                 (term (Π (x : t) (Unv 0))))
-  (check-equal? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) (x_0 x)) x))))
+  (check-equiv? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) (x_0 x)) x))))
                   (term (Π (x : t) (x x))))
-  (check-equal? (term (reduce ,Σ (((((elim nat Type) (λ (x : nat) nat))
+  (check-equiv? (term (reduce ,Σ (((((elim nat Type) (λ (x : nat) nat))
                                                        (s zero))
                                     (λ (x : nat) (λ (ih-x : nat)
                                                         (s (s x)))))
                                    zero)))
                 (term (s zero)))
-  (check-equal? (term (reduce ,Σ (((((elim nat Type) (λ (x : nat) nat))
+  (check-equiv? (term (reduce ,Σ (((((elim nat Type) (λ (x : nat) nat))
                                                        (s zero))
                                     (λ (x : nat) (λ (ih-x : nat)
                                                         (s (s x)))))
                                    (s zero))))
                 (term (s (s zero))))
-  (check-equal? (term (reduce ,Σ (((((elim nat Type) (λ (x : nat) nat))
+  (check-equiv? (term (reduce ,Σ (((((elim nat Type) (λ (x : nat) nat))
                                                        (s zero))
                                     (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                                    (s (s (s zero))))))
                 (term (s (s (s (s zero))))))
 
-  (check-equal?
+  (check-equiv?
     (term (reduce ,Σ
                   (((((elim nat Type) (λ (x : nat) nat))
                      (s (s zero)))
                     (λ (x : nat) (λ (ih-x : nat) (s ih-x))))
                    (s (s zero)))))
     (term (s (s (s (s zero))))))
-  (check-equal?
+  (check-equiv?
     (term (step ,Σ
                   (((((elim nat Type) (λ (x : nat) nat))
                      (s (s zero)))
@@ -681,7 +685,7 @@
   (check-true (Ξ? (term hole)))
   (check-true (t? (term (λ (y : false) (Π (x : Type) x)))))
   (check-true (redex-match? ttL ((x : t) ...) (term ())))
-  (check-equal?
+  (check-equiv?
     (term (methods-for false (λ (y : false) (Π (x : Type) x))
                        ()))
     (term hole)))
@@ -694,10 +698,10 @@
   [(Σ-ref-parameters (Σ (x_1 : t_1 ((x : t) ...))) x_D)
    (Σ-ref-parameters Σ x_D)])
 (module+ test
-  (check-equal?
+  (check-equiv?
     (term (Σ-ref-parameters ,Σ nat))
     (term hole))
-  (check-equal?
+  (check-equiv?
     (term (Σ-ref-parameters ,Σ4 and))
     (term (Π (A : Type) (Π (B : Type) hole)))))
 
@@ -1157,7 +1161,7 @@
       (in-hole (Θ_p (in-hole Θ_i x_ci)) Θ_m)
       (term (((((hole
               (λ (A1 : (Unv 0)) (λ (x1 : A1) zero))) bool) true) true) ((refl bool) true)))))
-  (check-equal?
+  (check-equiv?
     (term (Σ-ref-parameters ,Σ= ==))
     (term (Π (A : Type) (Π (a : A) (Π (b : A) hole)))))
   (check-equal?
