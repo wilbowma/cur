@@ -159,23 +159,28 @@
     (term ())))
 
 ;; Get the list of constructors for the inducitvely defined type x_D
+;; NB: Depends on clause order
 (define-metafunction ttL
   Σ-ref-constructors : Σ x -> (x ...) or #f
-  ;; NB: Depends on clause order
   [(Σ-ref-constructors ∅ x_D) #f]
   [(Σ-ref-constructors (Σ (x_D : t_D ((x : t) ...))) x_D)
    (x ...)]
   [(Σ-ref-constructors (Σ (x_1 : t_1 any)) x_D)
    (Σ-ref-constructors Σ x_D)])
 
+;; NB: Depends on clause order
+(define-metafunction ttL
+  sequence-index-of : any (any ...) -> natural
+  [(sequence-index-of any_0 (any_0 any ...))
+   0]
+  [(sequence-index-of any_0 (any_1 any ...))
+   ,(add1 (term (sequence-index-of any_0 (any ...))))])
+
 ;; Get the index of the constructor x_ci in the list of constructors for x_D
 (define-metafunction ttL
-  Σ-constructor-index : Σ x x -> natural or #f
+  Σ-constructor-index : Σ x x -> natural
   [(Σ-constructor-index Σ x_D x_ci)
-   ,(for/fold ([i 0])
-              ([c (term (Σ-ref-constructors Σ x_D))])
-              #:break (eq? (term x_ci) c)
-      (add1 i))])
+   (sequence-index-of x_ci (Σ-ref-constructors Σ x_D))])
 
 ;;; ------------------------------------------------------------------------
 ;;; Universe typing
