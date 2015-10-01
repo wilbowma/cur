@@ -105,84 +105,6 @@
   (check-true (Σ? sigma)))
 
 ;;; ------------------------------------------------------------------------
-;;; Primitive Operations on signatures Σ (those operations that do not require contexts)
-
-;;; TODO: Might be worth maintaining the above bijection between Σ and maps for performance reasons
-
-;; NB: Depends on clause order
-(define-metafunction ttL
-  Σ-ref-type : Σ x -> t or #f
-  [(Σ-ref-type ∅ x) #f]
-  [(Σ-ref-type (Σ (x : t any)) x) t]
-  [(Σ-ref-type (Σ (x_0 : t_0 ((x_1 : t_1) ... (x : t) (x_2 : t_2) ...))) x) t]
-  [(Σ-ref-type (Σ (x_0 : t_0 any)) x) (Σ-ref-type Σ x)])
-
-(define-metafunction ttL
-  Σ-union : Σ Σ -> Σ
-  [(Σ-union Σ ∅) Σ]
-  [(Σ-union Σ_2 (Σ_1 (x : t any)))
-   ((Σ-union Σ_2 Σ_1) (x : t any))])
-
-;; Returns the inductively defined type that x constructs
-;; NB: Depends on clause order
-(define-metafunction ttL
-  Σ-key-by-constructor : Σ x -> x
-  [(Σ-key-by-constructor (Σ (x : t ((x_0 : t_0) ... (x_c : t_c) (x_1 : t_1) ...))) x_c)
-   x]
-  [(Σ-key-by-constructor (Σ (x_1 : t_1 any)) x)
-   (Σ-key-by-constructor Σ x)])
-
-(module+ test
-  (check-equal?
-    (term (Σ-key-by-constructor ,Σ zero))
-    (term nat))
-  (check-equal?
-    (term (Σ-key-by-constructor ,Σ s))
-    (term nat)))
-
-;; Returns the constructor map for the inductively defined type x_D in the signature Σ
-(define-metafunction ttL
-  Σ-ref-constructor-map : Σ x -> ((x : t) ...) or #f
-  ;; NB: Depends on clause order
-  [(Σ-ref-constructor-map ∅ x_D) #f]
-  [(Σ-ref-constructor-map (Σ (x_D : t_D any)) x_D)
-   any]
-  [(Σ-ref-constructor-map (Σ (x_1 : t_1 any)) x_D)
-   (Σ-ref-constructor-map Σ x_D)])
-
-(module+ test
-  (check-equal?
-    (term (Σ-ref-constructor-map ,Σ nat))
-    (term ((zero : nat) (s : (Π (x : nat) nat)))))
-  (check-equal?
-    (term (Σ-ref-constructor-map ,sigma false))
-    (term ())))
-
-;; Get the list of constructors for the inducitvely defined type x_D
-;; NB: Depends on clause order
-(define-metafunction ttL
-  Σ-ref-constructors : Σ x -> (x ...) or #f
-  [(Σ-ref-constructors ∅ x_D) #f]
-  [(Σ-ref-constructors (Σ (x_D : t_D ((x : t) ...))) x_D)
-   (x ...)]
-  [(Σ-ref-constructors (Σ (x_1 : t_1 any)) x_D)
-   (Σ-ref-constructors Σ x_D)])
-
-;; NB: Depends on clause order
-(define-metafunction ttL
-  sequence-index-of : any (any ...) -> natural
-  [(sequence-index-of any_0 (any_0 any ...))
-   0]
-  [(sequence-index-of any_0 (any_1 any ...))
-   ,(add1 (term (sequence-index-of any_0 (any ...))))])
-
-;; Get the index of the constructor x_ci in the list of constructors for x_D
-(define-metafunction ttL
-  Σ-constructor-index : Σ x x -> natural
-  [(Σ-constructor-index Σ x_D x_ci)
-   (sequence-index-of x_ci (Σ-ref-constructors Σ x_D))])
-
-;;; ------------------------------------------------------------------------
 ;;; Universe typing
 
 ;; Types of Universes
@@ -287,6 +209,91 @@
    (subst-all (subst t x_0 e_0) (x ...) (e ...))])
 
 ;;; ------------------------------------------------------------------------
+;;; Primitive Operations on signatures Σ (those operations that do not require contexts)
+
+;;; TODO: Might be worth maintaining the above bijection between Σ and maps for performance reasons
+
+;; TODO: This is doing too many things
+;; NB: Depends on clause order
+(define-metafunction ttL
+  Σ-ref-type : Σ x -> t or #f
+  [(Σ-ref-type ∅ x) #f]
+  [(Σ-ref-type (Σ (x : t any)) x) t]
+  [(Σ-ref-type (Σ (x_0 : t_0 ((x_1 : t_1) ... (x : t) (x_2 : t_2) ...))) x) t]
+  [(Σ-ref-type (Σ (x_0 : t_0 any)) x) (Σ-ref-type Σ x)])
+
+(define-metafunction ttL
+  Σ-union : Σ Σ -> Σ
+  [(Σ-union Σ ∅) Σ]
+  [(Σ-union Σ_2 (Σ_1 (x : t any)))
+   ((Σ-union Σ_2 Σ_1) (x : t any))])
+
+;; Returns the inductively defined type that x constructs
+;; NB: Depends on clause order
+(define-metafunction ttL
+  Σ-key-by-constructor : Σ x -> x
+  [(Σ-key-by-constructor (Σ (x : t ((x_0 : t_0) ... (x_c : t_c) (x_1 : t_1) ...))) x_c)
+   x]
+  [(Σ-key-by-constructor (Σ (x_1 : t_1 any)) x)
+   (Σ-key-by-constructor Σ x)])
+
+(module+ test
+  (check-equal?
+    (term (Σ-key-by-constructor ,Σ zero))
+    (term nat))
+  (check-equal?
+    (term (Σ-key-by-constructor ,Σ s))
+    (term nat)))
+
+;; Returns the constructor map for the inductively defined type x_D in the signature Σ
+(define-metafunction ttL
+  Σ-ref-constructor-map : Σ x -> ((x : t) ...) or #f
+  ;; NB: Depends on clause order
+  [(Σ-ref-constructor-map ∅ x_D) #f]
+  [(Σ-ref-constructor-map (Σ (x_D : t_D any)) x_D)
+   any]
+  [(Σ-ref-constructor-map (Σ (x_1 : t_1 any)) x_D)
+   (Σ-ref-constructor-map Σ x_D)])
+
+(module+ test
+  (check-equal?
+    (term (Σ-ref-constructor-map ,Σ nat))
+    (term ((zero : nat) (s : (Π (x : nat) nat)))))
+  (check-equal?
+    (term (Σ-ref-constructor-map ,sigma false))
+    (term ())))
+
+;; TODO: Should not use Σ-ref-type
+(define-metafunction ttL
+  Σ-ref-constructor-type : Σ x x -> t
+  [(Σ-ref-constructor-type Σ x_D x_ci)
+   (Σ-ref-type Σ x_ci)])
+
+;; Get the list of constructors for the inducitvely defined type x_D
+;; NB: Depends on clause order
+(define-metafunction ttL
+  Σ-ref-constructors : Σ x -> (x ...) or #f
+  [(Σ-ref-constructors ∅ x_D) #f]
+  [(Σ-ref-constructors (Σ (x_D : t_D ((x : t) ...))) x_D)
+   (x ...)]
+  [(Σ-ref-constructors (Σ (x_1 : t_1 any)) x_D)
+   (Σ-ref-constructors Σ x_D)])
+
+;; NB: Depends on clause order
+(define-metafunction ttL
+  sequence-index-of : any (any ...) -> natural
+  [(sequence-index-of any_0 (any_0 any ...))
+   0]
+  [(sequence-index-of any_0 (any_1 any ...))
+   ,(add1 (term (sequence-index-of any_0 (any ...))))])
+
+;; Get the index of the constructor x_ci in the list of constructors for x_D
+(define-metafunction ttL
+  Σ-constructor-index : Σ x x -> natural
+  [(Σ-constructor-index Σ x_D x_ci)
+   (sequence-index-of x_ci (Σ-ref-constructors Σ x_D))])
+
+;;; ------------------------------------------------------------------------
 ;;; Operations that involve contexts.
 
 (define-extended-language tt-ctxtL ttL
@@ -322,12 +329,29 @@
 
 ;; Applies the term t to the telescope Ξ.
 ;; TODO: Test
-;; TODO: This essentially eta-expands t at the type-level. Why is this necessary? Shouldn't it be true
-;; that (equivalent t (Ξ-apply Ξ t))
+#| TODO:
+ | This essentially eta-expands t at the type-level. Why is this necessary? Shouldn't it be true
+ | that (equivalent t (Ξ-apply Ξ t))?
+ | Maybe not. t is a lambda whose type is equivalent to (Ξ-apply Ξ t)?
+ |#
 (define-metafunction tt-ctxtL
   Ξ-apply : Ξ t -> t
   [(Ξ-apply hole t) t]
   [(Ξ-apply (Π (x : t) Ξ) t_0) (Ξ-apply Ξ (t_0 x))])
+
+;; Compose multiple telescopes into a single telescope:
+(define-metafunction tt-ctxtL
+  Ξ-compose : Ξ Ξ ... -> Ξ
+  [(Ξ-compose Ξ) Ξ]
+  [(Ξ-compose Ξ_0 Ξ_1 Ξ_rest ...)
+   (Ξ-compose (in-hole Ξ_0 Ξ_1) Ξ_rest ...)])
+
+(module+ test
+  (check-equiv?
+    (term (Ξ-compose
+            (Π (x : t_0) (Π (y : t_1) hole))
+            (Π (z : t_2) (Π (a : t_3) hole))))
+    (term (Π (x : t_0) (Π (y : t_1) (Π (z : t_2) (Π (a : t_3) hole)))))))
 
 ;; Compute the number of arguments in a Ξ
 (define-metafunction tt-ctxtL
@@ -358,6 +382,23 @@
 ;; Returns the inductive arguments to the constructor x_ci of the
 ;; inducitvely defined type x_D
 
+;; Returns the telescope of the arguments for the constructor x_ci of the inductively defined type x_D
+(define-metafunction tt-ctxtL
+  Σ-constructor-telescope : Σ x x -> Ξ
+  [(Σ-constructor-telescope Σ x_D x_ci)
+   Ξ
+   (where (in-hole Ξ (in-hole Θ x_D))
+     (Σ-ref-constructor-type Σ x_D x_ci))])
+
+;; Returns the parameter arguments as an apply context of the constructor x_ci of the inductively
+;; defined type x_D
+(define-metafunction tt-ctxtL
+  Σ-constructor-parameters : Σ x x -> Θ
+  [(Σ-constructor-parameters Σ x_D x_ci)
+   Θ
+   (where (in-hole Ξ (in-hole Θ x_D))
+     (Σ-ref-constructor-type Σ x_D x_ci))])
+
 ;; Inner loop for Σ-constructor-noninductive-telescope
 (define-metafunction tt-ctxtL
   noninductive-loop : x Φ -> Φ
@@ -371,7 +412,7 @@
 (define-metafunction tt-ctxtL
   Σ-constructor-noninductive-telescope : Σ x x -> Ξ
   [(Σ-constructor-noninductive-telescope Σ x_D x_ci)
-   (noninductive-loop (Σ-constructor-telescope))])
+   (noninductive-loop x_D (Σ-constructor-telescope Σ x_D x_ci))])
 
 ;; Inner loop for Σ-constructor-inductive-telescope
 ;; NB: Depends on clause order
@@ -387,7 +428,7 @@
 (define-metafunction tt-ctxtL
   Σ-constructor-inductive-telescope : Σ x x -> Ξ
   [(Σ-constructor-inductive-telescope Σ x_D x_ci)
-   (inductive-loop (Σ-constructor-telescope))])
+   (inductive-loop x_D (Σ-constructor-telescope Σ x_D x_ci))])
 
 ;; Returns the inductive hypotheses required for eliminating the inductively defined type x_D with
 ;; motive t_P, where the telescope Φ are the inductive arguments to a constructor for x_D
@@ -405,6 +446,35 @@
   Σ-constructor-inductive-hypotheses : Σ x x t -> Ξ
   [(Σ-constructor-inductive-hypotheses Σ x_D x_ci t_P)
    (hypotheses-loop x_D t_P (Σ-constructor-inductive-telescope Σ x_D x_ci))])
+
+(define-metafunction tt-ctxtL
+  Σ-constructor-method-telescope : Σ x x t -> Ξ
+  [(Σ-constructor-method-telescope Σ x_D x_ci t_P)
+   (Π (x_mi : (in-hole Ξ_a (in-hole Ξ_h ((in-hole Θ_p t_P) (Ξ-apply Ξ_a x_ci)))))
+      hole)
+   (where Θ_p (Σ-constructor-parameters Σ x_D x_ci))
+   (where Ξ_a (Σ-constructor-telescope Σ x_D x_ci))
+   (where Ξ_h (Σ-constructor-inductive-hypotheses Σ x_D x_ci t_P))
+   (where x_mi ,(variable-not-in (term (t_P Σ)) 'x-mi))])
+
+;; fold Ξ-compose over map Σ-constructor-method-telescope over the list of constructors
+(define-metafunction tt-ctxtL
+  method-loop : Σ x t (x ...) -> Ξ
+  [(method-loop Σ x_D t_P ()) hole]
+  [(method-loop Σ x_D t_P (x_0 x_rest ...))
+   (Ξ-compose (Σ-constructor-method-telescope Σ x_D x_0 t_P) (method-loop Σ x_D t_P (x_rest ...)))])
+
+;; Returns the telescope of all methods required to eliminate the type x_D with motive t_P
+(define-metafunction tt-ctxtL
+  Σ-methods-telescope : Σ x t -> Ξ
+  [(Σ-methods-telescope Σ x_D t_P)
+   (method-loop Σ x_D t_P (Σ-ref-constructors Σ x_D))])
+
+(module+ test
+  ;; NB: Test case not correct yet, needs inductive case
+  #;(check-equiv?
+    (term (Σ-methods-telescope ,Σ nat (λ (x : nat) nat)))
+    (term (Π (x : nat) hole))))
 
 ;; Returns the methods required for eliminating the inductively defined type x_D, whose constructors
 ;; are ((x_ci : t_ci) ...), with motive t_P.
@@ -783,9 +853,7 @@
                   (term ((hole zero) (λ (x : nat) x)))))
   (check-holds
     (telescope-types ,Σ ∅ (hole zero)
-                     (methods-for nat
-                                  (λ (x : nat) nat)
-                                  ((zero : nat)))))
+                     (Σ-methods-telescope ,Σ nat (λ (x : nat) nat))))
   (check-holds
     (type-check ,Σ ∅ (λ (x : nat) (λ (ih-x : nat) x))
                 (Π (x : nat) (Π (ih-x : nat) nat))))
@@ -793,21 +861,17 @@
     (telescope-types ,Σ ∅
                      ((hole zero)
                       (λ (x : nat) (λ (ih-x : nat) x)))
-                     (methods-for nat
-                                  (λ (x : nat) nat)
-                                  (Σ-ref-constructor-map ,Σ nat))))
+                     (Σ-methods-telescope ,Σ nat (λ (x : nat) nat))))
   (check-holds
     (telescope-types (,Σ4 (true : (Unv 0) ((tt : true))))
                      ∅ (hole (λ (A : (Unv 0)) (λ (B : (Unv 0))
                                                     (λ (a : A) (λ (b : B) tt)))))
-                     (methods-for and
-                                  (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) true)))
-                                  (Σ-ref-constructor-map ,Σ4 and))))
+                     (Σ-methods-telescope ,Σ4 and
+                                  (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) true))))))
   (check-holds
     (telescope-types ,sigma (∅ x : false)
                      hole
-                     (methods-for false (λ (y : false) (Π (x : Type) x))
-                                  ()))))
+                     (Σ-methods-telescope ,sigma false (λ (y : false) (Π (x : Type) x))))))
 
 ;; TODO: Bi-directional and inference?
 ;; TODO: http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
@@ -858,7 +922,7 @@
    ;; A fresh name for the motive
    (where x_P ,(variable-not-in (term (Σ Γ x_D Ξ Ξ_P*D x)) 'x-P))
    ;; The types of the methods for this inductive.
-   (where Ξ_m (methods-for x_D x_P (Σ-ref-constructor-map Σ x_D)))
+   (where Ξ_m (Σ-methods-telescope Σ x_D x_P))
    ----------------- "DTR-Elim_D"
    (type-infer Σ Γ (elim x_D U)
      ;; The type of (elim x_D U) is something like:
