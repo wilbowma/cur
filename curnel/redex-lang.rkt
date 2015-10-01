@@ -271,7 +271,7 @@
     (let ([x (syntax->datum id)])
       (and (x? x)
         (or (term (Γ-ref ,(gamma) ,x))
-          (term (Σ-ref ,(sigma) ,x))))))
+          (term (Σ-ref-type ,(sigma) ,x))))))
 
   (define (filter-cur-exports syn modes)
     (partition (compose cur-identifier-bound? export-local-id)
