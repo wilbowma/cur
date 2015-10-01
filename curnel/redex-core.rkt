@@ -332,7 +332,7 @@
 #| TODO:
  | This essentially eta-expands t at the type-level. Why is this necessary? Shouldn't it be true
  | that (equivalent t (Ξ-apply Ξ t))?
- | Maybe not. t is a lambda whose type is equivalent to (Ξ-apply Ξ t)?
+ | Maybe not. t is a lambda whose type is equivalent to (Ξ-apply Ξ t)? Yes.
  |#
 (define-metafunction tt-ctxtL
   Ξ-apply : Ξ t -> t
@@ -436,6 +436,8 @@
   hypotheses-loop : x t Φ -> Φ
   [(hypotheses-loop x_D t_P hole) hole]
   [(hypotheses-loop x_D t_P (name any_0 (Π (x : (in-hole Φ (in-hole Θ x_D))) Φ_1)))
+   ;; TODO: Instead of this nonsense, it might be simpler to pass in the type of t_P and use that
+   ;; as/to compute the type of the hypothesis.
    (Π (x_h : (in-hole Φ ((in-hole Θ t_P) (Ξ-apply Φ x))))
       (hypotheses-loop x_D t_P Φ_1))
    (where x_h ,(variable-not-in (term (x_D t_P any_0)) 'x-ih))])
@@ -471,49 +473,36 @@
    (method-loop Σ x_D t_P (Σ-ref-constructors Σ x_D))])
 
 (module+ test
-  ;; NB: Test case not correct yet, needs inductive case
-  #;(check-equiv?
-    (term (Σ-methods-telescope ,Σ nat (λ (x : nat) nat)))
-    (term (Π (x : nat) hole))))
-
-;; Returns the methods required for eliminating the inductively defined type x_D, whose constructors
-;; are ((x_ci : t_ci) ...), with motive t_P.
-(define-metafunction tt-ctxtL
-  methods-for : x t ((x : t) ...) -> Ξ
-  [(methods-for x_D t_P ()) hole]
-  [(methods-for x_D t_P (name any_0 ((x_ci : (in-hole Φ (in-hole Θ x_D)))
-                          (x_c : t) ...)))
-   (Π (x_mi : (in-hole Φ (in-hole Φ_h ((in-hole Θ t_P) (Ξ-apply Φ x_ci)))))
-      (methods-for x_D t_P ((x_c : t) ...)))
-   (where Φ_h (hypotheses-loop x_D t_P (inductive-loop x_D Φ)))
-   (where x_mi ,(variable-not-in (term (x_D t_P any_0)) 'x-mi))])
-
-(module+ test
   (check-equiv?
-    (term (methods-for nat P ((zero : nat) (s : (Π (x : nat) nat)))))
+    (term (Σ-methods-telescope ,Σ nat (λ (x : nat) nat)))
+    (term (Π (m-zero : ((λ (x : nat) nat) zero))
+             (Π (m-s : (Π (x : nat) (Π (x-ih : ((λ (x : nat) nat) x)) ((λ (x : nat) nat) (s x))))) hole))))
+  (check-equiv?
+    (term (Σ-methods-telescope ,Σ nat P))
     (term (Π (m-zero : (P zero))
              (Π (m-s : (Π (x : nat) (Π (ih-x : (P x)) (P (s x)))))
                 hole))))
-  ;; NB: does not pass because of removed reduction from methods-for
+  ;; TODO: After reduce, check that this is equivalent to the expected this.
   (check-equiv?
-    (term (methods-for nat (λ (x : nat) nat) ((zero : nat) (s : (Π (x : nat) nat)))))
-    (term (Π (m-zero : nat) (Π (m-s : (Π (x : nat) (Π (ih-x : nat) nat)))
-                                   hole))))
-  ;; NB: does not pass because of removed reduction from methods-for
+    (term (Σ-methods-telescope ,Σ  nat (λ (x : nat) nat)))
+    (term (Π (m-zero :  ((λ (x : nat) nat) zero))
+             (Π (m-s : (Π (x : nat) (Π (ih-x : ((λ (x : nat) nat) x)) ((λ (x : nat) nat) (s x)))))
+                hole))))
+  ;; TODO: After reduce, check that this is equivalent to the expected this.
   (check-equiv?
-    (term (methods-for and
-                       (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) true)))
-                       ((conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B)
-                                                                             ((and A) B)))))))))
-    (term (Π (m-conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) true)))))
+    (term (Σ-methods-telescope ,Σ4 and (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) true)))))
+    (term (Π (m-conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B)
+                                                                      ((((λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) true)))
+                                                                         A)
+                                                                        B)
+                                                                       ((((conj A) B) a) b)))))))
              hole)))
   (check-true (x? (term false)))
   (check-true (Ξ? (term hole)))
   (check-true (t? (term (λ (y : false) (Π (x : Type) x)))))
   (check-true (redex-match? ttL ((x : t) ...) (term ())))
   (check-equiv?
-    (term (methods-for false (λ (y : false) (Π (x : Type) x))
-                       ()))
+    (term (Σ-methods-telescope ,sigma false (λ (y : false) (Π (x : Type) x))))
     (term hole)))
 
 ;;; ------------------------------------------------------------------------
@@ -851,6 +840,7 @@
   (check-true
     (redex-match? tt-redL (in-hole Θ (hole e))
                   (term ((hole zero) (λ (x : nat) x)))))
+  ;; TODO: Why should this be true? (hole zero) seems to simple.
   (check-holds
     (telescope-types ,Σ ∅ (hole zero)
                      (Σ-methods-telescope ,Σ nat (λ (x : nat) nat))))
@@ -986,14 +976,13 @@
   (check-holds (type-infer ,Σtruth ∅ (λ (x : truth) (Unv 1))
                            (in-hole Ξ (Π (x : (in-hole Θ truth)) U))))
 
-  ;; NB: Does not pass due to removed reduction in methods-for
+  ;; TODO: ensure equivalent to expected result
   (check-equiv?
-    (term (methods-for truth (λ (x : truth) (Unv 1)) ((T : truth))))
-    (term (Π (m-T : (Unv 1)) hole)))
+    (term (Σ-methods-telescope ,Σtruth truth (λ (x : truth) (Unv 1))))
+    (term (Π (m-T : ((λ (x : truth) (Unv 1)) T)) hole)))
   (check-holds (telescope-types ,Σtruth ∅ (hole (Unv 0))
-                                (methods-for truth
-                                             (λ (x : truth) (Unv 1))
-                                             ((T : truth)))))
+                                (Σ-methods-telescope ,Σtruth truth
+                                             (λ (x : truth) (Unv 1)))))
   (check-holds (type-infer ,Σtruth ∅ (elim truth Type) t))
   (check-holds (type-check (∅ (truth : (Unv 0) ((T : truth))))
                            ∅
