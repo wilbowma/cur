@@ -343,6 +343,14 @@
   [(Θ-ref (in-hole Θ (hole e)) 0) e]
   [(Θ-ref (in-hole Θ (hole e)) natural) (Θ-ref Θ ,(sub1 (term natural)))])
 
+;; TODO: The next 3 metafunctons are a mess. They should probably be organized like this:
+;; Σ-elim-telescope : Σ x_D U -> Ξ
+;;   This one should do all the work currently done in DTR-Elim_D
+;; Σ-methods-telescope : Σ x_D t_P -> Ξ
+;; Σ-constructor-method-telescope : Σ x_D x_c t_P -> Ξ
+;; Σ-constructor-inductive-telescope : Σ x_D x_c -> Ξ
+;; Σ-constructor-inductive-hypotheses : Σ x_D x_c t_P -> Ξ
+
 ;; Returns the inductive hypotheses required for eliminating the
 ;; inductively defined type x_D with motive t_P, where the telescope
 ;; Φ are the inductive arguments to a constructor for x_D
