@@ -113,15 +113,15 @@
 (define-metafunction ttL
   Σ-ref-type : Σ x -> t or #f
   [(Σ-ref-type ∅ x) #f]
-  [(Σ-ref-type (Σ (x : t ((x_1 : t_1) ...))) x) t]
+  [(Σ-ref-type (Σ (x : t any)) x) t]
   [(Σ-ref-type (Σ (x_0 : t_0 ((x_1 : t_1) ... (x : t) (x_2 : t_2) ...))) x) t]
-  [(Σ-ref-type (Σ (x_0 : t_0 ((x_1 : t_1) ...))) x) (Σ-ref-type Σ x)])
+  [(Σ-ref-type (Σ (x_0 : t_0 any)) x) (Σ-ref-type Σ x)])
 
 (define-metafunction ttL
   Σ-union : Σ Σ -> Σ
   [(Σ-union Σ ∅) Σ]
-  [(Σ-union Σ_2 (Σ_1 (x : t ((x_c : t_c) ...))))
-   ((Σ-union Σ_2 Σ_1) (x : t ((x_c : t_c) ...)))])
+  [(Σ-union Σ_2 (Σ_1 (x : t any)))
+   ((Σ-union Σ_2 Σ_1) (x : t any))])
 
 ;; Returns the inductively defined type that x constructs
 ;; NB: Depends on clause order
@@ -129,7 +129,7 @@
   Σ-key-by-constructor : Σ x -> x
   [(Σ-key-by-constructor (Σ (x : t ((x_0 : t_0) ... (x_c : t_c) (x_1 : t_1) ...))) x_c)
    x]
-  [(Σ-key-by-constructor (Σ (x_1 : t_1 ((x_c : t) ...))) x)
+  [(Σ-key-by-constructor (Σ (x_1 : t_1 any)) x)
    (Σ-key-by-constructor Σ x)])
 
 (module+ test
@@ -145,9 +145,9 @@
   Σ-ref-constructor-map : Σ x -> ((x : t) ...) or #f
   ;; NB: Depends on clause order
   [(Σ-ref-constructor-map ∅ x_D) #f]
-  [(Σ-ref-constructor-map (Σ (x_D : t_D ((x : t) ...))) x_D)
-   ((x : t) ...)]
-  [(Σ-ref-constructor-map (Σ (x_1 : t_1 ((x : t) ...))) x_D)
+  [(Σ-ref-constructor-map (Σ (x_D : t_D any)) x_D)
+   any]
+  [(Σ-ref-constructor-map (Σ (x_1 : t_1 any)) x_D)
    (Σ-ref-constructor-map Σ x_D)])
 
 (module+ test
@@ -165,7 +165,7 @@
   [(Σ-ref-constructors ∅ x_D) #f]
   [(Σ-ref-constructors (Σ (x_D : t_D ((x : t) ...))) x_D)
    (x ...)]
-  [(Σ-ref-constructors (Σ (x_1 : t_1 ((x : t) ...))) x_D)
+  [(Σ-ref-constructors (Σ (x_1 : t_1 any)) x_D)
    (Σ-ref-constructors Σ x_D)])
 
 ;; Get the index of the constructor x_ci in the list of constructors for x_D
@@ -302,9 +302,9 @@
 ;; TODO: Define generic traversals of Σ and Γ ?
 (define-metafunction tt-ctxtL
   Σ-ref-parameter-Ξ : Σ x -> Ξ
-  [(Σ-ref-parameter-Ξ (Σ (x_D : (in-hole Ξ U) ((x : t) ...))) x_D)
+  [(Σ-ref-parameter-Ξ (Σ (x_D : (in-hole Ξ U) any)) x_D)
    Ξ]
-  [(Σ-ref-parameter-Ξ (Σ (x_1 : t_1 ((x : t) ...))) x_D)
+  [(Σ-ref-parameter-Ξ (Σ (x_1 : t_1 any)) x_D)
    (Σ-ref-parameter-Ξ Σ x_D)])
 
 (module+ test
