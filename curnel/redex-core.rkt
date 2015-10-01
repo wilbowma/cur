@@ -372,9 +372,8 @@
   [(Θ-ref (in-hole Θ (hole e)) 0) e]
   [(Θ-ref (in-hole Θ (hole e)) natural) (Θ-ref Θ ,(sub1 (term natural)))])
 
-;; TODO: The next 3 metafunctons are a mess. They should probably be organized like this:
-;; Σ-elim-telescope : Σ x_D U -> Ξ
-;;   This one should do all the work currently done in DTR-Elim_D
+;;; ------------------------------------------------------------------------
+;;; Computing the types of eliminators
 
 ;; Returns the telescope of the arguments for the constructor x_ci of the inductively defined type x_D
 (define-metafunction tt-ctxtL
@@ -497,6 +496,45 @@
     (term (Σ-methods-telescope ,sigma false (λ (y : false) (Π (x : Type) x))))
     (term hole)))
 
+;; Computes the type of the eliminator for the inductively defined type x_D with a motive whose result
+;; is in universe U.
+;;
+;; The type of (elim x_D U) is something like:
+;;  (∀ (P : (∀ a -> ... -> (D a ...) -> U))
+;;     (method_ci ...) -> ... ->
+;;     (a -> ... -> (D a ...) ->
+;;       (P a ... (D a ...))))
+;;
+;; x_D   is an inductively defined type
+;; U     is the sort the motive
+;; x_P   is the name of the motive
+;; Ξ_P*D is the telescope of the parameters of x_D and
+;;       the witness of type x_D (applied to the parameters)
+;; Ξ_m   is the telescope of the methods for x_D
+(define-metafunction tt-ctxtL
+  Σ-elim-type : Σ x U -> t
+  [(Σ-elim-type Σ x_D U)
+   (Π (x_P : (in-hole Ξ_P*D U))
+      ;; The methods Ξ_m for each constructor of type x_D
+      (in-hole Ξ_m
+        ;; And finally, the parameters and discriminant
+        (in-hole Ξ_P*D
+          ;; The result is (P a ... (x_D a ...)), i.e., the motive
+          ;; applied to the paramters and discriminant
+          (Ξ-apply Ξ_P*D x_P))))
+   ;; Get the parameters of x_D
+   (where Ξ (Σ-ref-parameter-Ξ Σ x_D))
+   ;; A fresh name to bind the discriminant
+   (where x ,(variable-not-in (term (Σ Γ x_D Ξ)) 'x-D))
+   ;; The telescope (∀ a -> ... -> (D a ...) hole), i.e.,
+   ;; of the parameters and the inductive type applied to the
+   ;; parameters
+   (where Ξ_P*D (in-hole Ξ (Π (x : (Ξ-apply Ξ x_D)) hole)))
+   ;; A fresh name for the motive
+   (where x_P ,(variable-not-in (term (Σ Γ x_D Ξ Ξ_P*D x)) 'x-P))
+   ;; The types of the methods for this inductive.
+   (where Ξ_m (Σ-methods-telescope Σ x_D x_P))])
+
 ;;; ------------------------------------------------------------------------
 ;;; Dynamic semantics
 ;;; The majority of this section is dedicated to evaluation of (elim x U), the eliminator for the
@@ -521,7 +559,6 @@
 ;; Create the recursive applications of elim to the recursive
 ;; arguments of an inductive constructor.
 ;; TODO: Poorly documented, and poorly tested.
-;; Probably the source of issue #20
 (define-metafunction tt-redL
   elim-recur : x U e Θ Θ Θ (x ...) -> Θ
   [(elim-recur x_D U e_P Θ
@@ -857,40 +894,11 @@
    ----------------- "DTR-Abstraction"
    (type-infer Σ Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
 
-  [(type-infer Σ Γ x_D (in-hole Ξ t_D))
-   (where Ξ (Σ-ref-parameter-Ξ Σ x_D))
-   ;; A fresh name to bind the discriminant
-   (where x ,(variable-not-in (term (Σ Γ x_D Ξ)) 'x-D))
-   ;; The telescope (∀ a -> ... -> (D a ...) hole), i.e.,
-   ;; of the parameters and the inductive type applied to the
-   ;; parameters
-   (where Ξ_P*D (in-hole Ξ (Π (x : (Ξ-apply Ξ x_D)) hole)))
-   ;; A fresh name for the motive
-   (where x_P ,(variable-not-in (term (Σ Γ x_D Ξ Ξ_P*D x)) 'x-P))
-   ;; The types of the methods for this inductive.
-   (where Ξ_m (Σ-methods-telescope Σ x_D x_P))
+  ;; NB: Sort of redundant since we will actually infer this exact type for x_D
+  ;; TODO: Do we want to check the Σ-elim-telescope is well-formed?
+  [(type-check Σ Γ x_D (Σ-ref-type Σ x_D))
    ----------------- "DTR-Elim_D"
-   (type-infer Σ Γ (elim x_D U)
-     ;; The type of (elim x_D U) is something like:
-     ;;  (∀ (P : (∀ a -> ... -> (D a ...) -> U))
-     ;;     (method_ci ...) -> ... ->
-     ;;     (a -> ... -> (D a ...) ->
-     ;;       (P a ... (D a ...))))
-     ;;
-     ;; x_D   is an inductively defined type
-     ;; U     is the sort the motive
-     ;; x_P   is the name of the motive
-     ;; Ξ_P*D is the telescope of the parameters of x_D and
-     ;;       the witness of type x_D (applied to the parameters)
-     ;; Ξ_m   is the telescope of the methods for x_D
-     (Π (x_P : (in-hole Ξ_P*D U))
-        ;; The methods Ξ_m for each constructor of type x_D
-        (in-hole Ξ_m
-          ;; And finally, the parameters and discriminant
-          (in-hole Ξ_P*D
-            ;; The result is (P a ... (x_D a ...)), i.e., the motive
-            ;; applied to the paramters and discriminant
-            (Ξ-apply Ξ_P*D x_P)))))])
+   (type-infer Σ Γ (elim x_D U) (Σ-elim-type Σ x_D U))])
 
 (define-judgment-form tt-typingL
   #:mode (type-check I I I I)
