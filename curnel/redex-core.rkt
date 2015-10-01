@@ -375,12 +375,6 @@
 ;; TODO: The next 3 metafunctons are a mess. They should probably be organized like this:
 ;; Σ-elim-telescope : Σ x_D U -> Ξ
 ;;   This one should do all the work currently done in DTR-Elim_D
-;; Σ-methods-telescope : Σ x_D t_P -> Ξ
-;; Σ-constructor-method-telescope : Σ x_D x_c t_P -> Ξ
-;; Σ-constructor-inductive-telescope : Σ x_D x_c -> Ξ
-;; Σ-constructor-inductive-hypotheses : Σ x_D x_c t_P -> Ξ
-;; Returns the inductive arguments to the constructor x_ci of the
-;; inducitvely defined type x_D
 
 ;; Returns the telescope of the arguments for the constructor x_ci of the inductively defined type x_D
 (define-metafunction tt-ctxtL
@@ -482,13 +476,11 @@
     (term (Π (m-zero : (P zero))
              (Π (m-s : (Π (x : nat) (Π (ih-x : (P x)) (P (s x)))))
                 hole))))
-  ;; TODO: After reduce, check that this is equivalent to the expected this.
   (check-equiv?
     (term (Σ-methods-telescope ,Σ  nat (λ (x : nat) nat)))
     (term (Π (m-zero :  ((λ (x : nat) nat) zero))
              (Π (m-s : (Π (x : nat) (Π (ih-x : ((λ (x : nat) nat) x)) ((λ (x : nat) nat) (s x)))))
                 hole))))
-  ;; TODO: After reduce, check that this is equivalent to the expected this.
   (check-equiv?
     (term (Σ-methods-telescope ,Σ4 and (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) true)))))
     (term (Π (m-conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B)
@@ -507,10 +499,11 @@
 
 ;;; ------------------------------------------------------------------------
 ;;; Dynamic semantics
+;;; The majority of this section is dedicated to evaluation of (elim x U), the eliminator for the
+;;; inductively defined type x with a motive whose result is in universe U
 
 (define-extended-language tt-redL tt-ctxtL
   ;; NB: (in-hole Θv (elim x U)) is only a value when it's a partially applied elim.
-  ;; TODO: Perhaps (elim x U) should step to an eta-expanded version of elim
   (v   ::= x U (Π (x : t) t) (λ (x : t) t) (elim x U) (in-hole Θv x) (in-hole Θv (elim x U)))
   (Θv  ::= hole (Θv v))
   ;; call-by-value, plus reduce under Π (helps with typing checking)
@@ -692,9 +685,12 @@
    ----------------- "≡-αβ"
    (equivalent Σ t_0 t_1)])
 
+;;; ------------------------------------------------------------------------
+;;; Type checking and synthesis
+
 (define-extended-language tt-typingL tt-redL
-  ;; NB: There may be a bijection between Γ and Ξ. That's
-  ;; NB: interesting.
+  ;; NB: There may be a bijection between Γ and Ξ. That's interesting.
+  ;; NB: Also a bijection between Γ and a list of maps from x to t.
   (Γ   ::= ∅ (Γ x : t)))
 (define Γ? (redex-match? tt-typingL Γ))
 
@@ -722,6 +718,7 @@
 (define-metafunction ttL
   positive : t any -> #t or #f
   [(positive any_1 any_2) #t])
+
 ;; NB: These tests may or may not fail because positivity checking is not implemented.
 (module+ test
   (check-true (term (positive nat nat)))
@@ -764,6 +761,7 @@
                ;; Checks that a constructor for x actually produces an x, i.e., that
                ;; the constructor is well-formed.
                ((x_c : (name t_c (in-hole Ξ_D* (in-hole Φ (in-hole Θ x_D*))))) ...))) ∅)])
+
 (module+ test
   (check-true (judgment-holds (wf ,Σ0 ∅)))
   (check-true (redex-match? tt-redL (in-hole Ξ (Unv 0)) (term (Unv 0))))
@@ -820,48 +818,6 @@
   (check-holds (wf (∅ (nat : (Unv 0) ())) (∅ x : nat)))
   (check-holds (wf (∅ (nat : (Unv 0) ())) (∅ x : (Π (x : nat) nat)))))
 
-
-;; Holds when an apply context Θ provides arguments that match the
-;; telescope Ξ
-(define-judgment-form tt-typingL
-  #:mode (telescope-types I I I I)
-  #:contract (telescope-types Σ Γ Θ Ξ)
-
-  [----------------- "TT-Hole"
-   (telescope-types Σ Γ hole hole)]
-
-  [(type-check Σ Γ e t)
-   (telescope-types Σ Γ Θ Ξ)
-   ----------------- "TT-Match"
-   (telescope-types Σ Γ (in-hole Θ (hole e)) (Π (x : t) Ξ))])
-(module+ test
-  (check-holds
-    (telescope-types ,Σ ∅ (hole zero) (Π (x : nat) hole)))
-  (check-true
-    (redex-match? tt-redL (in-hole Θ (hole e))
-                  (term ((hole zero) (λ (x : nat) x)))))
-  ;; TODO: Why should this be true? (hole zero) seems to simple.
-  (check-holds
-    (telescope-types ,Σ ∅ (hole zero)
-                     (Σ-methods-telescope ,Σ nat (λ (x : nat) nat))))
-  (check-holds
-    (type-check ,Σ ∅ (λ (x : nat) (λ (ih-x : nat) x))
-                (Π (x : nat) (Π (ih-x : nat) nat))))
-  (check-holds
-    (telescope-types ,Σ ∅
-                     ((hole zero)
-                      (λ (x : nat) (λ (ih-x : nat) x)))
-                     (Σ-methods-telescope ,Σ nat (λ (x : nat) nat))))
-  (check-holds
-    (telescope-types (,Σ4 (true : (Unv 0) ((tt : true))))
-                     ∅ (hole (λ (A : (Unv 0)) (λ (B : (Unv 0))
-                                                    (λ (a : A) (λ (b : B) tt)))))
-                     (Σ-methods-telescope ,Σ4 and
-                                  (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) true))))))
-  (check-holds
-    (telescope-types ,sigma (∅ x : false)
-                     hole
-                     (Σ-methods-telescope ,sigma false (λ (y : false) (Π (x : Type) x))))))
 
 ;; TODO: Bi-directional and inference?
 ;; TODO: http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
@@ -976,13 +932,9 @@
   (check-holds (type-infer ,Σtruth ∅ (λ (x : truth) (Unv 1))
                            (in-hole Ξ (Π (x : (in-hole Θ truth)) U))))
 
-  ;; TODO: ensure equivalent to expected result
   (check-equiv?
     (term (Σ-methods-telescope ,Σtruth truth (λ (x : truth) (Unv 1))))
     (term (Π (m-T : ((λ (x : truth) (Unv 1)) T)) hole)))
-  (check-holds (telescope-types ,Σtruth ∅ (hole (Unv 0))
-                                (Σ-methods-telescope ,Σtruth truth
-                                             (λ (x : truth) (Unv 1)))))
   (check-holds (type-infer ,Σtruth ∅ (elim truth Type) t))
   (check-holds (type-check (∅ (truth : (Unv 0) ((T : truth))))
                            ∅
