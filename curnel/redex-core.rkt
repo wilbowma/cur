@@ -535,13 +535,48 @@
    ;; The types of the methods for this inductive.
    (where Ξ_m (Σ-methods-telescope Σ x_D x_P))])
 
+;; TODO: This might belong in the next section, since it's related to evaluation
+;; Generate recursive applications of the eliminator for each inductive argument of type x_D.
+;; In more detaill, given motive t_P, parameters Θ_p, methods Θ_m, and arguments Θ_i to constructor
+;; x_ci for x_D, for each inductively smaller term t_i of type (in-hole Θ_p x_D) inside Θ_i,
+;; generate: (elim x_D U t_P  Θ_m ... Θ_p ... t_i)
+(define-metafunction tt-ctxtL
+  Σ-inductive-elim : Σ x U t Θ Θ Θ -> Θ
+  [(Σ-inductive-elim Σ x_D U t_P Θ_p Θ_m (in-hole Θ_i (hole (name t_i (in-hole Θ_r x_ci)))))
+   ((Σ-inductive-elim Σ x_D U t_P Θ_p Θ_m Θ_i)
+    (in-hole ((in-hole Θ_p Θ_m) t_i) ((elim x_D U) t_P)))
+   (side-condition (memq (term x_ci) (term (Σ-ref-constructors Σ x_D))))]
+  [(Σ-inductive-elim Σ x_D U t_P Θ_p Θ_m Θ_nr) hole])
+
+;; TODO: Insufficient tests, no tests of inductives with parameters, or complex induction.
+(module+ test
+  (check-true
+    (redex-match? tt-ctxtL (in-hole Θ_i (hole (in-hole Θ_r zero))) (term (hole zero))))
+  (check-equiv?
+    (term (Σ-inductive-elim ,Σ nat Type (λ (x : nat) nat) hole
+                      ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
+                      (hole zero)))
+    (term (hole (((((elim nat Type) (λ (x : nat) nat))
+                   (s zero))
+                  (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
+                 zero))))
+  (check-equiv?
+    (term (Σ-inductive-elim ,Σ nat Type (λ (x : nat) nat) hole
+                      ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
+                      (hole (s zero))))
+    (term (hole (((((elim nat Type) (λ (x : nat) nat))
+                   (s zero))
+                  (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
+                 (s zero))))))
+
 ;;; ------------------------------------------------------------------------
 ;;; Dynamic semantics
 ;;; The majority of this section is dedicated to evaluation of (elim x U), the eliminator for the
 ;;; inductively defined type x with a motive whose result is in universe U
 
 (define-extended-language tt-redL tt-ctxtL
-  ;; NB: (in-hole Θv (elim x U)) is only a value when it's a partially applied elim.
+  ;; NB: (in-hole Θv (elim x U)) is only a value when it's a partially applied elim. However,
+  ;; determining whether or not it is partially applied cannot be done with the grammar alone.
   (v   ::= x U (Π (x : t) t) (λ (x : t) t) (elim x U) (in-hole Θv x) (in-hole Θv (elim x U)))
   (Θv  ::= hole (Θv v))
   ;; call-by-value, plus reduce under Π (helps with typing checking)
@@ -555,43 +590,6 @@
   (check-true (v? (term (λ (x_0 : (Unv 0)) x_0))))
   (check-true (v? (term (refl Nat))))
   (check-true (v? (term ((refl Nat) z)))))
-
-;; Create the recursive applications of elim to the recursive
-;; arguments of an inductive constructor.
-;; TODO: Poorly documented, and poorly tested.
-(define-metafunction tt-redL
-  elim-recur : x U e Θ Θ Θ (x ...) -> Θ
-  [(elim-recur x_D U e_P Θ
-               (in-hole Θ_m (hole e_mi))
-               (in-hole Θ_i (hole (in-hole Θ_r x_ci)))
-               (x_c0 ... x_ci x_c1 ...))
-   ((elim-recur x_D U e_P Θ Θ_m Θ_i (x_c0 ... x_ci x_c1 ...))
-    (in-hole (Θ (in-hole Θ_r x_ci)) ((elim x_D U) e_P)))]
-  [(elim-recur x_D U e_P Θ Θ_i Θ_nr (x ...)) hole])
-
-(module+ test
-  (check-true
-    (redex-match? tt-redL (in-hole Θ_i (hole (in-hole Θ_r zero))) (term (hole zero))))
-  (check-equiv?
-    (term (elim-recur nat Type (λ (x : nat) nat)
-                      ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
-                      ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
-                      (hole zero)
-                      (zero s)))
-    (term (hole (((((elim nat Type) (λ (x : nat) nat))
-                   (s zero))
-                  (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
-                 zero))))
-  (check-equiv?
-    (term (elim-recur nat Type (λ (x : nat) nat)
-                      ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
-                      ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
-                      (hole (s zero))
-                      (zero s)))
-    (term (hole (((((elim nat Type) (λ (x : nat) nat))
-                   (s zero))
-                  (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
-                 (s zero))))))
 
 (define tt-->
   (reduction-relation tt-redL
@@ -615,7 +613,8 @@
           | Unfortunately, Θ contexts turn all this inside out:
           | TODO: Write better abstractions for this notation
           |#
-          ;; Split Θv into its components
+          ;; Split Θv into its components: the paramters Θv_P for x_D, the methods Θv_m for x_D, and
+          ;; the discriminant: the constructor x_ci applied to its argument Θv_i
          (where (in-hole (Θv_p (in-hole Θv_i x_ci)) Θv_m) Θv)
          ;; Check that Θ_p actually matches the parameters of x_D, to ensure it doesn't capture other
          ;; arguments.
@@ -629,7 +628,7 @@
          ;; Find the method for constructor x_ci, relying on the order of the arguments.
          (where v_mi (Θ-ref Θv_m (Σ-constructor-index Σ x_D x_ci)))
          ;; Generate the inductive recursion
-         (where Θ_r (elim-recur x_D U v_P (in-hole Θv_p Θv_m) Θv_m Θv_i (x_c* ...)))
+         (where Θ_r (Σ-inductive-elim Σ x_D U v_P Θv_p Θv_m Θv_i))
          -->elim)))
 
 (define-metafunction tt-redL
@@ -644,8 +643,9 @@
    e_r
    (where (_ e_r)
      ,(let ([r (apply-reduction-relation* tt--> (term (Σ e)) #:cache-all? #t)])
+        ;; Efficient check for (= (length r) 1)
         (unless (null? (cdr r))
-          (error "Church-rosser broken" r))
+          (error "Church-Rosser broken" r))
         (car r)))])
 
 ;; TODO: Move equivalence up here, and use in these tests.
@@ -790,14 +790,13 @@
    (type-infer Σ ∅ t_D U_D)
    (type-infer Σ (∅ x_D : t_D) t_c U_c) ...
    ;; NB: Ugh this should be possible with pattern matching alone ....
-   (side-condition ,(map (curry equal? (term Ξ_D)) (term (Ξ_D* ...))))
    (side-condition ,(map (curry equal? (term x_D)) (term (x_D* ...))))
    (side-condition (positive t_D (t_c ...)))
    ----------------- "WF-Inductive"
-   (wf (Σ (x_D : (name t_D (in-hole Ξ_D t))
+   (wf (Σ (x_D : t_D
                ;; Checks that a constructor for x actually produces an x, i.e., that
                ;; the constructor is well-formed.
-               ((x_c : (name t_c (in-hole Ξ_D* (in-hole Φ (in-hole Θ x_D*))))) ...))) ∅)])
+               ((x_c : (name t_c (in-hole Ξ (in-hole Θ x_D*)))) ...))) ∅)])
 
 (module+ test
   (check-true (judgment-holds (wf ,Σ0 ∅)))
@@ -885,6 +884,8 @@
 
   [(type-infer Σ Γ e_0 (Π (x_0 : t_0) t_1))
    (type-check Σ Γ e_1 t_0)
+   ;; TODO: Not sure why this explicit reduction is necessary, since type-check should check modulo
+   ;; equivalence.
    (where t_3 (reduce Σ ((Π (x_0 : t_0) t_1) e_1)))
    ----------------- "DTR-Application"
    (type-infer Σ Γ (e_0 e_1) t_3)]
@@ -894,11 +895,10 @@
    ----------------- "DTR-Abstraction"
    (type-infer Σ Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
 
-  ;; NB: Sort of redundant since we will actually infer this exact type for x_D
-  ;; TODO: Do we want to check the Σ-elim-telescope is well-formed?
-  [(type-check Σ Γ x_D (Σ-ref-type Σ x_D))
+  [(where t (Σ-elim-type Σ x_D U))
+   (type-infer Σ Γ t U_e)
    ----------------- "DTR-Elim_D"
-   (type-infer Σ Γ (elim x_D U) (Σ-elim-type Σ x_D U))])
+   (type-infer Σ Γ (elim x_D U) t)])
 
 (define-judgment-form tt-typingL
   #:mode (type-check I I I I)
@@ -908,6 +908,7 @@
    (equivalent Σ t t_0)
    ----------------- "DTR-Check"
    (type-check Σ Γ e t)])
+
 (module+ test
   (check-holds (type-infer ∅ ∅ (Unv 0) (Unv 1)))
   (check-holds (type-infer ∅ (∅ x : (Unv 0)) (Unv 0) (Unv 1)))
