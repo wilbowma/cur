@@ -88,7 +88,7 @@
 
   ;; These should be provided by core, so details of envs can be hidden.
   (define (extend-Γ/term env x t)
-    (term (,(env) ,x : ,t)))
+    (term (Γ-set ,(env) ,x ,t)))
 
   (define (extend-Γ/term! env x t) (env (extend-Γ/term env x t)))
 
@@ -98,7 +98,7 @@
   (define (extend-Γ/syn! env x t) (env (extend-Γ/syn env x t)))
 
   (define (extend-Σ/term env x t c*)
-    (term (,(env) (,x : ,t (,@c*)))))
+    (term (Σ-set ,(env) ,x ,t (,@c*))))
 
   (define (extend-Σ/term! env x t c*)
     (env (extend-Σ/term env x t c*)))
@@ -121,8 +121,6 @@
           [exprs (second (bind-subst))])
       (bind-subst (list (cons x vars) (cons t exprs)))))
 
-  ;; TODO: Still absurdly slow. Probably doing n^2 checks of sigma and
-  ;; gamma. And lookup on sigma, gamma are linear, so probably n^2 lookup time.
   (define (type-infer/term t)
     (let ([t (judgment-holds (type-infer ,(sigma) ,(gamma) ,t t_0) t_0)])
       (and (pair? t) (car t))))
@@ -144,15 +142,15 @@
 
   ;; Only type-check at the top-level, to prevent exponential
   ;; type-checking. Redex is expensive enough.
-  ;; TODO: This results in less good error messages. Add an
-  ;; algorithm to find the smallest ill-typed term.
   (define inner-expand? (make-parameter #f))
 
   ;; Reifiy cur syntax into curnel datum
   (define (cur->datum syn)
     ;; Main loop; avoid type
     (define reified-term
-      (parameterize ([inner-expand? #t])
+      ;; TODO: This results in less good error messages. Add an
+      ;; algorithm to find the smallest ill-typed term.
+      (parameterize ([inner-expand? #f])
         (let cur->datum ([syn syn])
           (syntax-parse (core-expand syn)
             #:literals (term reduce #%app subst-all)
@@ -177,7 +175,7 @@
                (term (elim ,t1 ,t2)))]
             [(#%app e1 e2)
              (term (,(cur->datum #'e1) ,(cur->datum #'e2)))]))))
-    (unless (and inner-expand? (type-infer/term reified-term))
+    (unless (or inner-expand? (type-infer/term reified-term))
       ;; TODO: is this really a syntax error?
       (raise-syntax-error 'cur "term is ill-typed:"
                           (begin (printf "Sigma: ~s~nGamma: ~s~n" (sigma) (gamma))
@@ -380,8 +378,7 @@
       (syntax-case syn ()
         [(_ e ...) (filter-cur-imports #'(e ...))]))))
 
-;; TODO: rename in will need to rename variables in gamma and
-;; sigma.
+;; TODO: rename in will need to rename variables in gamma and sigma.
 (define-syntax (import-envs syn)
   (syntax-case syn ()
     [(_) #`(begin-for-syntax #,@out-gammas #,@out-sigmas
@@ -436,7 +433,6 @@
 (define-syntax (dep-inductive syn)
   (syntax-case syn (:)
     [(_ i : ti (x1 : t1) ...)
-     ;; TODO: Probably should occur only in definition context? and also, should not really produce void
      (begin
        (extend-Σ/syn! sigma #'i #'ti #'((x1 : t1) ...))
        #'(void))]))
@@ -484,6 +480,8 @@
     [(_ id:id e)
      (let ([e (cur->datum #'e)]
            [id (syntax->datum #'id)])
+       ;; NB: Have to roll our own namespace rather than use built-in define so id is resolved at
+       ;; compile time in redex, and at runtime in racket.
        (extend-Γ/term! gamma id (type-infer/term e))
        (add-binding/term! id e)
        #'(void))]))

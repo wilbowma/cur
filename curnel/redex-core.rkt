@@ -42,7 +42,7 @@
   (i ::= natural)
   (U ::= (Unv i))
   (x ::= variable-not-otherwise-mentioned)
-  (t e ::= (Π (x : t) t) (λ (x : t) t) (elim t t) x U (t t))
+  (t e ::= (Π (x : t) t) (λ (x : t) t) (elim x U) x U (t t))
   ;; Σ (signature). (inductive-name : type ((constructor : type) ...))
   ;; NB: Σ is a map from a name x to a pair of it's type and a map of constructor names to their types
   (Σ   ::= ∅ (Σ (x : t ((x : t) ...)))))
@@ -221,6 +221,10 @@
   [(Σ-ref-type (Σ (x : t any)) x) t]
   [(Σ-ref-type (Σ (x_0 : t_0 ((x_1 : t_1) ... (x : t) (x_2 : t_2) ...))) x) t]
   [(Σ-ref-type (Σ (x_0 : t_0 any)) x) (Σ-ref-type Σ x)])
+
+(define-metafunction ttL
+  Σ-set : Σ x t ((x : t) ...) -> Σ
+  [(Σ-set Σ x t any) (Σ (x : t any))])
 
 (define-metafunction ttL
   Σ-union : Σ Σ -> Σ
@@ -736,6 +740,10 @@
   [(Γ-union Γ ∅) Γ]
   [(Γ-union Γ_2 (Γ_1 x : t))
    ((Γ-union Γ_2 Γ_1) x : t)])
+
+(define-metafunction tt-typingL
+  Γ-set : Γ x t -> Γ
+  [(Γ-set Γ x t) (Γ x : t)])
 
 ;; NB: Depends on clause order
 (define-metafunction tt-typingL
