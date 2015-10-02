@@ -8,7 +8,7 @@
   False
   Not
   And
-  conj
+  conj conj/i
   thm:and-is-symmetric proof:and-is-symmetric
   thm:proj1 proof:proj1
   thm:proj2 proof:proj2
@@ -28,6 +28,13 @@
   (conj : (forall* (A : Type) (B : Type)
             (x : A) (y : B) (And A B))))
 
+(define-syntax (conj/i syn)
+  (syntax-case syn ()
+    [(_ a b)
+     (let ([a-type (type-infer/syn #'a)]
+           [b-type (type-infer/syn #'b)])
+       #`(conj #,a-type #,b-type a b))]))
+
 (define-theorem thm:and-is-symmetric
   (forall* (P : Type) (Q : Type) (ab : (And P Q)) (And Q P)))
 
@@ -36,7 +43,7 @@
     (case* And Type ab (P Q)
       (lambda* (P : Type) (Q : Type) (ab : (And P Q))
          (And Q P))
-      ((conj (P : Type) (Q : Type) (x : P) (y : Q)) IH: () (conj Q P y x)))))
+      ((conj (P : Type) (Q : Type) (x : P) (y : Q)) IH: () (conj/i y x)))))
 
 (qed thm:and-is-symmetric proof:and-is-symmetric)
 
@@ -95,6 +102,10 @@
          true
          (refl Bool true))
     z)
+
+  (check-equal?
+    (conj/i (conj/i T T) T)
+    (conj (And True True) True (conj True True T T) T))
 
   (define (id (A : Type) (x : A)) x)
 
