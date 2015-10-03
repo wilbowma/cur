@@ -1298,8 +1298,13 @@
    ----------------- "DTR-Elim_D"
    (ill-typed-infer Σ Γ (elim x_D U) t)]
 
-  [----------------- "DTR-Infer-Fail"
+  [(side-condition (not-typed-infer Σ Γ e))
+   ----------------- "DTR-Infer-Fail"
    (ill-typed-infer Σ Γ e (Unv 1001))])
+
+(define-metafunction tt-typingL
+  [(not-typed-infer Σ Γ e)
+   ,(not (judgment-holds (type-infer Σ Γ e t)))])
 
 (define-judgment-form tt-typingL
   #:mode (ill-typed-check I I I I)
@@ -1336,6 +1341,7 @@
   (not (dtr-fail? d)))
 
 ;; At top-level, if there are any non-failing derivations, remove all failing derivations
+;; TODO: Really need to do more pruning. Or maybe throw this out and try a more principled approach.
 (define (prefer-nonfailing fds)
   (if (findf dtr-non-fail? fds)
       (remf* dtr-fail? fds)
@@ -1371,7 +1377,7 @@
            "Expected ~a but inferred ~a"
            (fifth (derivation-term fd))
            (fifth (derivation-term (last (derivation-subs fd)))))
-         a))]
+         `(,(car a) ,(fourth (derivation-term (last (derivation-subs fd)))) ,@(cdr a))))]
     [(dtr-infer-fail? fd)
      (lambda a
        (apply raise-syntax-error
@@ -1392,10 +1398,6 @@
 
 (require racket/pretty)
 (define (derivations->errorf fds)
-  (pretty-display (prefer-nonfailing (remove-sigma/gamma fds)))
-  #;(for ([fd (clean-derivs fds)])
-    (with-handlers ([values (lambda e (pretty-display fd))])
-      (printf "~a: ~a ~a~n" (derivation-name fd) (fourth (derivation-term fd)) (fifth (derivation-term fd)))))
   (derivation->errorf (find-first-fail (clean-derivs fds))))
 
 ;; Produces a function that can take any of the optional arguments to raise-syntax-error, and will
@@ -1410,6 +1412,11 @@
     (ill-typed-check ,Σ ∅
                      ((((elim nat (Unv 0)) nat) (s zero)) zero)
                      nat))
+  ((type-judgment-error
+        (ill-typed-check ,Σ ∅
+                         ((((elim nat (Unv 0)) nat) (s zero)) zero)
+                         nat))
+      '((((elim nat (Unv 0)) nat) (s zero)) zero))
   (check-exn
     exn:fail:syntax?
     (thunk
