@@ -110,7 +110,8 @@
   (define-theorem meow1 (forall (x : Bool) Bool))
   (proof
     (obvious)
-    (print))
+    ;; TODO: Add ability to check output
+    #;(print))
   (define-theorem meow2 (forall (x : Bool) Bool))
   (proof
     (intro x)
@@ -121,8 +122,7 @@
   (proof (obvious))
   ;; TODO: Fix this unit test so it doesn't require interaction
   (define-theorem meow4 (forall (x : Bool) Bool))
-  #;(proof
-    (interactive))
+  #;(proof (interactive))
   ;; TODO: Add check-cur-equal? for unit testing?
   #;(check-pred (curry cur-equal? '(lambda (x : bool) x)))
   )

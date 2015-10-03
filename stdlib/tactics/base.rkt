@@ -10,6 +10,7 @@
     proof-state
     proof-state-env
     proof-state-goals
+    proof-state-current-goal
     proof-state-proof
     proof-state-theorem
     new-proof

@@ -7,6 +7,14 @@ As Coq has shown, tactics have proven useful for doing complex proofs. In Cur, t
 built-in or provided by the language. However, any user can use meta-programming to add tactics to
 Cur. A tactic system ships in the standard library, written entirely in user-land code.
 
+@(require racket/sandbox scribble/eval)
+@(define curnel-eval
+   (parameterize ([sandbox-output 'string]
+                  [sandbox-error-output 'string]
+                  [sandbox-eval-limits #f]
+                  [sandbox-memory-limit #f])
+     (make-module-evaluator "#lang cur (require cur/stdlib/tactics/base)  (require cur/stdlib/tactics/standard) (require cur/stdlib/bool) (require cur/stdlib/nat)")))
+
 @section{Proof State and Defining Tactics}
 @defmodule[cur/stdlib/tactics/base]
 
@@ -17,11 +25,9 @@ Defines a new @tech{tactic}, at @gtech{phase} 1. A @deftech{tactic} is a Racket 
 number of arguments, plus the @tech{proof state}. The @tech{proof state} must be the final argument of
 the tactic.
 
-Examples:
-@racketblock[
+@examples[#:eval curnel-eval
 (define-tactic (do-nothing ps)
   ps)
-
 (define-tactic (switch-goal i ps)
   (struct-copy proof-state ps
     [current-goal i]))
@@ -150,16 +156,12 @@ saved anywhere, only checked against the most recent theorem defined via @racket
 Note that the proof state is implicitly given to each call by @racket[proof] and should not appear as
 an explicit argument.
 
-Examples:
-@racketblock[
+@examples[#:eval curnel-eval
 (define-theorem a-silly-theorem (forall (x : Nat) Nat))
-(proof
-  (intro x)
-  (by-assumption))
+(proof (intro x) (by-assumption))
 
 (define-theorem falseo (forall (x : Type) x))
-(proof
-  (interactive))
+(eval:alts (proof (interactive)) (void))
 ]
 }
 
