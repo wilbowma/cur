@@ -15,6 +15,9 @@
   define-type
   case
   case*
+  let
+
+  ;; reflection in syntax
   run
   step
   step-n
@@ -109,6 +112,25 @@
     [(_ D U e (p ...) P clause* ...)
      #`(elim D U P #,@(map rewrite-clause (syntax->list #'(clause* ...))) p ... e)]))
 
+(begin-for-syntax
+  (define-syntax-class let-clause
+    (pattern
+      (~or (x:id e) ((x:id (~datum :) t) e))
+      #:attr id #'x
+      #:attr expr #'e
+      #:attr type (cond
+                    [(attribute t) #'t]
+                    [(type-infer/syn #'e)]
+                    [else
+                      (raise-syntax-error
+                        'let
+                        "Could not infer type of let bound expression"
+                        #'e (quasisyntax/loc #'x (x e)))]))))
+(define-syntax (let syn)
+  (syntax-parse syn
+    [(let (c:let-clause ...) body)
+     #'((lambda* (c.id : c.type) ... body) c.e ...)]))
+
 (define-syntax-rule (define-theorem name prop)
   (define name prop))
 
@@ -167,4 +189,33 @@
     ((λ* (x : (Type 1)) (y : (→ (Type 1) (Type 1))) (y x))
      Type
      (λ (x : (Type 1)) x))
-    Type))
+    Type)
+
+  (check-equal?
+    (let ([x Type]
+          [y (λ (x : (Type 1)) x)])
+      (y x))
+    Type)
+
+  (check-equal?
+    (let ([(x : (Type 1)) Type]
+          [y (λ (x : (Type 1)) x)])
+      (y x))
+    Type)
+
+  ;; check that raises decent syntax error
+  ;; Can't use this because (lambda () ...) and thunk are not things in Cur at runtime
+  #;(check-exn
+    exn:fail:syntax?
+    (let ([x : (Type 1) Type]
+          [y (λ (x : (Type 1)) x)])
+      (y x)))
+
+  ;; check that raises type error
+  #;(check-exn
+    exn:fail:syntax?
+    (let ([x uninferrable-expr]
+          [y (λ (x : (Type 1)) x)])
+      (y x)))
+
+  )

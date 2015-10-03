@@ -145,6 +145,24 @@ Necessary for more advanced types, like @racket[And], because @racket[case] is n
              a])]
 }
 
+@defform[(let (clause ...) body)
+         #:grammar
+         [(clause
+            (code:line (id expr))
+            (code:line ((id : type) expr)))]]{
+Evaluates the expressions @racket[expr] from each clause, left to right, and binds them to each
+@racket[id]. If a @racket[type] is not given for the @racket[id], attempts to infer the type of the
+corresponding @racket[expr], raising a syntax error if no type can be inferred.
+
+@examples[#:eval curnel-eval
+          (let ([x Type]
+                [y (λ (x : (Type 1)) x)])
+            (y x))
+          (let ([x uninferrable-expr]
+                [y (λ (x : (Type 1)) x)])
+            (y x))]
+}
+
 @defform[(run syn)]{
 Like @racket[normalize/syn], but is a syntactic form which allows a Cur term to be written by
 computing part of the term from another Cur term.
