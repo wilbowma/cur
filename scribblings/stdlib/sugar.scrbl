@@ -23,7 +23,8 @@ that expands into the eliminator.
 @defmodule[cur/stdlib/sugar]
 This library defines various syntactic extensions making Cur easier to write than writing raw TT.
 
-@defform[(-> t1 t2)]{
+@defform*[((-> t1 t2)
+          (→ t1 t2))]{
 A non-dependent function type Equivalent to @racket[(forall (_ : t1) t2)], where @racket[_] indicates an variable that is not used.
 
 @examples[#:eval curnel-eval
@@ -32,7 +33,8 @@ A non-dependent function type Equivalent to @racket[(forall (_ : t1) t2)], where
           ((((conj Bool) Bool) true) false)]
 }
 
-@defform[(->* t ...)]{
+@defform*[((->* t ...)
+          (→* t ...))]{
 A non-dependent multi-arity function type that supports automatic currying.
 
 @examples[#:eval curnel-eval
@@ -42,7 +44,8 @@ A non-dependent multi-arity function type that supports automatic currying.
 }
 
 
-@defform[(forall* (a : t) ... type)]{
+@defform*[((forall* (a : t) ... type)
+          (∀* (a : t) ... type))]{
 A multi-arity function type that supports automatic currying.
 
 @examples[#:eval curnel-eval
@@ -53,7 +56,8 @@ A multi-arity function type that supports automatic currying.
 
 }
 
-@defform[(lambda* (a : t) ... body)]{
+@defform*[((lambda* (a : t) ... body)
+           (λ* (a : t) ... body))]{
 Defines a multi-arity procedure that supports automatic currying.
 
 @examples[#:eval curnel-eval
