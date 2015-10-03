@@ -61,6 +61,7 @@
 
 (define-syntax (#%app syn)
   (syntax-case syn ()
+    [(_ e) #'e]
     [(_ e1 e2)
      #'(real-app e1 e2)]
     [(_ e1 e2 e3 ...)
