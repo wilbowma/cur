@@ -5,20 +5,26 @@
 (provide
   True T
   thm:anything-implies-true
+  pf:anything-implies-true
   False
   Not
   And
   conj conj/i
-  thm:and-is-symmetric proof:and-is-symmetric
-  thm:proj1 proof:proj1
-  thm:proj2 proof:proj2
+  thm:and-is-symmetric pf:and-is-symmetric
+  thm:proj1 pf:proj1
+  thm:proj2 pf:proj2
   == refl)
+
+(module+ test
+  (require rackunit))
 
 (data True : Type (T : True))
 
-(define-theorem thm:anything-implies-true (forall (P : Type) True))
+(define thm:anything-implies-true (forall (P : Type) True))
+(define pf:anything-implies-true (lambda (P : Type) T))
 
-(qed thm:anything-implies-true (lambda (P : Type) T))
+(module+ test
+  (:: pf:anything-implies-true thm:anything-implies-true))
 
 (data False : Type)
 
@@ -35,39 +41,42 @@
            [b-type (type-infer/syn #'b)])
        #`(conj #,a-type #,b-type a b))]))
 
-(define-theorem thm:and-is-symmetric
+(define thm:and-is-symmetric
   (forall* (P : Type) (Q : Type) (ab : (And P Q)) (And Q P)))
 
-(define proof:and-is-symmetric
+(define pf:and-is-symmetric
   (lambda* (P : Type) (Q : Type) (ab : (And P Q))
     (case* And Type ab (P Q)
       (lambda* (P : Type) (Q : Type) (ab : (And P Q))
          (And Q P))
       ((conj (P : Type) (Q : Type) (x : P) (y : Q)) IH: () (conj/i y x)))))
 
-(qed thm:and-is-symmetric proof:and-is-symmetric)
+(module+ test
+  (:: pf:and-is-symmetric thm:and-is-symmetric))
 
-(define-theorem thm:proj1
+(define thm:proj1
   (forall* (A : Type) (B : Type) (c : (And A B)) A))
 
-(define proof:proj1
+(define pf:proj1
   (lambda* (A : Type) (B : Type) (c : (And A B))
     (case* And Type c (A B)
       (lambda* (A : Type) (B : Type) (c : (And A B)) A)
       ((conj (A : Type) (B : Type) (a : A) (b : B)) IH: () a))))
 
-(qed thm:proj1 proof:proj1)
+(module+ test
+  (:: pf:proj1 thm:proj1))
 
-(define-theorem thm:proj2
+(define thm:proj2
   (forall* (A : Type) (B : Type) (c : (And A B)) B))
 
-(define proof:proj2
+(define pf:proj2
   (lambda* (A : Type) (B : Type) (c : (And A B))
     (case* And Type c (A B)
       (lambda* (A : Type) (B : Type) (c : (And A B)) B)
       ((conj (A : Type) (B : Type) (a : A) (b : B)) IH: () b))))
 
-(qed thm:proj2 proof:proj2)
+(module+ test
+  (:: pf:proj2 thm:proj2))
 
 #| TODO: Disabled until #22 fixed
 (data Or : (forall* (A : Type) (B : Type) Type)
@@ -93,7 +102,7 @@
   (refl : (forall* (A : Type) (x : A) (== A x x))))
 
 (module+ test
-  (require rackunit "bool.rkt" "nat.rkt")
+  (require  "bool.rkt" "nat.rkt")
   (check-equal?
     (elim == Type (λ* (A : Type) (x : A) (y : A) (p : (== A x y)) Nat)
          (λ* (A : Type) (x : A) z)

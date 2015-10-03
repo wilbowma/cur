@@ -167,6 +167,15 @@ corresponding @racket[expr], raising a syntax error if no type can be inferred.
             (y x))]
 }
 
+@defform[(:: e type)]{
+Check that expression @racket[e] has type @racket[type], causing a type-error if not, and producing
+@racket[(void)] if so.
+
+@examples[#:eval curnel-eval
+          (:: z Nat)
+          (:: true Nat)]
+}
+
 @defform[(run syn)]{
 Like @racket[normalize/syn], but is a syntactic form which allows a Cur term to be written by
 computing part of the term from another Cur term.

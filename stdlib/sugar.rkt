@@ -17,15 +17,14 @@
   case*
   let
 
+  ;; type-check
+  ::
+
   ;; reflection in syntax
   run
   step
   step-n
   query-type
-
-  ;; don't use these
-  define-theorem
-  qed
   )
 
 (require
@@ -132,17 +131,19 @@
     [(let (c:let-clause ...) body)
      #'((lambda* (c.id : c.type) ... body) c.e ...)]))
 
-(define-syntax-rule (define-theorem name prop)
-  (define name prop))
-
-(define-syntax (qed stx)
-  (syntax-case stx ()
-    [(_ t pf)
+;; Normally type checking will only happen if a term is actually used. This forces a term to be
+;; checked against a particular type.
+(define-syntax (:: syn)
+  (syntax-case syn ()
+    [(_ pf t)
      (begin
        (unless (type-check/syn? #'pf #'t)
-         (raise-syntax-error 'qed "Invalid proof"
-           #'pf #'t))
-       #'pf)]))
+         (raise-syntax-error
+           '::
+           (format "Term ~a does not have expected type ~a. Inferred type was ~a"
+                   (cur->datum #'pf) (cur->datum #'t) (cur->datum (type-infer/syn #'pf)))
+           syn))
+       #'(void))]))
 
 (define-syntax (run syn)
   (syntax-case syn ()

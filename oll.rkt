@@ -4,7 +4,7 @@
 (require
   "stdlib/sugar.rkt"
   "stdlib/nat.rkt"
-  (only-in "curnel/redex-lang.rkt" [#%app real-app] [elim real-elim]))
+  (only-in "cur.rkt" [#%app real-app] [elim real-elim]))
 
 (provide
   define-relation
@@ -12,8 +12,7 @@
   Var
   avar
   var-equal?
-  generate-coq
-  #;(rename-out [oll-define-theorem define-theorem]))
+  generate-coq)
 
 (begin-for-syntax
   (define-syntax-class dash
@@ -275,31 +274,14 @@
         (string-replace str (symbol->string (first p))
                         (symbol->string (second p))))))
   (define (output-coq syn)
-    (syntax-parse (cur-expand syn #'define #'define-theorem #'qed
-                              #'begin)
+    (syntax-parse (cur-expand syn #'define #'begin)
        ;; TODO: Need to add these to a literal set and export it
        ;; Or, maybe overwrite syntax-parse
-       #:literals (lambda forall data real-app real-elim define-theorem
-                          define qed begin Type)
+       #:literals (lambda forall data real-app real-elim define begin Type)
        [(begin e ...)
         (for/fold ([str ""])
                   ([e (syntax->list #'(e ...))])
           (format "~a~n" (output-coq e)))]
-       [(define-theorem name prop)
-        (begin
-          (fprintf (current-error-port) "Warning: If theorem ~a is not followed by a proof using (qed ...), the resulting Coq code may be malformed.~n" (output-coq #'name))
-          (coq-lift-top-level
-            (format "Theorem ~a : ~a.~n"
-                    (output-coq #'name)
-                    (output-coq #'prop)))
-          "")]
-       [(qed thm proof)
-        ;; TODO: Have some sort of coq-lift-to-theorem, to auto match
-        ;; proofs and theorems.
-        (begin
-          (coq-lift-top-level
-            (format "Proof. exact ~a. Qed.~n" (output-coq #'proof)))
-          "")]
        [(define name:id body)
         (begin
           (coq-lift-top-level
@@ -392,10 +374,9 @@
         "\\(\\(\\(\\(nat_rect \\(fun x : nat => nat\\)\\) z\\) \\(fun x : nat => \\(fun ih_x : nat => ih_x\\)\\)\\) e\\)"
         t))
     (check-regexp-match
-      "Theorem thm_plus_commutes : \\(forall n : nat, \\(forall m : nat, \\(\\(\\(== nat\\) \\(\\(plus n\\) m\\)\\) \\(\\(plus m\\) n\\)\\)\\)\\).\n"
+      "Definition thm_plus_commutes := \\(forall n : nat, \\(forall m : nat, \\(\\(\\(== nat\\) \\(\\(plus n\\) m\\)\\) \\(\\(plus m\\) n\\)\\)\\)\\).\n"
       (parameterize ([coq-defns ""])
-        (output-coq #'(define-theorem thm:plus-commutes
-                                     (forall* (n : nat) (m : nat)
+        (output-coq #'(define thm:plus-commutes (forall* (n : nat) (m : nat)
                                               (== nat (plus n m) (plus m n)))))
         (coq-defns)))
     (check-regexp-match
