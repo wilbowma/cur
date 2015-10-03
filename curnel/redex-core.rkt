@@ -2,6 +2,7 @@
 
 (require
   racket/function
+  racket/list
   redex/reduction-semantics)
 
 (provide
@@ -1248,3 +1249,172 @@
   (check-equal?
     (term (reduce ,Σ= ,refl-elim))
     (term zero)))
+
+;;; ------------------------------------------------------------------------
+;;; Finding an ill-typed subterm.
+
+#| NB TODO:
+ | Copypasta of type-infer, type-check from redex-core
+ |
+ | Takes advantage of judgment-form depth-first semantics to identify the failing subterm using
+ | the last clause of (build-derivations). Might be better to build this into type-infer? Maybe not
+ |#
+(define-judgment-form tt-typingL
+  #:mode (ill-typed-infer I I I O)
+  #:contract (ill-typed-infer Σ Γ e t)
+
+  [(unv-ok U_0 U_1)
+   (wf Σ Γ)
+   ----------------- "DTR-Axiom"
+   (ill-typed-infer Σ Γ U_0 U_1)]
+
+  [(where t (Σ-ref-type Σ x))
+   ----------------- "DTR-Inductive"
+   (ill-typed-infer Σ Γ x t)]
+
+  [(where t (Γ-ref Γ x))
+   ----------------- "DTR-Start"
+   (ill-typed-infer Σ Γ x t)]
+
+  [(ill-typed-infer Σ Γ t_0 U_1)
+   (ill-typed-infer Σ (Γ x : t_0) t U_2)
+   (unv-kind U_1 U_2 U)
+   ----------------- "DTR-Product"
+   (ill-typed-infer Σ Γ (Π (x : t_0) t) U)]
+
+  [(ill-typed-infer Σ Γ e_0 (Π (x_0 : t_0) t_1))
+   (ill-typed-check Σ Γ e_1 t_0)
+   (where t_3 (reduce Σ ((Π (x_0 : t_0) t_1) e_1)))
+   ----------------- "DTR-Application"
+   (ill-typed-infer Σ Γ (e_0 e_1) t_3)]
+
+  [(ill-typed-infer Σ (Γ x : t_0) e t_1)
+   (ill-typed-infer Σ Γ (Π (x : t_0) t_1) U)
+   ----------------- "DTR-Abstraction"
+   (ill-typed-infer Σ Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
+
+  [(where t (Σ-elim-type Σ x_D U))
+   (ill-typed-infer Σ Γ t U_e)
+   ----------------- "DTR-Elim_D"
+   (ill-typed-infer Σ Γ (elim x_D U) t)]
+
+  [----------------- "DTR-Infer-Fail"
+   (ill-typed-infer Σ Γ e (Unv 1001))])
+
+(define-judgment-form tt-typingL
+  #:mode (ill-typed-check I I I I)
+  #:contract (ill-typed-check Σ Γ e t)
+
+  [(ill-typed-infer Σ Γ e t_0)
+   (equivalent Σ t_0 t)
+   ----------------- "DTR-Check"
+   (ill-typed-check Σ Γ e t)]
+
+  [(ill-typed-infer Σ Γ e t_0)
+   (side-condition ,(not (judgment-holds (equivalent Σ t_0 t))))
+   (side-condition ,(not (equal? (term t_0) (term (Unv 1001)))))
+   ----------------- "DTR-Not-Equiv"
+   (ill-typed-check Σ Γ e t)]
+
+  [(side-condition ,(not (judgment-holds (type-check Σ Γ e t))))
+   ----------------- "DTR-Check-Fail"
+   (ill-typed-check Σ Γ e t)])
+
+(define (dtr-check-fail? deriv)
+  (equal? (derivation-name deriv) "DTR-Check-Fail"))
+
+(define (dtr-not-equiv? deriv)
+  (equal? (derivation-name deriv) "DTR-Not-Equiv"))
+
+(define (dtr-infer-fail? deriv)
+  (equal? (derivation-name deriv) "DTR-Infer-Fail"))
+
+(define (dtr-fail? d)
+  (or (dtr-infer-fail? d) (dtr-not-equiv? d) (dtr-check-fail? d)))
+
+(define (dtr-non-fail? d)
+  (not (dtr-fail? d)))
+
+;; At top-level, if there are any non-failing derivations, remove all failing derivations
+(define (prefer-nonfailing fds)
+  (if (findf dtr-non-fail? fds)
+      (remf* dtr-fail? fds)
+      fds))
+
+;; Hide sigma/gamma; for debugging purposes
+(define (remove-sigma/gamma fds)
+  (for/list ([fd fds])
+    (struct-copy derivation fd
+      [term (reverse (for/fold
+                       ([t '()])
+                       ([c (derivation-term fd)])
+                       (if (or (Γ? c) (Σ? c))
+                           t
+                           (cons c t))))]
+      [subs (remove-sigma/gamma (derivation-subs fd))])))
+
+(define clean-derivs (compose prefer-nonfailing))
+
+(define (find-first-fail fds)
+  (let ([fd (findf dtr-fail? fds)])
+    (or fd
+      (for/or ([fd fds])
+        (find-first-fail (derivation-subs fd))))))
+
+(define (derivation->errorf fd)
+  (cond
+    [(dtr-not-equiv? fd)
+     (lambda a
+       (apply raise-syntax-error
+         'cur
+         (format
+           "Expected ~a but inferred ~a"
+           (fifth (derivation-term fd))
+           (fifth (derivation-term (last (derivation-subs fd)))))
+         a))]
+    [(dtr-infer-fail? fd)
+     (lambda a
+       (apply raise-syntax-error
+         'cur
+         (format
+           "Could not infer type for ~a"
+           (fourth (derivation-term fd)))
+         a))]
+    [(dtr-check-fail? fd)
+     (lambda a
+       (apply raise-syntax-error
+         'cur
+         (format
+           "Term ~a does not have expected type ~a, but could not deduce more than that"
+           (fourth (derivation-term fd))
+           (fifth (derivation-term fd)))
+         a))]))
+
+(require racket/pretty)
+(define (derivations->errorf fds)
+  (pretty-display (prefer-nonfailing (remove-sigma/gamma fds)))
+  #;(for ([fd (clean-derivs fds)])
+    (with-handlers ([values (lambda e (pretty-display fd))])
+      (printf "~a: ~a ~a~n" (derivation-name fd) (fourth (derivation-term fd)) (fifth (derivation-term fd)))))
+  (derivation->errorf (find-first-fail (clean-derivs fds))))
+
+;; Produces a function that can take any of the optional arguments to raise-syntax-error, and will
+;; raise a helpful type error message
+(define-syntax-rule (type-judgment-error (name args ...))
+  ;; NB HACK: This let binding appears to be necesary to speed up build-derivations
+  (let ([_ (judgment-holds (name args ...))])
+    (derivations->errorf (build-derivations (name args ...)))))
+
+(module+ test
+  (check-holds
+    (ill-typed-check ,Σ ∅
+                     ((((elim nat (Unv 0)) nat) (s zero)) zero)
+                     nat))
+  (check-exn
+    exn:fail:syntax?
+    (thunk
+      ((type-judgment-error
+        (ill-typed-check ,Σ ∅
+                         ((((elim nat (Unv 0)) nat) (s zero)) zero)
+                         nat))
+      '((((elim nat (Unv 0)) nat) (s zero)) zero)))))

@@ -151,9 +151,7 @@
   (define (cur->datum syn)
     ;; Main loop; avoid type
     (define reified-term
-      ;; TODO: This results in less good error messages. Add an
-      ;; algorithm to find the smallest ill-typed term.
-      (parameterize ([inner-expand? #f])
+      (parameterize ([inner-expand? #t])
         (let cur->datum ([syn syn])
           (syntax-parse (core-expand syn)
             #:literals (term reduce #%app subst-all)
@@ -178,12 +176,11 @@
                (term (elim ,t1 ,t2)))]
             [(#%app e1 e2)
              (term (,(cur->datum #'e1) ,(cur->datum #'e2)))]))))
-    (unless (or inner-expand? (type-infer/term reified-term))
-      ;; TODO: is this really a syntax error?
-      (raise-syntax-error 'cur "term is ill-typed:"
-                          (begin (printf "Sigma: ~s~nGamma: ~s~n" (sigma) (gamma))
-                                 reified-term)
-                          syn))
+    ;; TODO: Expose type-judgment-error, or wrappers around it
+    (unless (or (inner-expand?) (type-infer/term reified-term))
+      ((type-judgment-error
+         (ill-typed-infer ,(sigma) ,(gamma) ,reified-term t_0))
+       syn))
     reified-term)
 
   (define (datum->cur syn t)
