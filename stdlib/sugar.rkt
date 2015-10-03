@@ -119,7 +119,15 @@
       #:attr id #'x
       #:attr expr #'e
       #:attr type (cond
-                    [(attribute t) #'t]
+                    [(attribute t)
+                     ;; TODO: Code duplication in ::
+                     (unless (type-check/syn? #'e #'t)
+                       (raise-syntax-error
+                         'let
+                         (format "Term ~a does not have expected type ~a. Inferred type was ~a"
+                                 (cur->datum #'e) (cur->datum #'t) (cur->datum (type-infer/syn #'e)))
+                         #'e (quasisyntax/loc #'x (x e))))
+                     #'t]
                     [(type-infer/syn #'e)]
                     [else
                       (raise-syntax-error
@@ -137,6 +145,7 @@
   (syntax-case syn ()
     [(_ pf t)
      (begin
+       ;; TODO: Code duplication in let-clause pattern
        (unless (type-check/syn? #'pf #'t)
          (raise-syntax-error
            '::
