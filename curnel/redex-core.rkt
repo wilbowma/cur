@@ -500,6 +500,18 @@
     (term (Σ-methods-telescope ,sigma false (λ (y : false) (Π (x : Type) x))))
     (term hole)))
 
+;; Returns the number of arguments expected by the eliminator for type
+;; x_D, counting the motive, the methods, the parameters, and the discriminant
+(define-metafunction tt-ctxtL
+  Σ-elim-arity : Σ x_D -> natural
+  [(Σ-elim-arity Σ x_D)
+   ,(let ([cs (term (Σ-ref-constructors Σ x_D))])
+      (unless cs
+        (error 'Σ-elim-arity "~a is not defined in ~a" (term x_D) (term Σ)))
+      (+ 1 (length cs)
+       (term (Ξ-length (Σ-ref-parameter-Ξ Σ x_D)))
+       1))])
+
 ;; Computes the type of the eliminator for the inductively defined type x_D with a motive whose result
 ;; is in universe U.
 ;;
@@ -538,6 +550,7 @@
    (where x_P ,(variable-not-in (term (Σ Γ x_D Ξ Ξ_P*D x)) 'x-P))
    ;; The types of the methods for this inductive.
    (where Ξ_m (Σ-methods-telescope Σ x_D x_P))])
+
 
 ;; TODO: This might belong in the next section, since it's related to evaluation
 ;; Generate recursive applications of the eliminator for each inductive argument of type x_D.
@@ -578,11 +591,19 @@
 ;;; The majority of this section is dedicated to evaluation of (elim x U), the eliminator for the
 ;;; inductively defined type x with a motive whose result is in universe U
 
+;; Necessary to get the side-condition patterns to work.
+(define current-Σ (make-parameter (term ∅)))
+(define (elim-arity x)
+  (term (Σ-elim-arity ,(current-Σ) ,x)))
+
 (define-extended-language tt-redL tt-ctxtL
-  ;; NB: (in-hole Θv (elim x U)) is only a value when it's a partially applied elim. However,
-  ;; determining whether or not it is partially applied cannot be done with the grammar alone.
-  (v   ::= x U (Π (x : t) t) (λ (x : t) t) (elim x U) (in-hole Θv x) (in-hole Θv (elim x U)))
   (Θv  ::= hole (Θv v))
+  (v   ::= x U (Π (x : t) t) (λ (x : t) t) (elim x U) (in-hole Θv x)
+           ;; NB: (in-hole Θv (elim x U)) is only a value when it's a partially applied elim.
+           (in-hole Θv (elim x U))
+           #;(side-condition
+             (not (equal? (term (Θ-length Θv_0))
+                          (elim-arity (term x_0))))))
   ;; call-by-value, plus reduce under Π (helps with typing checking)
   (E   ::= hole (E e) (v E) (Π (x : v) E) (Π (x : E) e)))
 
@@ -639,18 +660,19 @@
   step : Σ e -> e
   [(step Σ e)
    e_r
-   (where (_ e_r) ,(car (apply-reduction-relation tt--> (term (Σ e)))))])
+   (where (_ e_r) ,(parameterize ([current-Σ (term Σ)]) (car (apply-reduction-relation tt--> (term (Σ e))))))])
 
 (define-metafunction tt-redL
   reduce : Σ e -> e
   [(reduce Σ e)
    e_r
    (where (_ e_r)
-     ,(let ([r (apply-reduction-relation* tt--> (term (Σ e)) #:cache-all? #t)])
-        ;; Efficient check for (= (length r) 1)
-        (unless (null? (cdr r))
-          (error "Church-Rosser broken" r))
-        (car r)))])
+     ,(parameterize ([current-Σ (term Σ)])
+        (let ([r (apply-reduction-relation* tt--> (term (Σ e)) #:cache-all? #t)])
+         ;; Efficient check for (= (length r) 1)
+         (unless (null? (cdr r))
+           (error "Church-Rosser broken" r (term e)))
+         (car r))))])
 
 ;; TODO: Move equivalence up here, and use in these tests.
 (module+ test

@@ -48,7 +48,7 @@
   (syntax-rules (:)
     [(_ (a : t) (ar : tr) ... b)
      (forall (a : t)
-        (forall* (ar : tr) ... b))]
+       (forall* (ar : tr) ... b))]
     [(_ b) b]))
 
 (define-syntax lambda*
@@ -62,7 +62,22 @@
   (syntax-case syn ()
     [(_ e) #'e]
     [(_ e1 e2)
-     #'(real-app e1 e2)]
+     (let  ([f-type (type-infer/syn #'e1)])
+       (syntax-case f-type ()
+         [(Π (x : t1) t2)
+          (begin
+            (unless (type-check/syn? #'e2 #'t1)
+              (raise-syntax-error
+                '#%app
+                (format "Operand does not have expected type; expected ~a but inferred ~a"
+                        (cur->datum #'t1)
+                        (cur->datum (type-infer/syn #'e2)))
+                f-type (quasisyntax/loc syn (e1 e2))))
+            #'(real-app e1 e2))]
+         [_ (raise-syntax-error
+              '#%app
+              (format "Operator does not have function type; inferred type was: ~a" (cur->datum f-type))
+              f-type (quasisyntax/loc syn (e1 e2)))]))]
     [(_ e1 e2 e3 ...)
      #'(#%app (#%app e1 e2) e3 ...)]))
 
