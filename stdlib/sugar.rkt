@@ -69,15 +69,18 @@
             (unless (type-check/syn? #'e2 #'t1)
               (raise-syntax-error
                 '#%app
-                (format "Operand does not have expected type; expected ~a but inferred ~a"
+                (format "Operand '~a' does not have expected type; expected '~a' but inferred '~a'"
+                        (cur->datum #'e2)
                         (cur->datum #'t1)
                         (cur->datum (type-infer/syn #'e2)))
-                f-type (quasisyntax/loc syn (e1 e2))))
+                (quasisyntax/loc syn (e1 e2))))
             #'(real-app e1 e2))]
          [_ (raise-syntax-error
               '#%app
-              (format "Operator does not have function type; inferred type was: ~a" (cur->datum f-type))
-              f-type (quasisyntax/loc syn (e1 e2)))]))]
+              (format "Operator '~a' does not have function type; inferred type was: '~a'"
+                      (cur->datum #'e1)
+                      (cur->datum f-type))
+              (quasisyntax/loc syn (e1 e2)))]))]
     [(_ e1 e2 e3 ...)
      #'(#%app (#%app e1 e2) e3 ...)]))
 

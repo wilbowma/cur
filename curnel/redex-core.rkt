@@ -592,10 +592,6 @@
 ;;; inductively defined type x with a motive whose result is in universe U
 
 ;; Necessary to get the side-condition patterns to work.
-(define current-Σ (make-parameter (term ∅)))
-(define (elim-arity x)
-  (term (Σ-elim-arity ,(current-Σ) ,x)))
-
 (define-extended-language tt-redL tt-ctxtL
   (Θv  ::= hole (Θv v))
   (v   ::= x U (Π (x : t) t) (λ (x : t) t) (elim x U) (in-hole Θv x)
@@ -603,7 +599,7 @@
            (in-hole Θv (elim x U))
            #;(side-condition
              (not (equal? (term (Θ-length Θv_0))
-                          (elim-arity (term x_0))))))
+                          (Σ-elim-arity ?? (term x_0))))))
   ;; call-by-value, plus reduce under Π (helps with typing checking)
   (E   ::= hole (E e) (v E) (Π (x : v) E) (Π (x : E) e)))
 
@@ -615,6 +611,33 @@
   (check-true (v? (term (λ (x_0 : (Unv 0)) x_0))))
   (check-true (v? (term (refl Nat))))
   (check-true (v? (term ((refl Nat) z)))))
+
+(define-metafunction tt-redL
+  elim-Θv-really : Σ Θv -> #t or #f
+  [(elim-Θv-really Σ hole) #t]
+  [(elim-Θv-really Σ (Θv (in-hole Θv_1 (elim x_D U))))
+   ,(and
+      (not (equal? (term (Θ-length Θv_1))
+                   (term (Σ-elim-arity Σ x_D))))
+      (term (elim-Θv-really Σ Θv_1))
+      (term (elim-Θv-really Σ Θv)))]
+  [(elim-Θv-really Σ (Θv v))
+   (elim-Θv-really Σ Θv)])
+
+(module+ test
+  (check-true
+    (term (elim-Θv-really ,Σ (hole (elim nat Type)))))
+  (check-true
+    (term (elim-Θv-really ,Σ (hole ((elim nat Type) (λ (x : nat) nat))))))
+  (check-true
+    (term (elim-Θv-really ,Σ (hole (((elim nat Type) (λ (x : nat) nat)) zero)))))
+  (check-true
+    (term (elim-Θv-really ,Σ (hole ((((elim nat Type) (λ (x : nat) nat)) zero)
+                                              (λ (x : nat) (λ (ih : nat) zero)))))))
+  (check-false
+    (term (elim-Θv-really ,Σ (hole (((((elim nat Type) (λ (x : nat) nat)) zero)
+                                               (λ (x : nat) (λ (ih : nat) zero)))
+                                                                  zero))))))
 
 (define tt-->
   (reduction-relation tt-redL
@@ -638,8 +661,10 @@
           | Unfortunately, Θ contexts turn all this inside out:
           | TODO: Write better abstractions for this notation
           |#
-          ;; Split Θv into its components: the paramters Θv_P for x_D, the methods Θv_m for x_D, and
-          ;; the discriminant: the constructor x_ci applied to its argument Θv_i
+         ;; Check that Θv only contains partially applied elims.
+         (side-condition (term (elim-Θv-really Σ Θv)))
+         ;; Split Θv into its components: the paramters Θv_P for x_D, the methods Θv_m for x_D, and
+         ;; the discriminant: the constructor x_ci applied to its argument Θv_i
          (where (in-hole (Θv_p (in-hole Θv_i x_ci)) Θv_m) Θv)
          ;; Check that Θ_p actually matches the parameters of x_D, to ensure it doesn't capture other
          ;; arguments.
@@ -660,19 +685,18 @@
   step : Σ e -> e
   [(step Σ e)
    e_r
-   (where (_ e_r) ,(parameterize ([current-Σ (term Σ)]) (car (apply-reduction-relation tt--> (term (Σ e))))))])
+   (where (_ e_r) ,(car (apply-reduction-relation tt--> (term (Σ e)))))])
 
 (define-metafunction tt-redL
   reduce : Σ e -> e
   [(reduce Σ e)
    e_r
    (where (_ e_r)
-     ,(parameterize ([current-Σ (term Σ)])
-        (let ([r (apply-reduction-relation* tt--> (term (Σ e)) #:cache-all? #t)])
-         ;; Efficient check for (= (length r) 1)
-         (unless (null? (cdr r))
-           (error "Church-Rosser broken" r (term e)))
-         (car r))))])
+     ,(let ([r (apply-reduction-relation* tt--> (term (Σ e)) #:cache-all? #t)])
+        ;; Efficient check for (= (length r) 1)
+        #;(unless (null? (cdr r))
+          (error "Church-Rosser broken" r (term e)))
+        (car r)))])
 
 ;; TODO: Move equivalence up here, and use in these tests.
 (module+ test
