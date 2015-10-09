@@ -648,7 +648,9 @@
    (where (_ e_r)
      ,(let ([r (apply-reduction-relation* tt--> (term (Σ e)) #:cache-all? #t)])
         ;; Efficient check for (= (length r) 1)
-        (unless (null? (cdr r))
+        ;; NB: Check is overly aggressive and produces wrong error,
+        ;; because not reducing under lambda.
+        #;(unless (null? (cdr r))
           (error "Church-Rosser broken" r))
         (car r)))])
 
