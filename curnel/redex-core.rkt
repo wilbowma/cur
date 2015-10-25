@@ -761,27 +761,50 @@
   [(Γ-remove (Γ x : t) x) Γ]
   [(Γ-remove (Γ x_0 : t_0) x_1) (Γ-remove Γ x_1)])
 
-;; TODO: Add positivity checking.
-(define-metafunction ttL
-  positive : t any -> #t or #f
-  [(positive any_1 any_2) #t])
+(define-metafunction tt-typingL
+  nonpositive : x t -> #t or #f
+  [(nonpositive x (in-hole Θ x))
+   #t]
+  [(nonpositive x (Π (x_0 : (in-hole Θ x)) t))
+   #f]
+  [(nonpositive x (Π (x_0 : t_0) t))
+   ,(and (term (positive x t_0)) (term (nonpositive x t)))]
+  [(nonpositive x t) #t])
+
+(define-metafunction tt-typingL
+  positive : x t -> #t or #f
+  [(positive x (in-hole Θ x))
+   #f]
+  [(positive x (Π (x_0 : (in-hole Θ x)) t))
+   (positive x t)]
+  [(positive x (Π (x_0 : t_0) t))
+   ,(and (term (nonpositive x t_0)) (term (positive x t)))]
+  [(positive x t) #t])
+
+(define-metafunction tt-typingL
+  positive* : x (t ...) -> #t or #f
+  [(positive* x_D ()) #t]
+  [(positive* x_D (t_c t_rest ...))
+   ;; Replace the result of the constructor with (Unv 0), to avoid the result being considered a
+   ;; nonpositive position.
+   ,(and (term (positive x_D (in-hole Ξ (Unv 0)))) (term (positive* x_D (t_rest ...))))
+   (where (in-hole Ξ (in-hole Θ x_D)) t_c)])
 
 ;; NB: These tests may or may not fail because positivity checking is not implemented.
 (module+ test
-  (check-true (term (positive nat nat)))
-  (check-true (term (positive (Π (x : (Unv 0)) (Π (y : (Unv 0)) (Unv 0))) #f)))
-  (check-true (term (positive (Π (x : nat) nat) nat)))
+  (check-true (term (positive* nat (nat))))
+  (check-true (term (positive* nat ((Π (x : (Unv 0)) (Π (y : (Unv 0)) nat))))))
+  (check-true (term (positive* nat ((Π (x : nat) nat)))))
   ;; (nat -> nat) -> nat
   ;; Not sure if this is actually supposed to pass
-  (check-false (term (positive (Π (x : (Π (y : nat) nat)) nat) nat)))
+  (check-false (term (positive* nat ((Π (x : (Π (y : nat) nat)) nat)))))
   ;; ((Unv 0) -> nat) -> nat
-  (check-true (term (positive (Π (x : (Π (y : (Unv 0)) nat)) nat) nat)))
+  (check-true (term (positive* nat ((Π (x : (Π (y : (Unv 0)) nat)) nat)))))
   ;; (((nat -> (Unv 0)) -> nat) -> nat)
-  (check-true (term (positive (Π (x : (Π (y : (Π (x : nat) (Unv 0))) nat)) nat) nat)))
+  (check-true (term (positive* nat ((Π (x : (Π (y : (Π (x : nat) (Unv 0))) nat)) nat)))))
   ;; Not sure if this is actually supposed to pass
-  (check-false (term (positive (Π (x : (Π (y : (Π (x : nat) nat)) nat)) nat) nat)))
-
-  (check-true (term (positive (Unv 0) #f))))
+  ;; ((nat -> nat) -> nat) -> nat
+  (check-false (term (positive* nat ((Π (x : (Π (y : (Π (x : nat) nat)) nat)) nat))))))
 
 ;; Holds when the signature Σ and typing context Γ are well-formed.
 (define-judgment-form tt-typingL
@@ -801,7 +824,7 @@
    (type-infer Σ (∅ x_D : t_D) t_c U_c) ...
    ;; NB: Ugh this should be possible with pattern matching alone ....
    (side-condition ,(map (curry equal? (term x_D)) (term (x_D* ...))))
-   (side-condition (positive t_D (t_c ...)))
+   (side-condition (positive* x_D (t_c ...)))
    ----------------- "WF-Inductive"
    (wf (Σ (x_D : t_D
                ;; Checks that a constructor for x actually produces an x, i.e., that
@@ -850,7 +873,7 @@
   (check-holds (type-infer ∅ ∅ (Unv 0) U))
   (check-holds (type-infer ∅ (∅ nat : (Unv 0)) nat U))
   (check-holds (type-infer ∅ (∅ nat : (Unv 0)) (Π (x : nat) nat) U))
-  (check-true (term (positive nat (nat (Π (x : nat) nat)))))
+  (check-true (term (positive* nat (nat (Π (x : nat) nat)))))
   (check-holds
     (wf (∅ (nat : (Unv 0) ((zero : nat)))) ∅))
   (check-holds
