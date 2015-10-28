@@ -45,7 +45,10 @@
   (t e ::= (Π (x : t) t) (λ (x : t) t) (elim x U) x U (t t))
   ;; Σ (signature). (inductive-name : type ((constructor : type) ...))
   ;; NB: Σ is a map from a name x to a pair of it's type and a map of constructor names to their types
-  (Σ   ::= ∅ (Σ (x : t ((x : t) ...)))))
+  (Σ   ::= ∅ (Σ (x : t ((x : t) ...))))
+  #:binding-forms
+  (λ (x : t) e #:refers-to x)
+  (Π (x : t_0) t_1 #:refers-to x))
 
 (define x? (redex-match? ttL x))
 (define t? (redex-match? ttL t))
@@ -134,73 +137,25 @@
    ----------------
    (unv-kind (Unv i_1) (Unv i_2) (Unv i_3))])
 
-;;; ------------------------------------------------------------------------
-;;; Substitution and α-equivalence
-
-(define-judgment-form ttL
-  #:mode (α-equivalent I I)
-  #:contract (α-equivalent t t)
-
-  [----------------- "α-x"
-   (α-equivalent x x)]
-
-  [----------------- "α-U"
-   (α-equivalent U U)]
-
-  [(α-equivalent t_1 (subst t_3 x_1 x_0))
-   (α-equivalent t_0 t_2)
-   ----------------- "α-binder"
-   (α-equivalent (any (x_0 : t_0) t_1)
-                 (any (x_1 : t_2) t_3))]
-
-  [(α-equivalent e_0 e_2)
-   (α-equivalent e_1 e_3)
-   ----------------- "α-app"
-   (α-equivalent (e_0 e_1) (e_2 e_3))]
-
-  [(α-equivalent e_0 e_2)
-   (α-equivalent e_1 e_3)
-   ----------------- "α-elim"
-   (α-equivalent (elim e_0 e_1) (elim e_2 e_3))])
+(define-metafunction ttL
+  [(α-equivalent? t_0 t_1)
+   ,(alpha-equivalent? ttL (term t_0) (term t_1))])
 
 (module+ test
-  ;; NB: Hack to allow checking contexts or terms without explicitly defining on contexts
-  (default-equiv (lambda (x y) (term (α-equivalent (in-hole ,x Type) (in-hole ,y Type)))))
-  (check-equiv? (term x) (term x))
-  (check-not-equiv? (term x) (term y))
-  (check-equiv? (term (λ (x : A) x)) (term (λ (y : A) y))))
+  (default-equiv (lambda (x y) (term (α-equivalent ,x ,y)))))
 
-;; NB: Copy and pasted from Redex examples
-(define-metafunction ttL
-  subst-vars : (x any) ... any -> any
-  [(subst-vars (x_1 any_1) x_1) any_1]
-  [(subst-vars (x_1 any_1) (any_2 ...))
-   ((subst-vars (x_1 any_1) any_2) ...)]
-  [(subst-vars (x_1 any_1) any_2) any_2]
-  [(subst-vars (x_1 any_1) (x_2 any_2) ... any_3)
-   (subst-vars (x_1 any_1) (subst-vars (x_2 any_2) ... any_3))]
-  [(subst-vars any) any])
-
-;; NB TODO: Why do I not have tests for substitutions?!?!?!?!?!?!?!!?!?!?!?!?!?!!??!?!
 (define-metafunction ttL
   subst : t x t -> t
-  [(subst U x t) U]
-  [(subst x x t) t]
-  [(subst x_0 x t) x_0]
-  [(subst (any (x : t_0) t_1) x t)
-   (any (x : (subst t_0 x t)) t_1)]
-  [(subst (any (x_0 : t_0) t_1) x t)
-   (any (x_new : (subst (subst-vars (x_0 x_new) t_0) x t))
-     (subst (subst-vars (x_0 x_new) t_1) x t))
-   (where x_new ,(variable-not-in (term (x_0 t_0 x t t_1)) (term x_0)))]
-  [(subst (e_0 e_1) x t) ((subst e_0 x t) (subst e_1 x t))]
-  [(subst (elim e_0 e_1) x t) (elim (subst e_0 x t) (subst e_1 x t))])
+  [(subst t_0 x t_1)
+   (substitute t_0 x t_1)])
 
 (module+ test
   (check-true (t? (term (Π (a : A) (Π (b : B) ((and A) B))))))
-  (check-equiv?
-    (term (Π (a : S) (Π (b : B) ((and S) B))))
-    (term (subst (Π (a : A) (Π (b : B) ((and A) B))) A S))))
+  (check-true
+    (term
+      (α-equivalent?
+        (Π (a : S) (Π (b : B) ((and S) B)))
+        (subst (Π (a : A) (Π (b : B) ((and A) B))) A S)))))
 
 (define-metafunction ttL
   subst-all : t (x ...) (e ...) -> t
@@ -724,9 +679,17 @@
 
   [(where t_2 (reduce Σ t_0))
    (where t_3 (reduce Σ t_1))
-   (α-equivalent t_2 t_3)
+   (side-condition (α-equivalent? t_2 t_3))
    ----------------- "≡-αβ"
    (equivalent Σ t_0 t_1)])
+(module+ test
+  (define-syntax-rule (check-equivalent e1 e2)
+    (check-holds (equivalent ∅ e1 e2)))
+  (check-equivalent
+    (λ (x : Type) x) (λ (y : Type) y))
+  (check-equivalent
+    (Π (x : Type) x) (Π (y : Type) y))
+  )
 
 ;;; ------------------------------------------------------------------------
 ;;; Type checking and synthesis
@@ -953,8 +916,8 @@
   (check-holds (unv-kind (Unv 0) (Unv 0) (Unv 0)))
   (check-holds (type-infer ∅ (∅ x_0 : (Unv 0)) (Π (x_2 : x_0) (Unv 0)) t))
 
-  (check-holds (type-infer ∅ ∅ (λ (x : (Unv 0)) x) (Π (x : (Unv 0)) (Unv 0))))
-  (check-holds (type-infer ∅ ∅ (λ (y : (Unv 0)) (λ (x : y) x))
+  (check-holds (type-check ∅ ∅ (λ (x : (Unv 0)) x) (Π (x : (Unv 0)) (Unv 0))))
+  (check-holds (type-check ∅ ∅ (λ (y : (Unv 0)) (λ (x : y) x))
                            (Π (y : (Unv 0)) (Π (x : y) y))))
 
   (check-equal? (list (term (Unv 1)))
@@ -1046,25 +1009,25 @@
              ((((elim nat (Unv 0)) nat) (s zero)) zero)
                 nat))
   (define lam (term (λ (nat : (Unv 0)) nat)))
-  (check-equal?
-    (list (term (Π (nat : (Unv 0)) (Unv 0))))
-    (judgment-holds (type-infer ,Σ0 ∅ ,lam t) t))
-  (check-equal?
-    (list (term (Π (nat : (Unv 0)) (Unv 0))))
-    (judgment-holds (type-infer ,Σ ∅ ,lam t) t))
-  (check-equal?
-    (list (term (Π (x : (Π (y : (Unv 0)) y)) nat)))
-    (judgment-holds (type-infer (∅ (nat : (Unv 0) ())) ∅ (λ (x : (Π (y : (Unv 0)) y)) (x nat))
-                                t) t))
-  (check-equal?
-    (list (term (Π (y : (Unv 0)) (Unv 0))))
-    (judgment-holds (type-infer (∅ (nat : (Unv 0) ())) ∅ (λ (y : (Unv 0)) y) t) t))
-  (check-equal?
-    (list (term (Unv 0)))
-    (judgment-holds (type-infer (∅ (nat : (Unv 0) ())) ∅
-                                ((λ (x : (Π (y : (Unv 0)) (Unv 0))) (x nat))
-                                 (λ (y : (Unv 0)) y))
-                                t) t))
+  (check-equivalent
+    (Π (nat : (Unv 0)) (Unv 0))
+    ,(car (judgment-holds (type-infer ,Σ0 ∅ ,lam t) t)))
+  (check-equivalent
+    (Π (nat : (Unv 0)) (Unv 0))
+    ,(car (judgment-holds (type-infer ,Σ ∅ ,lam t) t)))
+  (check-equivalent
+    (Π (x : (Π (y : (Unv 0)) y)) nat)
+    ,(car (judgment-holds (type-infer (∅ (nat : (Unv 0) ())) ∅ (λ (x : (Π (y : (Unv 0)) y)) (x nat))
+                                  t) t)))
+  (check-equivalent
+    (Π (y : (Unv 0)) (Unv 0))
+    ,(car (judgment-holds (type-infer (∅ (nat : (Unv 0) ())) ∅ (λ (y : (Unv 0)) y) t) t)))
+  (check-equivalent
+    (Unv 0)
+    ,(car (judgment-holds (type-infer (∅ (nat : (Unv 0) ())) ∅
+                                 ((λ (x : (Π (y : (Unv 0)) (Unv 0))) (x nat))
+                                  (λ (y : (Unv 0)) y))
+                                 t) t)))
   (check-equal?
     (list (term (Unv 0)) (term (Unv 1)))
     (judgment-holds
