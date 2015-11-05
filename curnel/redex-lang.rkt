@@ -60,6 +60,8 @@
   (for-syntax (all-from-out racket))
   ;; reflection
   (for-syntax
+    gamma
+    extend-Γ/syn
     cur->datum
     cur-expand
     type-infer/syn

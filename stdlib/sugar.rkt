@@ -113,31 +113,39 @@
      #`(elim D U P #,@(map rewrite-clause (syntax->list #'(clause* ...))) p ... e)]))
 
 (begin-for-syntax
+  (define-syntax-class (gamma/cur-expr env)
+    (pattern e:expr
+             #:fail-unless (parameterize ([gamma env])
+                             (type-infer/syn #'e))
+             (format "Could not infer a type for Cur term ~a"
+                     (syntax->datum #'e))
+             #:attr type (parameterize ([gamma env])
+                           (type-infer/syn #'e))))
+  (define-syntax-class cur-expr
+    (pattern e
+             #:declare e (gamma/cur-expr (gamma))
+             #:attr type #'e.type))
   (define-syntax-class let-clause
     (pattern
-      (~or (x:id e) ((x:id (~datum :) t) e))
-      #:attr id #'x
-      #:attr expr #'e
-      #:attr type (cond
-                    [(attribute t)
-                     ;; TODO: Code duplication in ::
-                     (unless (type-check/syn? #'e #'t)
-                       (raise-syntax-error
-                         'let
-                         (format "Term ~a does not have expected type ~a. Inferred type was ~a"
-                                 (cur->datum #'e) (cur->datum #'t) (cur->datum (type-infer/syn #'e)))
-                         #'e (quasisyntax/loc #'x (x e))))
-                     #'t]
-                    [(type-infer/syn #'e)]
-                    [else
-                      (raise-syntax-error
-                        'let
-                        "Could not infer type of let bound expression"
-                        #'e (quasisyntax/loc #'x (x e)))]))))
+     (~or ((x:id (~commit (~datum :)) t:cur-expr) e) (x:id e:cur-expr))
+     #:fail-unless
+     (or (not (attribute t))
+         (type-check/syn? #'e #'t))
+     (format "Term ~a does not have expected type ~a. Inferred type was ~a"
+             (cur->datum #'e) (cur->datum #'t) (cur->datum (type-infer/syn #'e)))
+     #:attr id #'x
+     #:attr expr #'e
+     #:attr type (if (attribute t) #'t #'e.type))))
 (define-syntax (let syn)
   (syntax-parse syn
     [(let (c:let-clause ...) body)
-     #'((lambda* (c.id : c.type) ... body) c.e ...)]))
+     #'((lambda* (c.id : c.type) ... body) c.expr ...)]))
+
+#;(define-syntax (let syn)
+  (syntax-parse syn
+    [(let ([x:id e:cur-expr]) body)
+     #:declare body (gamma/cur-expr (extend-Γ/syn gamma #'x #'e.type))
+     #'((lambda (x : e.type) body) e)]))
 
 ;; Normally type checking will only happen if a term is actually used. This forces a term to be
 ;; checked against a particular type.
@@ -203,9 +211,8 @@
     Type)
 
   (check-equal?
-    (let ([x Type]
-          [y (λ (x : (Type 1)) x)])
-      (y x))
+    (let ([x Type])
+      x)
     Type)
 
   (check-equal?
@@ -216,11 +223,12 @@
 
   ;; check that raises decent syntax error
   ;; Can't use this because (lambda () ...) and thunk are not things in Cur at runtime
+  (let ([x : (Type 1) Type]
+        [y (λ (x : (Type 1)) x)])
+    (y x))
   #;(check-exn
-    exn:fail:syntax?
-    (let ([x : (Type 1) Type]
-          [y (λ (x : (Type 1)) x)])
-      (y x)))
+    ;exn:fail:syntax?
+    )
 
   ;; check that raises type error
   #;(check-exn
