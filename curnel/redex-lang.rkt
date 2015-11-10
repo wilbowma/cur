@@ -114,7 +114,14 @@
   (define (extend-Σ/syn! env x t c*)
     (env (extend-Σ/syn env x t c*)))
 
-  (define bind-subst (make-parameter (list null null)))
+  (define subst? (list/c (listof x?)  (listof e?)))
+  (define bind-subst
+    (make-parameter
+     (list null null)
+     (lambda (x)
+       (unless (subst? x)
+           (error 'core-error "We build a bad subst ~s" x))
+       x)))
 
   (define (add-binding/term! x t)
     (let ([vars (first (bind-subst))]
@@ -460,20 +467,14 @@
   (syntax-case syn ()
     [(_ . form)
      (begin
-       ;; TODO NB FIXME: HACKS HACKS HACKS
+       ;; TODO NB FIXME: HACKS
        #`(begin
            (export-envs gamma-out sigma-out bind-out)
            (begin-for-syntax
-             ;; Try to detect when we are in DrRacket, and do the right thing.
-             (when (equal? 'debug-error-display-handler (object-name (error-display-handler)))
-                 (cond
-                   [(null? (namespace-mapped-symbols))
-                    (displayln "You will need to add a (provide ...) in the definitions area for the evaluator to load Cur definitions correctly.")]
-                   [(eq? 3 (length (namespace-mapped-symbols)))
-                    (bind-subst (namespace-variable-value (first (namespace-mapped-symbols))))
-                    (gamma (namespace-variable-value (second (namespace-mapped-symbols))))
-                    (sigma (namespace-variable-value (third (namespace-mapped-symbols))))]
-                   [else (void)])))
+             (define nm (map namespace-variable-value (namespace-mapped-symbols)))
+             (bind-subst (first (memf subst? nm)))
+             (gamma (first (memf Γ? nm)))
+             (sigma (first (memf Σ? nm))))
           form))]))
 
 (define-syntax (dep-define syn)
