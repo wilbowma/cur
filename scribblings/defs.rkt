@@ -3,8 +3,7 @@
 (require
  scribble/base
  scribble/manual
- racket/sandbox
- scribble/eval)
+ racket/sandbox)
 (provide (all-defined-out))
 
 (define (todo . ls)

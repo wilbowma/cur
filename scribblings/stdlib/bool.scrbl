@@ -1,8 +1,10 @@
 #lang scribble/manual
 
-@(require "../defs.rkt")
+@(require
+  "../defs.rkt"
+  scribble/eval)
 
-@(define curnel-eval "(require cur/stdlib/bool cur/stdlib/sugar)")
+@(define curnel-eval (curnel-sandbox "(require cur/stdlib/bool cur/stdlib/sugar)"))
 
 @title{Bool}
 @defmodule[cur/stdlib/bool]

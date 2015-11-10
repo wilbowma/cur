@@ -1,15 +1,10 @@
 #lang scribble/manual
 
-@(require "../defs.rkt")
+@(require
+  "../defs.rkt"
+  scribble/eval)
 
-@;(TODO Move this to defs.rkt)
-@(require racket/sandbox scribble/eval)
-@(define curnel-eval
-   (parameterize ([sandbox-output 'string]
-                  [sandbox-error-output 'string]
-                  [sandbox-eval-limits #f]
-                  [sandbox-memory-limit #f])
-     (make-module-evaluator "#lang cur (require cur/stdlib/bool) (require cur/stdlib/sugar)")))
+@(define curnel-eval (curnel-sandbox "(require cur/stdlib/bool cur/stdlib/sugar)"))
 
 
 @title{Sugar}

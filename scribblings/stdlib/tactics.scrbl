@@ -1,19 +1,15 @@
 #lang scribble/manual
 
-@(require "../defs.rkt")
+@(require
+  "../defs.rkt"
+  scribble/eval)
 
 @title{Tactics}
 As Coq has shown, tactics have proven useful for doing complex proofs. In Cur, tactics are not
 built-in or provided by the language. However, any user can use meta-programming to add tactics to
 Cur. A tactic system ships in the standard library, written entirely in user-land code.
 
-@(require racket/sandbox scribble/eval)
-@(define curnel-eval
-   (parameterize ([sandbox-output 'string]
-                  [sandbox-error-output 'string]
-                  [sandbox-eval-limits #f]
-                  [sandbox-memory-limit #f])
-     (make-module-evaluator "#lang cur (require cur/stdlib/tactics/base)  (require cur/stdlib/tactics/standard) (require cur/stdlib/bool) (require cur/stdlib/nat)")))
+@(define curnel-eval (curnel-sandbox "(require cur/stdlib/tactics/base cur/stdlib/tactics/standard cur/stdlib/bool cur/stdlib/nat)"))
 
 @section{Proof State and Defining Tactics}
 @defmodule[cur/stdlib/tactics/base]
@@ -57,17 +53,17 @@ Returns an empty partial @tech{proof}, i.e., the identity function.
                         [current-goal natural-number/c]
                         [proof (or/c syntax? procedure?)]
                         [theorem syntax?])]{
-A structure representing the @deftech{proof state} for the proof of the current theorem.
+A structure representing the @deftech{proof state} for the proof of the current @tech{theorem}.
 
-The environment @racket[env] is a map of assumptions local to the theorem from symbols (names) to the
+The @deftech{environment} @racket[env] is a map of assumptions local to the @tech{proof} from symbols (names) to the
 type of the assumption as a syntax object.
-The list of goals @racket[goals] is a map from natural numbers to goals, types as syntax objects.
-The current goal @racket[current-goal] is a natural number indexing into @racket[goals], representing
+The list of @deftech{goals} @racket[goals] is a map from natural numbers to goals, types as syntax objects.
+The @deftech{current goal} @racket[current-goal] is a natural number indexing into @racket[goals], representing
 the goal currently in focus.
-The @racket[proof] is the @tech{proof} of the theorem so far. The @racket[proof] is either a
+The @racket[proof] is the @tech{proof} of the @tech{theorem} so far. The @racket[proof] is either a
 syntax object if complete, or a procedure which expects a proof to replace the current holes in the
 @racket[proof].
-The @racket[theorem] is the original statement of the theorem to be proved.
+The @racket[theorem] is the original statement of the @tech{theorem} to be proved.
 }
 
 @defproc[(new-proof-state [prop syntax?])
@@ -148,7 +144,8 @@ tactic is defined and a theorem has been defined but not proved.
 }
 
 @defform[(define-theorem name prop)]{
-Defines a new theorem.
+Defines a new @deftech{theorem}. Theorem are Cur types that can be
+inhabited using the tactic language starting with @racket[proof].
 }
 
 @defform[(proof (tactic args ...) ...)]{

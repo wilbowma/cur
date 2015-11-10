@@ -2,6 +2,7 @@
 
 @(require
    "defs.rkt"
+   scribble/eval
    (for-label (only-in racket local-expand)))
 
 @title{Reflection}
@@ -10,13 +11,7 @@ various parts of the language implementation as Racket forms at @gtech{phase} 1.
 The reflection features are @emph{unstable} and may change without warning.
 Many of these features are extremely hacky.
 
-@(require racket/sandbox scribble/eval)
-@(define curnel-eval
-   (parameterize ([sandbox-output 'string]
-                  [sandbox-error-output 'string]
-                  [sandbox-eval-limits #f]
-                  [sandbox-memory-limit #f])
-     (make-module-evaluator "#lang cur (require cur/stdlib/bool) (require cur/stdlib/nat)")))
+@(define curnel-eval (curnel-sandbox "(require cur/stdlib/bool cur/stdlib/nat)"))
 
 @defproc[(cur-expand [syn syntax?] [id identifier?] ...)
          syntax?]{

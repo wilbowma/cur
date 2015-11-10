@@ -1,28 +1,27 @@
 #lang scribble/manual
 
-@(require "defs.rkt")
+@(require
+  "defs.rkt"
+  scribble/eval)
 
 @title{Curnel Forms}
 @deftech{Curnel forms} are the core forms provided @racketmodname[cur].
 These forms come directly from the trusted core and are all that remain after macro expansion.
 @todo{Link to guide regarding macro expansion}
-The core of @racketmodname[cur] is essentially TT.
+The core of @racketmodname[cur] is essentially TT with an impredicative universe @racket[(Type 0)].
 For a very understandable in-depth look at TT, see chapter 2 of
 @hyperlink["https://eb.host.cs.st-andrews.ac.uk/writings/thesis.pdf"
            "Practical Implementation of a Dependently Typed Functional Programming Language"], by
 Edwin C. Brady.
 
-@(require racket/sandbox scribble/eval)
-@(define curnel-eval
-   (parameterize ([sandbox-output 'string]
-                  [sandbox-error-output 'string]
-                  [sandbox-eval-limits #f]
-                  [sandbox-memory-limit #f])
-     (make-module-evaluator "#lang cur")))
+@(define curnel-eval (curnel-sandbox ""))
 
-@defform[(Type n)]{
+@defform*[((Type n)
+	   Type)]{
 Define the universe of types at level @racket[n], where @racket[n] is any natural number.
-
+@racket[Type] is a synonym for @racket[(Type 0)]. Cur is impredicative
+in @racket[(Type 0)], although this is likely to change to a more
+restricted impredicative universe.
 
 @examples[#:eval curnel-eval
           (Type 0)]
@@ -30,10 +29,6 @@ Define the universe of types at level @racket[n], where @racket[n] is any natura
 @examples[#:eval curnel-eval
           (Type 1)]
 }
-
-@defidform[Type]{
-A synonym for @racket[(Type 0)].
-
 
 @examples[#:eval curnel-eval
           Type]
