@@ -7,6 +7,7 @@
     racket/syntax
     racket/dict
     racket/list))
+(provide (for-syntax typeclasses) typeclass impl)
 
 ;;; NB: This module is extremely unhygienic.
 #| TODO:
