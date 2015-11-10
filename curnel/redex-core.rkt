@@ -39,7 +39,7 @@
  | inference.
  |#
 (define-language ttL
-  (i ::= natural)
+  (i j k  ::= natural)
   (U ::= (Unv i))
   (x ::= variable-not-otherwise-mentioned)
   (t e ::= (Π (x : t) t) (λ (x : t) t) (elim x U) x U (t t))
@@ -110,32 +110,25 @@
 ;;; ------------------------------------------------------------------------
 ;;; Universe typing
 
-;; Types of Universes
 (define-judgment-form ttL
-  #:mode (unv-ok I O)
-  #:contract (unv-ok U U)
+  #:mode (unv-type I O)
+  #:contract (unv-type U U)
 
   [(where i_1 ,(add1 (term i_0)))
    -----------------
-   (unv-ok (Unv i_0) (Unv i_1))])
+   (unv-type (Unv i_0) (Unv i_1))])
 
-;; NB: Based on CIC predicativity rules. should be able to simplify
+;; Universe predicativity rules. Impredicative in (Unv 0) 
 (define-judgment-form ttL
-  #:mode (unv-kind I I O)
-  #:contract (unv-kind U U U)
+  #:mode (unv-pred I I O)
+  #:contract (unv-pred U U U)
 
   [----------------
-   (unv-kind (Unv 0) (Unv 0) (Unv 0))]
-
-  [----------------
-   (unv-kind (Unv 0) (Unv i) (Unv i))]
-
-  [----------------
-   (unv-kind (Unv i) (Unv 0) (Unv 0))]
+   (unv-pred (Unv i) (Unv 0) (Unv 0))]
 
   [(where i_3 ,(max (term i_1) (term i_2)))
    ----------------
-   (unv-kind (Unv i_1) (Unv i_2) (Unv i_3))])
+   (unv-pred (Unv i_1) (Unv i_2) (Unv i_3))])
 
 (define-metafunction ttL
   [(α-equivalent? t_0 t_1)
@@ -859,9 +852,9 @@
   #:mode (type-infer I I I O)
   #:contract (type-infer Σ Γ e t)
 
-  [(unv-ok U_0 U_1)
-   (wf Σ Γ)
-   ----------------- "DTR-Axiom"
+  [(wf Σ Γ)
+   (unv-type U_0 U_1)
+   ----------------- "DTR-Unv"
    (type-infer Σ Γ U_0 U_1)]
 
   [(where t (Σ-ref-type Σ x))
@@ -874,7 +867,7 @@
 
   [(type-infer Σ Γ t_0 U_1)
    (type-infer Σ (Γ x : t_0) t U_2)
-   (unv-kind U_1 U_2 U)
+   (unv-pred U_1 U_2 U)
    ----------------- "DTR-Product"
    (type-infer Σ Γ (Π (x : t_0) t) U)]
 
@@ -913,7 +906,7 @@
                            (Π (x_3 : x_0) x_1) (Unv 0)))
   (check-holds (type-infer ∅ (∅ x_0 : (Unv 0)) x_0 U_1))
   (check-holds (type-infer ∅ ((∅ x_0 : (Unv 0)) x_2 : x_0) (Unv 0) U_2))
-  (check-holds (unv-kind (Unv 0) (Unv 0) (Unv 0)))
+  (check-holds (unv-pred (Unv 0) (Unv 0) (Unv 0)))
   (check-holds (type-infer ∅ (∅ x_0 : (Unv 0)) (Π (x_2 : x_0) (Unv 0)) t))
 
   (check-holds (type-check ∅ ∅ (λ (x : (Unv 0)) x) (Π (x : (Unv 0)) (Unv 0))))
