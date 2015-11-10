@@ -79,4 +79,3 @@
   (check-equal?
     (odd? (s (s (s z))))
     true))
-
