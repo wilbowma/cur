@@ -57,6 +57,8 @@ Returns an empty partial @tech{proof}, i.e., the identity function.
                         [current-goal natural-number/c]
                         [proof (or/c syntax? procedure?)]
                         [theorem syntax?])]{
+A structure representing the @deftech{proof state} for the proof of the current theorem.
+
 The environment @racket[env] is a map of assumptions local to the theorem from symbols (names) to the
 type of the assumption as a syntax object.
 The list of goals @racket[goals] is a map from natural numbers to goals, types as syntax objects.
