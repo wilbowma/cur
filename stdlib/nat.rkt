@@ -2,7 +2,7 @@
 (require "sugar.rkt" "bool.rkt")
 ;; TODO: override (all-defined-out) to enable exporting all these
 ;; properly.
-(provide Nat z s add1 sub1 plus )
+(provide Nat z s add1 sub1 plus nat-equal? even? odd?)
 (module+ test
   (require rackunit))
 
