@@ -137,6 +137,7 @@
 (module+ test
   (default-equiv (lambda (x y) (term (α-equivalent ,x ,y)))))
 
+;; Replace x by t_1 in t_0
 (define-metafunction ttL
   subst : t x t -> t
   [(subst t_0 x t_1)
@@ -545,7 +546,7 @@
 
 (define tt-->
   (reduction-relation tt-redL
-    (--> (Σ (in-hole E ((any (x : t_0) t_1) t_2)))
+    (--> (Σ (in-hole E ((λ (x : t_0) t_1) t_2)))
          (Σ (in-hole E (subst t_1 x t_2)))
          -->β)
     (--> (Σ (in-hole E (in-hole Θv ((elim x_D U) v_P))))
@@ -606,8 +607,8 @@
 (module+ test
   (check-equiv? (term (reduce ∅ (Unv 0))) (term (Unv 0)))
   (check-equiv? (term (reduce ∅ ((λ (x : t) x) (Unv 0)))) (term (Unv 0)))
-  (check-equiv? (term (reduce ∅ ((Π (x : t) x) (Unv 0)))) (term (Unv 0)))
-  (check-equiv? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) x_0) (Unv 0)))))
+  (check-not-equiv? (term (reduce ∅ ((Π (x : t) x) (Unv 0)))) (term (Unv 0)))
+  (check-not-equiv? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) x_0) (Unv 0)))))
                 (term (Π (x : t) (Unv 0))))
   (check-equiv? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) (x_0 x)) x))))
                   (term (Π (x : t) (x x))))
@@ -873,9 +874,7 @@
 
   [(type-infer Σ Γ e_0 (Π (x_0 : t_0) t_1))
    (type-check Σ Γ e_1 t_0)
-   ;; TODO: Not sure why this explicit reduction is necessary, since type-check should check modulo
-   ;; equivalence.
-   (where t_3 (reduce Σ ((Π (x_0 : t_0) t_1) e_1)))
+   (where t_3 (subst t_1 x_0 e_1))
    ----------------- "DTR-Application"
    (type-infer Σ Γ (e_0 e_1) t_3)]
 
