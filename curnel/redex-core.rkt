@@ -877,7 +877,9 @@
    ----------------- "DTR-Product"
    (type-infer Δ Γ (Π (x : t_0) t) U)]
 
-  [(type-infer Δ Γ e_0 (Π (x_0 : t_0) t_1))
+  [(type-infer Δ Γ e_0 t)
+   ;; Cannot rely on type-infer producing normal forms.
+   (where (Π (x_0 : t_0) t_1) (reduce Δ t))
    (type-check Δ Γ e_1 t_0)
    (where t_3 (subst t_1 x_0 e_1))
    ----------------- "DTR-Application"
@@ -1186,6 +1188,10 @@
             ,zero?)
            (λ (x : nat) (λ (x_ih : (Π (x : nat) bool))
                                ,ih-equal?)))))
+  (check-holds
+    (type-check ,Δ (∅ nat-equal? : (Π (x-D«4158» : nat) ((λ (x«4159» : nat) (Π (x«4160» : nat) bool)) x-D«4158»)))
+                                ((nat-equal? zero) zero)
+                bool))
   (check-holds
     (type-check ,Δ ∅
                 ,nat-equal?
