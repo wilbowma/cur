@@ -15,6 +15,8 @@
   define-type
   case
   case*
+  match
+  recur
   let
 
   ;; type-check
@@ -24,15 +26,13 @@
   run
   step
   step-n
-  query-type
-  )
+  query-type)
 
 (require
   (only-in "../cur.rkt"
     [elim real-elim]
     [#%app real-app]
     [define real-define]))
-
 
 (define-syntax (-> syn)
   (syntax-case syn ()
@@ -111,6 +111,67 @@
   (syntax-case syn ()
     [(_ D U e (p ...) P clause* ...)
      #`(elim D U P #,@(map rewrite-clause (syntax->list #'(clause* ...))) p ... e)]))
+
+(begin-for-syntax
+  (define-struct clause (args body))
+  (define ih-dict (make-hash))
+  (define (clause-parse syn)
+    (syntax-case syn (:)
+      [((con (a : A) ...) body)
+       (make-clause #'((a : A) ...) #'body)]
+      [(e body)
+       (make-clause #'() #'body)]))
+
+  (define (infer-result clauses)
+    (for/or ([clause clauses])
+      (type-infer/syn (clause-body clause))))
+
+  (define (infer-ihs D motive args-syn)
+    (syntax-case args-syn (:)
+      [((a : A) ...)
+       (for/fold ([ih-dict (make-immutable-hash)])
+                 ([type-syn (syntax->list #'(A ...))]
+                  [arg-syn (syntax->list #'(a ...))]
+		 ;; NB: Non-hygenic
+		 #:when (cur-equal? type-syn D))
+         (dict-set ih-dict (syntax->datum arg-syn) `(,(format-id args-syn "ih-~a" arg-syn) . ,#`(#,motive #,arg-syn))))]
+      [() '()]))
+
+  (define (clause->method D motive clause)
+    (dict-clear! ih-dict)
+    (let* ([ihs (infer-ihs D motive (clause-args clause))]
+           [ih-args (dict-map
+                     ihs
+                     (lambda (k v)
+                       (dict-set! ih-dict k (car v))
+                       #`(#,(car v) : #,(cdr v))))])
+      #`(lambda* #,@(clause-args clause) #,@ih-args #,(clause-body clause)))))
+
+(define-syntax (recur syn)
+  (syntax-case syn ()
+    [(_ id)
+     (dict-ref
+      ih-dict
+      (syntax->datum #'id)
+      (lambda ()
+        (raise-syntax-error
+         'match
+         (format "Cannot recur on ~a" (syntax->datum #'id))
+         syn)))]))
+
+;; TODO: Test
+(define-syntax (match syn)
+  (syntax-case syn ()
+    [(_ e clause* ...)
+     (let* ([clauses (map clause-parse (syntax->list #'(clause* ...)))]
+            [R (infer-result clauses)]
+            [D (type-infer/syn #'e)]
+	    [motive #`(lambda (x : #,D) #,R)]
+            [U (type-infer/syn R)])
+       #`((elim #,D #,U)
+            #,motive
+	    #,@(map (curry clause->method D motive) clauses)
+	    e))]))
 
 (begin-for-syntax
   (define-syntax-class let-clause

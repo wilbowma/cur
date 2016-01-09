@@ -53,13 +53,13 @@
   define-syntax
   begin-for-syntax
   define-for-syntax
-  (for-syntax (all-from-out syntax/parse))
   syntax-case
   syntax-rules
   define-syntax-rule
-  (for-syntax (all-from-out racket))
-  ;; reflection
   (for-syntax
+   (all-from-out syntax/parse)
+   (all-from-out racket)
+   (all-from-out racket/syntax)
     cur->datum
     cur-expand
     type-infer/syn

@@ -15,18 +15,17 @@
   (check-equal? (add1 (s z)) (s (s z))))
 
 (define (sub1 (n : Nat))
-  (case n
+  (match n
     [z z]
-    [(s (x : Nat)) IH: ((ih-n : Nat)) x]))
+    [(s (x : Nat)) x]))
 (module+ test
   (check-equal? (sub1 (s z)) z))
 
 (define (plus (n1 : Nat) (n2 : Nat))
-  (case n1
+  (match n1
     [z n2]
     [(s (x : Nat))
-     IH: ((ih-n1 : Nat))
-     (s ih-n1)]))
+     (s (recur x))]))
 (module+ test
   (check-equal? (plus z z) z)
   (check-equal? (plus (s (s z)) (s (s z))) (s (s (s (s z))))))
@@ -48,11 +47,10 @@
   (check-equal? (nat-equal? (s z) (s z)) true))
 
 (define (even? (n : Nat))
-  (elim Nat Type (lambda (x : Nat) Bool)
-        true
-        (lambda* (n : Nat) (odd? : Bool)
-           (not odd?))
-        n))
+  (match n
+    [z true]
+    [(s (n : Nat))
+     (not (recur n))]))
 
 (define (odd? (n : Nat))
   (not (even? n)))
