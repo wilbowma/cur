@@ -475,7 +475,7 @@
        #`(begin
            (export-envs gamma-out delta-out bind-out)
            (begin-for-syntax
-             (define nm (map namespace-variable-value (namespace-mapped-symbols)))
+             (define nm (map (lambda (x) (namespace-variable-value x #f (lambda x #t))) (namespace-mapped-symbols)))
              (bind-subst (first (memf subst? nm)))
              (gamma (first (memf Γ? nm)))
              (delta (first (memf Δ? nm))))
