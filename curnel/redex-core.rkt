@@ -620,7 +620,7 @@
   (check-not-equiv? (term (reduce ∅ ((Π (x : t) x) (Unv 0)))) (term (Unv 0)))
   (check-not-equiv? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) x_0) (Unv 0)))))
                 (term (Π (x : t) (Unv 0))))
-  (check-equiv? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) (x_0 x)) x))))
+  (check-not-equiv? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) (x_0 x)) x))))
                   (term (Π (x : t) (x x))))
   (check-equiv? (term (reduce ,Δ (((((elim nat Type) (λ (x : nat) nat))
                                                        (s zero))
