@@ -244,7 +244,7 @@
 
   ;; Are these two terms equivalent in type-systems internal equational reasoning?
   (define (cur-equal? e1 e2)
-    (and (judgment-holds (equivalent ,(delta) ,(eval-cur e1) ,(eval-cur e2)) #t)))
+    (and (judgment-holds (equivalent ,(delta) ,(eval-cur e1) ,(eval-cur e2))) #t))
 
   (define (type-infer/syn syn)
     (let ([t (type-infer/term (eval-cur syn))])
