@@ -69,21 +69,21 @@
     cur-equal?))
 
 (begin-for-syntax
-  ;; TODO: Gamma and Sigma seem to get reset inside a module+
+  ;; TODO: Gamma and Delta seem to get reset inside a module+
   (define gamma
     (make-parameter
       (term ∅)
       (lambda (x)
         (unless (Γ? x)
-          (error 'core-error "We built a bad gamma ~s" x))
+          (error 'core-error "We built a bad term environment ~s" x))
         x)))
 
-  (define sigma
+  (define delta
     (make-parameter
       (term ∅)
       (lambda (x)
-        (unless (Σ? x)
-          (error 'core-error "We built a bad sigma ~s" x))
+        (unless (Δ? x)
+          (error 'core-error "We built a bad inductive declaration ~s" x))
         x)))
 
   ;; These should be provided by core, so details of envs can be hidden.
@@ -97,22 +97,22 @@
 
   (define (extend-Γ/syn! env x t) (env (extend-Γ/syn env x t)))
 
-  (define (extend-Σ/term env x t c*)
-    (term (Σ-set ,(env) ,x ,t (,@c*))))
+  (define (extend-Δ/term env x t c*)
+    (term (Δ-set ,(env) ,x ,t (,@c*))))
 
-  (define (extend-Σ/term! env x t c*)
-    (env (extend-Σ/term env x t c*)))
+  (define (extend-Δ/term! env x t c*)
+    (env (extend-Δ/term env x t c*)))
 
-  (define (extend-Σ/syn env x t c*)
-    (extend-Σ/term env (syntax->datum x) (cur->datum t)
+  (define (extend-Δ/syn env x t c*)
+    (extend-Δ/term env (syntax->datum x) (cur->datum t)
                    (for/list ([c (syntax->list c*)])
                      (syntax-case c ()
                        [(c : ct)
                         (parameterize ([gamma (extend-Γ/syn gamma x t)])
                           (term (,(syntax->datum #'c) : ,(cur->datum #'ct))))]))))
 
-  (define (extend-Σ/syn! env x t c*)
-    (env (extend-Σ/syn env x t c*)))
+  (define (extend-Δ/syn! env x t c*)
+    (env (extend-Δ/syn env x t c*)))
 
   (define subst? (list/c (listof x?)  (listof e?)))
   (define bind-subst
@@ -132,11 +132,11 @@
     (term (subst-all ,t ,(first (bind-subst)) ,(second (bind-subst)))))
 
   (define (type-infer/term t)
-    (let ([t (judgment-holds (type-infer ,(sigma) ,(gamma) ,(subst-bindings t) t_0) t_0)])
+    (let ([t (judgment-holds (type-infer ,(delta) ,(gamma) ,(subst-bindings t) t_0) t_0)])
       (and (pair? t) (car t))))
 
   (define (type-check/term? e t)
-    (and (judgment-holds (type-check ,(sigma) ,(gamma) ,(subst-bindings e) ,(subst-bindings t))) #t))
+    (and (judgment-holds (type-check ,(delta) ,(gamma) ,(subst-bindings e) ,(subst-bindings t))) #t))
 
   ;; TODO: Blanket disarming is probably a bad idea.
   (define orig-insp (variable-reference->module-declaration-inspector (#%variable-reference)))
@@ -167,7 +167,7 @@
             #:datum-literals (elim Π λ : Unv)
             [x:id (syntax->datum #'x)]
             [(subst-all e _ _) (syntax->datum #'e)]
-            [(reduce Σ e) (cur->datum #'e)]
+            [(reduce Δ e) (cur->datum #'e)]
             [(term e) (cur->datum #'e)]
             [(Unv i) (term (Unv ,(syntax->datum #'i)))]
             ;; TODO: should really check that b is one of the binders
@@ -186,7 +186,7 @@
             [(#%app e1 e2)
              (term (,(cur->datum #'e1) ,(cur->datum #'e2)))]))))
     (unless (or (inner-expand?) (type-infer/term reified-term))
-      #;(printf "Sigma: ~s~nGamma: ~s~n" (sigma) (gamma))
+      #;(printf "Delta: ~s~nGamma: ~s~n" (delta) (gamma))
       (raise-syntax-error 'cur "term is ill-typed:" reified-term syn))
     reified-term)
 
@@ -222,13 +222,13 @@
          #,(datum->syntax syn t))]))
 
   (define (eval-cur syn)
-    (term (reduce ,(sigma) ,(subst-bindings (cur->datum syn)))))
+    (term (reduce ,(delta) ,(subst-bindings (cur->datum syn)))))
 
   (define (syntax->curnel-syntax syn)
     (quasisyntax/loc
       syn
       ;; TODO: this subst-all should be #,(subst-bindings (cur->datum syn)), but doesn't work
-      (term (reduce #,(sigma) (subst-all #,(cur->datum syn) #,(first (bind-subst)) #,(second (bind-subst)))))))
+      (term (reduce #,(delta) (subst-all #,(cur->datum syn) #,(first (bind-subst)) #,(second (bind-subst)))))))
 
   ;; Reflection tools
 
@@ -240,11 +240,11 @@
   (define (step/syn syn)
     (datum->cur
       syn
-      (term (step ,(sigma) ,(subst-bindings (cur->datum syn))))))
+      (term (step ,(delta) ,(subst-bindings (cur->datum syn))))))
 
   ;; Are these two terms equivalent in type-systems internal equational reasoning?
   (define (cur-equal? e1 e2)
-    (and (judgment-holds (equivalent ,(sigma) ,(eval-cur e1) ,(eval-cur e2)) #t)))
+    (and (judgment-holds (equivalent ,(delta) ,(eval-cur e1) ,(eval-cur e2)) #t)))
 
   (define (type-infer/syn syn)
     (let ([t (type-infer/term (eval-cur syn))])
@@ -277,7 +277,7 @@
     (let ([x (syntax->datum id)])
       (and (x? x)
         (or (term (Γ-ref ,(gamma) ,x))
-          (term (Σ-ref-type ,(sigma) ,x))))))
+          (term (Δ-ref-type ,(delta) ,x))))))
 
   (define (filter-cur-exports syn modes)
     (partition (compose cur-identifier-bound? export-local-id)
@@ -293,18 +293,18 @@
            (set! envs (for/list ([e cur])
            (let* ([x (syntax->datum (export-local-id e))]
                   [t (type-infer/term x)]
-                  [env (if (term (lookup ,(gamma) ,x)) #'gamma #'sigma)])
+                  [env (if (term (lookup ,(gamma) ,x)) #'gamma #'delta)])
              #`(extend-env/term! #,env #,(export-out-sym e) #,t))))
            |#
         ~cur)]))))
 
 (define-syntax (export-envs syn)
   (syntax-case syn ()
-    [(_ gamma-out sigma-out bind-out)
+    [(_ gamma-out delta-out bind-out)
      (begin
        #`(begin-for-syntax
           (define gamma-out (term #,(gamma)))
-          (define sigma-out (term #,(sigma)))
+          (define delta-out (term #,(delta)))
           (define bind-out '#,(bind-subst))))]))
 
 ;; TODO: This can only handle a single provide form, otherwise generates multiple *-out
@@ -316,14 +316,14 @@
         | Ignoring the built envs above, for now.  The local-lift export seems to get executed before
         | the filtered environment is built.
         |#
-       ;; TODO: rename out will need to rename variables in gamma and ; sigma.
+       ;; TODO: rename out will need to rename variables in gamma and ; delta.
        (syntax-local-lift-module-end-declaration
-         #`(export-envs gamma-out sigma-out bind-out))
+         #`(export-envs gamma-out delta-out bind-out))
        #`(provide (extend-env-and-provide e ...)
-                  (for-syntax gamma-out sigma-out bind-out)))]))
+                  (for-syntax gamma-out delta-out bind-out)))]))
 (begin-for-syntax
   (define out-gammas #`())
-  (define out-sigmas #`())
+  (define out-deltas #`())
   (define out-binds #`())
   (define gn 0)
   (define sn 0)
@@ -349,15 +349,15 @@
                        (cons (struct-copy import imp [local-id new-id])
                              imports))]
                     ;; TODO: Many shared code between these two clauses
-                    [(equal? (import-src-sym imp) 'sigma-out)
+                    [(equal? (import-src-sym imp) 'delta-out)
                      (let ([new-id (format-id (import-orig-stx imp)
-                                              "sigma-out~a" sn)])
+                                              "delta-out~a" sn)])
                        ;; TODO: Fewer set!s
                        ;; TODO: Do not DIY gensym
                        (set! sn (add1 sn))
-                       (set! out-sigmas
-                             #`(#,@out-sigmas (sigma (term (Σ-union
-                                                             ,(sigma)
+                       (set! out-deltas
+                             #`(#,@out-deltas (delta (term (Δ-union
+                                                             ,(delta)
                                                              ,#,new-id)))))
                        (cons (struct-copy import imp [local-id new-id])
                              imports))]
@@ -386,10 +386,10 @@
       (syntax-case syn ()
         [(_ e ...) (filter-cur-imports #'(e ...))]))))
 
-;; TODO: rename in will need to rename variables in gamma and sigma.
+;; TODO: rename in will need to rename variables in gamma and delta.
 (define-syntax (import-envs syn)
   (syntax-case syn ()
-    [(_) #`(begin-for-syntax #,@out-gammas #,@out-sigmas
+    [(_) #`(begin-for-syntax #,@out-gammas #,@out-deltas
                              #,@out-binds)]))
 
 (define-syntax (dep-require syn)
@@ -405,7 +405,7 @@
      #`(module+ name
          (begin-for-syntax
            (gamma (term #,(gamma)))
-           (sigma (term #,(sigma)))
+           (delta (term #,(delta)))
            (bind-subst '#,(bind-subst)))
          body ...)]))
 
@@ -442,7 +442,7 @@
   (syntax-case syn (:)
     [(_ i : ti (x1 : t1) ...)
      (begin
-       (extend-Σ/syn! sigma #'i #'ti #'((x1 : t1) ...))
+       (extend-Δ/syn! delta #'i #'ti #'((x1 : t1) ...))
        #'(void))]))
 
 (define-syntax (dep-elim syn)
@@ -469,12 +469,12 @@
      (begin
        ;; TODO NB FIXME: HACKS
        #`(begin
-           (export-envs gamma-out sigma-out bind-out)
+           (export-envs gamma-out delta-out bind-out)
            (begin-for-syntax
              (define nm (map namespace-variable-value (namespace-mapped-symbols)))
              (bind-subst (first (memf subst? nm)))
              (gamma (first (memf Γ? nm)))
-             (sigma (first (memf Σ? nm))))
+             (delta (first (memf Δ? nm))))
           form))]))
 
 (define-syntax (dep-define syn)
