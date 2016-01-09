@@ -41,6 +41,35 @@ Add @racket[n] and @racket[m].
 	  (plus (s (s z)) (s z))]
 }
 
+@defproc[(mult [n Nat] [m Nat]) Nat]{
+Multiply @racket[n] and @racket[m].
+
+@examples[#:eval curnel-eval
+          (mult (s z) (s z))
+	  (mult z (s z))
+	  (mult (s (s z)) (s z))]
+}
+
+
+@defproc[(exp [m Nat] [e Nat]) Nat]{
+Compute @racket[e] to the @racket[m]th exponent.
+Due to limitations in Cur, running @racket[exp] takes to long to be
+useful on numbers larger than @racket[(s z)].
+
+@;@examples[#:eval curnel-eval
+@;          (exp (s z) (s z))
+@;	  (exp z (s z))]
+}
+
+@defproc[(square [m Nat]) Nat]{
+Compute @racket[m] squared, i.e., @racket[(exp m (s (s z)))].
+Due to limitations in Cur, running @racket[square] takes to long to be
+useful on numbers larger than @racket[(s z)].
+
+@;@examples[#:eval curnel-eval
+@;	  (square z)]
+}
+
 @defproc[(nat-equal? [n Nat] [m Nat]) Bool]{
 Return @racket[true] if and only if @racket[n] is equal to @racket[m].
 
