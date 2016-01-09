@@ -30,6 +30,29 @@
   (check-equal? (plus z z) z)
   (check-equal? (plus (s (s z)) (s (s z))) (s (s (s (s z))))))
 
+(define (mult (m : Nat) (n : Nat))
+  (match m
+    [z z]
+    [(s (x : Nat))
+     (plus n (recur x))]))
+(module+ test
+  (check-equal? (mult (s (s z)) z) z)
+  (check-equal? (mult (s (s z)) (s z)) (s (s z))))
+
+(define (exp (m : Nat) (e : Nat))
+  (match m
+    [z (s z)]
+    [(s (x : Nat))
+     (mult e (recur x))]))
+(module+ test
+  (check-equal? (exp z z) (s z))
+  (check-equal? (exp (s (s z)) z) z))
+
+(define square (run (exp (s (s z)))))
+;; TODO: This test takes too long t run
+#;(module+ test
+  (check-equal? (square (s (s z))) (s (s (s (s z))))))
+
 ;; Credit to this function goes to Max
 (define nat-equal?
   (elim Nat Type (lambda (x : Nat) (-> Nat Bool))
