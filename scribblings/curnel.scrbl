@@ -14,7 +14,7 @@ For a very understandable in-depth look at TT, see chapter 2 of
            "Practical Implementation of a Dependently Typed Functional Programming Language"], by
 Edwin C. Brady.
 
-@(define curnel-eval (curnel-sandbox ""))
+@(define curnel-eval (curnel-sandbox "(require cur/stdlib/nat cur/stdlib/bool cur/stdlib/prop)"))
 
 @defform*[((Type n)
 	   Type)]{
