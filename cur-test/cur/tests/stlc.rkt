@@ -1,18 +1,19 @@
-#lang s-exp "../cur.rkt"
+#lang cur
 (require
-  "../stdlib/nat.rkt"
-  "../stdlib/sugar.rkt"
-  "../oll.rkt"
-  "../stdlib/maybe.rkt"
-  "../stdlib/bool.rkt"
-  "../stdlib/prop.rkt")
+ rackunit
+ cur/stdlib/nat
+ cur/stdlib/sugar
+ cur/oll
+ cur/stdlib/maybe
+ cur/stdlib/bool
+ cur/stdlib/prop)
 
 (define-language stlc
   #:vars (x)
   #:output-coq "stlc.v"
   #:output-latex "stlc.tex"
   (val  (v)   ::= true false unit)
-  ;; TODO: Allow datum as terminals
+  ;; TODO: Allow datum, like 1, as terminals
   (type (A B) ::= boolty unitty (-> A B) (* A A))
   (term (e)   ::= x v (app e e) (lambda (x : A) e) (cons e e)
                   (let (x x) = e in e)))
@@ -126,19 +127,17 @@
            #'stlc-unitty
            #'e)])))
 
-(module+ test
-  (require rackunit)
-  (check-equal?
-    (begin-stlc (lambda (x : 1) x))
-    (stlc-lambda (avar z) stlc-unitty (Var-->-stlc-term (avar z))))
-  (check-equal?
-    (begin-stlc ((lambda (x : 1) x) ()))
-    (stlc-app (stlc-lambda (avar z) stlc-unitty (Var-->-stlc-term (avar z)))
-              (stlc-val-->-stlc-term stlc-unit)))
-  (check-equal?
-    (begin-stlc '(() ()))
-    (stlc-cons (stlc-val-->-stlc-term stlc-unit)
-               (stlc-val-->-stlc-term stlc-unit)))
-  (check-equal?
-    (begin-stlc #t)
-    (stlc-val-->-stlc-term stlc-true)))
+(check-equal?
+ (begin-stlc (lambda (x : 1) x))
+ (stlc-lambda (avar z) stlc-unitty (Var-->-stlc-term (avar z))))
+(check-equal?
+ (begin-stlc ((lambda (x : 1) x) ()))
+ (stlc-app (stlc-lambda (avar z) stlc-unitty (Var-->-stlc-term (avar z)))
+           (stlc-val-->-stlc-term stlc-unit)))
+(check-equal?
+ (begin-stlc '(() ()))
+ (stlc-cons (stlc-val-->-stlc-term stlc-unit)
+            (stlc-val-->-stlc-term stlc-unit)))
+(check-equal?
+ (begin-stlc #t)
+ (stlc-val-->-stlc-term stlc-true))

@@ -124,11 +124,3 @@
             (loop (apply (lookup-tactic #'tactic)
                     (append (syntax->list #'(arg ...)) (list ps)))
                   (cons cmd cmds)))]))))
-
-(module+ test
-  (require
-    rackunit
-    "../bool.rkt")
-  (define-theorem meow (forall (x : Bool) Bool))
-  #;(proof (interactive))
-  )

@@ -1,6 +1,6 @@
 #lang scribble/manual
 @(require
-   "defs.rkt"
+   "scribblings/defs.rkt"
    racket/function)
 
 @title[#:style '(toc)]{Cur}
@@ -42,7 +42,7 @@ Everything else in @racketmodname[cur] is provided by untrusted user-land code--
 
 @local-table-of-contents[]
 
-@include-section{curnel.scrbl}
-@include-section{reflection.scrbl}
-@include-section{stdlib.scrbl}
-@include-section{oll.scrbl}
+@include-section{scribblings/curnel.scrbl}
+@include-section{scribblings/reflection.scrbl}
+@include-section{scribblings/stdlib.scrbl}
+@include-section{scribblings/oll.scrbl}

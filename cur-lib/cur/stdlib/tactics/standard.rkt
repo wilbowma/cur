@@ -98,31 +98,3 @@
 ;; Open interactive REPL for tactic DSL; exit with QED command, which
 ;; returns a QED script
 ;(define-syntax interactive-proof)
-
-(module+ test
-  (require
-    rackunit
-    "../bool.rkt")
-  (define-theorem meow (forall (x : Bool) Bool))
-  (proof
-    (intro x)
-    (by-assumption))
-  (define-theorem meow1 (forall (x : Bool) Bool))
-  (proof
-    (obvious)
-    ;; TODO: Add ability to check output
-    #;(print))
-  (define-theorem meow2 (forall (x : Bool) Bool))
-  (proof
-    (intro x)
-    (restart)
-    (intro x)
-    (by-assumption))
-  (define-theorem meow3 (forall (x : Bool) Bool))
-  (proof (obvious))
-  ;; TODO: Fix this unit test so it doesn't require interaction
-  (define-theorem meow4 (forall (x : Bool) Bool))
-  #;(proof (interactive))
-  ;; TODO: Add check-cur-equal? for unit testing?
-  #;(check-pred (curry cur-equal? '(lambda (x : bool) x)))
-  )
