@@ -246,9 +246,13 @@
   (define (cur-equal? e1 e2)
     (and (judgment-holds (equivalent ,(delta) ,(eval-cur e1) ,(eval-cur e2))) #t))
 
-  (define (type-infer/syn syn)
-    (let ([t (type-infer/term (eval-cur syn))])
-      (and t (datum->cur syn t))))
+  ;; TODO: Document local-env
+  (define (type-infer/syn syn #:local-env [env '()])
+    (parameterize ([gamma (for/fold ([gamma (gamma)])
+                                    ([(x t) (in-dict env)])
+                            (extend-Γ/syn (thunk gamma) x t))])
+      (let ([t (type-infer/term (eval-cur syn))])
+        (and t (datum->cur syn t)))))
 
   (define (type-check/syn? syn type)
     (type-check/term? (eval-cur syn) (eval-cur type)))
