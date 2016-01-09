@@ -1,6 +1,7 @@
 #lang racket/base
 
 ;; A mostly Redex core, with parts written in Racket for performance reasons
+;; TODO: Move tests into common place to use in both Redex cores.
 
 (require
   racket/dict
@@ -27,15 +28,6 @@
     (check (default-equiv) e1 e2))
   (define-syntax-rule (check-not-equiv? e1 e2)
     (check (compose not (default-equiv)) e1 e2)))
-
-#| References:
- |  http://www3.di.uminho.pt/~mjf/pub/SFV-CIC-2up.pdf
- |  https://www.cs.uoregon.edu/research/summerschool/summer11/lectures/oplss-herbelin1.pdf
- |  http://www.emn.fr/z-info/ntabareau/papers/universe_polymorphism.pdf
- |  http://people.cs.kuleuven.be/~jesper.cockx/Without-K/Pattern-matching-without-K.pdf
- |  http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.37.74
- |  http://eb.host.cs.st-andrews.ac.uk/writings/thesis.pdf
- |#
 
 #| ttL is the core language of Cur. Very similar to TT (Idirs core) and Luo's UTT. Surface
  | langauge should provide short-hand, such as -> for non-dependent function types, and type
