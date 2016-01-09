@@ -28,7 +28,6 @@ restricted impredicative universe.
 
 @examples[#:eval curnel-eval
           (Type 1)]
-}
 
 @examples[#:eval curnel-eval
           Type]
