@@ -118,7 +118,7 @@
    -----------------
    (unv-type (Unv i_0) (Unv i_1))])
 
-;; Universe predicativity rules. Impredicative in (Unv 0) 
+;; Universe predicativity rules. Impredicative in (Unv 0)
 (define-judgment-form ttL
   #:mode (unv-pred I I O)
   #:contract (unv-pred U U U)
@@ -131,11 +131,12 @@
    (unv-pred (Unv i_1) (Unv i_2) (Unv i_3))])
 
 (define-metafunction ttL
+  α-equivalent?  : t t -> #t or #f
   [(α-equivalent? t_0 t_1)
    ,(alpha-equivalent? ttL (term t_0) (term t_1))])
 
 (module+ test
-  (default-equiv (lambda (x y) (term (α-equivalent ,x ,y)))))
+  (default-equiv (lambda (x y) (term (α-equivalent? ,x ,y)))))
 
 ;; Replace x by t_1 in t_0
 (define-metafunction ttL
@@ -261,6 +262,15 @@
 (define Φ? (redex-match? tt-ctxtL Φ))
 (define Θ? (redex-match? tt-ctxtL Θ))
 
+(module+ test
+  ;; Are these telescopes the same when filled with alpha-equivalent, and equivalently renamed, termed
+  (define (telescope-equiv x y)
+    (alpha-equivalent? ttL (term (in-hole ,x (Unv 0))) (term (in-hole ,y (Unv 0)))))
+  (define-syntax-rule (check-telescope-equiv? e1 e2)
+    (check telescope-equiv e1 e2))
+  (define-syntax-rule (check-telescope-not-equiv? e1 e2)
+    (check (compose not telescope-equiv) e1 e2)))
+
 ;; TODO: Might be worth it to actually maintain the above bijections, for performance reasons.
 
 ;; Return the parameters of x_D as a telescope Ξ
@@ -273,10 +283,10 @@
    (Δ-ref-parameter-Ξ Δ x_D)])
 
 (module+ test
-  (check-equiv?
+  (check-telescope-equiv?
     (term (Δ-ref-parameter-Ξ ,Δ nat))
     (term hole))
-  (check-equiv?
+  (check-telescope-equiv?
     (term (Δ-ref-parameter-Ξ ,Δ4 and))
     (term (Π (A : Type) (Π (B : Type) hole)))))
 
@@ -300,7 +310,7 @@
    (Ξ-compose (in-hole Ξ_0 Ξ_1) Ξ_rest ...)])
 
 (module+ test
-  (check-equiv?
+  (check-telescope-equiv?
     (term (Ξ-compose
             (Π (x : t_0) (Π (y : t_1) hole))
             (Π (z : t_2) (Π (a : t_3) hole))))
@@ -419,21 +429,21 @@
    (method-loop Δ x_D t_P (Δ-ref-constructors Δ x_D))])
 
 (module+ test
-  (check-equiv?
+  (check-telescope-equiv?
     (term (Δ-methods-telescope ,Δ nat (λ (x : nat) nat)))
     (term (Π (m-zero : ((λ (x : nat) nat) zero))
              (Π (m-s : (Π (x : nat) (Π (x-ih : ((λ (x : nat) nat) x)) ((λ (x : nat) nat) (s x))))) hole))))
-  (check-equiv?
+  (check-telescope-equiv?
     (term (Δ-methods-telescope ,Δ nat P))
     (term (Π (m-zero : (P zero))
              (Π (m-s : (Π (x : nat) (Π (ih-x : (P x)) (P (s x)))))
                 hole))))
-  (check-equiv?
+  (check-telescope-equiv?
     (term (Δ-methods-telescope ,Δ  nat (λ (x : nat) nat)))
     (term (Π (m-zero :  ((λ (x : nat) nat) zero))
              (Π (m-s : (Π (x : nat) (Π (ih-x : ((λ (x : nat) nat) x)) ((λ (x : nat) nat) (s x)))))
                 hole))))
-  (check-equiv?
+  (check-telescope-equiv?
     (term (Δ-methods-telescope ,Δ4 and (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) true)))))
     (term (Π (m-conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B)
                                                                       ((((λ (A : Type) (λ (B : Type) (λ (x : ((and A) B)) true)))
@@ -445,7 +455,7 @@
   (check-true (Ξ? (term hole)))
   (check-true (t? (term (λ (y : false) (Π (x : Type) x)))))
   (check-true (redex-match? ttL ((x : t) ...) (term ())))
-  (check-equiv?
+  (check-telescope-equiv?
     (term (Δ-methods-telescope ,sigma false (λ (y : false) (Π (x : Type) x))))
     (term hole)))
 
@@ -505,7 +515,7 @@
 (module+ test
   (check-true
     (redex-match? tt-ctxtL (in-hole Θ_i (hole (in-hole Θ_r zero))) (term (hole zero))))
-  (check-equiv?
+  (check-telescope-equiv?
     (term (Δ-inductive-elim ,Δ nat Type (λ (x : nat) nat) hole
                       ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                       (hole zero)))
@@ -513,7 +523,7 @@
                    (s zero))
                   (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                  zero))))
-  (check-equiv?
+  (check-telescope-equiv?
     (term (Δ-inductive-elim ,Δ nat Type (λ (x : nat) nat) hole
                       ((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                       (hole (s zero))))
@@ -682,8 +692,7 @@
   (check-equivalent
     (λ (x : Type) x) (λ (y : Type) y))
   (check-equivalent
-    (Π (x : Type) x) (Π (y : Type) y))
-  )
+    (Π (x : Type) x) (Π (y : Type) y)))
 
 ;;; ------------------------------------------------------------------------
 ;;; Type checking and synthesis
@@ -931,7 +940,7 @@
   (check-holds (type-infer ,Δtruth ∅ (λ (x : truth) (Unv 1))
                            (in-hole Ξ (Π (x : (in-hole Θ truth)) U))))
 
-  (check-equiv?
+  (check-telescope-equiv?
     (term (Δ-methods-telescope ,Δtruth truth (λ (x : truth) (Unv 1))))
     (term (Π (m-T : ((λ (x : truth) (Unv 1)) T)) hole)))
   (check-holds (type-infer ,Δtruth ∅ (elim truth Type) t))
@@ -1228,7 +1237,7 @@
       (in-hole (Θ_p (in-hole Θ_i x_ci)) Θ_m)
       (term (((((hole
               (λ (A1 : (Unv 0)) (λ (x1 : A1) zero))) bool) true) true) ((refl bool) true)))))
-  (check-equiv?
+  (check-telescope-equiv?
     (term (Δ-ref-parameter-Ξ ,Δ= ==))
     (term (Π (A : Type) (Π (a : A) (Π (b : A) hole)))))
   (check-equal?
