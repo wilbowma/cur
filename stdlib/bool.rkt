@@ -7,7 +7,7 @@
   (false : Bool))
 
 (define-syntax-rule (if t s f)
-  (case t
+  (match t
     [true s]
     [false f]))
 
