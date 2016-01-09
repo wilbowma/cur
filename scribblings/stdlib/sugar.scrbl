@@ -4,7 +4,7 @@
   "../defs.rkt"
   scribble/eval)
 
-@(define curnel-eval (curnel-sandbox "(require cur/stdlib/bool cur/stdlib/sugar)"))
+@(define curnel-eval (curnel-sandbox "(require cur/stdlib/nat cur/stdlib/bool cur/stdlib/sugar)"))
 
 
 @title{Sugar}
@@ -82,7 +82,6 @@ Like the @racket[elim] provided by @racketmodname[cur/curnel/redex-lang], but su
 automatically curries the remaining arguments @racket[e ...].
 
 @examples[#:eval curnel-eval
-          (require cur/stdlib/bool)
           (elim Bool Type (lambda (x : Bool) Bool)
             false
             true
@@ -94,27 +93,39 @@ automatically curries the remaining arguments @racket[e ...].
 Like @racket[define], but uses @racket[forall*] instead of @racket[lambda*].
 }
 
-@defform[(case e [pattern maybe-IH body] ...)
+@defform[(match e [pattern body] ...)
          #:grammar
          [(pattern
             constructor
-            (code:line)
-            (code:line (constructor (x : t) ...)))
-          (maybe-IH
-            (code:line)
-            (code:line IH: ((x : t) ...)))]]{
-A pattern-matcher-like syntax for inductive elimination. Actually does not do pattern matching and
-relies on the constructors patterns being specified in the same order as when the inductive type was
-defined.
+            (code:line (constructor (x : t) ...)))]]{
+A pattern-matcher-like syntax for inductive elimination.
+Does not actually do pattern matching; instead, relies on the
+constructors patterns being specified in the same order as when the
+inductive type was defined.
+Inside the @racket[body], @racket[recur] can be used to refer to the
+inductive hypotheses for an inductive argument.
+Generates a call to the inductive eliminator for @racket[e].
+Currently does not work on inductive type-families as types indices
+are not inferred.
 
 @examples[#:eval curnel-eval
-          (require cur/stdlib/nat)
-          (case z
+          (match z
             [z true]
             [(s (n : Nat))
-             IH: ((_ : Bool))
              false])]
+
+@examples[#:eval curnel-eval
+          (match (s z)
+            [z true]
+            [(s (n : Nat))
+	    (not (recur n))])]
 }
+
+@defform[(recur id)]{
+A form valid only in the body of a @racket[match] clause. Generates a
+reference to the induction hypothesis for @racket[x].
+}
+
 
 @defform[(case* type motive-result-type e (parameters ...) motive [pattern maybe-IH body] ...)
          #:grammar
@@ -130,7 +141,6 @@ Necessary for more advanced types, like @racket[And], because @racket[case] is n
 
 @margin-note{Don't worry about all that output from requiring prop}
 @examples[#:eval curnel-eval
-          (require cur/stdlib/nat)
           (case* Nat Type z () (lambda (x : Nat) Bool)
             [z true]
             [(s (n : Nat))
