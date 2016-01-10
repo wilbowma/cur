@@ -1,11 +1,10 @@
 #lang racket/base
-
 (require
  redex/reduction-semantics
  cur/curnel/redex-core
  rackunit
+ racket/function
  (only-in racket/set set=?))
-
 (define-syntax-rule (check-holds (e ...))
   (check-true
    (judgment-holds (e ...))))
