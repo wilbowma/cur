@@ -1,5 +1,8 @@
 #lang cur
-(require rackunit)
+(require
+ rackunit
+ cur/stdlib/bool
+ cur/stdlib/sugar)
 
 (check-equal? (not true) false)
 (check-equal? (not false) true)

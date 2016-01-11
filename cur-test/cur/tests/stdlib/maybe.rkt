@@ -2,6 +2,7 @@
 
 (require
  rackunit
+ cur/stdlib/sugar
  cur/stdlib/bool
  cur/stdlib/maybe)
 
