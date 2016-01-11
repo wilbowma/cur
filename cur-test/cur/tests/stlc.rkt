@@ -3,7 +3,7 @@
  rackunit
  cur/stdlib/nat
  cur/stdlib/sugar
- cur/oll
+ cur/olly
  cur/stdlib/maybe
  cur/stdlib/bool
  cur/stdlib/prop)

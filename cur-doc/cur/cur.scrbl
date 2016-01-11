@@ -45,4 +45,4 @@ Everything else in @racketmodname[cur] is provided by untrusted user-land code--
 @include-section{scribblings/curnel.scrbl}
 @include-section{scribblings/reflection.scrbl}
 @include-section{scribblings/stdlib.scrbl}
-@include-section{scribblings/oll.scrbl}
+@include-section{scribblings/olly.scrbl}

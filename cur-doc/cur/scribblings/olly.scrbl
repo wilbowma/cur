@@ -1,12 +1,12 @@
 #lang scribble/manual
 @(require "defs.rkt")
 
-@title{OLL: Ott-like Library}
+@title{Olly: Ott-like LibrarY}
 
-@defmodule[cur/oll]
-The OLL provides syntax extensions for defining programming languages as inductive data. The library
+@defmodule[cur/olly]
+Olly provides syntax extensions for defining programming languages as inductive data. The library
 is inspired by Ott@todo{Citation needed}, which provides an language that resembles math notation for
-generating Coq definitions.  The purpose of the OLL is not to replace Ott, but to demonstrate how
+generating Coq definitions.  The purpose of Olly is not to replace Ott, but to demonstrate how
 powerful syntactic meta-programming can bring features previously only provided by external tools into
 the language.
 
@@ -45,7 +45,7 @@ nonterminal to another.
 If @racket[#:vars] is given, it should be a list of meta-variables that
 representing variables in the language. These meta-variables should only
 appear in binding positions in @racket[constructors]. These variables
-are represented as De Bruijn indexes, and OLL provides some functions
+are represented as De Bruijn indexes, and Olly provides some functions
 for working with De Bruijn indexes.
 
 If @racket[#:output-coq] is given, it should be a string representing a

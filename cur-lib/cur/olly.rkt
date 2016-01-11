@@ -1,5 +1,5 @@
 #lang s-exp "cur.rkt"
-;; OLL: The OTT-Like Library
+;; Olly: The OTT-Like LibrarY
 ;; TODO: Automagically create a parser from bnf grammar
 (require
   "stdlib/sugar.rkt"
