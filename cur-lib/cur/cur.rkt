@@ -5,7 +5,7 @@
     racket/syntax
     syntax/parse
     (for-template
-      (only-in "curnel/redex-lang.rkt"
+      (only-in "curnel/hybrid-lang.rkt"
        cur-expand)))
 
   (provide cur-match)
@@ -17,7 +17,7 @@
            [pattern body] ...)])))
 
 (require
-  (rename-in "curnel/redex-lang.rkt" [provide -provide])
+  (rename-in "curnel/hybrid-lang.rkt" [provide -provide])
   (only-in racket/base eof)
   (for-syntax 'extra)
   'extra)
@@ -27,5 +27,5 @@
   (except-out
     (all-from-out
      'extra
-     "curnel/redex-lang.rkt")
+     "curnel/hybrid-lang.rkt")
     -provide))

@@ -1,11 +1,11 @@
 #lang racket/base
 
 ;; A mostly Redex core, with parts written in Racket for performance reasons
-;; TODO: Move tests into common place to use in both Redex cores.
 
 (require
   racket/dict
   racket/function
+  racket/list
   redex/reduction-semantics)
 
 (provide
@@ -13,33 +13,21 @@
 
 (set-cache-size! 10000)
 
-;; Test suite setup.
-(module+ test
-  (require
-    rackunit
-    (only-in racket/set set=?))
-  (define-syntax-rule (check-holds (e ...))
-    (check-true
-      (judgment-holds (e ...))))
-  (define-syntax-rule (check-not-holds (e ...))
-    (check-false
-      (judgment-holds (e ...))))
-  (define-syntax-rule (check-equiv? e1 e2)
-    (check (default-equiv) e1 e2))
-  (define-syntax-rule (check-not-equiv? e1 e2)
-    (check (compose not (default-equiv)) e1 e2)))
+(define-language base
+  (dict ::= any))
+;; TODO: More abstractions for Redex dictionaries.
+
+(define make-dict make-immutable-hash)
 
 #| ttL is the core language of Cur. Very similar to TT (Idirs core) and Luo's UTT. Surface
  | langauge should provide short-hand, such as -> for non-dependent function types, and type
  | inference.
  |#
-(define-language ttL
+(define-extended-language ttL base
   (i j k  ::= natural)
   (U ::= (Unv i))
   (t e ::= U (λ (x : t) e) x (Π (x : t) t) (e e) (elim D U))
-  ;; Δ (signature). (inductive-name : type ((constructor : type) ...))
-  ;; NB: Δ is a map from a name x to a pair of it's type and a map of constructor names to their types
-  (Δ   ::= ∅ (Δ (D : t ((c : t) ...))))
+  (Δ   ::= dict)
   (D x c ::= variable-not-otherwise-mentioned)
   #:binding-forms
   (λ (x : t) e #:refers-to x)
@@ -49,7 +37,17 @@
 (define t? (redex-match? ttL t))
 (define e? (redex-match? ttL e))
 (define U? (redex-match? ttL U))
-(define Δ? (redex-match? ttL Δ))
+
+;; TODO: Constracts
+;; An inductive-decl contains the type of the type being declared,
+;; a t?, and a dictionary of constructor names (x?) mapped to their
+;; types (t?)
+(define-struct inductive-decl (type constr-dict))
+
+;; A Δ is a dict mapping names x? to inductive-decl?
+(define Δ? dict?)
+(define make-empty-Δ make-dict)
+(define empty-Δ? dict-empty?)
 
 ;;; ------------------------------------------------------------------------
 ;;; Universe typing
@@ -94,61 +92,73 @@
 ;;; ------------------------------------------------------------------------
 ;;; Primitive Operations on signatures Δ (those operations that do not require contexts)
 
-;;; TODO: Might be worth maintaining the above bijection between Δ and maps for performance reasons
-
-;; TODO: This is doing too many things
-;; NB: Depends on clause order
+;; TODO: Maybe shouldn't fall back, but maintains redex-core interface.
+;; Get the type of x as declared in Δ, as either a constructor or an inductive type
 (define-metafunction ttL
   Δ-ref-type : Δ x -> t or #f
-  [(Δ-ref-type ∅ x) #f]
-  [(Δ-ref-type (Δ (x : t any)) x) t]
-  [(Δ-ref-type (Δ (x_0 : t_0 ((x_1 : t_1) ... (x : t) (x_2 : t_2) ...))) x) t]
-  [(Δ-ref-type (Δ (x_0 : t_0 any)) x) (Δ-ref-type Δ x)])
+  [(Δ-ref-type Δ x)
+   ,(cond
+      [(dict-ref (term Δ) (term x) (thunk #f))
+       => inductive-decl-type]
+      [else (term (Δ-ref-constructor-type Δ foo x))])])
 
+;; Get the type of a constructor x in the inductive declaration Δ
+;; TODO: Doesn't need x_D anymore
+(define-metafunction ttL
+  Δ-ref-constructor-type : Δ x x -> t or #f
+  [(Δ-ref-constructor-type Δ x_D x)
+   ,(cond
+     [(for/or ([(D idecl) (in-dict (term Δ))])
+       (let ([constr-dict (inductive-decl-constr-dict idecl)])
+         (and (dict-has-key? constr-dict (term x)) constr-dict)))
+      =>
+      (curryr dict-ref (term x))]
+     [else #f])])
+
+;; Add an inductive declaration to Δ
 (define-metafunction ttL
   Δ-set : Δ x t ((x : t) ...) -> Δ
-  [(Δ-set Δ x t any) (Δ (x : t any))])
+  [(Δ-set Δ x t any)
+   ,(dict-set
+     (term Δ)
+     (term x)
+     (inductive-decl
+      (term t)
+      (for/fold ([d (make-dict)])
+                ([constr-decl (term any)])
+        (dict-set d (first constr-decl) (third constr-decl)))))])
 
+;; Merge two inductive declarations
 (define-metafunction ttL
   Δ-union : Δ Δ -> Δ
-  [(Δ-union Δ ∅) Δ]
-  [(Δ-union Δ_2 (Δ_1 (x : t any)))
-   ((Δ-union Δ_2 Δ_1) (x : t any))])
+  [(Δ-union Δ_1 Δ_2)
+   ,(for/fold ([d (term Δ_1)])
+              ([(k v) (in-dict (term Δ_2))])
+      (dict-set d k v (thunk (error 'curnel "~a is already declared in ~a" k d))))])
 
 ;; Returns the inductively defined type that x constructs
-;; NB: Depends on clause order
 (define-metafunction ttL
   Δ-key-by-constructor : Δ x -> x
-  [(Δ-key-by-constructor (Δ (x : t ((x_0 : t_0) ... (x_c : t_c) (x_1 : t_1) ...))) x_c)
-   x]
-  [(Δ-key-by-constructor (Δ (x_1 : t_1 any)) x)
-   (Δ-key-by-constructor Δ x)])
+  [(Δ-key-by-constructor Δ x_c)
+   ,(for/or ([(k v) (in-dict (term Δ))])
+      (and (dict-has-key? (inductive-decl-constr-dict v)) k))])
 
 ;; Returns the constructor map for the inductively defined type x_D in the signature Δ
 (define-metafunction ttL
   Δ-ref-constructor-map : Δ x -> ((x : t) ...) or #f
-  ;; NB: Depends on clause order
-  [(Δ-ref-constructor-map ∅ x_D) #f]
-  [(Δ-ref-constructor-map (Δ (x_D : t_D any)) x_D)
-   any]
-  [(Δ-ref-constructor-map (Δ (x_1 : t_1 any)) x_D)
-   (Δ-ref-constructor-map Δ x_D)])
-
-;; TODO: Should not use Δ-ref-type
-(define-metafunction ttL
-  Δ-ref-constructor-type : Δ x x -> t
-  [(Δ-ref-constructor-type Δ x_D x_ci)
-   (Δ-ref-type Δ x_ci)])
+  [(Δ-ref-constructor-map Δ x_D)
+   ,(cond
+      [(dict-ref (term Δ) (term x_D) (thunk #f)) =>
+       (lambda (x)
+         (for/list ([(k v) (inductive-decl-constr-dict x)])
+           `(,k : ,v)))]
+      [else #f])])
 
 ;; Get the list of constructors for the inducitvely defined type x_D
-;; NB: Depends on clause order
 (define-metafunction ttL
   Δ-ref-constructors : Δ x -> (x ...) or #f
-  [(Δ-ref-constructors ∅ x_D) #f]
-  [(Δ-ref-constructors (Δ (x_D : t_D ((x : t) ...))) x_D)
-   (x ...)]
-  [(Δ-ref-constructors (Δ (x_1 : t_1 any)) x_D)
-   (Δ-ref-constructors Δ x_D)])
+  [(Δ-ref-constructors Δ x_D)
+   ,(dict-keys (inductive-decl-constr-dict (dict-ref (term Δ) (term x_D))))])
 
 ;; NB: Depends on clause order
 (define-metafunction ttL
@@ -182,13 +192,11 @@
 ;; TODO: Might be worth it to actually maintain the above bijections, for performance reasons.
 
 ;; Return the parameters of x_D as a telescope Ξ
-;; TODO: Define generic traversals of Δ and Γ ?
 (define-metafunction tt-ctxtL
   Δ-ref-parameter-Ξ : Δ x -> Ξ
-  [(Δ-ref-parameter-Ξ (Δ (x_D : (in-hole Ξ U) any)) x_D)
-   Ξ]
-  [(Δ-ref-parameter-Ξ (Δ (x_1 : t_1 any)) x_D)
-   (Δ-ref-parameter-Ξ Δ x_D)])
+  [(Δ-ref-parameter-Ξ Δ x_D)
+   Ξ
+   (where (in-hole Ξ U) (Δ-ref-type Δ x_D))])
 
 ;; Applies the term t to the telescope Ξ.
 ;; TODO: Test
@@ -390,7 +398,7 @@
 (define E? (redex-match? tt-redL E))
 (define v? (redex-match? tt-redL v))
 
-(define current-Δ (make-parameter (term ∅)))
+(define current-Δ (make-parameter (make-empty-Δ)))
 (define tt-->
   (reduction-relation tt-redL
     (--> (in-hole E ((λ (x : t_0) t_1) t_2))
@@ -532,25 +540,29 @@
   #:mode (wf I I)
   #:contract (wf Δ Γ)
 
-  [----------------- "WF-Empty"
-   (wf ∅ ∅)]
+  [(side-condition ,(empty-Δ? (term Δ)))
+   ----------------- "WF-Empty"
+   (wf Δ ∅)]
 
   [(type-infer Δ Γ t t_0)
    (wf Δ Γ)
    ----------------- "WF-Var"
    (wf Δ (Γ x : t))]
 
-  [(wf Δ ∅)
+  [(where x_D ,(dict-iterate-first (term Δ_1)))
+   (where t_D (Δ-ref-type Δ_1 x_D))
+   (where (x_c ...) (Δ-ref-constructors Δ_1 x_D))
+   (where ((name t_c (in-hole Ξ (in-hole Θ x_D*))) ...)
+          ((Δ-ref-type Δ_1 x_c) ...))
+   (where Δ ,(dict-remove (term Δ_1) (term x_D)))
+   (wf Δ ∅)
    (type-infer Δ ∅ t_D U_D)
    (type-infer Δ (∅ x_D : t_D) t_c U_c) ...
    ;; NB: Ugh this should be possible with pattern matching alone ....
    (side-condition ,(map (curry equal? (term x_D)) (term (x_D* ...))))
    (side-condition (positive* x_D (t_c ...)))
    ----------------- "WF-Inductive"
-   (wf (Δ (x_D : t_D
-               ;; Checks that a constructor for x actually produces an x, i.e., that
-               ;; the constructor is well-formed.
-               ((x_c : (name t_c (in-hole Ξ (in-hole Θ x_D*)))) ...))) ∅)])
+   (wf Δ_1 ∅)])
 
 ;; TODO: Bi-directional and inference?
 ;; TODO: http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
@@ -605,3 +617,12 @@
    (equivalent Δ t t_0)
    ----------------- "DTR-Check"
    (type-check Δ Γ e t)])
+
+
+(module+ test
+  (require rackunit)
+  (define-term Δt (Δ-set ,(make-empty-Δ) True Type ((T : True))))
+  (check-false
+   (judgment-holds (type-check ,(make-empty-Δ) ∅ T True)))
+  (check-true
+   (judgment-holds (type-check Δt ∅ T True))))
