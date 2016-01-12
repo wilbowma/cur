@@ -558,6 +558,7 @@
    (wf Δ (Γ x : t))]
 
   [(side-condition ,(not (empty-Δ? (term Δ_1))))
+   ;; TODO: Depends on order, but "first" here is nondeterministic/unspecified
    (where x_D ,(dict-iterate-key (term Δ_1) (dict-iterate-first (term Δ_1))))
    (where t_D (Δ-ref-type Δ_1 x_D))
    (where (x_c ...) (Δ-ref-constructors Δ_1 x_D))

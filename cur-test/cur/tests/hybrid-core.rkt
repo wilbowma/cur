@@ -61,6 +61,7 @@
                             (nat (Unv 0) ())
                             (heap (Unv 0) ())
                             (pre (Π (temp808 : heap) (Unv 0)) ()))))
+(displayln sigma)
 (check-true (Δ? (term (Δ-set* ,(make-empty-Δ) (true (Unv 0) ((T : true)))))))
 (check-true (Δ? (term (Δ-set* ,(make-empty-Δ) (false (Unv 0) ())))))
 (check-true (Δ? (term (Δ-set* ,(make-empty-Δ) (equal (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
