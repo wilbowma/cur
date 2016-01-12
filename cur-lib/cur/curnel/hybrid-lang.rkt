@@ -186,7 +186,7 @@
             [(#%app e1 e2)
              (term (,(cur->datum #'e1) ,(cur->datum #'e2)))]))))
     (unless (or (inner-expand?) (type-infer/term reified-term))
-      #;(printf "Delta: ~s~nGamma: ~s~n" (delta) (gamma))
+      (printf "Delta: ~s~nGamma: ~s~n" (delta) (gamma))
       (raise-syntax-error 'cur "term is ill-typed:" reified-term syn))
     reified-term)
 

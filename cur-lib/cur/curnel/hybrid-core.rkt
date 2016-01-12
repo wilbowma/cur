@@ -41,8 +41,10 @@
 ;; TODO: Constracts
 ;; An inductive-decl contains the type of the type being declared,
 ;; a t?, and a dictionary of constructor names (x?) mapped to their
-;; types (t?)
-(define-struct inductive-decl (type constr-dict))
+;; types (t?), the original syntax/order of the constructor
+;; declaration ((x : t) ...), and the list of constructors in the
+;; original order (x ...)
+(define-struct inductive-decl (type constr-dict constr-decl constr-ls) #:prefab)
 
 ;; A Δ is a dict mapping names x? to inductive-decl?
 (define Δ? dict?)
@@ -118,15 +120,17 @@
 ;; Add an inductive declaration to Δ
 (define-metafunction ttL
   Δ-set : Δ x t ((x : t) ...) -> Δ
-  [(Δ-set Δ x t any)
+  [(Δ-set Δ x t (name decl ((c : t_c) ...)))
    ,(dict-set
      (term Δ)
      (term x)
      (inductive-decl
       (term t)
       (for/fold ([d (make-dict)])
-                ([constr-decl (term any)])
-        (dict-set d (first constr-decl) (third constr-decl)))))])
+                ([constr-decl (term decl)])
+        (dict-set d (first constr-decl) (third constr-decl)))
+      (term decl)
+      (term (c ...))))])
 
 ;; Merge two inductive declarations
 (define-metafunction ttL
@@ -134,14 +138,20 @@
   [(Δ-union Δ_1 Δ_2)
    ,(for/fold ([d (term Δ_1)])
               ([(k v) (in-dict (term Δ_2))])
-      (dict-set d k v (thunk (error 'curnel "~a is already declared in ~a" k d))))])
+      (dict-set d k v))])
+
+(define-metafunction ttL
+  Δ-set* : Δ (x t ((x : t) ...)) ... -> Δ
+  [(Δ-set* Δ) Δ]
+  [(Δ-set* Δ (D t_D ((c : t_c) ...)) any_r ...)
+   (Δ-set* (Δ-set Δ D t_D ((c : t_c) ...)) any_r ...)])
 
 ;; Returns the inductively defined type that x constructs
 (define-metafunction ttL
-  Δ-key-by-constructor : Δ x -> x
+  Δ-key-by-constructor : Δ x -> x or #f
   [(Δ-key-by-constructor Δ x_c)
    ,(for/or ([(k v) (in-dict (term Δ))])
-      (and (dict-has-key? (inductive-decl-constr-dict v)) k))])
+      (and (dict-has-key? (inductive-decl-constr-dict v) (term x_c)) k))])
 
 ;; Returns the constructor map for the inductively defined type x_D in the signature Δ
 (define-metafunction ttL
@@ -149,16 +159,14 @@
   [(Δ-ref-constructor-map Δ x_D)
    ,(cond
       [(dict-ref (term Δ) (term x_D) (thunk #f)) =>
-       (lambda (x)
-         (for/list ([(k v) (inductive-decl-constr-dict x)])
-           `(,k : ,v)))]
+       inductive-decl-constr-decl]
       [else #f])])
 
 ;; Get the list of constructors for the inducitvely defined type x_D
 (define-metafunction ttL
   Δ-ref-constructors : Δ x -> (x ...) or #f
   [(Δ-ref-constructors Δ x_D)
-   ,(dict-keys (inductive-decl-constr-dict (dict-ref (term Δ) (term x_D))))])
+   ,(inductive-decl-constr-ls (dict-ref (term Δ) (term x_D)))])
 
 ;; NB: Depends on clause order
 (define-metafunction ttL
@@ -549,7 +557,8 @@
    ----------------- "WF-Var"
    (wf Δ (Γ x : t))]
 
-  [(where x_D ,(dict-iterate-first (term Δ_1)))
+  [(side-condition ,(not (empty-Δ? (term Δ_1))))
+   (where x_D ,(dict-iterate-key (term Δ_1) (dict-iterate-first (term Δ_1))))
    (where t_D (Δ-ref-type Δ_1 x_D))
    (where (x_c ...) (Δ-ref-constructors Δ_1 x_D))
    (where ((name t_c (in-hole Ξ (in-hole Θ x_D*))) ...)
@@ -577,11 +586,13 @@
    ----------------- "DTR-Unv"
    (type-infer Δ Γ U_0 U_1)]
 
-  [(where t (Δ-ref-type Δ x))
+  [(wf Δ Γ)
+   (where t (Δ-ref-type Δ x))
    ----------------- "DTR-Inductive"
    (type-infer Δ Γ x t)]
 
-  [(where t (Γ-ref Γ x))
+  [(wf Δ Γ)
+   (where t (Γ-ref Γ x))
    ----------------- "DTR-Start"
    (type-infer Δ Γ x t)]
 
@@ -621,8 +632,16 @@
 
 (module+ test
   (require rackunit)
-  (define-term Δt (Δ-set ,(make-empty-Δ) True Type ((T : True))))
+  (define-term Δt (Δ-set ,(make-empty-Δ) True (Unv 0) ((T : True))))
   (check-false
    (judgment-holds (type-check ,(make-empty-Δ) ∅ T True)))
   (check-true
-   (judgment-holds (type-check Δt ∅ T True))))
+   (judgment-holds (type-check Δt ∅ T True)))
+  (check-true
+   (judgment-holds (type-check Δt ∅ True (Unv 0))))
+  (check-true
+   (judgment-holds (wf Δt ∅)))
+  (check-true
+   (judgment-holds (wf Δt (∅ P : (Unv 0)))))
+  (check-true
+   (judgment-holds (type-infer Δt ∅ (Π (P : (Unv 0)) True) t))))
