@@ -9,36 +9,17 @@
  cur/olly)
 
 (begin-for-syntax
-  (require rackunit)
-  (define (check-id-equal? v1 v2)
-    (check-equal?
-     (syntax->datum v1)
-     (syntax->datum v2)))
-  (define (check-id-match? v1 v2)
-    (check-regexp-match
-     v1
-     (symbol->string (syntax->datum v2))))
-  (check-id-match?
-   #px"term\\d+"
-   (fresh-name #'term))
-  (check-id-equal?
-   #'stlc-lambda
-   (new-name #'stlc #'lambda))
-  (check-id-match?
-   #px"stlc-term\\d+"
-   (new-name #'stlc (fresh-name #'term))))
+  (require rackunit))
 
 (begin-for-syntax
   (check-equal?
    (format "$$\\begin{array}{lrrl}~n~a~n\\end{array}$$"
            (format "\\mbox{\\textit{term}} & e & \\bnfdef & (e1 e2) \\bnfalt (lambda (x) e)\\\\~n"))
-   (output-latex-bnf #'(x)
-                     #'((term (e) ::= (e1 e2) (lambda (x) e)))))
+   (output-latex-bnf #'((term (e) ::= (e1 e2) (lambda (x) e)))))
   (check-equal?
    (format "$$\\begin{array}{lrrl}~n~a~n\\end{array}$$"
            (format "\\mbox{\\textit{type}} & A,B,C & \\bnfdef & unit \\bnfalt (* A B) \\bnfalt (+ A C)\\\\~n"))
-   (output-latex-bnf #'(x)
-                     #'((type (A B C) ::= unit (* A B) (+ A C))))))
+   (output-latex-bnf #'((type (A B C) ::= unit (* A B) (+ A C))))))
 
 (check-equal?
  (var-equal? (avar z) (avar z))

@@ -19,15 +19,13 @@
   (for-syntax
    coq-defns
    output-latex-bnf
-   output-coq
-   new-name
-   fresh-name))
+   output-coq))
 
 (begin-for-syntax
   (define-syntax-class dash
-    (pattern x:id
-             #:fail-unless (regexp-match #rx"-+" (symbol->string (syntax-e #'x)))
-             "Invalid dash"))
+    (pattern
+     x:id
+     #:fail-unless (regexp-match #rx"-+" (symbol->string (syntax-e #'x))) "Invalid dash"))
 
   (define-syntax-class decl (pattern (x:id (~datum :) t:id)))
 
@@ -84,81 +82,15 @@
                    #'())
                #,output))]))
 
-(begin-for-syntax
-  (require racket/syntax)
-  (define (new-name name . id*)
-    (apply format-id name (for/fold ([str "~a"])
-                                    ([_ id*])
-                            (string-append str "-~a")) name (map syntax->datum id*)))
-
-  (define (fresh-name id)
-    (datum->syntax id (gensym (syntax->datum id)))))
-
-;; TODO: Oh, this is a mess. Rewrite it.
-(begin-for-syntax
-  (define lang-name (make-parameter #'name))
-  (define nts (make-parameter (make-immutable-hash)))
-
-  (define-syntax-class nt
-    (pattern e:id #:fail-unless (hash-has-key? (nts) (syntax->datum #'e)) #f
-             #:attr name (hash-ref (nts) (syntax->datum #'e))
-             #:attr type (hash-ref (nts) (syntax->datum #'e))))
-
-  (define (flatten-args arg arg*)
-    (for/fold ([ls (syntax->list arg)])
-              ([e (syntax->list arg*)])
-      (append ls (syntax->list e))))
-
-  (define-syntax-class (right-clause type)
-    #;(pattern (~datum var)
-             #:attr clause-context #`(#,(new-name (lang-name) #'var) :
-                                      (-> #,(hash-ref (nts) 'var) #,(hash-ref (nts) type)))
-             #:attr name #'var
-             #:attr arg-context #'(var))
-    (pattern e:nt
-             #:attr clause-context #`(#,(new-name #'e.name #'->
-                                                  (hash-ref (nts) type)) :
-                                      (-> e.type #,(hash-ref (nts) type)))
-             #:attr name (fresh-name #'e.name)
-             #:attr arg-context #'(e.type))
-    (pattern x:id
-             #:attr clause-context #`(#,(new-name (lang-name) #'x) :
-                                      #,(hash-ref (nts) type))
-             #:attr name (new-name (lang-name) #'x)
-             #:attr arg-context #'())
-    (pattern ((~var e (right-clause type)) (~var e* (right-clause type)) ...)
-             #:attr name (fresh-name #'e.name)
-             #:attr clause-context #`(e.name : (-> #,@(flatten-args #'e.arg-context #'(e*.arg-context ...))
-                                                    #,(hash-ref (nts) type)))
-             #:attr arg-context #`(#,@(flatten-args #'e.arg-context #'(e*.arg-context ...)))))
-
-  (define-syntax-class (right type)
-    (pattern ((~var r (right-clause type)) ...)
-             #:attr clause #'(r.clause-context ...)))
-
-  #;(define-syntax-class left
-    (pattern (type:id (nt*:id ...+))
-             #:do ))
-
-  (define-syntax-class nt-clauses
-    (pattern ((type:id (nt*:id ...+)
-              (~do (nts (for/fold ([ht (nts)])
-                                  ([nt (syntax->datum #'(type nt* ...))])
-                          (hash-set ht nt (new-name (lang-name) #'type)))))
-              (~datum ::=)
-              . (~var rhs* (right (syntax->datum #'type)))) ...)
-             #:with defs (with-syntax ([(name* ...)
-                                        (map (λ (x) (hash-ref (nts) x))
-                                             (syntax->datum #'(type ...)))])
-                           #`((data name* : Type . rhs*.clause)
-                              ...)))))
+;; ------------------------------------
+;; define-language
 
 (begin-for-syntax
   ;; TODO: More clever use of syntax-parse would enable something akin to what
   ;; define-relation is doing---having attributes that contain the latex
   ;; code for each clause.
   ;; TODO: convert meta-vars such as e1 to e_1
-  (define (output-latex-bnf vars clauses)
+  (define (output-latex-bnf clauses)
     (format "$$\\begin{array}{lrrl}~n~a~n\\end{array}$$"
       (for/fold ([str ""])
                 ([clause (syntax->list clauses)])
@@ -179,35 +111,121 @@
                        (format "~a~a \\bnfalt " str expr))
                      " \\bnfalt "
                      #:left? #f))]))))
-  (define (generate-latex-bnf file-name vars clauses)
+  (define (generate-latex-bnf file-name clauses)
     (with-output-to-file file-name
-      (thunk (printf (output-latex-bnf vars clauses)))
+      (thunk (printf (output-latex-bnf clauses)))
       #:exists 'append)))
 
-;; TODO: For better error messages, add context, rename some of these patterns. e.g.
-;;    (type (meta-vars) ::= ?? )
+(begin-for-syntax
+  ;; A mutable map from non-terminal meta-variables names to their types
+  (define mv-map (make-parameter #f))
+
+  ;; A meta-variable is any identifiers that belongs to the mv-map
+  (define-syntax-class meta-variable
+    (pattern
+     e:id
+     #:attr sym (syntax->datum #'e)
+     #:fail-unless (dict-has-key? (mv-map) (attribute sym)) #f
+     #:attr type (dict-ref (mv-map) (attribute sym))))
+
+  ;; A expression is parameterized by the name of the non-terminal to
+  ;; which is belongs, the language name, and the map of meta-varibles to
+  ;; their types.
+  ;; Each expression exports a decl-context and arg-context attribute.
+  ;; In decl-context, a expression generates a constructor
+  ;; declaration for an inductive type.
+  ;; In arg-context, a expression generates the list of types
+  ;; indicated by the expression; e.g., in the definition of
+  ;; stlc-term, the expression v, representing a meta-variable for
+  ;; stlc-val, generates
+  ;;   (stlc-val->stlc-term : (-> stlc-val stlc-term))
+  ;; in decl-context, and
+  ;;   (stlc-val)
+  ;; in arg-context
+  (define-syntax-class (expression non-terminal-type lang-name)
+    ;; A meta-variable is a valid expression.
+    ;; Generates a conversion constructor in decl-context, and the type of
+    (pattern
+     e:meta-variable
+     #:attr constructor-name
+     (format-id #'e "~a->~a" #'e.type non-terminal-type)
+     #:attr arg-context
+     (list #'e.type)
+     #:attr decl-context
+     #`(constructor-name : (-> #,@(attribute arg-context) #,non-terminal-type)))
+
+    ;; An identifier is a valid expression, generating a base constructor.
+    (pattern
+     x:id
+     #:attr constructor-name
+     (format-id #'x "~a-~a" lang-name #'x)
+     ;; Cannot appear in arg-context
+     #:attr arg-context
+     '()
+     #:attr decl-context
+     #`(constructor-name : #,non-terminal-type))
+
+    (pattern
+     ((~var x (expression non-terminal-type lang-name)) (~var c (expression non-terminal-type lang-name)) ...)
+     ;; TODO: Should be pattern below, but this simplifies defs as expression-args is mostly a expression. Related to arg-context vs decl-context
+     ;; (x:id (~var c (expression-args non-terminal-type lang-name)) ...)
+     #:attr constructor-name
+     (attribute x.constructor-name)
+     #:attr arg-context
+     ;; Flatten nested arg-contexts
+     (for/fold ([ls (attribute x.arg-context)])
+               ([e (attribute c.arg-context)])
+       (append ls e))
+     #:attr decl-context
+     #`(constructor-name : (-> #,@(attribute arg-context) #,non-terminal-type))))
+
+  ;; Syntax class non-terminal-def is parameterized by a language name
+  ;; to the inductive types representing their non-terminal.
+  (define-syntax-class (non-terminal-def lang-name)
+    (pattern
+     (name:id
+      (meta-var:id ...+)
+      (~optional (~datum ::=))
+      ;; Create a name for the type of this non-terminal, from the
+      ;; language name and the non-terminal name.
+      (~bind [nt-type (format-id #'name "~a-~a" lang-name #'name)])
+      ;; Imperatively update the map from meta-variables to the
+      ;; nt-type, to be used when generating the types of the constructors
+      ;; for this and later non-terminal.
+      (~do (for ([mv (syntax->datum #'(meta-var ...))])
+             (dict-set! (mv-map) mv (attribute nt-type))))
+      (~var c (expression (attribute nt-type) lang-name)) ...)
+     ;; Generates the inductive data type for this non-terminal definition.
+     #:attr def
+     #`(data nt-type : Type c.decl-context ...))))
+
+;; TODO: For better error messages, add context
 ;; TODO: Extend define-language with syntax such as ....
 ;;   (term (e) ::= (e1 e2) ((lambda (x) e)
-;                           #:latex "(\\lambda ,x. ,e)"))
 (define-syntax (define-language syn)
-  (syntax-parse syn
-    [(_ name:id (~do (lang-name #'name))
-        (~do (nts (hash-set (make-immutable-hash) 'var #'Var)))
-        (~optional (~seq #:vars (x*:id ...)
-           (~do (nts (for/fold ([ht (nts)])
-                               ([v (syntax->datum #'(x* ...))])
-                       (hash-set ht v (hash-ref ht 'var)))))))
-        (~optional (~seq #:output-coq coq-file:str))
-        (~optional (~seq #:output-latex latex-file:str))
-        . clause*:nt-clauses)
-     (let ([output #`(begin . clause*.defs)])
-       (when (attribute latex-file)
-         (generate-latex-bnf (syntax->datum #'latex-file) #'vars #'clause*))
-       #`(begin
-           #,@(if (attribute coq-file)
-                 #`((generate-coq #:file coq-file #:exists 'append #,output))
-                 #'())
-           #,output))]))
+  (parameterize ([mv-map (make-hash)])
+    (syntax-parse syn
+      [(_ lang-name:id
+          (~optional (~seq #:vars (x:id ...)))
+          ;; Update the mv-map to include x -> Var for each x
+          (~do (cond
+                 [(attribute x) =>
+                  (lambda (xls)
+                    (for ([x xls])
+                      (dict-set! (mv-map) (syntax-e x) #'Var)))]))
+          (~optional (~seq #:output-coq coq-file:str))
+          (~optional (~seq #:output-latex latex-file:str))
+          (~var defs (non-terminal-def #'lang-name)) ...)
+       (let ([output #`(begin defs.def ...)])
+         ;; TODO: Should do this via attributes
+         (when (attribute latex-file)
+           (generate-latex-bnf (syntax->datum #'latex-file) #'(defs ...)))
+         #`(begin
+             ;; TODO: generate-coq should also export a compile-time function.
+             #,@(if (attribute coq-file)
+                    #`((generate-coq #:file coq-file #:exists 'append #,output))
+                    #'())
+             #,output))])))
 
 (data Var : Type (avar : (-> Nat Var)))
 
@@ -227,6 +245,7 @@
   (define (coq-lift-top-level str)
     (coq-defns (format "~a~a~n" (coq-defns) str)))
   ;; TODO: OOps, type-infer doesn't return a cur term but a redex syntax bla
+  ;; TODO: Think the above TODO was fixed; consult git log
   (define (constructor-args syn)
     (syntax-parse (type-infer/syn syn)
       #:datum-literals (Π :)

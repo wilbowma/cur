@@ -36,20 +36,20 @@
   #:output-latex "stlc.tex"
   [(g : Gamma)
    ------------------------ T-Unit
-   (has-type g (stlc-val-->-stlc-term stlc-unit) stlc-unitty)]
+   (has-type g (stlc-val->stlc-term stlc-unit) stlc-unitty)]
 
   [(g : Gamma)
    ------------------------ T-True
-   (has-type g (stlc-val-->-stlc-term stlc-true) stlc-boolty)]
+   (has-type g (stlc-val->stlc-term stlc-true) stlc-boolty)]
 
   [(g : Gamma)
    ------------------------ T-False
-   (has-type g (stlc-val-->-stlc-term stlc-false) stlc-boolty)]
+   (has-type g (stlc-val->stlc-term stlc-false) stlc-boolty)]
 
   [(g : Gamma) (x : Var) (t : stlc-type)
    (== (Maybe stlc-type) (lookup-gamma g x) (some stlc-type t))
    ------------------------ T-Var
-   (has-type g (Var-->-stlc-term x) t)]
+   (has-type g (Var->stlc-term x) t)]
 
   [(g : Gamma) (e1 : stlc-term) (e2 : stlc-term)
                (t1 : stlc-type) (t2 : stlc-type)
@@ -98,7 +98,7 @@
          (normalize/syn
            #`((lambda (x : stlc-term)
                       (stlc-lambda (avar #,oldindex) #,(stlc #'t) #,(stlc #'e)))
-             (Var-->-stlc-term (avar #,oldindex)))))]
+             (Var->stlc-term (avar #,oldindex)))))]
       [(quote (e1 e2))
        #`(stlc-cons #,(stlc #'e1) #,(stlc #'e2))]
       [(let (x y) = e1 in e2)
@@ -108,14 +108,14 @@
          #`((lambda (x : stlc-term) (y : stlc-term)
               (stlc-let (avar #,x) (avar #,y) #,(stlc #'t) #,(stlc #'e1)
                    #,(stlc #'e2)))
-            (Var-->-stlc-term (avar #,x))
-            (Var-->-stlc-term (avar #,y))))
+            (Var->stlc-term (avar #,x))
+            (Var->stlc-term (avar #,y))))
        #`(let x  i #,(stlc #'e1))]
       [(e1 e2)
        #`(stlc-app #,(stlc #'e1) #,(stlc #'e2))]
-      [() #'(stlc-val-->-stlc-term stlc-unit)]
-      [#t #'(stlc-val-->-stlc-term stlc-true)]
-      [#f #'(stlc-val-->-stlc-term stlc-false)]
+      [() #'(stlc-val->stlc-term stlc-unit)]
+      [#t #'(stlc-val->stlc-term stlc-true)]
+      [#f #'(stlc-val->stlc-term stlc-false)]
       [(t1 * t2)
        #`(stlc-* #,(stlc #'t1) #,(stlc #'t2))]
       [(t1 -> t2)
@@ -128,15 +128,15 @@
 
 (check-equal?
  (begin-stlc (lambda (x : 1) x))
- (stlc-lambda (avar z) stlc-unitty (Var-->-stlc-term (avar z))))
+ (stlc-lambda (avar z) stlc-unitty (Var->stlc-term (avar z))))
 (check-equal?
  (begin-stlc ((lambda (x : 1) x) ()))
- (stlc-app (stlc-lambda (avar z) stlc-unitty (Var-->-stlc-term (avar z)))
-           (stlc-val-->-stlc-term stlc-unit)))
+ (stlc-app (stlc-lambda (avar z) stlc-unitty (Var->stlc-term (avar z)))
+           (stlc-val->stlc-term stlc-unit)))
 (check-equal?
  (begin-stlc '(() ()))
- (stlc-cons (stlc-val-->-stlc-term stlc-unit)
-            (stlc-val-->-stlc-term stlc-unit)))
+ (stlc-cons (stlc-val->stlc-term stlc-unit)
+            (stlc-val->stlc-term stlc-unit)))
 (check-equal?
  (begin-stlc #t)
- (stlc-val-->-stlc-term stlc-true))
+ (stlc-val->stlc-term stlc-true))
