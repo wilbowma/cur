@@ -10,305 +10,425 @@
 (provide
   define-relation
   define-language
-  Var
-  avar
-  var-equal?
   generate-coq
 
   ;; private; exported for testing only
   (for-syntax
-   coq-defns
-   output-latex-bnf
-   output-coq
-   new-name
-   fresh-name))
-
-(begin-for-syntax
-  (define-syntax-class dash
-    (pattern x:id
-             #:fail-unless (regexp-match #rx"-+" (symbol->string (syntax-e #'x)))
-             "Invalid dash"))
-
-  (define-syntax-class decl (pattern (x:id (~datum :) t:id)))
-
-  ;; TODO: Automatically infer decl ... by binding all free identifiers?
-  ;; TODO: Automatically infer decl ... for meta-variables that are the
-  ;; same as bnf grammar.
-  (define-syntax-class inferrence-rule
-    (pattern (d:decl ...
-              x*:expr ...
-              line:dash lab:id
-              (name:id y* ...))
-              #:with rule #'(lab : (-> d ... x* ... (name y* ...)))
-              ;; TODO: convert meta-vars such as e1 to e_1
-              #:attr latex (format "\\inferrule~n{~a}~n{~a}"
-                             (string-trim
-                               (for/fold ([str ""])
-                                        ([hyp (syntax->datum #'(x* ...))])
-                                 (format "~a~a \\+" str hyp))
-                               " \\+"
-                               #:left? #f)
-                             (format "~a" (syntax->datum #'(name y* ...)))))))
-(define-syntax (define-relation syn)
-  (syntax-parse syn
-    [(_ (n:id types* ...)
-        (~optional (~seq #:output-coq coq-file:str))
-        (~optional (~seq #:output-latex latex-file:str))
-        rules:inferrence-rule ...)
-     #:fail-unless (andmap (curry equal? (length (syntax->datum #'(types* ...))))
-                           (map length (syntax->datum #'((rules.y* ...)
-                                                          ...))))
-     "Mismatch between relation declared and relation definition"
-     #:fail-unless (andmap (curry equal? (syntax->datum #'n))
-                           (syntax->datum #'(rules.name ...)))
-     "Mismatch between relation declared name and result of inference rule"
-      (let ([output #`(data n : (-> types* ... Type) rules.rule ...)])
-        ;; TODO: Pull this out into a separate function and test. Except
-        ;; that might make using attritbutes more difficult.
-        (when (attribute latex-file)
-          (with-output-to-file (syntax->datum #'latex-file)
-            (thunk
-              (printf (format "\\fbox{$~a$}$~n$\\begin{mathpar}~n~a~n\\end{mathpar}$$"
-                       (syntax->datum #'(n types* ...))
-                       (string-trim
-                         (for/fold ([str ""])
-                                   ([rule (attribute rules.latex)])
-                           (format "~a~a\\and~n" str rule))
-                         "\\and"
-                         #:left? #f))))
-            #:exists 'append))
-        #`(begin
-            #,@(if (attribute coq-file)
-                   #`((generate-coq #:file coq-file #:exists
-                                    'append #,output))
-                   #'())
-               #,output))]))
-
-(begin-for-syntax
-  (require racket/syntax)
-  (define (new-name name . id*)
-    (apply format-id name (for/fold ([str "~a"])
-                                    ([_ id*])
-                            (string-append str "-~a")) name (map syntax->datum id*)))
-
-  (define (fresh-name id)
-    (datum->syntax id (gensym (syntax->datum id)))))
-
-;; TODO: Oh, this is a mess. Rewrite it.
-(begin-for-syntax
-  (define lang-name (make-parameter #'name))
-  (define nts (make-parameter (make-immutable-hash)))
-
-  (define-syntax-class nt
-    (pattern e:id #:fail-unless (hash-has-key? (nts) (syntax->datum #'e)) #f
-             #:attr name (hash-ref (nts) (syntax->datum #'e))
-             #:attr type (hash-ref (nts) (syntax->datum #'e))))
-
-  (define (flatten-args arg arg*)
-    (for/fold ([ls (syntax->list arg)])
-              ([e (syntax->list arg*)])
-      (append ls (syntax->list e))))
-
-  (define-syntax-class (right-clause type)
-    #;(pattern (~datum var)
-             #:attr clause-context #`(#,(new-name (lang-name) #'var) :
-                                      (-> #,(hash-ref (nts) 'var) #,(hash-ref (nts) type)))
-             #:attr name #'var
-             #:attr arg-context #'(var))
-    (pattern e:nt
-             #:attr clause-context #`(#,(new-name #'e.name #'->
-                                                  (hash-ref (nts) type)) :
-                                      (-> e.type #,(hash-ref (nts) type)))
-             #:attr name (fresh-name #'e.name)
-             #:attr arg-context #'(e.type))
-    (pattern x:id
-             #:attr clause-context #`(#,(new-name (lang-name) #'x) :
-                                      #,(hash-ref (nts) type))
-             #:attr name (new-name (lang-name) #'x)
-             #:attr arg-context #'())
-    (pattern ((~var e (right-clause type)) (~var e* (right-clause type)) ...)
-             #:attr name (fresh-name #'e.name)
-             #:attr clause-context #`(e.name : (-> #,@(flatten-args #'e.arg-context #'(e*.arg-context ...))
-                                                    #,(hash-ref (nts) type)))
-             #:attr arg-context #`(#,@(flatten-args #'e.arg-context #'(e*.arg-context ...)))))
-
-  (define-syntax-class (right type)
-    (pattern ((~var r (right-clause type)) ...)
-             #:attr clause #'(r.clause-context ...)))
-
-  #;(define-syntax-class left
-    (pattern (type:id (nt*:id ...+))
-             #:do ))
-
-  (define-syntax-class nt-clauses
-    (pattern ((type:id (nt*:id ...+)
-              (~do (nts (for/fold ([ht (nts)])
-                                  ([nt (syntax->datum #'(type nt* ...))])
-                          (hash-set ht nt (new-name (lang-name) #'type)))))
-              (~datum ::=)
-              . (~var rhs* (right (syntax->datum #'type)))) ...)
-             #:with defs (with-syntax ([(name* ...)
-                                        (map (λ (x) (hash-ref (nts) x))
-                                             (syntax->datum #'(type ...)))])
-                           #`((data name* : Type . rhs*.clause)
-                              ...)))))
-
-(begin-for-syntax
-  ;; TODO: More clever use of syntax-parse would enable something akin to what
-  ;; define-relation is doing---having attributes that contain the latex
-  ;; code for each clause.
-  ;; TODO: convert meta-vars such as e1 to e_1
-  (define (output-latex-bnf vars clauses)
-    (format "$$\\begin{array}{lrrl}~n~a~n\\end{array}$$"
-      (for/fold ([str ""])
-                ([clause (syntax->list clauses)])
-        (syntax-parse clause
-          #:datum-literals (::=)
-          [(type:id (nonterminal:id ...) ::= exprs ...)
-           (format "\\mbox{\\textit{~a}} & ~a & \\bnfdef & ~a\\\\~n"
-                   (symbol->string (syntax->datum #'type))
-                   (string-trim
-                     (for/fold ([str ""])
-                               ([nt (syntax->datum #'(nonterminal ...))])
-                       (format "~a~a," str nt))
-                     ","
-                     #:left? #f)
-                   (string-trim
-                     (for/fold ([str ""])
-                               ([expr (syntax->datum #'(exprs ...))])
-                       (format "~a~a \\bnfalt " str expr))
-                     " \\bnfalt "
-                     #:left? #f))]))))
-  (define (generate-latex-bnf file-name vars clauses)
-    (with-output-to-file file-name
-      (thunk (printf (output-latex-bnf vars clauses)))
-      #:exists 'append)))
-
-;; TODO: For better error messages, add context, rename some of these patterns. e.g.
-;;    (type (meta-vars) ::= ?? )
-;; TODO: Extend define-language with syntax such as ....
-;;   (term (e) ::= (e1 e2) ((lambda (x) e)
-;                           #:latex "(\\lambda ,x. ,e)"))
-(define-syntax (define-language syn)
-  (syntax-parse syn
-    [(_ name:id (~do (lang-name #'name))
-        (~do (nts (hash-set (make-immutable-hash) 'var #'Var)))
-        (~optional (~seq #:vars (x*:id ...)
-           (~do (nts (for/fold ([ht (nts)])
-                               ([v (syntax->datum #'(x* ...))])
-                       (hash-set ht v (hash-ref ht 'var)))))))
-        (~optional (~seq #:output-coq coq-file:str))
-        (~optional (~seq #:output-latex latex-file:str))
-        . clause*:nt-clauses)
-     (let ([output #`(begin . clause*.defs)])
-       (when (attribute latex-file)
-         (generate-latex-bnf (syntax->datum #'latex-file) #'vars #'clause*))
-       #`(begin
-           #,@(if (attribute coq-file)
-                 #`((generate-coq #:file coq-file #:exists 'append #,output))
-                 #'())
-           #,output))]))
-
-(data Var : Type (avar : (-> Nat Var)))
-
-(define (var-equal? (v1 : Var) (v2 : Var))
-  (match v1
-    [(avar (n1 : Nat))
-     (match v2
-       [(avar (n2 : Nat))
-        (nat-equal? n1 n2)])]))
-
-;; See stlc.rkt for examples
+   typeset-relation
+   typeset-bnf
+   cur->coq))
 
 ;; Generate Coq from Cur:
 
 (begin-for-syntax
   (define coq-defns (make-parameter ""))
+
   (define (coq-lift-top-level str)
     (coq-defns (format "~a~a~n" (coq-defns) str)))
-  ;; TODO: OOps, type-infer doesn't return a cur term but a redex syntax bla
+
   (define (constructor-args syn)
     (syntax-parse (type-infer/syn syn)
       #:datum-literals (Π :)
       [(Π (x:id : t) body)
        (cons #'x (constructor-args #'body))]
       [_ null]))
+
   (define (sanitize-id str)
     (let ([replace-by `((: _) (- _))])
       (for/fold ([str str])
                 ([p replace-by])
         (string-replace str (symbol->string (first p))
                         (symbol->string (second p))))))
-  (define (output-coq syn)
-    (syntax-parse (cur-expand syn #'define #'begin)
-       ;; TODO: Need to add these to a literal set and export it
-       ;; Or, maybe overwrite syntax-parse
-       #:literals (real-lambda real-forall data real-app real-elim define begin Type)
-       [(begin e ...)
-        (for/fold ([str ""])
-                  ([e (syntax->list #'(e ...))])
-          (format "~a~n" (output-coq e)))]
-       [(define name:id body)
-        (begin
-          (coq-lift-top-level
-            (format "Definition ~a := ~a.~n"
-                    (output-coq #'name)
-                    (output-coq #'body)))
-          "")]
-       [(define (name:id (x:id : t) ...) body)
-        (begin
-          (coq-lift-top-level
-            (format "Function ~a ~a := ~a.~n"
-                    (output-coq #'name)
-                    (for/fold ([str ""])
-                              ([n (syntax->list #'(x ...))]
-                               [t (syntax->list #'(t ...))])
-                      (format "~a(~a : ~a) " str (output-coq n) (output-coq t)))
-                    (output-coq #'body)))
-          "")]
-       [(real-lambda ~! (x:id (~datum :) t) body:expr)
-        (format "(fun ~a : ~a => ~a)" (output-coq #'x) (output-coq #'t)
-                (output-coq #'body))]
-       [(real-forall ~! (x:id (~datum :) t) body:expr)
-        (format "(forall ~a : ~a, ~a)" (syntax-e #'x) (output-coq #'t)
-                (output-coq #'body))]
-       [(data ~! n:id (~datum :) t (x*:id (~datum :) t*) ...)
-        (begin
-          (coq-lift-top-level
-            (format "Inductive ~a : ~a :=~a."
-                   (sanitize-id (format "~a" (syntax-e #'n)))
-                   (output-coq #'t)
-                   (for/fold ([strs ""])
-                             ([clause (syntax->list #'((x* : t*) ...))])
-                     (syntax-parse clause
-                       [(x (~datum :) t)
-                        (format "~a~n| ~a : ~a" strs (syntax-e #'x)
-                          (output-coq #'t))]))))
-          "")]
-       [(Type i) "Type"]
-       [(real-elim var t)
-        (format "~a_rect" (output-coq #'var))]
-       [(real-app e1 e2)
-        (format "(~a ~a)" (output-coq #'e1) (output-coq #'e2))]
-       [e:id (sanitize-id (format "~a" (syntax->datum #'e)))])))
+
+  (define (cur->coq syn)
+    (parameterize ([coq-defns ""])
+      (define output
+        (let cur->coq ([syn syn])
+          (syntax-parse (cur-expand syn #'define #'begin)
+            ;; TODO: Need to add these to a literal set and export it
+            ;; Or, maybe overwrite syntax-parse
+            #:literals (real-lambda real-forall data real-app real-elim define begin Type)
+            [(begin e ...)
+             (for/fold ([str ""])
+                       ([e (syntax->list #'(e ...))])
+               (format "~a~n" (cur->coq e)))]
+            [(define name:id body)
+             (begin
+               (coq-lift-top-level
+                (format "Definition ~a := ~a.~n"
+                        (cur->coq #'name)
+                        (cur->coq #'body)))
+               "")]
+            [(define (name:id (x:id : t) ...) body)
+             (begin
+               (coq-lift-top-level
+                (format "Function ~a ~a := ~a.~n"
+                        (cur->coq #'name)
+                        (for/fold ([str ""])
+                                  ([n (syntax->list #'(x ...))]
+                                   [t (syntax->list #'(t ...))])
+                          (format "~a(~a : ~a) " str (cur->coq n) (cur->coq t)))
+                        (cur->coq #'body)))
+               "")]
+            [(real-lambda ~! (x:id (~datum :) t) body:expr)
+             (format "(fun ~a : ~a => ~a)" (cur->coq #'x) (cur->coq #'t)
+                     (cur->coq #'body))]
+            [(real-forall ~! (x:id (~datum :) t) body:expr)
+             (format "(forall ~a : ~a, ~a)" (syntax-e #'x) (cur->coq #'t)
+                     (cur->coq #'body))]
+            [(data ~! n:id (~datum :) t (x*:id (~datum :) t*) ...)
+             (begin
+               (coq-lift-top-level
+                (format "Inductive ~a : ~a :=~a."
+                        (sanitize-id (format "~a" (syntax-e #'n)))
+                        (cur->coq #'t)
+                        (for/fold ([strs ""])
+                                  ([clause (syntax->list #'((x* : t*) ...))])
+                          (syntax-parse clause
+                            [(x (~datum :) t)
+                             (format "~a~n| ~a : ~a" strs (syntax-e #'x)
+                                     (cur->coq #'t))]))))
+               "")]
+            [(Type i) "Type"]
+            [(real-elim var t)
+             (format "~a_rect" (cur->coq #'var))]
+            [(real-app e1 e2)
+             (format "(~a ~a)" (cur->coq #'e1) (cur->coq #'e2))]
+            [e:id (sanitize-id (format "~a" (syntax->datum #'e)))])))
+      (format
+       "~a~a"
+       (coq-defns)
+       (if (regexp-match "^\\s*$" output)
+           ""
+           (format "Eval compute in ~a." output))))))
 
 (define-syntax (generate-coq syn)
   (syntax-parse syn
     [(_ (~optional (~seq #:file file))
-        (~optional (~seq #:exists flag)) body:expr)
-     (parameterize ([current-output-port (if (attribute file)
-                                             (open-output-file (syntax->datum #'file)
-                                                               #:exists
-                                                               (if (attribute flag)
-                                                                   ;; TODO: AHH WHAT?
-                                                                   (eval (syntax->datum #'flag))
-                                                                   'error))
-                                             (current-output-port))]
-                    [coq-defns ""])
-       (define output
-         (let ([body (output-coq #'body)])
-           (if (regexp-match "^\\s*$" body)
-               ""
-               (format "Eval compute in ~a." body))))
-       (displayln (format "~a~a" (coq-defns) output))
+        (~optional (~seq #:exists flag))
+        body:expr)
+     (parameterize ([current-output-port
+                     (if (attribute file)
+                         (open-output-file
+                          (syntax->datum #'file)
+                          #:exists
+                          (if (attribute flag)
+                              ;; TODO: AHH WHAT?
+                              (eval (syntax->datum #'flag))
+                              'error))
+                         (current-output-port))])
+       (displayln (cur->coq #'body))
        #'(begin))]))
+
+;; TODO: Should these display or return a string?
+(begin-for-syntax
+  (define (display-mathpartir)
+    (displayln
+     "%% Requires mathpartir, http://pauillac.inria.fr/~remy/latex/mathpartir.html")
+    (displayln
+     "%% or mttex, https://github.com/wilbowma/mttex")
+    (displayln
+     "\\usepackage{mathpartir}"))
+
+  (define (display-bnf)
+    (displayln
+     "%% Some auxillary defs. These should deleted if using mttex, https://github.com/wilbowma/mttex")
+    (displayln
+     "\\newcommand{\\bnfdef}{{\\bf ::=}}")
+    (displayln
+     "\\newcommand{\\bnfalt}{{\\bf \\mid}}")))
+
+;; ------------------------------------
+;; define-relation
+
+(begin-for-syntax
+  (define-syntax-class horizontal-line
+    (pattern
+     x:id
+     #:when (regexp-match? #rx"-+" (symbol->string (syntax-e #'x)))))
+
+  (define-syntax-class hypothesis
+    (pattern (x:id (~datum :) t))
+    (pattern (~not e:horizontal-line)))
+
+  ;; Alias syntax-classes with names for better error messages
+  (define-syntax-class rule-name
+    (pattern x:id))
+
+  (define-syntax-class relation-name
+    (pattern x:id))
+
+  (define-syntax-class relation-index
+    (pattern e:expr))
+
+  (define-syntax-class (conclusion n args lab)
+    (pattern
+     (name:id arg:expr ...)
+     #:attr rule-label-symbol (syntax-e lab)
+     #:attr rule-name-symbol (syntax-e #'name)
+     #:attr relation-name-symbol (syntax-e n)
+     #:fail-unless (eq? (attribute rule-name-symbol) (attribute relation-name-symbol))
+     (format "In rule ~a, name of conclusion ~a did not match name of relation ~a"
+             (attribute rule-label-symbol)
+             (attribute rule-name-symbol)
+             (attribute relation-name-symbol))
+     #:attr rule-arg-count (length (attribute arg))
+     #:attr relation-arg-count (length args)
+     #:fail-unless (= (attribute rule-arg-count) (attribute relation-arg-count))
+     (format "In rule ~a, conclusion applied to ~a arguments, while relation declared to have ~a arguments"
+             (attribute rule-label-symbol)
+             (attribute rule-arg-count)
+             (attribute relation-arg-count))))
+
+  ;; TODO: Automatically infer hypotheses that are merely declarations by binding all free identifiers?
+  ;; TODO: Automatically infer hypotheses as above for meta-variables that are the
+  ;; same as bnf grammar, as a simple first case
+  (define-syntax-class (inferrence-rule name indices)
+    (pattern (h:hypothesis ...
+              #;line:horizontal-line
+              (~optional line:horizontal-line)
+              ~!
+              lab:rule-name
+              (~var t (conclusion name indices (attribute lab))))
+             #:with constr-decl
+             #'(lab : (-> h ... (t.name t.arg ...)))
+             ;; TODO: convert meta-vars such as e1 to e_1
+             #:attr latex
+             (format
+              "\\inferrule~n{~a}~n{~a}"
+              (string-trim
+               (for/fold ([str ""])
+                         ;; TODO: Perhaps omit hypotheses that are merely delcarations of free variables
+                         ([hyp (syntax->datum #'(h ...))])
+                 (format "~a~a \\+" str hyp))
+               " \\+"
+               #:left? #f)
+              (format "~a" (syntax->datum #'(t.name t.arg ...))))))
+
+  ;; TODO: Should this display or return a string?
+  (define (typeset-relation form rules-latex)
+    (display-mathpartir)
+    (printf
+     "\\fbox{$~a$}$~n$\\begin{mathpar}~n~a~n\\end{mathpar}"
+     form
+     (string-trim
+      (for/fold ([str ""])
+                ([rule rules-latex])
+        (format "~a~a\\and~n" str rule))
+      "\\and"
+      #:left? #f))))
+
+(define-syntax (define-relation syn)
+  (syntax-parse syn
+    [(_ (name:relation-name index:relation-index ...)
+        (~optional (~seq #:output-coq coq-file:str))
+        (~optional (~seq #:output-latex latex-file:str))
+        (~var rule (inferrence-rule (attribute name) (attribute index))) ...)
+      (let ([output #`(data name : (-> index ... Type) rule.constr-decl ...)])
+        (when (attribute latex-file)
+          (with-output-to-file (syntax->datum #'latex-file)
+            (thunk
+             (typeset-relation
+              (syntax->datum #'(name index ...))
+              (attribute rule.latex)))
+            #:exists 'append))
+        (when (attribute coq-file)
+          (with-output-to-file (syntax->datum #'coq-file)
+            (thunk (displayln (cur->coq output)))
+            #:exists 'append))
+        output)]))
+
+;; ------------------------------------
+;; define-language
+
+(begin-for-syntax
+  ;; A mutable dictionary from non-terminal meta-variables names to their types.
+  (define mv-map (make-parameter #f))
+
+  ;; A set containing the meta-variables that represent variables.
+  (define vars (make-parameter #f))
+
+  ;; The language name for the language currently being parsed
+  (define lang-name (make-parameter #f))
+
+  ;; A meta-variable is any identifiers that belongs to the mv-map
+  (define-syntax-class meta-variable
+    (pattern
+     x:id
+     #:attr sym (syntax->datum #'x)
+     #:fail-unless (dict-has-key? (mv-map) (attribute sym)) #f
+     #:attr type (dict-ref (mv-map) (attribute sym))))
+
+  ;; A var-meta-variable is a meta-variable that is declared to be
+  ;; treated as a variable in the defined language.
+  (define-syntax-class var-meta-variable
+    (pattern
+     x:id
+     #:fail-unless (set-member? (vars) (syntax->datum #'x)) #f))
+
+  ;; A terminal is a idnetifiers that is not a meta-variable. A terminal will always represent a constructor.
+  (define-syntax-class terminal
+    (pattern
+     x:id
+     #:attr sym (syntax->datum #'x)
+     #:fail-when (dict-has-key? (mv-map) (attribute sym)) #f
+     #:attr constructor-name
+     (format-id #'x "~a-~a" (lang-name) #'x)))
+
+  ;; A terminal-args can appear as the argument to a terminal in
+  ;; an expression, or as a sub-expression in a terminal-args.
+  ;; Each terminal-args export args, a list of types the
+  ;; terminal-args represents and the list of types the non-terminal's
+  ;; constructor expects in this case.
+  (define-syntax-class (terminal-args non-terminal-type)
+    ;; A meta-variable is a terminal-args
+    (pattern
+     e:meta-variable
+     #:attr args
+     (list #'e.type)
+     #:attr latex
+     (format "~a" (syntax-e #'e)))
+
+    ;; An identifier is a terminal-args, but is treated as syntax
+    (pattern
+     x:id
+     #:attr args
+     '()
+     #:attr latex
+     (format "~a" (syntax-e #'x)))
+
+    ;; So is an empty list
+    (pattern
+     ()
+     #:attr args
+     '()
+     #:attr latex
+     "")
+
+    ;; We use De-Bruijn indices, so binding positions are removed.
+    (pattern
+     (#:bind x:var-meta-variable . (~var t (terminal-args non-terminal-type)))
+     #:attr args
+     (attribute t.args)
+     #:attr latex
+     (format "~a ~a" (syntax-e #'x) (attribute t.latex)))
+
+    ;; A terminal-args applied to other nested expressions is a terminal-args
+    (pattern
+     ((~var h (terminal-args non-terminal-type))
+      (~var t (terminal-args non-terminal-type)) ...)
+     #:attr args
+     (for/fold ([ls (attribute h.args)])
+               ([args (attribute t.args)])
+       (append ls args))
+     #:attr latex
+     (format "~a ~a" (attribute h.latex) (apply string-append (attribute t.latex)))))
+
+  ;; a expression is parameterized by the name of the non-terminal to
+  ;; which is belongs,
+  ;; Each expression exports a constr-decl, which declares a
+  ;; constructor for the non-terminal type.
+  (define-syntax-class (expression non-terminal-type)
+    ;; A meta-variable is a valid expression.
+    ;; Generates a conversion constructor in constr-decl, and the type of
+    (pattern
+     e:meta-variable
+     #:attr constructor-name
+     (format-id #'e "~a->~a" #'e.type non-terminal-type)
+     #:attr constr-decl
+     #`(constructor-name : (-> e.type #,non-terminal-type))
+     #:attr latex
+     (format "~a" (syntax-e #'e)))
+
+    ;; An identifier is a valid expression, generating a base constructor.
+    (pattern
+     x:terminal
+     #:attr constr-decl
+     #`(x.constructor-name : #,non-terminal-type)
+     #:attr latex
+     (format "~a" (syntax-e #'x)))
+
+    ;; A terminal applied to a terminal-args is a valid expression.
+    (pattern
+     (x:terminal . (~var c (terminal-args non-terminal-type)))
+     #:attr constr-decl
+     #`(x.constructor-name : (-> #,@(attribute c.args) #,non-terminal-type))
+     #:attr latex
+     (format "(~a ~a)" (syntax-e #'x) (attribute c.latex))))
+
+  (define-syntax-class non-terminal-def
+    (pattern
+     (name:id
+      (meta-var:id ...+)
+      (~optional (~datum ::=))
+      ;; Create a name for the type of this non-terminal, from the
+      ;; language name and the non-terminal name.
+      (~bind [nt-type (format-id #'name "~a-~a" (lang-name) #'name)])
+      ;; Imperatively update the map from meta-variables to the
+      ;; nt-type, to be used when generating the types of the constructors
+      ;; for this and later non-terminal.
+      (~do (for ([mv (syntax->datum #'(meta-var ...))])
+             (dict-set! (mv-map) mv (attribute nt-type))))
+      (~var c (expression (attribute nt-type))) ...)
+     ;; Generates the inductive data type for this non-terminal definition.
+     #:attr def
+     #`(data nt-type : Type c.constr-decl ...)
+     #:attr latex
+     (format
+      "\\mbox{\\textit{~a}} & ~a & \\bnfdef & ~a\\\\~n"
+      (symbol->string (syntax->datum #'name))
+      (string-trim
+       (for/fold ([str ""])
+                 ([nt (syntax->datum #'(meta-var ...))])
+         (format "~a~a," str nt))
+       ","
+       #:left? #f)
+      (string-trim
+       (for/fold ([str ""])
+                 ([expr (attribute c.latex)])
+         (format "~a~a \\bnfalt " str expr))
+       " \\bnfalt "
+       #:left? #f))))
+
+  ;; TODO: Should this display or return a string?
+  (define (typeset-bnf nt-latex)
+    (display-mathpartir)
+    (display-bnf)
+    (printf
+     "\begin{displaymath}~n\\begin{array}{lrrl}~n~a~n\\end{array}~n\end{displaymath}"
+     (apply string-append nt-latex))))
+
+;; TODO: For better error messages, add context
+;; TODO: Extend define-language with syntax such as ....
+;;   (term (e) ::= (e1 e2) ((lambda (x) e)
+(define-syntax (define-language syn)
+  (define/syntax-parse
+    (_ name:id
+       (~optional (~seq #:vars (x:id ...)))
+       (~optional (~seq #:output-coq coq-file:str))
+       (~optional (~seq #:output-latex latex-file:str))
+       .
+       non-terminal-defs)
+    syn)
+  (parameterize ([mv-map (make-hash)]
+                 [lang-name #'name]
+                 [vars (apply set (map syntax->datum (or (attribute x) '())))])
+    (cond
+      [(attribute x) =>
+       (lambda (xls)
+         (for ([x xls])
+           (dict-set! (mv-map) (syntax-e x) #'Nat)))])
+    (syntax-parse #'non-terminal-defs
+      [(def:non-terminal-def ...)
+       (let ([output #`(begin def.def ...)])
+         (when (attribute latex-file)
+           (with-output-to-file (syntax-e #'latex-file)
+             (thunk (typeset-bnf (attribute def.latex)))
+             #:exists 'append))
+         (when (attribute coq-file)
+           (with-output-to-file (syntax-e #'coq-file)
+             (thunk (displayln (cur->coq output)))
+             #:exists 'append))
+         output)])))
+
+;; See stlc.rkt for examples
