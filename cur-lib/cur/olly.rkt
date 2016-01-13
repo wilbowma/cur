@@ -117,32 +117,45 @@
       #:exists 'append)))
 
 (begin-for-syntax
-  ;; A mutable map from non-terminal meta-variables names to their types
+  ;; A mutable dictionary from non-terminal meta-variables names to their types.
   (define mv-map (make-parameter #f))
+
+  ;; A set containing the meta-variables that represent variables.
+  (define vars (make-parameter #f))
+
+  ;; The language name for the language currently being parsed
+  (define lang-name (make-parameter #f))
 
   ;; A meta-variable is any identifiers that belongs to the mv-map
   (define-syntax-class meta-variable
     (pattern
-     e:id
-     #:attr sym (syntax->datum #'e)
+     x:id
+     #:attr sym (syntax->datum #'x)
      #:fail-unless (dict-has-key? (mv-map) (attribute sym)) #f
      #:attr type (dict-ref (mv-map) (attribute sym))))
 
+  ;; A var-meta-variable is a meta-variable that is declared to be
+  ;; treated as a variable in the defined language.
+  (define-syntax-class var-meta-variable
+    (pattern
+     x:id
+     #:fail-unless (set-member? (vars) (syntax->datum #'x)) #f))
+
   ;; A terminal is a idnetifiers that is not a meta-variable. A terminal will always represent a constructor.
-  (define-syntax-class (terminal lang-name)
+  (define-syntax-class terminal
     (pattern
      x:id
      #:attr sym (syntax->datum #'x)
      #:fail-when (dict-has-key? (mv-map) (attribute sym)) #f
      #:attr constructor-name
-     (format-id #'x "~a-~a" lang-name #'x)))
+     (format-id #'x "~a-~a" (lang-name) #'x)))
 
   ;; A nested-expression can appear as the argument to a terminal in
   ;; an expression, or as a sub-expression in a nested-expression.
   ;; Each nested-expression export args, a list of types the
   ;; nested-expression represents and the list of types the non-terminal's
   ;; constructor expects in this case.
-  (define-syntax-class (nested-expression non-terminal-type lang-name)
+  (define-syntax-class (nested-expression non-terminal-type)
     ;; A meta-variable is a nested-expression
     (pattern
      e:meta-variable
@@ -155,21 +168,32 @@
      #:attr args
      '())
 
+    ;; So is an empty list
+    (pattern
+     ()
+     #:attr args
+     '())
+    
+    ;; We use De-Bruijn indices, so binding positions are removed.
+    (pattern
+     (#:bind x:var-meta-variable . (~var t (nested-expression non-terminal-type)))
+     #:attr args
+     (attribute t.args))
+
     ;; A nested-expression applied to other nested expressions is a nested-expression
     (pattern
-     ((~var h (nested-expression non-terminal-type lang-name))
-      (~var t (nested-expression non-terminal-type lang-name)) ...)
+     ((~var h (nested-expression non-terminal-type))
+      (~var t (nested-expression non-terminal-type)) ...)
      #:attr args
      (for/fold ([ls (attribute h.args)])
                ([args (attribute t.args)])
        (append ls args))))
 
   ;; a expression is parameterized by the name of the non-terminal to
-  ;; which is belongs, the language name, and the map of meta-varibles to
-  ;; their types.
+  ;; which is belongs,
   ;; Each expression exports a constr-decl, which declares a
   ;; constructor for the non-terminal type.
-  (define-syntax-class (expression non-terminal-type lang-name)
+  (define-syntax-class (expression non-terminal-type)
     ;; A meta-variable is a valid expression.
     ;; Generates a conversion constructor in constr-decl, and the type of
     (pattern
@@ -181,32 +205,30 @@
 
     ;; An identifier is a valid expression, generating a base constructor.
     (pattern
-     (~var x (terminal lang-name))
+     x:terminal
      #:attr constr-decl
      #`(x.constructor-name : #,non-terminal-type))
 
     ;; A terminal applied to a nested-expression is a valid expression.
     (pattern
-     ((~var x (terminal lang-name)) . (~var c (nested-expression non-terminal-type lang-name)))
+     (x:terminal . (~var c (nested-expression non-terminal-type)))
      #:attr constr-decl
      #`(x.constructor-name : (-> #,@(attribute c.args) #,non-terminal-type))))
 
-  ;; Syntax class non-terminal-def is parameterized by a language name
-  ;; to the inductive types representing their non-terminal.
-  (define-syntax-class (non-terminal-def lang-name)
+  (define-syntax-class non-terminal-def
     (pattern
      (name:id
       (meta-var:id ...+)
       (~optional (~datum ::=))
       ;; Create a name for the type of this non-terminal, from the
       ;; language name and the non-terminal name.
-      (~bind [nt-type (format-id #'name "~a-~a" lang-name #'name)])
+      (~bind [nt-type (format-id #'name "~a-~a" (lang-name) #'name)])
       ;; Imperatively update the map from meta-variables to the
       ;; nt-type, to be used when generating the types of the constructors
       ;; for this and later non-terminal.
       (~do (for ([mv (syntax->datum #'(meta-var ...))])
              (dict-set! (mv-map) mv (attribute nt-type))))
-      (~var c (expression (attribute nt-type) lang-name)) ...)
+      (~var c (expression (attribute nt-type))) ...)
      ;; Generates the inductive data type for this non-terminal definition.
      #:attr def
      #`(data nt-type : Type c.constr-decl ...))))
@@ -215,19 +237,24 @@
 ;; TODO: Extend define-language with syntax such as ....
 ;;   (term (e) ::= (e1 e2) ((lambda (x) e)
 (define-syntax (define-language syn)
-  (parameterize ([mv-map (make-hash)])
-    (syntax-parse syn
-      [(_ lang-name:id
-          (~optional (~seq #:vars (x:id ...)))
-          ;; Update the mv-map to include x -> Var for each x
-          (~do (cond
-                 [(attribute x) =>
-                  (lambda (xls)
-                    (for ([x xls])
-                      (dict-set! (mv-map) (syntax-e x) #'Var)))]))
-          (~optional (~seq #:output-coq coq-file:str))
-          (~optional (~seq #:output-latex latex-file:str))
-          (~var defs (non-terminal-def #'lang-name)) ...)
+  (define/syntax-parse
+    (_ name:id
+       (~optional (~seq #:vars (x:id ...)))
+       (~optional (~seq #:output-coq coq-file:str))
+       (~optional (~seq #:output-latex latex-file:str))
+       .
+       non-terminal-defs)
+    syn)
+  (parameterize ([mv-map (make-hash)]
+                 [lang-name #'name]
+                 [vars (apply set (map syntax->datum (or (attribute x) '())))])
+    (cond
+      [(attribute x) =>
+       (lambda (xls)
+         (for ([x xls])
+           (dict-set! (mv-map) (syntax-e x) #'Var)))])
+    (syntax-parse #'non-terminal-defs
+      [((~var defs non-terminal-def) ...)
        (let ([output #`(begin defs.def ...)])
          ;; TODO: Should do this via attributes
          (when (attribute latex-file)
