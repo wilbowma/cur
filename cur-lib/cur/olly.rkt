@@ -128,56 +128,68 @@
      #:fail-unless (dict-has-key? (mv-map) (attribute sym)) #f
      #:attr type (dict-ref (mv-map) (attribute sym))))
 
-  ;; A expression is parameterized by the name of the non-terminal to
+  ;; A terminal is a idnetifiers that is not a meta-variable. A terminal will always represent a constructor.
+  (define-syntax-class (terminal lang-name)
+    (pattern
+     x:id
+     #:attr sym (syntax->datum #'x)
+     #:fail-when (dict-has-key? (mv-map) (attribute sym)) #f
+     #:attr constructor-name
+     (format-id #'x "~a-~a" lang-name #'x)))
+
+  ;; A nested-expression can appear as the argument to a terminal in
+  ;; an expression, or as a sub-expression in a nested-expression.
+  ;; Each nested-expression export args, a list of types the
+  ;; nested-expression represents and the list of types the non-terminal's
+  ;; constructor expects in this case.
+  (define-syntax-class (nested-expression non-terminal-type lang-name)
+    ;; A meta-variable is a nested-expression
+    (pattern
+     e:meta-variable
+     #:attr args
+     (list #'e.type))
+
+    ;; An identifier is a nested-expression, but is treated as syntax
+    (pattern
+     x:id
+     #:attr args
+     '())
+
+    ;; A nested-expression applied to other nested expressions is a nested-expression
+    (pattern
+     ((~var h (nested-expression non-terminal-type lang-name))
+      (~var t (nested-expression non-terminal-type lang-name)) ...)
+     #:attr args
+     (for/fold ([ls (attribute h.args)])
+               ([args (attribute t.args)])
+       (append ls args))))
+
+  ;; a expression is parameterized by the name of the non-terminal to
   ;; which is belongs, the language name, and the map of meta-varibles to
   ;; their types.
-  ;; Each expression exports a decl-context and arg-context attribute.
-  ;; In decl-context, a expression generates a constructor
-  ;; declaration for an inductive type.
-  ;; In arg-context, a expression generates the list of types
-  ;; indicated by the expression; e.g., in the definition of
-  ;; stlc-term, the expression v, representing a meta-variable for
-  ;; stlc-val, generates
-  ;;   (stlc-val->stlc-term : (-> stlc-val stlc-term))
-  ;; in decl-context, and
-  ;;   (stlc-val)
-  ;; in arg-context
+  ;; Each expression exports a constr-decl, which declares a
+  ;; constructor for the non-terminal type.
   (define-syntax-class (expression non-terminal-type lang-name)
     ;; A meta-variable is a valid expression.
-    ;; Generates a conversion constructor in decl-context, and the type of
+    ;; Generates a conversion constructor in constr-decl, and the type of
     (pattern
      e:meta-variable
      #:attr constructor-name
      (format-id #'e "~a->~a" #'e.type non-terminal-type)
-     #:attr arg-context
-     (list #'e.type)
-     #:attr decl-context
-     #`(constructor-name : (-> #,@(attribute arg-context) #,non-terminal-type)))
+     #:attr constr-decl
+     #`(constructor-name : (-> e.type #,non-terminal-type)))
 
     ;; An identifier is a valid expression, generating a base constructor.
     (pattern
-     x:id
-     #:attr constructor-name
-     (format-id #'x "~a-~a" lang-name #'x)
-     ;; Cannot appear in arg-context
-     #:attr arg-context
-     '()
-     #:attr decl-context
-     #`(constructor-name : #,non-terminal-type))
+     (~var x (terminal lang-name))
+     #:attr constr-decl
+     #`(x.constructor-name : #,non-terminal-type))
 
+    ;; A terminal applied to a nested-expression is a valid expression.
     (pattern
-     ((~var x (expression non-terminal-type lang-name)) (~var c (expression non-terminal-type lang-name)) ...)
-     ;; TODO: Should be pattern below, but this simplifies defs as expression-args is mostly a expression. Related to arg-context vs decl-context
-     ;; (x:id (~var c (expression-args non-terminal-type lang-name)) ...)
-     #:attr constructor-name
-     (attribute x.constructor-name)
-     #:attr arg-context
-     ;; Flatten nested arg-contexts
-     (for/fold ([ls (attribute x.arg-context)])
-               ([e (attribute c.arg-context)])
-       (append ls e))
-     #:attr decl-context
-     #`(constructor-name : (-> #,@(attribute arg-context) #,non-terminal-type))))
+     ((~var x (terminal lang-name)) . (~var c (nested-expression non-terminal-type lang-name)))
+     #:attr constr-decl
+     #`(x.constructor-name : (-> #,@(attribute c.args) #,non-terminal-type))))
 
   ;; Syntax class non-terminal-def is parameterized by a language name
   ;; to the inductive types representing their non-terminal.
@@ -197,7 +209,7 @@
       (~var c (expression (attribute nt-type) lang-name)) ...)
      ;; Generates the inductive data type for this non-terminal definition.
      #:attr def
-     #`(data nt-type : Type c.decl-context ...))))
+     #`(data nt-type : Type c.constr-decl ...))))
 
 ;; TODO: For better error messages, add context
 ;; TODO: Extend define-language with syntax such as ....

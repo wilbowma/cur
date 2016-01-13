@@ -61,7 +61,6 @@
     cur->datum
     cur-expand
     type-infer/syn
-    type-infer/syn!
     type-check/syn?
     normalize/syn
     step/syn
@@ -185,7 +184,7 @@
             [(#%app e1 e2)
              (term (,(cur->datum #'e1) ,(cur->datum #'e2)))]))))
     (unless (or (inner-expand?) (type-infer/term reified-term))
-      (printf "Delta: ~s~nGamma: ~s~n" (delta) (gamma))
+      #;(printf "Delta: ~s~nGamma: ~s~n" (delta) (gamma))
       (raise-syntax-error 'cur "term is ill-typed:" reified-term syn))
     reified-term)
 
@@ -246,10 +245,6 @@
                             (extend-Γ/syn (thunk gamma) x t))])
       (let ([t (type-infer/term (eval-cur syn))])
         (and t (datum->cur syn t)))))
-
-  (define (type-infer/syn! . ls)
-    (let ([x (apply type-infer/syn ls)])
-      (or x (begin (displayln (delta)) #f))))
 
   (define (type-check/syn? syn type)
     (type-check/term? (eval-cur syn) (eval-cur type)))
