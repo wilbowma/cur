@@ -27,7 +27,7 @@
      x:id
      #:fail-unless (regexp-match #rx"-+" (symbol->string (syntax-e #'x))) "Invalid dash"))
 
-  (define-syntax-class decl (pattern (x:id (~datum :) t:id)))
+  (define-syntax-class decl (pattern (x:id (~datum :) t)))
 
   ;; TODO: Automatically infer decl ... by binding all free identifiers?
   ;; TODO: Automatically infer decl ... for meta-variables that are the
