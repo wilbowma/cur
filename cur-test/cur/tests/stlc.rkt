@@ -2,6 +2,7 @@
 (require
  rackunit
  cur/stdlib/nat
+ cur/stdlib/list
  cur/stdlib/sugar
  cur/olly
  cur/stdlib/maybe
@@ -18,71 +19,55 @@
   (term (e)   ::= x v (app e e) (lambda (#:bind x : A) e) (cons e e)
                   (let (#:bind x #:bind x) = e in e)))
 
-;; TODO: Abstract this over stlc-type, and provide from in OLL
-(data Gamma : Type
-  (emp-gamma : Gamma)
-  (extend-gamma : (-> Gamma Var stlc-type Gamma)))
+(define (lookup-env (g : (List stlc-type)))
+  ;; TODO: Can't use match due to limitation in type inference
+  (elim Var Type (lambda (x : Var) (Maybe stlc-type))
+        (list-ref stlc-type g)))
 
-(define (lookup-gamma (g : Gamma) (x : Var))
-  (match g
-    [emp-gamma (none stlc-type)]
-    [(extend-gamma (g1 : Gamma) (v1 : Var) (t1 : stlc-type))
-     (if (var-equal? v1 x)
-         (some stlc-type t1)
-         (recur g1))]))
+(define (extend-env (g : (List stlc-type)) (t : stlc-type))
+  (cons stlc-type t g))
 
-(define (shift-var (v : Var))
-  (match v
-    [(avar (n : Nat))
-     (avar (s n))]))
-
-(define (shift (g : Gamma))
-  (match g
-    [emp-gamma emp-gamma]
-    [(extend-gamma (g1 : Gamma) (v1 : Var) (t1 : stlc-type))
-     (extend-gamma (recur g1) (shift-var v1) t1)]))
-
-(define-relation (has-type Gamma stlc-term stlc-type)
+(define-relation (has-type (List stlc-type) stlc-term stlc-type)
   #:output-coq "stlc.v"
   #:output-latex "stlc.tex"
-  [(g : Gamma)
+  [(g : (List stlc-type))
    ------------------------ T-Unit
    (has-type g (stlc-val->stlc-term stlc-unit) stlc-unitty)]
 
-  [(g : Gamma)
+  [(g : (List stlc-type))
    ------------------------ T-True
    (has-type g (stlc-val->stlc-term stlc-true) stlc-boolty)]
 
-  [(g : Gamma)
+  [(g : (List stlc-type))
    ------------------------ T-False
    (has-type g (stlc-val->stlc-term stlc-false) stlc-boolty)]
 
-  [(g : Gamma) (x : Var) (t : stlc-type)
-   (== (Maybe stlc-type) (lookup-gamma g x) (some stlc-type t))
+  [(g : (List stlc-type)) (x : Var) (t : stlc-type)
+   (== (Maybe stlc-type) (lookup-env g x) (some stlc-type t))
    ------------------------ T-Var
    (has-type g (Var->stlc-term x) t)]
 
-  [(g : Gamma) (e1 : stlc-term) (e2 : stlc-term)
+  [(g : (List stlc-type)) (e1 : stlc-term) (e2 : stlc-term)
                (t1 : stlc-type) (t2 : stlc-type)
    (has-type g e1 t1)
    (has-type g e2 t2)
    ---------------------- T-Pair
    (has-type g (stlc-cons e1 e2) (stlc-* t1 t2))]
 
-  [(g : Gamma) (e1 : stlc-term) (e2 : stlc-term)
+  [(g : (List stlc-type)) (e1 : stlc-term) (e2 : stlc-term)
                (t1 : stlc-type) (t2 : stlc-type)
                (t : stlc-type)
    (has-type g e1 (stlc-* t1 t2))
-   (has-type (extend-gamma (extend-gamma (shift (shift g)) (avar z) t1) (avar (s z)) t2) e2 t)
+   (has-type (extend-env (extend-env g t1) t2) e2 t)
    ---------------------- T-Let
    (has-type g (stlc-let e1 e2) t)]
 
-  [(g : Gamma) (e1 : stlc-term) (t1 : stlc-type) (t2 : stlc-type)
-   (has-type (extend-gamma (shift g) (avar z) t1) e1 t2)
+  [(g : (List stlc-type)) (e1 : stlc-term) (t1 : stlc-type) (t2 : stlc-type)
+   (has-type (extend-env g t1) e1 t2)
    ---------------------- T-Fun
    (has-type g (stlc-lambda t1 e1) (stlc--> t1 t2))]
 
-  [(g : Gamma) (e1 : stlc-term) (e2 : stlc-term)
+  [(g : (List stlc-type)) (e1 : stlc-term) (e2 : stlc-term)
                (t1 : stlc-type) (t2 : stlc-type)
    (has-type g e1 (stlc--> t1 t2))
    (has-type g e2 t1)
