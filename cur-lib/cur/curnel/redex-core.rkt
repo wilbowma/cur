@@ -2,6 +2,7 @@
 
 (require
   racket/function
+  racket/list
   redex/reduction-semantics)
 
 (provide
@@ -107,11 +108,13 @@
 ;; Returns the inductively defined type that x constructs
 ;; NB: Depends on clause order
 (define-metafunction ttL
-  Δ-key-by-constructor : Δ x -> x
+  Δ-key-by-constructor : Δ x -> x or #f
   [(Δ-key-by-constructor (Δ (x : t ((x_0 : t_0) ... (x_c : t_c) (x_1 : t_1) ...))) x_c)
    x]
   [(Δ-key-by-constructor (Δ (x_1 : t_1 any)) x)
-   (Δ-key-by-constructor Δ x)])
+   (Δ-key-by-constructor Δ x)]
+  [(Δ-key-by-constructor Δ x)
+   #f])
 
 ;; Returns the constructor map for the inductively defined type x_D in the signature Δ
 (define-metafunction ttL
@@ -138,6 +141,17 @@
    (x ...)]
   [(Δ-ref-constructors (Δ (x_1 : t_1 any)) x_D)
    (Δ-ref-constructors Δ x_D)])
+
+;; TODO: Mix of pure Redex/escaping to Racket sometimes is getting confusing.
+;; TODO: Justify, or stop.
+
+;; Return the number of constructors that D has
+(define-metafunction ttL
+  Δ-constructor-count : Δ D -> natural or #f
+  [(Δ-constructor-count Δ D)
+   ,(length (term (x ...)))
+   (where (x ...) (Δ-ref-constructors Δ D))]
+  [(Δ-constructor-count Δ D) #f])
 
 ;; NB: Depends on clause order
 (define-metafunction ttL
@@ -170,14 +184,6 @@
 
 ;; TODO: Might be worth it to actually maintain the above bijections, for performance reasons.
 
-;; Return the parameters of x_D as a telescope Ξ
-;; TODO: Define generic traversals of Δ and Γ ?
-(define-metafunction tt-ctxtL
-  Δ-ref-parameter-Ξ : Δ x -> Ξ
-  [(Δ-ref-parameter-Ξ (Δ (x_D : (in-hole Ξ U) any)) x_D)
-   Ξ]
-  [(Δ-ref-parameter-Ξ (Δ (x_1 : t_1 any)) x_D)
-   (Δ-ref-parameter-Ξ Δ x_D)])
 
 ;; Applies the term t to the telescope Ξ.
 ;; TODO: Test
@@ -210,6 +216,20 @@
   [(Θ-length hole) 0]
   [(Θ-length (Θ e)) ,(add1 (term (Θ-length Θ)))])
 
+;; Convert an apply context to a sequence of terms
+(define-metafunction tt-ctxtL
+  Θ->list : Θ -> (e ...)
+  [(Θ->list hole) ()]
+  [(Θ->list (Θ e))
+   (e_r ... e)
+   (where (e_r ...) (Θ->list Θ))])
+
+(define-metafunction tt-ctxtL
+  list->Θ : (e ...) -> Θ
+  [(list->Θ ()) hole]
+  [(list->Θ (e e_r ...))
+   (in-hole (list->Θ (e_r ...)) (hole e))])
+
 ;; Reference an expression in Θ by index; index 0 corresponds to the the expression applied to a hole.
 (define-metafunction tt-ctxtL
   Θ-ref : Θ natural -> e or #f
@@ -219,6 +239,26 @@
 
 ;;; ------------------------------------------------------------------------
 ;;; Computing the types of eliminators
+
+;; Return the parameters of x_D as a telescope Ξ
+;; TODO: Define generic traversals of Δ and Γ ?
+(define-metafunction tt-ctxtL
+  Δ-ref-parameter-Ξ : Δ x -> Ξ or #f
+  [(Δ-ref-parameter-Ξ (Δ (x_D : (in-hole Ξ U) any)) x_D)
+   Ξ]
+  [(Δ-ref-parameter-Ξ (Δ (x_1 : t_1 any)) x_D)
+   (Δ-ref-parameter-Ξ Δ x_D)]
+  [(Δ-ref-parameter-Ξ Δ x)
+   #f])
+
+;; Return the number of parameters of D
+(define-metafunction tt-ctxtL
+  Δ-parameter-count : Δ D -> natural or #f
+  [(Δ-parameter-count Δ D)
+   (Ξ-length Ξ)
+   (where Ξ (Δ-ref-parameter-Ξ Δ D))]
+  [(Δ-parameter-count Δ D)
+   #f])
 
 ;; Returns the telescope of the arguments for the constructor x_ci of the inductively defined type x_D
 (define-metafunction tt-ctxtL
@@ -349,19 +389,6 @@
    ;; The types of the methods for this inductive.
    (where Ξ_m (Δ-methods-telescope Δ x_D x_P))])
 
-;; TODO: This might belong in the next section, since it's related to evaluation
-;; Generate recursive applications of the eliminator for each inductive argument of type x_D.
-;; In more detaill, given motive t_P, parameters Θ_p, methods Θ_m, and arguments Θ_i to constructor
-;; x_ci for x_D, for each inductively smaller term t_i of type (in-hole Θ_p x_D) inside Θ_i,
-;; generate: (elim x_D U t_P  Θ_m ... Θ_p ... t_i)
-(define-metafunction tt-ctxtL
-  Δ-inductive-elim : Δ x U t Θ Θ Θ -> Θ
-  [(Δ-inductive-elim Δ x_D U t_P Θ_p Θ_m (in-hole Θ_i (hole (name t_i (in-hole Θ_r x_ci)))))
-   ((Δ-inductive-elim Δ x_D U t_P Θ_p Θ_m Θ_i)
-    (in-hole ((in-hole Θ_p Θ_m) t_i) ((elim x_D U) t_P)))
-   (side-condition (memq (term x_ci) (term (Δ-ref-constructors Δ x_D))))]
-  [(Δ-inductive-elim Δ x_D U t_P Θ_p Θ_m Θ_nr) hole])
-
 ;;; ------------------------------------------------------------------------
 ;;; Dynamic semantics
 ;;; The majority of this section is dedicated to evaluation of (elim x U), the eliminator for the
@@ -378,45 +405,136 @@
 (define Θv? (redex-match? tt-redL Θv))
 (define E? (redex-match? tt-redL E))
 (define v? (redex-match? tt-redL v))
+#|
+ | The elim form must appear applied like so:
+ | (elim D U v_P m_0 ... m_i m_j ... m_n p ... (c_i a ...))
+ |
+ | Where:
+ |   D       is the inductive being eliminated
+ |   U         is the universe of the result of the motive
+ |   v_P       is the motive
+ |   m_{0..n}  are the methods
+ |   p ...     are the parameters of x_D
+ |   c_i       is a constructor of x_d
+ |   a ...     are the arguments to c_i
+ |
+ | Using contexts, this appears as (in-hole Θ ((elim D U) v_P))
+ |#
+
+
+;;; NB: Next 3 meta-function Assume of Θ n constructors, j parameters, n+j+1-th element is discriminant
+
+;; Given the apply context Θ in which an elimination of D with motive
+;; v of type U appears, extract the parameters p ... from Θ.
+(define-metafunction tt-redL
+  elim-parameters : Δ D Θ -> Θ
+  [(elim-parameters Δ D Θ)
+    ;; Drop the methods, take the parameters
+   (list->Θ
+    ,(take
+      (drop (term (Θ->list Θ)) (term (Δ-constructor-count Δ D)))
+      (term (Δ-parameter-count Δ D))))])
+
+;; Given the apply context Θ in which an elimination of D with motive
+;; v of type U appears, extract the methods m_0 ... m_n from Θ.
+(define-metafunction tt-redL
+  elim-methods : Δ D Θ -> Θ
+  [(elim-methods Δ D Θ)
+   ;; Take the methods, one for each constructor
+   (list->Θ
+    ,(take
+      (term (Θ->list Θ))
+      (term (Δ-constructor-count Δ D))))])
+
+;; Given the apply context Θ in which an elimination of D with motive
+;; v of type U appears, extract the discriminant (c_i a ...) from Θ.
+(define-metafunction tt-redL
+  elim-discriminant : Δ D Θ -> e
+  [(elim-discriminant Δ D Θ)
+   ;; Drop the methods, the parameters, and take the last element
+   ,(car
+     (drop
+      (drop (term (Θ->list Θ)) (term (Δ-constructor-count Δ D)))
+      (term (Δ-parameter-count Δ D))))])
+
+;; Check that Θ is valid and ready to be evaluated as the arguments to an elim.
+;; has length m = n + j + 1 and D has n constructors and j parameters,
+;; and the 1 represents the discriminant.
+;; discharges assumption for previous 3 meta-functions
+(define-metafunction tt-redL
+  Θ-valid : Δ D Θ -> #t or #f
+  [(Θ-valid Δ D Θ)
+   #t
+   (where natural_m (Θ-length Θ))
+   (where natural_n (Δ-constructor-count Δ D))
+   (where natural_j (Δ-parameter-count Δ D))
+   (side-condition (= (+ (term natural_n) (term natural_j) 1) (term natural_m)))
+   ;; As Cur allows reducing (through reflection) open terms, 
+   ;; check that the discriminant is a canonical form so that
+   ;; reduction can proceed; otherwise not valid.
+   (where (in-hole Θ_i c_i) (elim-discriminant Δ D Θ))
+   (where D (Δ-key-by-constructor Δ c_i))]
+  [(Θ-valid Δ D Θ) #f])
+
+(module+ test
+  (require rackunit)
+  (check-equal?
+   (term (Θ-length (((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x))))) zero)))
+   3)
+  (check-true
+   (term
+    (Θ-valid
+     ((∅ (nat : (Unv 0) ((zero : nat) (s : (Π (x : nat) nat))))) (bool : (Unv 0) ((true : bool) (false : bool))))
+     nat
+     (((hole (s zero)) (λ (x : nat) (λ (ih-x : nat) (s (s x))))) zero)))))
+
+
+(define-metafunction tt-ctxtL
+  is-inductive-argument : Δ D t -> #t or #f
+  ;; Think this only works in call-by-value. A better solution would
+  ;; be to check position of the argument w.r.t. the current
+  ;; method. requires more arguments, and more though.q
+  [(is-inductive-argument Δ D (in-hole Θ c_i))
+   ,(and (memq (term c_i) (term (Δ-ref-constructors Δ D))) #t)])
+
+;; Generate recursive applications of the eliminator for each inductive argument of type x_D.
+;; In more detail, given motive t_P, parameters Θ_p, methods Θ_m, and arguments Θ_i to constructor
+;; x_ci for x_D, for each inductively smaller term t_i of type (in-hole Θ_p x_D) inside Θ_i,
+;; generate: (elim x_D U t_P  Θ_m ... Θ_p ... t_i)
+;; TODO TTEESSSSSTTTTTTTT
+(define-metafunction tt-ctxtL
+  Δ-inductive-elim : Δ x U t Θ Θ Θ -> Θ
+  ;; NB: If metafunction fails, recursive
+  ;; NB: elimination will be wrong. This will introduced extremely sublte bugs,
+  ;; NB: inconsistency, failure of type safety, and other bad things.
+  ;; NB: It should be tested and audited thoroughly
+  [(Δ-inductive-elim Δ x_D U t_P Θ_p Θ_m (Θ_i t_i))
+   ((Δ-inductive-elim Δ x_D U t_P Θ_p Θ_m Θ_i)
+    (in-hole ((in-hole Θ_p Θ_m) t_i) ((elim x_D U) t_P)))
+   (side-condition (term (is-inductive-argument Δ x_D t_i)))]
+  [(Δ-inductive-elim Δ x_D U t_P Θ_p Θ_m (Θ_i t_i))
+   (Δ-inductive-elim Δ x_D U t_P Θ_p Θ_m Θ_i)]
+  [(Δ-inductive-elim Δ x_D U t_P Θ_p Θ_m hole)
+   hole])
 
 (define tt-->
   (reduction-relation tt-redL
     (--> (Δ (in-hole E ((λ (x : t_0) t_1) t_2)))
          (Δ (in-hole E (subst t_1 x t_2)))
          -->β)
-    (--> (Δ (in-hole E (in-hole Θv ((elim x_D U) v_P))))
+    (--> (Δ (in-hole E (in-hole Θv ((elim D U) v_P))))
          (Δ (in-hole E (in-hole Θ_r (in-hole Θv_i v_mi))))
-         #|
-          | The elim form must appear applied like so:
-          | (elim x_D U v_P m_0 ... m_i m_j ... m_n p ... (c_i a ...))
-          |
-          | Where:
-          |   x_D       is the inductive being eliminated
-          |   U         is the universe of the result of the motive
-          |   v_P       is the motive
-          |   m_{0..n}  are the methods
-          |   p ...     are the parameters of x_D
-          |   c_i       is a constructor of x_d
-          |   a ...     are the arguments to c_i
-          | Unfortunately, Θ contexts turn all this inside out:
-          | TODO: Write better abstractions for this notation
-          |#
+         ;; Check that Θv is valid to avoid capturing other things
+         (side-condition (term (Θ-valid Δ D Θv)))
           ;; Split Θv into its components: the paramters Θv_P for x_D, the methods Θv_m for x_D, and
-          ;; the discriminant: the constructor x_ci applied to its argument Θv_i
-         (where (in-hole (Θv_p (in-hole Θv_i x_ci)) Θv_m) Θv)
-         ;; Check that Θ_p actually matches the parameters of x_D, to ensure it doesn't capture other
-         ;; arguments.
-         (side-condition (equal? (term (Θ-length Θv_p)) (term (Ξ-length (Δ-ref-parameter-Ξ Δ x_D)))))
-         ;; Ensure x_ci is actually a constructor for x_D
-         (where (x_c* ...) (Δ-ref-constructors Δ x_D))
-         (side-condition (memq (term x_ci) (term (x_c* ...))))
-         ;; There should be a number of methods equal to the number of constructors; to ensure E
-         ;; doesn't capture methods and Θv_m doesn't capture other arguments
-         (side-condition (equal? (length (term (x_c* ...)))  (term (Θ-length Θv_m))))
+          ;; the discriminant: the constructor c_i applied to its argument Θv_i
+         (where Θv_p (elim-parameters Δ D Θv))
+         (where Θv_m (elim-methods Δ D Θv))
+         (where (in-hole Θv_i c_i) (elim-discriminant Δ D Θv))
          ;; Find the method for constructor x_ci, relying on the order of the arguments.
-         (where v_mi (Θ-ref Θv_m (Δ-constructor-index Δ x_D x_ci)))
+         (where v_mi (Θ-ref Θv_m (Δ-constructor-index Δ D c_i)))
          ;; Generate the inductive recursion
-         (where Θ_r (Δ-inductive-elim Δ x_D U v_P Θv_p Θv_m Θv_i))
+         (where Θ_r (Δ-inductive-elim Δ D U v_P Θv_p Θv_m Θv_i))
          -->elim)))
 
 (define-metafunction tt-redL
@@ -430,13 +548,7 @@
   [(reduce Δ e)
    e_r
    (where (_ e_r)
-     ,(let ([r (apply-reduction-relation* tt--> (term (Δ e)) #:cache-all? #t)])
-        ;; Efficient check for (= (length r) 1)
-        ;; NB: Check is overly aggressive and produces wrong error,
-        ;; because not reducing under lambda.
-        #;(unless (null? (cdr r))
-          (error "Church-Rosser broken" r))
-        (car r)))])
+          ,(car (apply-reduction-relation* tt--> (term (Δ e)) #:cache-all? #t)))])
 
 (define-judgment-form tt-redL
   #:mode (equivalent I I I)

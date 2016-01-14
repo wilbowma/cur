@@ -53,6 +53,7 @@
    ls))
 
 (module+ test
+  (:: list-ref (forall (A : Type) (->* (List A) Nat (Maybe A))))
   (check-equal?
    ((list-ref Bool (cons Bool true (nil Bool))) z)
    (some Bool true)))
