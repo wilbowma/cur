@@ -147,19 +147,19 @@
      #:attr constructor-name
      (format-id #'x "~a-~a" (lang-name) #'x)))
 
-  ;; A nested-expression can appear as the argument to a terminal in
-  ;; an expression, or as a sub-expression in a nested-expression.
-  ;; Each nested-expression export args, a list of types the
-  ;; nested-expression represents and the list of types the non-terminal's
+  ;; A terminal-args can appear as the argument to a terminal in
+  ;; an expression, or as a sub-expression in a terminal-args.
+  ;; Each terminal-args export args, a list of types the
+  ;; terminal-args represents and the list of types the non-terminal's
   ;; constructor expects in this case.
-  (define-syntax-class (nested-expression non-terminal-type)
-    ;; A meta-variable is a nested-expression
+  (define-syntax-class (terminal-args non-terminal-type)
+    ;; A meta-variable is a terminal-args
     (pattern
      e:meta-variable
      #:attr args
      (list #'e.type))
 
-    ;; An identifier is a nested-expression, but is treated as syntax
+    ;; An identifier is a terminal-args, but is treated as syntax
     (pattern
      x:id
      #:attr args
@@ -173,14 +173,14 @@
     
     ;; We use De-Bruijn indices, so binding positions are removed.
     (pattern
-     (#:bind x:var-meta-variable . (~var t (nested-expression non-terminal-type)))
+     (#:bind x:var-meta-variable . (~var t (terminal-args non-terminal-type)))
      #:attr args
      (attribute t.args))
 
-    ;; A nested-expression applied to other nested expressions is a nested-expression
+    ;; A terminal-args applied to other nested expressions is a terminal-args
     (pattern
-     ((~var h (nested-expression non-terminal-type))
-      (~var t (nested-expression non-terminal-type)) ...)
+     ((~var h (terminal-args non-terminal-type))
+      (~var t (terminal-args non-terminal-type)) ...)
      #:attr args
      (for/fold ([ls (attribute h.args)])
                ([args (attribute t.args)])
@@ -206,9 +206,9 @@
      #:attr constr-decl
      #`(x.constructor-name : #,non-terminal-type))
 
-    ;; A terminal applied to a nested-expression is a valid expression.
+    ;; A terminal applied to a terminal-args is a valid expression.
     (pattern
-     (x:terminal . (~var c (nested-expression non-terminal-type)))
+     (x:terminal . (~var c (terminal-args non-terminal-type)))
      #:attr constr-decl
      #`(x.constructor-name : (-> #,@(attribute c.args) #,non-terminal-type))))
 
