@@ -10,9 +10,6 @@
 (provide
   define-relation
   define-language
-  Var
-  avar
-  var-equal?
   generate-coq
 
   ;; private; exported for testing only
@@ -252,7 +249,7 @@
       [(attribute x) =>
        (lambda (xls)
          (for ([x xls])
-           (dict-set! (mv-map) (syntax-e x) #'Var)))])
+           (dict-set! (mv-map) (syntax-e x) #'Nat)))])
     (syntax-parse #'non-terminal-defs
       [((~var defs non-terminal-def) ...)
        (let ([output #`(begin defs.def ...)])
@@ -265,15 +262,6 @@
                     #`((generate-coq #:file coq-file #:exists 'append #,output))
                     #'())
              #,output))])))
-
-(data Var : Type (avar : (-> Nat Var)))
-
-(define (var-equal? (v1 : Var) (v2 : Var))
-  (match v1
-    [(avar (n1 : Nat))
-     (match v2
-       [(avar (n2 : Nat))
-        (nat-equal? n1 n2)])]))
 
 ;; See stlc.rkt for examples
 

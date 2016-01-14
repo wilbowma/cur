@@ -21,13 +21,6 @@
            (format "\\mbox{\\textit{type}} & A,B,C & \\bnfdef & unit \\bnfalt (* A B) \\bnfalt (+ A C)\\\\~n"))
    (output-latex-bnf #'((type (A B C) ::= unit (* A B) (+ A C))))))
 
-(check-equal?
- (var-equal? (avar z) (avar z))
- true)
-(check-equal?
- (var-equal? (avar z) (avar (s z)))
- false)
-
 (begin-for-syntax
   (check-equal?
    (parameterize ([coq-defns ""]) (output-coq #'(data nat : Type (z : nat))) (coq-defns))

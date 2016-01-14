@@ -19,10 +19,7 @@
   (term (e)   ::= x v (app e e) (lambda (#:bind x : A) e) (cons e e)
                   (let (#:bind x #:bind x) = e in e)))
 
-(define (lookup-env (g : (List stlc-type)))
-  ;; TODO: Can't use match due to limitation in type inference
-  (elim Var Type (lambda (x : Var) (Maybe stlc-type))
-        (list-ref stlc-type g)))
+(define lookup-env (list-ref stlc-type))
 
 (define (extend-env (g : (List stlc-type)) (t : stlc-type))
   (cons stlc-type t g))
@@ -42,10 +39,10 @@
    ------------------------ T-False
    (has-type g (stlc-val->stlc-term stlc-false) stlc-boolty)]
 
-  [(g : (List stlc-type)) (x : Var) (t : stlc-type)
+  [(g : (List stlc-type)) (x : Nat) (t : stlc-type)
    (== (Maybe stlc-type) (lookup-env g x) (some stlc-type t))
    ------------------------ T-Var
-   (has-type g (Var->stlc-term x) t)]
+   (has-type g (Nat->stlc-term x) t)]
 
   [(g : (List stlc-type)) (e1 : stlc-term) (e2 : stlc-term)
                (t1 : stlc-type) (t2 : stlc-type)
@@ -113,19 +110,19 @@
           #'stlc-unitty]
          [(dict-ref d (syntax->datum #'e) #f) =>
           (lambda (x)
-            #`(Var->stlc-term (avar #,x)))]
+            #`(Nat->stlc-term #,x))]
          [else #'e])])))
 
 (check-equal?
  (begin-stlc (lambda (x : 1) x))
- (stlc-lambda stlc-unitty (Var->stlc-term (avar z))))
+ (stlc-lambda stlc-unitty (Nat->stlc-term z)))
 (check-equal?
  (begin-stlc ((lambda (x : 1) x) ()))
- (stlc-app (stlc-lambda stlc-unitty (Var->stlc-term (avar z)))
+ (stlc-app (stlc-lambda stlc-unitty (Nat->stlc-term z))
            (stlc-val->stlc-term stlc-unit)))
 (check-equal?
  (begin-stlc (lambda (x : 1) (lambda (y : 1) x)))
- (stlc-lambda stlc-unitty (stlc-lambda stlc-unitty (Var->stlc-term (avar (s z))))))
+ (stlc-lambda stlc-unitty (stlc-lambda stlc-unitty (Nat->stlc-term (s z)))))
 (check-equal?
  (begin-stlc '(() ()))
  (stlc-cons (stlc-val->stlc-term stlc-unit)
