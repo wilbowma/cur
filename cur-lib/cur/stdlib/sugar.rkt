@@ -157,7 +157,7 @@
      #:attr indices
      '()
      #:attr decls
-     '(#`(#,(gensym) : x)))
+     (list #`(#,(gensym) : x)))
 
     (pattern
      (x:id e:expr ...)
@@ -173,15 +173,17 @@
      (for/list ([e (attribute e)])
        (type-infer/syn e))
      #:attr decls
-     `(,@(for/list ([name (attribute names)]
-                    [type (attribute types)])
-           #`(name : type))
-       #`(#,(gensym) : ((x e ...) #,@(attribute names))))))
+     (append
+      (for/list ([name (attribute names)]
+                 [type (attribute types)])
+        #`(name : type))
+      ;; TODO: quasisyntax/loc
+      (list #`(#,(gensym) : ((x e ...) #,@(attribute names)))))))
 
-  
   ;; todo: Support just names, inferring types
   (define-syntax-class match-declaration
     (pattern
+     ;; TODO: Use parameter-declaration defined earlier
      (name:id (~datum :) type:expr)
      #:attr decl
      #'(name : type)))
@@ -202,7 +204,10 @@
     (pattern
      (x:id d:match-declaration ...)
      #:attr local-env
-     (apply dict-set* (make-immutable-hash) (attribute d.name) (attribute d.type))
+     (for/fold ([d (make-immutable-hash)])
+               ([name (attribute d.name)]
+                [type (attribute d.type)])
+       (dict-set d name type))
      #:attr decls
      (attribute d.decl)
      #:attr names
@@ -221,9 +226,10 @@
                 [name-syn (attribute d.names)]
                 ;; NB: Non-hygenic
                 #:when (cur-equal? type-syn D))
-       (let ([ih-name (format-id name-syn "ih-~a" name-syn)]
+       (let ([ih-name (quasisyntax/loc d #,(format-id name-syn "ih-~a" name-syn))]
+             ;; BUG TODO: This is broken; motive must be applied to indices and such, too
              [ih-type #`(#,motive #,name-syn)])
-         (dict-set! ih-dict (syntax-e name-syn) ih-name)
+         (dict-set! ih-dict (syntax->datum name-syn) ih-name)
          (append decls (list #`(#,ih-name : #,ih-type)))))))
 
   (define-syntax-class (match-preclause maybe-return-type)
@@ -231,16 +237,21 @@
      (p:match-prepattern b:expr)
      #:attr return-type
      ;; TODO: Check that the infered type matches maybe-return-type, if it is provied
-     (or maybe-return-type (type-infer/syn #:local-env (attribute p.local-env) #'b))))
+     (or maybe-return-type
+         ;; Ignore errors when trying to infer this type; other attempt might succeed
+         (with-handlers ([values (lambda _ #f)])
+           (type-infer/syn #:local-env (attribute p.local-env) #'b)))))
 
-  (define-syntax-class (match-clause src D motive)
+  (define-syntax-class (match-clause D motive)
     (pattern
      ((~var p (match-pattern D motive))
       ;; TODO: nothing more advanced?
       b:expr)
      #:attr method
-     (quasisyntax/loc src
-       (lambda #,@(attribute p.decls) b)))))
+     (quasisyntax/loc #'p
+       #,(if (null? (attribute p.decls))
+         #'b
+         #`(lambda #,@(attribute p.decls) b))))))
 
 (define-syntax (recur syn)
   (syntax-case syn ()
@@ -254,6 +265,7 @@
          ;; TODO: Detect when inside a match to provide better error
          (format
           "Cannot recur on ~a. Ether not inside a match or ~a is not an inductive argument."
+          (syntax->datum #'id)
           (syntax->datum #'id))
          syn)))]))
 
@@ -261,13 +273,14 @@
   (syntax-parse syn
     [(_ d:expr
         (~optional
-         (~seq #:in t:inductive-type-declaration)
+         (~seq #:in t)
          #:defaults
          ([t (or (type-infer/syn #'d)
                  (raise-syntax-error
                   'match
                   "Could not infer discrimnant's type. Try using #:in to declare it."
                   syn))]))
+        (~parse D:inductive-type-declaration (attribute t))
         (~optional (~seq #:return maybe-return-type:expr))
         (~peek (~seq (~var prec (match-preclause (attribute maybe-return-type))) ...))
         (~bind (return-type (ormap values (attribute prec.return-type))))
@@ -277,13 +290,13 @@
                 "Could not infer return type. Try using #:return to declare it."
                 syn)))
         (~bind (motive (quasisyntax/loc syn
-                        (lambda #,@(attribute t.decls) return-type))))
-        (~var c (match-clause syn (attribute t) (attribute motive))) ...)
+                        (lambda #,@(attribute D.decls) return-type))))
+        (~var c (match-clause (attribute D) (attribute motive))) ...)
      (quasisyntax/loc syn
-       ((elim t.inductive-name #,(type-infer/syn (attribute return-type)))
+       (elim D.inductive-name #,(type-infer/syn (attribute return-type))
         motive
         c.method ...
-        #,@(attribute t.indices)
+        #,@(attribute D.indices)
         d))]))
 
 (begin-for-syntax

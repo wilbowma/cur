@@ -35,17 +35,21 @@
 
 (define square (run (exp (s (s z)))))
 
-;; Credit to this function goes to Max
-(define nat-equal?
-  (elim Nat Type (lambda (x : Nat) (-> Nat Bool))
-    (elim Nat Type (lambda (x : Nat) Bool)
-          true
-          (lambda (x : Nat) (ih-n2 : Bool) false))
-    (lambda (x : Nat) (ih : (-> Nat Bool))
-      (elim Nat Type (lambda (x : Nat) Bool)
-            false
-            (lambda (x : Nat) (ih-bla : Bool)
-                     (ih x))))))
+(define (zero? (n : Nat))
+  (match n
+    [z true]
+    [(s (n : Nat))
+     false]))
+
+(define (nat-equal? (n : Nat))
+  (match n
+    [z zero?]
+    [(s (n-1 : Nat))
+     (lambda (m : Nat)
+       (match m
+         [z false]
+         [(s (m-1 : Nat))
+          ((recur n-1) m-1)]))]))
 
 (define (even? (n : Nat))
   (match n
