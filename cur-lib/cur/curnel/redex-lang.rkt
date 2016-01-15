@@ -31,11 +31,9 @@
     [dep-require require]
 
     [dep-lambda lambda]
-    [dep-lambda λ]
     [dep-app #%app]
 
     [dep-forall forall]
-    [dep-forall ∀]
 
     [dep-inductive data]
 

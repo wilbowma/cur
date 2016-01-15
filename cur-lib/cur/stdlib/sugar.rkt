@@ -1,14 +1,12 @@
 #lang s-exp "../cur.rkt"
 (provide
   ->
-  ->*
-  forall*
-  lambda*
+  lambda
   (rename-out
     [-> →]
-    [->* →*]
-    [lambda* λ*]
-    [forall* ∀*])
+    [-> forall]
+    [-> ∀]
+    [lambda λ])
   #%app
   define
   elim
@@ -32,39 +30,80 @@
   (only-in "../cur.rkt"
     [elim real-elim]
     [#%app real-app]
-    [define real-define]))
+    #;[lambda real-lambda]
+    #;[forall real-forall]
+    [define real-define]
+    [type-infer/syn _type-infer/syn]))
 
+(begin-for-syntax
+  (define (type-infer/syn #:local-env [env '()] syn)
+    (or (syntax-property syn 'type)
+        (type-infer/syn #:local-env env syn)))
+
+  (define-syntax-class result-type
+    (pattern type:expr))
+
+  (define-syntax-class parameter-declaration
+    (pattern (name:id (~datum :) type:expr)
+             ;; NB: syntax-parse apparently screws up the order in
+             ;; which macros are expanded, so my hand-rolled gamma is not working
+             ;; NOTE: This syntax property cannot be trusted...
+             #:do (syntax-property #'name 'type #'type))
+
+    (pattern
+     type:expr
+     #:attr name (format-id #'type "~a" (gensym)))))
+
+;; A multi-arity function type; takes parameter declaration of either
+;; a binding (name : type), or type whose name is generated.
+;; E.g.
+;; (-> (A : Type) A A)
 (define-syntax (-> syn)
-  (syntax-case syn ()
-    [(_ t1 t2) #`(forall (#,(gensym) : t1) t2)]))
+  (syntax-parse syn
+    [(_ d:parameter-declaration ...+ result:result-type)
+     (foldr (lambda (src name type r)
+              (quasisyntax/loc src
+                (forall (#,name : #,type) #,r)))
+            #'result
+            (attribute d)
+            (attribute d.name)
+            (attribute d.type))]))
 
-(define-syntax ->*
-  (syntax-rules ()
-    [(->* a) a]
-    [(->* a a* ...)
-     (-> a (->* a* ...))]))
+;; TODO: Add forall macro that allows specifying *names*, with types
+;; inferred. unlike -> which require types but not names
+;; E.g.
+;; (forall x (y : Nat) (== Nat x y))
 
-(define-syntax forall*
-  (syntax-rules (:)
-    [(_ (a : t) (ar : tr) ... b)
-     (forall (a : t)
-        (forall* (ar : tr) ... b))]
-    [(_ b) b]))
-
-(define-syntax lambda*
-  (syntax-rules (:)
-    [(_ (a : t) (ar : tr) ... b)
-     (lambda (a : t)
-       (lambda* (ar : tr) ... b))]
-    [(_ b) b]))
+;; TODO: Allows argument-declarations to have types inferred, similar
+;; to above TODO forall
+(begin-for-syntax
+  ;; eta-expand syntax-class for error messages
+  (define-syntax-class argument-declaration
+    (pattern
+     e:parameter-declaration
+     #:attr name #'e.name
+     #:attr type #'e.type)))
+(define-syntax (lambda syn)
+  (syntax-parse syn
+    [(_ d:argument-declaration ...+ body:expr)
+     (foldr (lambda (src name type r)
+              (quasisyntax/loc src
+                (real-lambda (#,name : #,type) #,r)))
+            #'body
+            (attribute d)
+            (attribute d.name)
+            (attribute d.type))]))
 
 (define-syntax (#%app syn)
   (syntax-case syn ()
-    [(_ e) #'e]
+    [(_ e)
+     (quasisyntax/loc syn e)]
     [(_ e1 e2)
-     #'(real-app e1 e2)]
+     (quasisyntax/loc syn
+       (real-app e1 e2))]
     [(_ e1 e2 e3 ...)
-     #'(#%app (#%app e1 e2) e3 ...)]))
+     (quasisyntax/loc syn
+       (#%app (#%app e1 e2) e3 ...))]))
 
 (define-syntax define-type
   (syntax-rules ()
@@ -73,12 +112,15 @@
     [(_ name type)
      (define name type)]))
 
+;; TODO: Allow inferring types as in above TODOs for lambda, forall
 (define-syntax (define syn)
   (syntax-case syn ()
     [(define (name (x : t) ...) body)
-     #'(real-define name (lambda* (x : t) ... body))]
+     (quasisyntax/loc syn
+       (real-define name (lambda (x : t) ... body)))]
     [(define id body)
-     #'(real-define id body)]))
+     (quasisyntax/loc syn
+       (real-define id body))]))
 
 (define-syntax-rule (elim t1 t2 e ...)
   ((real-elim t1 t2) e ...))
