@@ -147,51 +147,100 @@
      #`(elim D U P #,@(map rewrite-clause (syntax->list #'(clause* ...))) p ... e)]))
 
 (begin-for-syntax
-  (define-struct clause (args types decl body))
   (define ih-dict (make-hash))
-  (define (clause-parse syn)
-    (syntax-case syn (:)
-      [((con (a : A) ...) body)
-       (make-clause (syntax->list #'(a ...)) (syntax->list #'(A ...)) #'((a : A) ...) #'body)]
-      [(e body)
-       (make-clause '() '() #'() #'body)]))
 
-  (define (infer-result clauses)
-    (or
-     (for/or ([clause clauses])
-       (type-infer/syn
-        (clause-body clause)
-        #:local-env (for/fold ([d '()])
-                              ([arg (clause-args clause)]
-                               [type (clause-types clause)])
-                          (dict-set d arg type))))
-     (raise-syntax-error
-      'match
-      "Could not infer type of result."
-      (clause-body (car clauses)))))
+  (define-syntax-class inductive-type-declaration
+    (pattern
+     x:id
+     #:attr inductive-name
+     #'x
+     #:attr indices
+     '()
+     #:attr decls
+     '(#`(#,(gensym) : x)))
 
-  (define (infer-ihs D motive args types)
-    (for/fold ([ih-dict (make-immutable-hash)])
-              ([type-syn types]
-               [arg-syn args]
-               ;; NB: Non-hygenic
-               #:when (cur-equal? type-syn D))
-      (dict-set ih-dict (syntax->datum arg-syn) `(,(format-id arg-syn "ih-~a" arg-syn) . ,#`(#,motive #,arg-syn)))))
+    (pattern
+     (x:id e:expr ...)
+     #:attr inductive-name
+     #'x
+     #:attr indices
+     (attribute e)
+     #:attr names
+     (for/list ([e (attribute e)])
+       (format-id e "~a" (gensym)))
+     #:attr types
+     ;; TODO: Detect failure, report error/suggestions
+     (for/list ([e (attribute e)])
+       (type-infer/syn e))
+     #:attr decls
+     `(,@(for/list ([name (attribute names)]
+                    [type (attribute types)])
+           #`(name : type))
+       #`(#,(gensym) : ((x e ...) #,@(attribute names))))))
 
-  (define (make-method args body)
-    (if (null? args)
-        body
-        #`(lambda #,@args #,body)))
+  
+  ;; todo: Support just names, inferring types
+  (define-syntax-class match-declaration
+    (pattern
+     (name:id (~datum :) type:expr)
+     #:attr decl
+     #'(name : type)))
 
-  (define (clause->method D motive clause)
-    (dict-clear! ih-dict)
-    (let* ([ihs (infer-ihs D motive (clause-args clause) (clause-types clause))]
-           [ih-args (dict-map
-                     ihs
-                     (lambda (k v)
-                       (dict-set! ih-dict k (car v))
-                       #`(#,(car v) : #,(cdr v))))])
-      (make-method (append (syntax->list (clause-decl clause)) ih-args) (clause-body clause)))))
+  (define-syntax-class match-prepattern
+    ;; TODO: Check that x is a valid constructor for the inductive type
+    (pattern
+     x:id
+     #:attr local-env
+     '()
+     #:attr decls
+     '()
+     #:attr types
+     '()
+     #:attr names
+     '())
+
+    (pattern
+     (x:id d:match-declaration ...)
+     #:attr local-env
+     (apply dict-set* (make-immutable-hash) (attribute d.name) (attribute d.type))
+     #:attr decls
+     (attribute d.decl)
+     #:attr names
+     (attribute d.name)
+     #:attr types
+     (attribute d.type)))
+
+  (define-syntax-class (match-pattern D motive)
+    (pattern
+     d:match-prepattern
+     #:attr decls
+     ;; Infer the inductive hypotheses, add them to the pattern decls
+     ;; and update the dictionarty for the recur form
+     (for/fold ([decls (attribute d.decls)])
+               ([type-syn (attribute d.types)]
+                [name-syn (attribute d.names)]
+                ;; NB: Non-hygenic
+                #:when (cur-equal? type-syn D))
+       (let ([ih-name (format-id name-syn "ih-~a" name-syn)]
+             [ih-type #`(#,motive #,name-syn)])
+         (dict-set! ih-dict (syntax-e name-syn) ih-name)
+         (append decls (list #`(#,ih-name : #,ih-type)))))))
+
+  (define-syntax-class (match-preclause maybe-return-type)
+    (pattern
+     (p:match-prepattern b:expr)
+     #:attr return-type
+     ;; TODO: Check that the infered type matches maybe-return-type, if it is provied
+     (or maybe-return-type (type-infer/syn #:local-env (attribute p.local-env) #'b))))
+
+  (define-syntax-class (match-clause src D motive)
+    (pattern
+     ((~var p (match-pattern D motive))
+      ;; TODO: nothing more advanced?
+      b:expr)
+     #:attr method
+     (quasisyntax/loc src
+       (lambda #,@(attribute p.decls) b)))))
 
 (define-syntax (recur syn)
   (syntax-case syn ()
@@ -202,23 +251,40 @@
       (lambda ()
         (raise-syntax-error
          'match
-         (format "Cannot recur on ~a" (syntax->datum #'id))
+         ;; TODO: Detect when inside a match to provide better error
+         (format
+          "Cannot recur on ~a. Ether not inside a match or ~a is not an inductive argument."
+          (syntax->datum #'id))
          syn)))]))
 
-;; TODO: Test
 (define-syntax (match syn)
-  (syntax-case syn ()
-    [(_ e clause* ...)
-     (let* ([clauses (map clause-parse (syntax->list #'(clause* ...)))]
-            [R (infer-result clauses)]
-            [D (or (type-infer/syn #'e)
-                   (raise-syntax-error 'match "Could not infer discrimnant's type." syn))]
-	    [motive #`(lambda (x : #,D) #,R)]
-            [U (type-infer/syn R)])
-       #`((elim #,D #,U)
-            #,motive
-	    #,@(map (curry clause->method D motive) clauses)
-	    e))]))
+  (syntax-parse syn
+    [(_ d:expr
+        (~optional
+         (~seq #:in t:inductive-type-declaration)
+         #:defaults
+         ([t (or (type-infer/syn #'d)
+                 (raise-syntax-error
+                  'match
+                  "Could not infer discrimnant's type. Try using #:in to declare it."
+                  syn))]))
+        (~optional (~seq #:return maybe-return-type:expr))
+        (~peek (~seq (~var prec (match-preclause (attribute maybe-return-type))) ...))
+        (~bind (return-type (ormap values (attribute prec.return-type))))
+        (~do (unless (attribute return-type)
+               (raise-syntax-error
+                'match
+                "Could not infer return type. Try using #:return to declare it."
+                syn)))
+        (~bind (motive (quasisyntax/loc syn
+                        (lambda #,@(attribute t.decls) return-type))))
+        (~var c (match-clause syn (attribute t) (attribute motive))) ...)
+     (quasisyntax/loc syn
+       ((elim t.inductive-name #,(type-infer/syn (attribute return-type)))
+        motive
+        c.method ...
+        #,@(attribute t.indices)
+        d))]))
 
 (begin-for-syntax
   (define-syntax-class let-clause
