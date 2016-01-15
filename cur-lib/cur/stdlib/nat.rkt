@@ -40,11 +40,11 @@
   (elim Nat Type (lambda (x : Nat) (-> Nat Bool))
     (elim Nat Type (lambda (x : Nat) Bool)
           true
-          (lambda* (x : Nat) (ih-n2 : Bool) false))
-    (lambda* (x : Nat) (ih : (-> Nat Bool))
+          (lambda (x : Nat) (ih-n2 : Bool) false))
+    (lambda (x : Nat) (ih : (-> Nat Bool))
       (elim Nat Type (lambda (x : Nat) Bool)
             false
-            (lambda* (x : Nat) (ih-bla : Bool)
+            (lambda (x : Nat) (ih-bla : Bool)
                      (ih x))))))
 
 (define (even? (n : Nat))

@@ -4,7 +4,7 @@
 
 (data Maybe : (forall (A : Type) Type)
   (none : (forall (A : Type) (Maybe A)))
-  (some : (forall* (A : Type) (a : A) (Maybe A))))
+  (some : (forall (A : Type) (a : A) (Maybe A))))
 
 (define-syntax (some/i syn)
   (syntax-case syn ()

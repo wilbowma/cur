@@ -30,25 +30,17 @@
   (only-in "../cur.rkt"
     [elim real-elim]
     [#%app real-app]
-    #;[lambda real-lambda]
+    ;; Somehow, using real-lambda instead of _lambda causes weird import error
+    [lambda _lambda]
     #;[forall real-forall]
-    [define real-define]
-    [type-infer/syn _type-infer/syn]))
+    [define real-define]))
 
 (begin-for-syntax
-  (define (type-infer/syn #:local-env [env '()] syn)
-    (or (syntax-property syn 'type)
-        (type-infer/syn #:local-env env syn)))
-
   (define-syntax-class result-type
     (pattern type:expr))
 
   (define-syntax-class parameter-declaration
-    (pattern (name:id (~datum :) type:expr)
-             ;; NB: syntax-parse apparently screws up the order in
-             ;; which macros are expanded, so my hand-rolled gamma is not working
-             ;; NOTE: This syntax property cannot be trusted...
-             #:do (syntax-property #'name 'type #'type))
+    (pattern (name:id (~datum :) type:expr))
 
     (pattern
      type:expr
@@ -88,7 +80,7 @@
     [(_ d:argument-declaration ...+ body:expr)
      (foldr (lambda (src name type r)
               (quasisyntax/loc src
-                (real-lambda (#,name : #,type) #,r)))
+                (_lambda (#,name : #,type) #,r)))
             #'body
             (attribute d)
             (attribute d.name)
@@ -108,7 +100,7 @@
 (define-syntax define-type
   (syntax-rules ()
     [(_ (name (a : t) ...) body)
-     (define name (forall* (a : t) ... body))]
+     (define name (forall (a : t) ... body))]
     [(_ name type)
      (define name type)]))
 
@@ -129,7 +121,7 @@
   (define (rewrite-clause clause)
     (syntax-case clause (: IH:)
       [((con (a : A) ...) IH: ((x : t) ...) body)
-       #'(lambda* (a : A) ... (x : t) ... body)]
+       #'(lambda (a : A) ... (x : t) ... body)]
       [(e body) #'body])))
 
 ;; TODO: Expects clauses in same order as constructors as specified when
@@ -186,6 +178,11 @@
                #:when (cur-equal? type-syn D))
       (dict-set ih-dict (syntax->datum arg-syn) `(,(format-id arg-syn "ih-~a" arg-syn) . ,#`(#,motive #,arg-syn)))))
 
+  (define (make-method args body)
+    (if (null? args)
+        body
+        #`(lambda #,@args #,body)))
+
   (define (clause->method D motive clause)
     (dict-clear! ih-dict)
     (let* ([ihs (infer-ihs D motive (clause-args clause) (clause-types clause))]
@@ -194,7 +191,7 @@
                      (lambda (k v)
                        (dict-set! ih-dict k (car v))
                        #`(#,(car v) : #,(cdr v))))])
-      #`(lambda* #,@(clause-decl clause) #,@ih-args #,(clause-body clause)))))
+      (make-method (append (syntax->list (clause-decl clause)) ih-args) (clause-body clause)))))
 
 (define-syntax (recur syn)
   (syntax-case syn ()
@@ -248,7 +245,7 @@
 (define-syntax (let syn)
   (syntax-parse syn
     [(let (c:let-clause ...) body)
-     #'((lambda* (c.id : c.type) ... body) c.e ...)]))
+     #'((lambda (c.id : c.type) ... body) c.e ...)]))
 
 ;; Normally type checking will only happen if a term is actually used. This forces a term to be
 ;; checked against a particular type.

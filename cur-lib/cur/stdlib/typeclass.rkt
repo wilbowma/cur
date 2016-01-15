@@ -49,7 +49,7 @@
   (define (process-def def)
     (syntax-case def (define)
       [(define (name (a : t) ...) body ...)
-       (values (syntax->datum #'name) #'(lambda* (a : t) ... body ...))]
+       (values (syntax->datum #'name) #'(lambda (a : t) ... body ...))]
       [(define name body)
        (values (syntax->datum #'name) #'body)]))
   (syntax-case syn ()
