@@ -31,11 +31,9 @@
     [dep-require require]
 
     [dep-lambda lambda]
-    [dep-lambda λ]
     [dep-app #%app]
 
     [dep-forall forall]
-    [dep-forall ∀]
 
     [dep-inductive data]
 
@@ -191,35 +189,29 @@
     reified-term)
 
   (define (datum->cur syn t)
-    (match t
-      [(list (quote term) e)
-       (quasisyntax/loc
-         syn
-         (datum->cur syn e))]
-      [(list (quote Unv) i)
-       (quasisyntax/loc
-         syn
-         (Type #,i))]
-      [(list (quote Π) (list x (quote :) t) body)
-       (quasisyntax/loc
-         syn
-         (dep-forall (#,(datum->syntax syn x) : #,(datum->cur syn t)) #,(datum->cur syn body)))]
-      [(list (quote λ) (list x (quote :) t) body)
-       (quasisyntax/loc
-         syn
-         (dep-lambda (#,(datum->syntax syn x) : #,(datum->cur syn t)) #,(datum->cur syn body)))]
-      [(list (list (quote elim) t1) t2)
-       (quasisyntax/loc
-         syn
-         (dep-elim #,(datum->cur syn t1) #,(datum->cur syn t2)))]
-      [(list e1 e2)
-       (quasisyntax/loc
-         syn
-         (dep-app #,(datum->cur syn e1) #,(datum->cur syn e2)))]
-      [_
-       (quasisyntax/loc
-         syn
-         #,(datum->syntax syn t))]))
+    (let datum->cur ([t t])
+      (match t
+        [(list (quote term) e)
+         (quasisyntax/loc syn
+           (datum->cur e))]
+        [(list (quote Unv) i)
+         (quasisyntax/loc syn
+           (Type #,i))]
+        [(list (quote Π) (list x (quote :) t) body)
+         (quasisyntax/loc syn
+           (dep-forall (#,(datum->syntax syn x) : #,(datum->cur t)) #,(datum->cur body)))]
+        [(list (quote λ) (list x (quote :) t) body)
+         (quasisyntax/loc syn
+           (dep-lambda (#,(datum->syntax syn x) : #,(datum->cur t)) #,(datum->cur body)))]
+        [(list (list (quote elim) t1) t2)
+         (quasisyntax/loc syn
+           (dep-elim #,(datum->cur t1) #,(datum->cur t2)))]
+        [(list e1 e2)
+         (quasisyntax/loc syn
+           (dep-app #,(datum->cur e1) #,(datum->cur e2)))]
+        [_
+         (quasisyntax/loc syn
+           #,(datum->syntax syn t))])))
 
   (define (eval-cur syn)
     (term (reduce ,(delta) ,(subst-bindings (cur->datum syn)))))
@@ -424,8 +416,8 @@
        (quasisyntax/loc syn (λ (x : t) e)))]))
 
 (define-syntax (dep-app syn)
-  (syntax-case syn ()
-    [(_ e1 e2)
+  (syntax-parse syn
+    [(_ e1:expr e2:expr)
      (syntax->curnel-syntax
        (quasisyntax/loc syn (#%app e1 e2)))]))
 

@@ -21,16 +21,15 @@
 ;; TODO: Abstract this over stlc-type, and provide from in OLL
 (data Gamma : Type
   (emp-gamma : Gamma)
-  (extend-gamma : (->* Gamma Var stlc-type Gamma)))
+  (extend-gamma : (-> Gamma Var stlc-type Gamma)))
 
 (define (lookup-gamma (g : Gamma) (x : Var))
-  (case* Gamma Type g () (lambda* (g : Gamma) (Maybe stlc-type))
+  (match g
     [emp-gamma (none stlc-type)]
     [(extend-gamma (g1 : Gamma) (v1 : Var) (t1 : stlc-type))
-     IH: ((ih-g1 : (Maybe stlc-type)))
      (if (var-equal? v1 x)
          (some stlc-type t1)
-         ih-g1)]))
+         (recur g1))]))
 
 (define-relation (has-type Gamma stlc-term stlc-type)
   #:output-coq "stlc.v"
@@ -97,7 +96,7 @@
          ;; Replace x with a de bruijn index, by running a CIC term at
          ;; compile time.
          (normalize/syn
-           #`((lambda* (x : stlc-term)
+           #`((lambda (x : stlc-term)
                       (stlc-lambda (avar #,oldindex) #,(stlc #'t) #,(stlc #'e)))
              (Var-->-stlc-term (avar #,oldindex)))))]
       [(quote (e1 e2))
@@ -106,7 +105,7 @@
        (let* ([y index]
               [x #`(s #,y)])
          (set! index #`(s (s #,index)))
-         #`((lambda* (x : stlc-term) (y : stlc-term)
+         #`((lambda (x : stlc-term) (y : stlc-term)
               (stlc-let (avar #,x) (avar #,y) #,(stlc #'t) #,(stlc #'e1)
                    #,(stlc #'e2)))
             (Var-->-stlc-term (avar #,x))

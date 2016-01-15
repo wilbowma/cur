@@ -8,7 +8,7 @@
  cur/stdlib/typeclass)
 
 (typeclass (Eqv (A : Type))
-           (equal? : (forall* (a : A) (b : A) Bool)))
+           (equal? : (forall (a : A) (b : A) Bool)))
 (impl (Eqv Bool)
       (define (equal? (a : Bool) (b : Bool))
         (if a

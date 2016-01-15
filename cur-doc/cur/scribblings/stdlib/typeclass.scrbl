@@ -21,7 +21,7 @@ are @racket[t ...].
 
 @examples[#:eval curnel-eval
           (typeclass (Eqv (A : Type))
-	    (equal? : (forall* (a : A) (b : A) Bool)))]
+	    (equal? : (forall (a : A) (b : A) Bool)))]
 }
 
 @defform[(impl (class param) defs ...)]{

@@ -17,24 +17,24 @@
  (:: (cons Bool true (nil Bool)) (List Bool)))
 (check-equal?
  (void)
- (:: (lambda* (A : Type) (a : A)
+ (:: (lambda (A : Type) (a : A)
              (ih-a : (-> Nat (Maybe A))) 
              (n : Nat)
              (match n
                [z (some A a)]
                [(s (n-1 : Nat))
                 (ih-a n-1)]))
-    (forall* (A : Type) (a : A) (ih-a : (-> Nat (Maybe A)))
+     (forall (A : Type) (a : A) (ih-a : (-> Nat (Maybe A)))
              (n : Nat)
              (Maybe A))))
 (check-equal?
  (void)
- (:: (lambda* (A : Type) (n : Nat) (none A)) (forall (A : Type) (-> Nat (Maybe A)))))
+ (:: (lambda (A : Type) (n : Nat) (none A)) (forall (A : Type) (-> Nat (Maybe A)))))
 (check-equal?
  (void)
- (:: (elim List Type (lambda* (A : Type) (ls : (List A)) Nat)
+ (:: (elim List Type (lambda (A : Type) (ls : (List A)) Nat)
           (lambda (A : Type) z)
-          (lambda* (A : Type) (a : A) (ls : (List A)) (ih : Nat)
+          (lambda (A : Type) (a : A) (ls : (List A)) (ih : Nat)
                    z)
           Bool
           (nil Bool))
@@ -43,7 +43,7 @@
 
 (check-equal?
  (void)
- (:: list-ref (forall (A : Type) (->* (List A) Nat (Maybe A)))))
+ (:: list-ref (forall (A : Type) (-> (List A) Nat (Maybe A)))))
 (check-equal?
  ((list-ref Bool (cons Bool true (nil Bool))) z)
  (some Bool true))
