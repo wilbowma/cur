@@ -14,8 +14,16 @@
   (nil : (-> (A : Type) (List A)))
   (cons : (-> (A : Type) A (List A) (List A))))
 
-(define list-ref
-  (elim
+(define (list-ref (A : Type) (ls : (List A)))
+  (match ls
+    [nil (lambda (n : Nat) (none A))]
+    [(cons (A : Type) (a : A) (rest : (List A)))
+     (lambda (n : Nat)
+       (match n
+         [z (some A a)]
+         [(s (n-1 : Nat))
+          ((recur rest) n-1)]))])
+  #;(elim
    List
    Type
    (lambda (A : Type) (ls : (List A))

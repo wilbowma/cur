@@ -44,7 +44,7 @@
 
     (pattern
      type:expr
-     #:attr name (format-id #'type "~a" (gensym)))))
+     #:attr name (format-id #'type "~a" (gensym 'anon-parameter)))))
 
 ;; A multi-arity function type; takes parameter declaration of either
 ;; a binding (name : type), or type whose name is generated.
@@ -96,6 +96,10 @@
     [(_ e1 e2 e3 ...)
      (quasisyntax/loc syn
        (#%app (#%app e1 e2) e3 ...))]))
+(module+ test
+  ((lambda (A : (Type 1)) (B : (Type 1)) A)
+   Type
+   Type))
 
 (define-syntax define-type
   (syntax-rules ()
@@ -157,28 +161,39 @@
      #:attr indices
      '()
      #:attr decls
-     (list #`(#,(gensym) : x)))
+     (list #`(#,(gensym 'anon-discriminant) : x)))
 
     (pattern
-     (x:id e:expr ...)
+     ;; For some reason app is made explicit here
+     ((~optional (~literal real-app)) x:id e:expr ...+)
      #:attr inductive-name
      #'x
      #:attr indices
      (attribute e)
      #:attr names
      (for/list ([e (attribute e)])
-       (format-id e "~a" (gensym)))
+       (format-id e "~a" (gensym 'anon-index)))
      #:attr types
      ;; TODO: Detect failure, report error/suggestions
      (for/list ([e (attribute e)])
-       (type-infer/syn e))
+       (or (type-infer/syn e)
+           (raise-syntax-error
+            'match
+            (format
+             "Could not infer type of index ~a"
+             e)
+            e)))
      #:attr decls
      (append
       (for/list ([name (attribute names)]
-                 [type (attribute types)])
-        #`(name : type))
+                 [type (attribute types)]
+                 [src (attribute e)])
+        (quasisyntax/loc src
+          (#,name : #,type)))
       ;; TODO: quasisyntax/loc
-      (list #`(#,(gensym) : ((x e ...) #,@(attribute names)))))))
+      (list
+       (quasisyntax/loc #'x
+         (#,(gensym 'anon-discriminant) : (x #,@(attribute names))))))))
 
   ;; todo: Support just names, inferring types
   (define-syntax-class match-declaration
@@ -202,7 +217,7 @@
      '())
 
     (pattern
-     (x:id d:match-declaration ...)
+     (x:id d:match-declaration ...+)
      #:attr local-env
      (for/fold ([d (make-immutable-hash)])
                ([name (attribute d.name)]
@@ -224,11 +239,13 @@
      (for/fold ([decls (attribute d.decls)])
                ([type-syn (attribute d.types)]
                 [name-syn (attribute d.names)]
+                [src (attribute d.decls)]
                 ;; NB: Non-hygenic
+                ;; BUG TODO: This fails when D is an inductive applied to arguments...
                 #:when (cur-equal? type-syn D))
-       (let ([ih-name (quasisyntax/loc d #,(format-id name-syn "ih-~a" name-syn))]
-             ;; BUG TODO: This is broken; motive must be applied to indices and such, too
-             [ih-type #`(#,motive #,name-syn)])
+       (define/syntax-parse type:inductive-type-declaration type-syn)
+       (let ([ih-name (quasisyntax/loc src #,(format-id name-syn "ih-~a" name-syn))]
+             [ih-type #`(#,motive #,@(attribute type.indices) #,name-syn)])
          (dict-set! ih-dict (syntax->datum name-syn) ih-name)
          (append decls (list #`(#,ih-name : #,ih-type)))))))
 
@@ -289,11 +306,19 @@
                 'match
                 "Could not infer return type. Try using #:return to declare it."
                 syn)))
+        ;; BUG TODO: return-type is inferred with the indexes of the branches, but those must be abstracted in the motive...
         (~bind (motive (quasisyntax/loc syn
                         (lambda #,@(attribute D.decls) return-type))))
         (~var c (match-clause (attribute D) (attribute motive))) ...)
      (quasisyntax/loc syn
-       (elim D.inductive-name #,(type-infer/syn (attribute return-type))
+       (elim
+        D.inductive-name
+        #,(or
+           (type-infer/syn (attribute return-type))
+           (raise-syntax-error
+            'match
+            "Could not infer type of motive. Sorry, you'll have to use elim."
+            syn))
         motive
         c.method ...
         #,@(attribute D.indices)
