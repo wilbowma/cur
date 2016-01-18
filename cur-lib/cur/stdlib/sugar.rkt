@@ -84,6 +84,7 @@
             (attribute d.name)
             (attribute d.type))]))
 
+;; TODO: This makes for really bad error messages when an identifier is undefined.
 (define-syntax (#%app syn)
   (syntax-case syn ()
     [(_ e)
