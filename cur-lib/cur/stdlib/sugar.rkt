@@ -120,35 +120,6 @@
 (define-syntax-rule (elim t1 t2 e ...)
   ((real-elim t1 t2) e ...))
 
-(begin-for-syntax
-  (define (rewrite-clause clause)
-    (syntax-case clause (: IH:)
-      [((con (a : A) ...) IH: ((x : t) ...) body)
-       #'(lambda (a : A) ... (x : t) ... body)]
-      [(e body) #'body])))
-
-;; TODO: Expects clauses in same order as constructors as specified when
-;; TODO: inductive D is defined.
-;; TODO: Assumes D has no parameters
-(define-syntax (case syn)
-  ;; duplicated code
-  (define (clause-body syn)
-    (syntax-case (car (syntax->list syn)) (: IH:)
-      [((con (a : A) ...) IH: ((x : t) ...) body) #'body]
-      [(e body) #'body]))
-  (syntax-case syn (=>)
-    [(_ e clause* ...)
-     (let* ([D (type-infer/syn #'e)]
-            [M (type-infer/syn (clause-body #'(clause* ...)))]
-            [U (type-infer/syn M)])
-       #`(elim #,D #,U (lambda (x : #,D) #,M) #,@(map rewrite-clause (syntax->list #'(clause* ...)))
-               e))]))
-
-(define-syntax (case* syn)
-  (syntax-case syn ()
-    [(_ D U e (p ...) P clause* ...)
-     #`(elim D U P #,@(map rewrite-clause (syntax->list #'(clause* ...))) p ... e)]))
-
 ;; Quite fragie to give a syntactic treatment of pattern matching -> eliminator. Replace with "Elimination with a Motive"
 (begin-for-syntax
   (define ih-dict (make-hash))
