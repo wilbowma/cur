@@ -151,13 +151,11 @@
      x:id
      #:when (regexp-match? #rx"-+" (symbol->string (syntax-e #'x)))))
 
-  (define-syntax-class declaration
-    (pattern (x:id (~datum :) t)))
-
-  ;; Alias syntax-classes with names for better error messages
   (define-syntax-class hypothesis
+    (pattern (x:id (~datum :) t))
     (pattern (~not e:horizontal-line)))
 
+  ;; Alias syntax-classes with names for better error messages
   (define-syntax-class rule-name
     (pattern x:id))
 
@@ -186,26 +184,25 @@
              (attribute rule-arg-count)
              (attribute relation-arg-count))))
 
-  ;; TODO: Automatically infer decl ... by binding all free identifiers?
-  ;; TODO: Automatically infer decl ... for meta-variables that are the
-  ;; same as bnf grammar.
+  ;; TODO: Automatically infer hypotheses that are merely declarations by binding all free identifiers?
+  ;; TODO: Automatically infer hypotheses as above for meta-variables that are the
+  ;; same as bnf grammar, as a simple first case
   (define-syntax-class (inferrence-rule name indices)
-    (pattern (d:declaration ...
-              (~peek (~not declaration))
+    (pattern (h:hypothesis ...
+              #;line:horizontal-line
+              (~optional line:horizontal-line)
               ~!
-              h:hypothesis ...
-              line:horizontal-line
-              #;(~optional line:horizontal-line)
               lab:rule-name
               (~var t (conclusion name indices (attribute lab))))
              #:with constr-decl
-             #'(lab : (-> d ... h ... (t.name t.arg ...)))
+             #'(lab : (-> h ... (t.name t.arg ...)))
              ;; TODO: convert meta-vars such as e1 to e_1
              #:attr latex
              (format
               "\\inferrule~n{~a}~n{~a}"
               (string-trim
                (for/fold ([str ""])
+                         ;; TODO: Perhaps omit hypotheses that are merely delcarations of free variables
                          ([hyp (syntax->datum #'(h ...))])
                  (format "~a~a \\+" str hyp))
                " \\+"
