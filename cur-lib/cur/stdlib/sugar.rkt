@@ -150,8 +150,24 @@
     [(_ D U e (p ...) P clause* ...)
      #`(elim D U P #,@(map rewrite-clause (syntax->list #'(clause* ...))) p ... e)]))
 
+;; Quite fragie to give a syntactic treatment of pattern matching -> eliminator. Replace with "Elimination with a Motive"
 (begin-for-syntax
   (define ih-dict (make-hash))
+
+  (define-syntax-class curried-application
+    (pattern
+     ((~literal real-app) name:id e:expr)
+     #:attr args
+     (list #'e))
+
+    (pattern
+     ((~literal real-app) a:curried-application e:expr)
+     #:attr name #'a.name
+     #:attr args
+     ;; TODO BUG: repeated appends are not performant; cons then reverse in inductive-type-declaration
+     (append
+      (attribute a.args)
+      (list #'e))))
 
   (define-syntax-class inductive-type-declaration
     (pattern
@@ -161,21 +177,24 @@
      #:attr indices
      '()
      #:attr decls
-     (list #`(#,(gensym 'anon-discriminant) : x)))
+     (list #`(#,(gensym 'anon-discriminant) : x))
+     #:attr abstract-indices
+     values)
 
     (pattern
-     ;; For some reason app is made explicit here
-     ((~optional (~literal real-app)) x:id e:expr ...+)
+     ;; BUG TODO NB: Because the inductive type may have been inferred, it may appear in Curnel syntax, i.e., nested applications starting with dep-app
+     ;; Best to ensure it *always* is in Curnel form, and pattern match on that.
+     a:curried-application
      #:attr inductive-name
-     #'x
+     (attribute a.name)
      #:attr indices
-     (attribute e)
+     (attribute a.args)
      #:attr names
-     (for/list ([e (attribute e)])
+     (for/list ([e (attribute indices)])
        (format-id e "~a" (gensym 'anon-index)))
      #:attr types
      ;; TODO: Detect failure, report error/suggestions
-     (for/list ([e (attribute e)])
+     (for/list ([e (attribute indices)])
        (or (type-infer/syn e)
            (raise-syntax-error
             'match
@@ -187,13 +206,25 @@
      (append
       (for/list ([name (attribute names)]
                  [type (attribute types)]
-                 [src (attribute e)])
+                 [src (attribute indices)])
         (quasisyntax/loc src
           (#,name : #,type)))
-      ;; TODO: quasisyntax/loc
       (list
-       (quasisyntax/loc #'x
-         (#,(gensym 'anon-discriminant) : (x #,@(attribute names))))))))
+       (quasisyntax/loc #'a
+         (#,(gensym 'anon-discriminant) : (inductive-name #,@(attribute names))))))
+     #:attr abstract-indices
+     (lambda (return)
+       ;; NB: unhygenic
+       ;; Normalize at compile-time, for efficiency at run-time
+       (normalize/syn
+        #`((lambda
+              ;; TODO: utteraly fragile; relines on the indices being referred to by name, not computed
+              ;; works only for simple type familes and simply matches on them
+             #,@(for/list ([name (attribute indices)]
+                           [type (attribute types)])
+                 #`(#,name : #,type))
+            #,return)
+          #,@(attribute names))))))
 
   ;; todo: Support just names, inferring types
   (define-syntax-class match-declaration
@@ -243,9 +274,10 @@
                 ;; NB: Non-hygenic
                 ;; BUG TODO: This fails when D is an inductive applied to arguments...
                 #:when (cur-equal? type-syn D))
-       (define/syntax-parse type:inductive-type-declaration type-syn)
+       (define/syntax-parse type:inductive-type-declaration (cur-expand type-syn))
        (let ([ih-name (quasisyntax/loc src #,(format-id name-syn "ih-~a" name-syn))]
-             [ih-type #`(#,motive #,@(attribute type.indices) #,name-syn)])
+             ;; Normalize at compile-time, for efficiency at run-time
+             [ih-type (normalize/syn #`(#,motive #,@(attribute type.indices) #,name-syn))])
          (dict-set! ih-dict (syntax->datum name-syn) ih-name)
          (append decls (list #`(#,ih-name : #,ih-type)))))))
 
@@ -288,18 +320,20 @@
 
 (define-syntax (match syn)
   (syntax-parse syn
-    [(_ d:expr
+    [(_ d
+        ~!
         (~optional
-         (~seq #:in t)
+         (~seq #:in ~! t)
          #:defaults
          ([t (or (type-infer/syn #'d)
                  (raise-syntax-error
                   'match
                   "Could not infer discrimnant's type. Try using #:in to declare it."
                   syn))]))
-        (~parse D:inductive-type-declaration (attribute t))
-        (~optional (~seq #:return maybe-return-type:expr))
+        (~optional (~seq #:return ~! maybe-return-type))
         (~peek (~seq (~var prec (match-preclause (attribute maybe-return-type))) ...))
+        ~!
+        (~parse D:inductive-type-declaration (cur-expand (attribute t)))
         (~bind (return-type (ormap values (attribute prec.return-type))))
         (~do (unless (attribute return-type)
                (raise-syntax-error
@@ -307,9 +341,12 @@
                 "Could not infer return type. Try using #:return to declare it."
                 syn)))
         ;; BUG TODO: return-type is inferred with the indexes of the branches, but those must be abstracted in the motive...
+        ;; Replace each of the D.indicies with the equivalent name from D.decls
         (~bind (motive (quasisyntax/loc syn
-                        (lambda #,@(attribute D.decls) return-type))))
+                         (lambda #,@(attribute D.decls)
+                           #,((attribute D.abstract-indices) (attribute return-type))))))
         (~var c (match-clause (attribute D) (attribute motive))) ...)
+     ;; TODO: Make all syntax extensions type check, report good error, rather than fail at Curnel
      (quasisyntax/loc syn
        (elim
         D.inductive-name

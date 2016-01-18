@@ -16,7 +16,7 @@
 
 (define (list-ref (A : Type) (ls : (List A)))
   (match ls
-    [nil (lambda (n : Nat) (none A))]
+    [(nil (A : Type)) (lambda (n : Nat) (none A))]
     [(cons (A : Type) (a : A) (rest : (List A)))
      (lambda (n : Nat)
        (match n

@@ -40,28 +40,25 @@
 
 (define pf:and-is-symmetric
   (lambda (P : Type) (Q : Type) (ab : (And P Q))
-    (case* And Type ab (P Q)
-      (lambda (P : Type) (Q : Type) (ab : (And P Q))
-         (And Q P))
-      ((conj (P : Type) (Q : Type) (x : P) (y : Q)) IH: () (conj/i y x)))))
+          (match ab
+            [(conj (P : Type) (Q : Type) (x : P) (y : Q))
+             (conj/i y x)])))
 
 (define thm:proj1
   (forall (A : Type) (B : Type) (c : (And A B)) A))
 
 (define pf:proj1
   (lambda (A : Type) (B : Type) (c : (And A B))
-    (case* And Type c (A B)
-      (lambda (A : Type) (B : Type) (c : (And A B)) A)
-      ((conj (A : Type) (B : Type) (a : A) (b : B)) IH: () a))))
+          (match c
+            [(conj (A : Type) (B : Type) (a : A) (b : B)) a])))
 
 (define thm:proj2
   (forall (A : Type) (B : Type) (c : (And A B)) B))
 
 (define pf:proj2
   (lambda (A : Type) (B : Type) (c : (And A B))
-    (case* And Type c (A B)
-      (lambda (A : Type) (B : Type) (c : (And A B)) B)
-      ((conj (A : Type) (B : Type) (a : A) (b : B)) IH: () b))))
+          (match c
+            [(conj (A : Type) (B : Type) (a : A) (b : B)) b])))
 
 #| TODO: Disabled until #22 fixed
 (data Or : (forall* (A : Type) (B : Type) Type)
