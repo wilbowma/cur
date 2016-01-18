@@ -11,8 +11,6 @@
   define
   elim
   define-type
-  case
-  case*
   match
   recur
   let
