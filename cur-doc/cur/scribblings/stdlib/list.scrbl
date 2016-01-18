@@ -12,7 +12,7 @@ This library defines the datatype @racket[List] and several functions on them.
 
 @deftogether[(@defthing[List (-> Type Type)]
               @defthing[nil (forall (A : Type) (List A))]
-	      @defthing[cons (forall* (A : Type) (a : A) (-> (List A) (List A)))])]{
+	      @defthing[cons (forall (A : Type) (a : A) (-> (List A) (List A)))])]{
 The polymorphic list datatype.
 }
 
