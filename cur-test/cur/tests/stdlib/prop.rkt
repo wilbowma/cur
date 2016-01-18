@@ -11,8 +11,8 @@
 (:: pf:proj1 thm:proj1)
 (:: pf:proj2 thm:proj2)
 (check-equal?
- (elim == Type (λ* (A : Type) (x : A) (y : A) (p : (== A x y)) Nat)
-       (λ* (A : Type) (x : A) z)
+ (elim == Type (λ (A : Type) (x : A) (y : A) (p : (== A x y)) Nat)
+       (λ (A : Type) (x : A) z)
        Bool
        true
        true

@@ -61,20 +61,20 @@
             [(conj (A : Type) (B : Type) (a : A) (b : B)) b])))
 
 #| TODO: Disabled until #22 fixed
-(data Or : (forall* (A : Type) (B : Type) Type)
-  (left : (forall* (A : Type) (B : Type) (a : A) (Or A B)))
-  (right : (forall* (A : Type) (B : Type) (b : B) (Or A B))))
+(data Or : (forall (A : Type) (B : Type) Type)
+  (left : (forall (A : Type) (B : Type) (a : A) (Or A B)))
+  (right : (forall (A : Type) (B : Type) (b : B) (Or A B))))
 
 (define-theorem thm:A-or-A
-  (forall* (A : Type) (o : (Or A A)) A))
+  (forall (A : Type) (o : (Or A A)) A))
 
 (define proof:A-or-A
-  (lambda* (A : Type) (c : (Or A A))
+  (lambda (A : Type) (c : (Or A A))
     ;; TODO: What should the motive be?
-    (elim Or Type (lambda* (A : Type) (B : Type) (c : (Or A B)) A)
-      (lambda* (A : Type) (B : Type) (a : A) a)
+    (elim Or Type (lambda (A : Type) (B : Type) (c : (Or A B)) A)
+      (lambda (A : Type) (B : Type) (a : A) a)
       ;; TODO: How do we know B is A?
-      (lambda* (A : Type) (B : Type) (b : B) b)
+      (lambda (A : Type) (B : Type) (b : B) b)
       A A c)))
 
 (qed thm:A-or-A proof:A-or-A)

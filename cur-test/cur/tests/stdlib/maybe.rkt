@@ -11,8 +11,8 @@
  (some Bool true))
 ;; Disabled until #22 fixed
 #;(check-equal?
-   (case* Maybe Type (some Bool true) (Bool)
-          (lambda* (A : Type) (x : (Maybe A)) A)
+   (case Maybe Type (some Bool true) (Bool)
+          (lambda (A : Type) (x : (Maybe A)) A)
           [(none (A : Type)) IH: ()
            false]
           [(some (A : Type) (x : A)) IH: ()

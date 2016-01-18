@@ -5,19 +5,19 @@
 
 ;; TODO: Missing tests for match, others
 (check-equal?
- ((λ* (x : (Type 1)) (y : (∀* (x : (Type 1)) (Type 1))) (y x))
+ ((λ (x : (Type 1)) (y : (∀ (x : (Type 1)) (Type 1))) (y x))
   Type
   (λ (x : (Type 1)) x))
  Type)
 
 (check-equal?
- ((λ* (x : (Type 1)) (y : (→* (Type 1) (Type 1))) (y x))
+ ((λ (x : (Type 1)) (y : (→ (Type 1) (Type 1))) (y x))
   Type
   (λ (x : (Type 1)) x))
  Type)
 
 (check-equal?
- ((λ* (x : (Type 1)) (y : (→ (Type 1) (Type 1))) (y x))
+ ((λ (x : (Type 1)) (y : (→ (Type 1) (Type 1))) (y x))
   Type
   (λ (x : (Type 1)) x))
  Type)

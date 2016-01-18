@@ -4,7 +4,8 @@
 (require
   "stdlib/sugar.rkt"
   "stdlib/nat.rkt"
-  (only-in "cur.rkt" [#%app real-app] [elim real-elim]))
+  ;; TODO: "real-"? More like "curnel-"
+  (only-in "cur.rkt" [#%app real-app] [elim real-elim] [forall real-forall] [lambda real-lambda]))
 
 (provide
   define-relation
@@ -38,8 +39,7 @@
               x*:expr ...
               line:dash lab:id
               (name:id y* ...))
-              #:with rule #'(lab : (forall* d ...
-                                     (->* x* ... (name y* ...))))
+              #:with rule #'(lab : (-> d ... x* ... (name y* ...)))
               ;; TODO: convert meta-vars such as e1 to e_1
               #:attr latex (format "\\inferrule~n{~a}~n{~a}"
                              (string-trim
@@ -62,7 +62,7 @@
      #:fail-unless (andmap (curry equal? (syntax->datum #'n))
                            (syntax->datum #'(rules.name ...)))
      "Mismatch between relation declared name and result of inference rule"
-      (let ([output #`(data n : (->* types* ... Type) rules.rule ...)])
+      (let ([output #`(data n : (-> types* ... Type) rules.rule ...)])
         ;; TODO: Pull this out into a separate function and test. Except
         ;; that might make using attritbutes more difficult.
         (when (attribute latex-file)
@@ -128,7 +128,7 @@
              #:attr arg-context #'())
     (pattern ((~var e (right-clause type)) (~var e* (right-clause type)) ...)
              #:attr name (fresh-name #'e.name)
-             #:attr clause-context #`(e.name : (->* #,@(flatten-args #'e.arg-context #'(e*.arg-context ...))
+             #:attr clause-context #`(e.name : (-> #,@(flatten-args #'e.arg-context #'(e*.arg-context ...))
                                                     #,(hash-ref (nts) type)))
              #:attr arg-context #`(#,@(flatten-args #'e.arg-context #'(e*.arg-context ...)))))
 
@@ -243,7 +243,7 @@
     (syntax-parse (cur-expand syn #'define #'begin)
        ;; TODO: Need to add these to a literal set and export it
        ;; Or, maybe overwrite syntax-parse
-       #:literals (lambda forall data real-app real-elim define begin Type)
+       #:literals (real-lambda real-forall data real-app real-elim define begin Type)
        [(begin e ...)
         (for/fold ([str ""])
                   ([e (syntax->list #'(e ...))])
@@ -266,10 +266,10 @@
                       (format "~a(~a : ~a) " str (output-coq n) (output-coq t)))
                     (output-coq #'body)))
           "")]
-       [(lambda ~! (x:id (~datum :) t) body:expr)
+       [(real-lambda ~! (x:id (~datum :) t) body:expr)
         (format "(fun ~a : ~a => ~a)" (output-coq #'x) (output-coq #'t)
                 (output-coq #'body))]
-       [(forall ~! (x:id (~datum :) t) body:expr)
+       [(real-forall ~! (x:id (~datum :) t) body:expr)
         (format "(forall ~a : ~a, ~a)" (syntax-e #'x) (output-coq #'t)
                 (output-coq #'body))]
        [(data ~! n:id (~datum :) t (x*:id (~datum :) t*) ...)

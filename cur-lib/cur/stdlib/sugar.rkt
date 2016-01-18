@@ -31,7 +31,7 @@
     [elim real-elim]
     [#%app real-app]
     ;; Somehow, using real-lambda instead of _lambda causes weird import error
-    [lambda _lambda]
+    [lambda real-lambda]
     #;[forall real-forall]
     [define real-define]))
 
@@ -80,7 +80,7 @@
     [(_ d:argument-declaration ...+ body:expr)
      (foldr (lambda (src name type r)
               (quasisyntax/loc src
-                (_lambda (#,name : #,type) #,r)))
+                (real-lambda (#,name : #,type) #,r)))
             #'body
             (attribute d)
             (attribute d.name)
