@@ -28,9 +28,7 @@
   (only-in "../cur.rkt"
     [elim real-elim]
     [#%app real-app]
-    ;; Somehow, using real-lambda instead of _lambda causes weird import error
     [lambda real-lambda]
-    #;[forall real-forall]
     [define real-define]))
 
 (begin-for-syntax

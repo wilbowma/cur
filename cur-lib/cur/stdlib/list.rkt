@@ -22,16 +22,4 @@
        (match n
          [z (some A a)]
          [(s (n-1 : Nat))
-          ((recur rest) n-1)]))])
-  #;(elim
-   List
-   Type
-   (lambda (A : Type) (ls : (List A))
-            (-> Nat (Maybe A)))
-   (lambda (A : Type) (n : Nat) (none A))
-   (lambda (A : Type) (a : A) (ls : (List A)) (ih : (-> Nat (Maybe A)))
-           (lambda (n : Nat)
-             (match n
-               [z (some A a)]
-               [(s (n-1 : Nat))
-                (ih n-1)])))))
+          ((recur rest) n-1)]))]))
