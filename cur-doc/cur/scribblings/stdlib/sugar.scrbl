@@ -29,14 +29,13 @@ This library defines various syntactic extensions making Cur easier to write tha
 A multi-artiy function type that supports dependent and non-dependent type declarations and automatic currying.
 
 @examples[#:eval curnel-eval
-          (data And : (-> Type Type)
+          (data And : (-> Type Type Type)
             (conj : (-> (A : Type) (B : Type) A B ((And A) B))))
           ((((conj Bool) Bool) true) false)]
-}
 
 @examples[#:eval curnel-eval
           (data And : (forall Type Type Type)
-            (conj : (forall (A : Type) (B : Type) A B ((And A) B))))
+            (conj : (forall (A : Type) (B : Type) A B (And A B))))
           ((((conj Bool) Bool) true) false)]
 
 }
@@ -120,7 +119,6 @@ If @racket[#:return] is not specified, attempts to infer the return type of the 
 
 @examples[#:eval curnel-eval
           ((match (nil Bool)
-	    #:in (List Bool)
             [(nil (A : Type))
 	     (lambda (n : Nat)
 	       (none A))]
