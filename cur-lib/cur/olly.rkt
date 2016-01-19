@@ -26,8 +26,6 @@
   (define (coq-lift-top-level str)
     (coq-defns (format "~a~a~n" (coq-defns) str)))
 
-  ;; TODO: OOps, type-infer doesn't return a cur term but a redex syntax bla
-  ;; TODO: Think the above TODO was fixed; consult git log
   (define (constructor-args syn)
     (syntax-parse (type-infer/syn syn)
       #:datum-literals (Π :)
@@ -138,9 +136,7 @@
     (displayln
      "\\newcommand{\\bnfdef}{{\\bf ::=}}")
     (displayln
-     "\\newcommand{\\bnfalt}{{\\bf \\mid}}"))
-
-  )
+     "\\newcommand{\\bnfalt}{{\\bf \\mid}}")))
 
 ;; ------------------------------------
 ;; define-relation
