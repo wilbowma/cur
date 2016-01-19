@@ -211,6 +211,8 @@
       (term (reduce #,(delta) (subst-all #,(cur->datum syn) #,(first (bind-subst)) #,(second (bind-subst)))))))
 
   ;; Reflection tools
+  ;; TODO: Reflection tools should catch errors from eval-cur et al. to
+  ;; ensure users can provide better error messages.
   ;; TODO: local-env is a hack; need principled way of descending under binders
   ;; Perhaps a wrapper around syntax-parse? Maybe a transformer-under-binder function?
   ;; But for now, this will do.
@@ -257,12 +259,14 @@
 
   (define (cur-type-infer syn #:local-env [env '()])
     (with-env env
-      (let ([t (type-infer/term (eval-cur syn))])
-        (and t (datum->cur syn t)))))
+      (with-handlers ([values (lambda _ #f)])
+        (let ([t (type-infer/term (eval-cur syn))])
+          (and t (datum->cur syn t))))))
 
   (define (cur-type-check? syn type #:local-env [env '()])
     (with-env env
-      (type-check/term? (eval-cur syn) (eval-cur type))))
+      (with-handlers ([values (lambda _ #f)])
+        (type-check/term? (eval-cur syn) (eval-cur type)))))
 
   ;; Takes a Cur term syn and an arbitrary number of identifiers ls. The cur term is
   ;; expanded until expansion reaches a Curnel form, or one of the

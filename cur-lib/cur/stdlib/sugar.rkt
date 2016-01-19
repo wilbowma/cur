@@ -38,14 +38,32 @@
     [define real-define]))
 
 (begin-for-syntax
-  (define-syntax-class result-type
-    (pattern type:expr))
+  (define (deduce-type-error term expected)
+    (format
+     "Expected ~a ~a, but ~a."
+     (syntax->datum term)
+     expected
+     (syntax-parse term
+       [x:id
+        "seems to be an unbound variable"]
+       [_ "could not infer a type."])))
+
+  (define-syntax-class cur-term
+    (pattern
+     e:expr
+     #:attr type (cur-type-infer #'e)
+     ;; TODO: Reduce to smallest failing example.
+     #:fail-unless
+     (attribute type)
+     (deduce-type-error
+      #'e
+      "to be a well-typed Cur term")))
 
   (define-syntax-class parameter-declaration
-    (pattern (name:id (~datum :) type:expr))
+    (pattern (name:id (~datum :) type:cur-term))
 
     (pattern
-     type:expr
+     type:cur-term
      #:attr name (format-id #'type "~a" (gensym 'anon-parameter)))))
 
 ;; A multi-arity function type; takes parameter declaration of either
@@ -54,7 +72,7 @@
 ;; (-> (A : Type) A A)
 (define-syntax (-> syn)
   (syntax-parse syn
-    [(_ d:parameter-declaration ...+ result:result-type)
+    [(_ d:parameter-declaration ...+ result:cur-term)
      (foldr (lambda (src name type r)
               (quasisyntax/loc src
                 (real-Π (#,name : #,type) #,r)))
@@ -88,17 +106,56 @@
             (attribute d.name)
             (attribute d.type))]))
 
-;; TODO: This makes for really bad error messages when an identifier is undefined.
+(begin-for-syntax
+  (define-syntax-class forall-type
+    (pattern
+     ((~literal real-Π) ~! (parameter-name:id (~datum :) parameter-type) body)))
+
+  (define-syntax-class cur-function
+    (pattern
+     e:expr
+     #:attr type (cur-type-infer #'e)
+     #:fail-unless (attribute type)
+     (deduce-type-error
+      #'e
+      "to be a function")
+     #:fail-unless (syntax-parse (attribute type)
+                     [t:forall-type #t]
+                     [_ #f])
+     (format
+      "Expected ~a to be a function, but inferred type ~a"
+      (syntax->datum #'e)
+      (syntax->datum (attribute type))))))
+
 (define-syntax (#%app syn)
-  (syntax-case syn ()
-    [(_ e)
-     (quasisyntax/loc syn e)]
-    [(_ e1 e2)
-     (quasisyntax/loc syn
-       (real-app e1 e2))]
-    [(_ e1 e2 e3 ...)
-     (quasisyntax/loc syn
-       (#%app (#%app e1 e2) e3 ...))]))
+  (syntax-parse syn
+    [(_ f:cur-function ~! e:cur-term ...+)
+     ;; Have to thread each argument through, to handle dependency.
+     (for/fold ([type (attribute f.type)])
+               ([arg (attribute e)]
+                [inferred-type (attribute e.type)])
+       (define/syntax-parse expected:forall-type type)
+       (define expected-type (attribute expected.parameter-type))
+       (unless (cur-type-check? arg expected-type)
+         (raise-syntax-error
+          '#%app
+          (format
+           "Expected ~a to have type ~a, but inferred type ~a."
+           (syntax->datum arg)
+           (syntax->datum expected-type)
+           (syntax->datum inferred-type))
+          syn
+          arg))
+       (cur-normalize
+        #`(real-app
+           (real-lambda (expected.parameter-name : expected.parameter-type)
+            expected.body)
+          #,arg)))
+     (for/fold ([app (quasisyntax/loc syn
+                       (real-app f #,(first (attribute e))))])
+               ([arg (rest (attribute e))])
+       (quasisyntax/loc arg
+         (real-app #,app #,arg)))]))
 
 (define-syntax define-type
   (syntax-rules ()
@@ -231,6 +288,11 @@
 (begin-for-syntax
   (define ih-dict (make-hash))
 
+  (define (maybe-cur-apply f ls)
+    (if (null? ls)
+        f
+        #`(#,f #,@ls)))
+
   (define-syntax-class curried-application
     (pattern
      ((~literal real-app) name:id e:expr)
@@ -252,6 +314,10 @@
      #:attr inductive-name
      #'x
      #:attr indices
+     '()
+     #:attr names
+     '()
+     #:attr types
      '()
      #:attr decls
      (list #`(#,(gensym 'anon-discriminant) : x))
@@ -294,14 +360,20 @@
        ;; NB: unhygenic
        ;; Normalize at compile-time, for efficiency at run-time
        (cur-normalize
-        #`((lambda
-              ;; TODO: utteraly fragile; relines on the indices being referred to by name, not computed
-              ;; works only for simple type familes and simply matches on them
-             #,@(for/list ([name (attribute indices)]
-                           [type (attribute types)])
-                 #`(#,name : #,type))
-            #,return)
-          #,@(attribute names))))))
+        #:local-env
+        (for/fold ([d (make-immutable-hash)])
+                  ([name (attribute names)]
+                   [type (attribute types)])
+          (dict-set d name type))
+        (maybe-cur-apply
+         #`(lambda
+               ;; TODO: utteraly fragile; relines on the indices being referred to by name, not computed
+               ;; works only for simple type familes and simply matches on them
+               #,@(for/list ([name (attribute indices)]
+                             [type (attribute types)])
+                    #`(#,name : #,type))
+             #,return)
+         (attribute names))))))
 
   ;; todo: Support just names, inferring types
   (define-syntax-class match-declaration
@@ -344,19 +416,26 @@
      #:attr decls
      ;; Infer the inductive hypotheses, add them to the pattern decls
      ;; and update the dictionarty for the recur form
-     (for/fold ([decls (attribute d.decls)])
-               ([type-syn (attribute d.types)]
-                [name-syn (attribute d.names)]
-                [src (attribute d.decls)]
-                ;; NB: Non-hygenic
-                ;; BUG TODO: This fails when D is an inductive applied to arguments...
-                #:when (cur-equal? type-syn D))
-       (define/syntax-parse type:inductive-type-declaration (cur-expand type-syn))
-       (let ([ih-name (quasisyntax/loc src #,(format-id name-syn "ih-~a" name-syn))]
-             ;; Normalize at compile-time, for efficiency at run-time
-             [ih-type (cur-normalize #`(#,motive #,@(attribute type.indices) #,name-syn))])
-         (dict-set! ih-dict (syntax->datum name-syn) ih-name)
-         (append decls (list #`(#,ih-name : #,ih-type)))))))
+     (call-with-values
+      (thunk
+       (for/fold ([decls (attribute d.decls)]
+                  [local-env (attribute d.local-env)])
+                 ([type-syn (attribute d.types)]
+                  [name-syn (attribute d.names)]
+                  [src (attribute d.decls)]
+                  ;; NB: Non-hygenic
+                  ;; BUG TODO: This fails when D is an inductive applied to arguments...
+                  #:when (cur-equal? type-syn D))
+         (define/syntax-parse type:inductive-type-declaration (cur-expand type-syn))
+         (let ([ih-name (quasisyntax/loc src #,(format-id name-syn "ih-~a" name-syn))]
+               ;; Normalize at compile-time, for efficiency at run-time
+               [ih-type (cur-normalize #:local-env local-env
+                                       (maybe-cur-apply motive
+                                                        (append (attribute type.indices) (list name-syn))))])
+           (dict-set! ih-dict (syntax->datum name-syn) ih-name)
+           (values (append decls (list #`(#,ih-name : #,ih-type)))
+                   (dict-set local-env ih-name ih-type)))))
+      (lambda (x y) x))))
 
   (define-syntax-class (match-preclause maybe-return-type)
     (pattern
