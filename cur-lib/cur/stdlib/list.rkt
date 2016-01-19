@@ -8,7 +8,8 @@
  List
  nil
  cons
- list-ref)
+ list-ref
+ length)
 
 (data List : (-> (A : Type) Type)
   (nil : (-> (A : Type) (List A)))
@@ -23,3 +24,10 @@
          [z (some A a)]
          [(s (n-1 : Nat))
           ((recur rest) n-1)]))]))
+
+(define (length (A : Type) (ls : (List A)))
+  (match ls
+    [(nil (A : Type))
+     z]
+    [(cons (A : Type) (a : A) (rest : (List A)))
+     (s (recur rest))]))
