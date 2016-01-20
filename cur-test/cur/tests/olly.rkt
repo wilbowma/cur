@@ -6,6 +6,9 @@
 (require
  rackunit
  cur/stdlib/sugar
+ cur/stdlib/nat
+ cur/stdlib/bool
+ cur/stdlib/prop
  cur/olly)
 
 (begin-for-syntax

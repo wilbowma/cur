@@ -63,6 +63,8 @@
     local-data-scope
     with-env
     call-with-env
+    raise-curnel-type-error
+    raise-curnel-syntax-error
     cur->datum
     cur-expand
     cur-type-infer
@@ -70,6 +72,32 @@
     cur-normalize
     cur-step
     cur-equal?))
+
+;; Exceptions
+(begin-for-syntax
+  (provide
+   (struct-out exn:cur)
+   (struct-out exn:cur:curnel)
+   (struct-out exn:cur:curnel:type)
+   (struct-out exn:cur:curnel:syntax))
+  (define-struct (exn:cur exn) () #:transparent)
+  (define-struct (exn:cur:curnel exn:cur) () #:transparent)
+  (define-struct (exn:cur:curnel:type exn:cur) () #:transparent)
+  (define-struct (exn:cur:curnel:syntax exn:cur) () #:transparent)
+
+  (define (raise-curnel-type-error name v . other)
+    (raise
+     (make-exn:cur:curnel:type
+      (for/fold ([msg (format "~a: Cur type error;~n  Typing judgment did not hold in Curnel~n    term: ~a" name v)])
+                ([t other])
+        (format "~a~n   additional context: ~a" msg t))
+      (current-continuation-marks))))
+
+  (define (raise-curnel-syntax-error name v [more ""])
+    (raise
+     (make-exn:cur:curnel:syntax
+      (format "~a: Cur syntax error;~n  Term is invalid Curnel syntax;~a~n    term: ~a" name more v)
+      (current-continuation-marks)))))
 
 (begin-for-syntax
   ;; TODO: Gamma and Delta seem to get reset inside a module+
@@ -143,8 +171,6 @@
   (define (cur->datum syn)
     ;; Main loop; avoid type
     (define reified-term
-      ;; TODO: This results in less good error messages. Add an
-      ;; algorithm to find the smallest ill-typed term.
       (parameterize ([inner-expand? #t])
         (let cur->datum ([syn syn])
           (syntax-parse (core-expand syn)
@@ -173,7 +199,7 @@
              (term (,(cur->datum #'e1) ,(cur->datum #'e2)))]))))
     (unless (or (inner-expand?) (type-infer/term reified-term))
       #;(printf "Delta: ~s~nGamma: ~s~n" (delta) (gamma))
-      (raise-syntax-error 'cur "term is ill-typed:" reified-term syn))
+      (raise-curnel-type-error 'cur->datum reified-term syn))
     reified-term)
 
   (define (datum->cur syn t)
@@ -259,13 +285,13 @@
 
   (define (cur-type-infer syn #:local-env [env '()])
     (with-env env
-      (with-handlers ([values (lambda _ #f)])
+      (with-handlers ([exn:cur:curnel:type? (lambda _ #f)])
         (let ([t (type-infer/term (eval-cur syn))])
           (and t (datum->cur syn t))))))
 
   (define (cur-type-check? syn type #:local-env [env '()])
     (with-env env
-      (with-handlers ([values (lambda _ #f)])
+      (with-handlers ([exn:cur:curnel:type? (lambda _ #f)])
         (type-check/term? (eval-cur syn) (eval-cur type)))))
 
   ;; Takes a Cur term syn and an arbitrary number of identifiers ls. The cur term is

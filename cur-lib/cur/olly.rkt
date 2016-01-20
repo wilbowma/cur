@@ -81,7 +81,7 @@
                          (with-env (map cons (attribute x) (attribute t))
                            (cur->coq #'body))))
                 "")
-                ]
+              ]
              [(real-lambda ~! (x:id (~datum :) t) body:expr)
               (format "(fun ~a : ~a => ~a)" (cur->coq #'x) (cur->coq #'t)
                       (with-env (list (cons (attribute x) (attribute t)))
@@ -100,13 +100,13 @@
                           (thunk
                            (with-env (list (cons #'n #'t))
                              (for/fold ([strs ""]
-                                      [local-env `((,#'n . ,#'t))])
-                                     ([x (attribute x*)]
-                                      [t (attribute t*)])
-                             (values
-                              (format "~a~n| ~a : ~a" strs (cur->coq x)
-                                      (cur->coq t))
-                              (dict-set local-env x t)))))
+                                        [local-env `((,#'n . ,#'t))])
+                                       ([x (attribute x*)]
+                                        [t (attribute t*)])
+                               (values
+                                (format "~a~n| ~a : ~a" strs (cur->coq x)
+                                        (cur->coq t))
+                                (dict-set local-env x t)))))
                           (lambda (x y) x))))
                 (declare-data! #'n #'t (map cons (attribute x*) (attribute t*)))
                 "")]
@@ -222,6 +222,7 @@
               lab:rule-name
               (~var t (conclusion name indices (attribute lab))))
              #:with constr-decl
+             ;; TODO: quasisyntax/loc
              #'(lab : (-> h ... (t.name t.arg ...)))
              ;; TODO: convert meta-vars such as e1 to e_1
              #:attr latex
