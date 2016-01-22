@@ -14,10 +14,10 @@
  | These typeclasses are kind of broken. There are no typeclass constraints so....
  |#
 (begin-for-syntax
-  #| NB:
-   | Need this thing to be global w.r.t. the runtime, i.e., exist once
-   | and for all no matter how many things import typeclass, i.e., not
-   | local to this module.
+  #| TODO:
+   | A compile-time hash table is stupid. Use something akin to struct
+   | type properties to associate method with the identifier for the type,
+   | perhaps syntax properties.
    |#
   (define typeclasses (make-hash)))
 (define-syntax (typeclass syn)
