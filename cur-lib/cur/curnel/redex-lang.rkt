@@ -47,6 +47,7 @@
     [dep-void void])
   begin
   Type
+  assume
   ;; DYI syntax extension
   define-syntax
   begin-for-syntax
@@ -482,4 +483,16 @@
        ;; compile time in redex, and at runtime in racket.
        (extend-Γ/term! gamma id (type-infer/term e))
        (add-binding/term! id e)
+       #'(void))]))
+
+(define-syntax (assume syn)
+  (syntax-parse syn
+    [(_ id:id t)
+     (let ()
+       (printf "WARNING: Assuming ~a of type ~a.~n"
+               (syntax->datum #'id)
+               (syntax->datum #'t))
+       ;; NB: Have to roll our own namespace rather than use built-in define so id is resolved at
+       ;; compile time in redex, and at runtime in racket.
+       (extend-Γ/syn! gamma #'id #'t)
        #'(void))]))
