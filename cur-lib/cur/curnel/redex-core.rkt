@@ -26,11 +26,11 @@
 (define-language ttL
   (i j k  ::= natural)
   (U ::= (Unv i))
+  (D x c ::= variable-not-otherwise-mentioned)
   (t e ::= U (λ (x : t) e) x (Π (x : t) t) (e e) (elim D U))
   ;; Δ (signature). (inductive-name : type ((constructor : type) ...))
   ;; NB: Δ is a map from a name x to a pair of it's type and a map of constructor names to their types
   (Δ   ::= ∅ (Δ (D : t ((c : t) ...))))
-  (D x c ::= variable-not-otherwise-mentioned)
   #:binding-forms
   (λ (x : t) e #:refers-to x)
   (Π (x : t_0) t_1 #:refers-to x))
@@ -44,6 +44,8 @@
 ;;; ------------------------------------------------------------------------
 ;;; Universe typing
 
+;; Universe types
+;; aka Axioms A of a PTS
 (define-judgment-form ttL
   #:mode (unv-type I O)
   #:contract (unv-type U U)
@@ -53,6 +55,7 @@
    (unv-type (Unv i_0) (Unv i_1))])
 
 ;; Universe predicativity rules. Impredicative in (Unv 0)
+;; aka Rules R of a PTS
 (define-judgment-form ttL
   #:mode (unv-pred I I O)
   #:contract (unv-pred U U U)
@@ -189,8 +192,8 @@
 ;; TODO: Test
 #| TODO:
  | This essentially eta-expands t at the type-level. Why is this necessary? Shouldn't it be true
- | that (equivalent t (Ξ-apply Ξ t))?
- | Maybe not. t is a lambda whose type is equivalent to (Ξ-apply Ξ t)? Yes.
+ | that (convert t (Ξ-apply Ξ t))?
+ | Maybe not. t is a lambda whose type is convert to (Ξ-apply Ξ t)? Yes.
  |#
 (define-metafunction tt-ctxtL
   Ξ-apply : Ξ t -> t
@@ -550,16 +553,6 @@
    (where (_ e_r)
           ,(car (apply-reduction-relation* tt--> (term (Δ e)) #:cache-all? #t)))])
 
-(define-judgment-form tt-redL
-  #:mode (equivalent I I I)
-  #:contract (equivalent Δ t t)
-
-  [(where t_2 (reduce Δ t_0))
-   (where t_3 (reduce Δ t_1))
-   (side-condition (α-equivalent? t_2 t_3))
-   ----------------- "≡-αβ"
-   (equivalent Δ t_0 t_1)])
-
 ;;; ------------------------------------------------------------------------
 ;;; Type checking and synthesis
 
@@ -568,6 +561,24 @@
   ;; NB: Also a bijection between Γ and a list of maps from x to t.
   (Γ   ::= ∅ (Γ x : t)))
 (define Γ? (redex-match? tt-typingL Γ))
+
+(define-judgment-form tt-typingL
+  #:mode (convert I I I I)
+  #:contract (convert Δ Γ t t)
+
+  [(side-condition ,(<= (term i_0) (term i_1)))
+   ----------------- "≼-Unv"
+   (convert Δ Γ (Unv i_0) (Unv i_1))]
+
+  [(where t_2 (reduce Δ t_0))
+   (where t_3 (reduce Δ t_1))
+   (side-condition (α-equivalent? t_2 t_3))
+   ----------------- "≼-αβ"
+   (convert Δ Γ t_0 t_1)]
+
+  [(convert Δ (Γ x : t_0) t_1 t_2)
+   ----------------- "≼-Π"
+   (convert Δ Γ (Π (x : t_0) t_1) (Π (x : t_0) t_2))])
 
 (define-metafunction tt-typingL
   Γ-union : Γ Γ -> Γ
@@ -697,6 +708,6 @@
   #:contract (type-check Δ Γ e t)
 
   [(type-infer Δ Γ e t_0)
-   (equivalent Δ t t_0)
+   (convert Δ Γ t t_0)
    ----------------- "DTR-Check"
    (type-check Δ Γ e t)])

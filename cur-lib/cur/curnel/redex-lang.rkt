@@ -236,7 +236,7 @@
 
   ;; Are these two terms equivalent in type-systems internal equational reasoning?
   (define (cur-equal? e1 e2)
-    (and (judgment-holds (equivalent ,(delta) ,(eval-cur e1) ,(eval-cur e2))) #t))
+    (and (judgment-holds (convert ,(delta) ,(gamma) ,(eval-cur e1) ,(eval-cur e2))) #t))
 
   ;; TODO: Document local-env
   (define (cur-type-infer syn #:local-env [env '()])

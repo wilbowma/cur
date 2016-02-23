@@ -244,7 +244,7 @@
      zero)))))
 
 (define-syntax-rule (check-equivalent e1 e2)
-  (check-holds (equivalent ∅ e1 e2)))
+  (check-holds (convert ∅ ∅ e1 e2)))
 (check-equivalent
  (λ (x : Type) x) (λ (y : Type) y))
 (check-equivalent
@@ -507,7 +507,7 @@
                                            ((and B) A))))
              (in-hole Ξ (Π (x : (in-hole Θ and)) U))))
 (check-holds
- (equivalent ,Δ4
+ (convert ,Δ4 ∅
              (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Π (x : ((and A) B)) (Unv 0))))
              (Π (P : (Unv 0)) (Π (Q : (Unv 0)) (Π (x : ((and P) Q)) (Unv 0))))))
 (check-holds
