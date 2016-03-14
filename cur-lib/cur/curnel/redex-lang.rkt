@@ -60,10 +60,10 @@
    (all-from-out racket/syntax)
     cur->datum
     cur-expand
-    type-infer/syn
-    type-check/syn?
-    normalize/syn
-    step/syn
+    cur-type-infer
+    cur-type-check?
+    cur-normalize
+    cur-step
     cur-equal?))
 
 (begin-for-syntax
@@ -224,12 +224,12 @@
 
   ;; Reflection tools
 
-  (define (normalize/syn syn)
+  (define (cur-normalize syn)
     (datum->cur
       syn
       (eval-cur syn)))
 
-  (define (step/syn syn)
+  (define (cur-step syn)
     (datum->cur
       syn
       (term (step ,(delta) ,(subst-bindings (cur->datum syn))))))
@@ -239,14 +239,14 @@
     (and (judgment-holds (equivalent ,(delta) ,(eval-cur e1) ,(eval-cur e2))) #t))
 
   ;; TODO: Document local-env
-  (define (type-infer/syn syn #:local-env [env '()])
+  (define (cur-type-infer syn #:local-env [env '()])
     (parameterize ([gamma (for/fold ([gamma (gamma)])
                                     ([(x t) (in-dict env)])
                             (extend-Γ/syn (thunk gamma) x t))])
       (let ([t (type-infer/term (eval-cur syn))])
         (and t (datum->cur syn t)))))
 
-  (define (type-check/syn? syn type)
+  (define (cur-type-check? syn type)
     (type-check/term? (eval-cur syn) (eval-cur type)))
 
   ;; Takes a Cur term syn and an arbitrary number of identifiers ls. The cur term is

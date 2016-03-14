@@ -162,7 +162,7 @@
      #:attr types
      ;; TODO: Detect failure, report error/suggestions
      (for/list ([e (attribute indices)])
-       (or (type-infer/syn e)
+       (or (cur-type-infer e)
            (raise-syntax-error
             'match
             (format
@@ -183,7 +183,7 @@
      (lambda (return)
        ;; NB: unhygenic
        ;; Normalize at compile-time, for efficiency at run-time
-       (normalize/syn
+       (cur-normalize
         #`((lambda
               ;; TODO: utteraly fragile; relines on the indices being referred to by name, not computed
               ;; works only for simple type familes and simply matches on them
@@ -244,7 +244,7 @@
        (define/syntax-parse type:inductive-type-declaration (cur-expand type-syn))
        (let ([ih-name (quasisyntax/loc src #,(format-id name-syn "ih-~a" name-syn))]
              ;; Normalize at compile-time, for efficiency at run-time
-             [ih-type (normalize/syn #`(#,motive #,@(attribute type.indices) #,name-syn))])
+             [ih-type (cur-normalize #`(#,motive #,@(attribute type.indices) #,name-syn))])
          (dict-set! ih-dict (syntax->datum name-syn) ih-name)
          (append decls (list #`(#,ih-name : #,ih-type)))))))
 
@@ -256,7 +256,7 @@
      (or maybe-return-type
          ;; Ignore errors when trying to infer this type; other attempt might succeed
          (with-handlers ([values (lambda _ #f)])
-           (type-infer/syn #:local-env (attribute p.local-env) #'b)))))
+           (cur-type-infer #:local-env (attribute p.local-env) #'b)))))
 
   (define-syntax-class (match-clause D motive)
     (pattern
@@ -292,7 +292,7 @@
         (~optional
          (~seq #:in ~! t)
          #:defaults
-         ([t (or (type-infer/syn #'d)
+         ([t (or (cur-type-infer #'d)
                  (raise-syntax-error
                   'match
                   "Could not infer discrimnant's type. Try using #:in to declare it."
@@ -318,7 +318,7 @@
        (elim
         D.inductive-name
         #,(or
-           (type-infer/syn (attribute return-type))
+           (cur-type-infer (attribute return-type))
            (raise-syntax-error
             'match
             "Could not infer type of motive. Sorry, you'll have to use elim."
@@ -337,14 +337,14 @@
       #:attr type (cond
                     [(attribute t)
                      ;; TODO: Code duplication in ::
-                     (unless (type-check/syn? #'e #'t)
+                     (unless (cur-type-check? #'e #'t)
                        (raise-syntax-error
                          'let
                          (format "Term ~a does not have expected type ~a. Inferred type was ~a"
-                                 (cur->datum #'e) (cur->datum #'t) (cur->datum (type-infer/syn #'e)))
+                                 (cur->datum #'e) (cur->datum #'t) (cur->datum (cur-type-infer #'e)))
                          #'e (quasisyntax/loc #'x (x e))))
                      #'t]
-                    [(type-infer/syn #'e)]
+                    [(cur-type-infer #'e)]
                     [else
                       (raise-syntax-error
                         'let
@@ -362,22 +362,22 @@
     [(_ pf t)
      (begin
        ;; TODO: Code duplication in let-clause pattern
-       (unless (type-check/syn? #'pf #'t)
+       (unless (cur-type-check? #'pf #'t)
          (raise-syntax-error
            '::
            (format "Term ~a does not have expected type ~a. Inferred type was ~a"
-                   (cur->datum #'pf) (cur->datum #'t) (cur->datum (type-infer/syn #'pf)))
+                   (cur->datum #'pf) (cur->datum #'t) (cur->datum (cur-type-infer #'pf)))
            syn))
        #'(void))]))
 
 (define-syntax (run syn)
   (syntax-case syn ()
-    [(_ expr) (normalize/syn #'expr)]))
+    [(_ expr) (cur-normalize #'expr)]))
 
 (define-syntax (step syn)
   (syntax-case syn ()
     [(_ expr)
-     (let ([t (step/syn #'expr)])
+     (let ([t (cur-step #'expr)])
        (displayln (cur->datum t))
        t)]))
 
@@ -393,6 +393,6 @@
   (syntax-case syn ()
     [(_ term)
      (begin
-       (printf "\"~a\" has type \"~a\"~n" (syntax->datum #'term) (syntax->datum (type-infer/syn #'term)))
+       (printf "\"~a\" has type \"~a\"~n" (syntax->datum #'term) (syntax->datum (cur-type-infer #'term)))
        ;; Void is undocumented and a hack, but sort of works
        #'(void))]))

@@ -31,8 +31,8 @@
 (define-syntax (conj/i syn)
   (syntax-case syn ()
     [(_ a b)
-     (let ([a-type (type-infer/syn #'a)]
-           [b-type (type-infer/syn #'b)])
+     (let ([a-type (cur-type-infer #'a)]
+           [b-type (cur-type-infer #'b)])
        #`(conj #,a-type #,b-type a b))]))
 
 (define thm:and-is-symmetric

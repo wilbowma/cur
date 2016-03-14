@@ -169,7 +169,7 @@ Check that expression @racket[e] has type @racket[type], causing a type-error if
 }
 
 @defform[(run syn)]{
-Like @racket[normalize/syn], but is a syntactic form to be used in surface syntax.
+Like @racket[cur-normalize], but is a syntactic form to be used in surface syntax.
 Allows a Cur term to be written by computing part of the term from
 another Cur term.
 
@@ -179,7 +179,7 @@ another Cur term.
 }
 
 @defform[(step syn)]{
-Like @racket[run], but uses @racket[step/syn] to evaluate only one step and prints intermediate
+Like @racket[run], but uses @racket[cur-step] to evaluate only one step and prints intermediate
 results before returning the result of evaluation.
 
 @examples[#:eval curnel-eval

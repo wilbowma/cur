@@ -30,52 +30,52 @@ phase 1 in Cur.}
 ]
 }
 
-@defproc[(type-infer/syn [syn syntax?])
+@defproc[(cur-type-infer [syn syntax?])
          (or/c syntax? #f)]{
 Returns the type of the Cur term @racket[syn], or @racket[#f] if no type could be inferred.
 
 @examples[
-(eval:alts (type-infer/syn #'(λ (x : Type) x))
+(eval:alts (cur-type-infer #'(λ (x : Type) x))
            (eval:result @racket[#'(Π (x : (Type 0)) (Type 0))] "" ""))
-(eval:alts (type-infer/syn #'Type)
+(eval:alts (cur-type-infer #'Type)
            (eval:result @racket[#'(Type 1)] "" ""))
 ]
 }
 
-@defproc[(type-check/syn? [syn syntax?])
+@defproc[(cur-type-check? [syn syntax?])
          boolean?]{
 Returns @racket[#t] if the Cur term @racket[syn] is well-typed, or @racket[#f] otherwise.
 
 @examples[
-(eval:alts (type-check/syn? #'(λ (x : Type) x))
+(eval:alts (cur-type-check? #'(λ (x : Type) x))
            (eval:result @racket[#t] "" ""))
-(eval:alts (type-check/syn? #'Type)
+(eval:alts (cur-type-check? #'Type)
            (eval:result @racket[#t] "" ""))
-(eval:alts (type-check/syn? #'x)
+(eval:alts (cur-type-check? #'x)
            (eval:result @racket[#f] "" ""))
 ]
 }
 
-@defproc[(normalize/syn [syn syntax?])
+@defproc[(cur-normalize [syn syntax?])
          syntax?]{
 Runs the Cur term @racket[syn] to a value.
 
 @examples[
-(eval:alts (normalize/syn #'((λ (x : Type) x) Bool))
+(eval:alts (cur-normalize #'((λ (x : Type) x) Bool))
            (eval:result @racket[#'Bool] "" ""))
-(eval:alts (normalize/syn #'(sub1 (s (s z))))
+(eval:alts (cur-normalize #'(sub1 (s (s z))))
            (eval:result @racket[#'(s z)] "" ""))
 ]
 }
 
-@defproc[(step/syn [syn syntax?])
+@defproc[(cur-step [syn syntax?])
          syntax?]{
 Runs the Cur term @racket[syn] for one step.
 
 @examples[
-(eval:alts (step/syn #'((λ (x : Type) x) Bool))
+(eval:alts (cur-step #'((λ (x : Type) x) Bool))
            (eval:result @racket[#'Bool] "" ""))
-(eval:alts (step/syn #'(sub1 (s (s z))))
+(eval:alts (cur-step #'(sub1 (s (s z))))
            (eval:result @racket[#'(((((elim Nat (Type 0))
                                       (λ (x2 : Nat) Nat)) z)
                                     (λ (x2 : Nat) (λ (ih-n2 : Nat) x2)))

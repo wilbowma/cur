@@ -9,5 +9,5 @@
 (define-syntax (some/i syn)
   (syntax-case syn ()
    [(_ a)
-    (let ([a-ty (type-infer/syn #'a)])
+    (let ([a-ty (cur-type-infer #'a)])
       #`(some #,a-ty a))]))

@@ -38,7 +38,7 @@
               #`(define-syntax (#,name syn)
                   (syntax-case syn ()
                     [(_ arg args (... ...))
-                     #`(#,(format-id syn "~a-~a" '#,name (type-infer/syn #'arg))
+                     #`(#,(format-id syn "~a-~a" '#,name (cur-type-infer #'arg))
                         arg
                         args (... ...))]))))]))
 
@@ -57,7 +57,7 @@
      #`(begin
          #,@(for/list ([def (syntax->list #'(defs ...))])
               (let-values ([(name body) (process-def def)])
-                (unless (type-check/syn?
+                (unless (cur-type-check?
                           body
                           #`(#,(dict-ref
                                  (dict-ref typeclasses (syntax->datum #'class))

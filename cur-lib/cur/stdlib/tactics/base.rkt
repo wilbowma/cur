@@ -220,7 +220,7 @@
            [pf (proof-state-proof ps)])
       (unless (proof-state-proof-complete? ps)
         (raise-syntax-error 'qed "Proof contains holes" (pf (current-hole-pretty-symbol))))
-      (unless (type-check/syn? pf t)
+      (unless (cur-type-check? pf t)
         (raise-syntax-error 'qed "Invalid proof" pf t))
       pf)))
 
