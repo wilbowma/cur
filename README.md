@@ -56,6 +56,7 @@ Don't like parenthesis? Use Cur with sweet-expressions:
 ```racket
 #lang sweet-exp cur
 require
+ cur/stdlib/sugar
  cur/stdlib/bool
  cur/stdlib/nat
 
