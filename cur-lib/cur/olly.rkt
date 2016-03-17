@@ -5,7 +5,12 @@
   "stdlib/sugar.rkt"
   "stdlib/nat.rkt"
   ;; TODO: "real-"? More like "curnel-"
-  (only-in "cur.rkt" [#%app real-app] [elim real-elim] [forall real-forall] [lambda real-lambda]))
+  (only-in
+   "cur.rkt"
+   [#%app real-app]
+   [elim real-elim]
+   [Π real-forall]
+   [λ real-lambda]))
 
 (provide
   define-relation

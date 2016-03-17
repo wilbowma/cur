@@ -33,43 +33,44 @@ restricted impredicative universe.
           Type]
 }
 
-@defform*[((lambda (id : type-expr) body-expr)
-           (λ (id : type-expr) body-expr))]{
-Produces a single arity procedure, binding the identifier @racket[id] of type @racket[type-expr] in @racket[body-expr] and in the type of
-@racket[body-expr].
-Both @racket[type-expr] and @racket[body-expr] can contain non-curnel forms, such as macros.
+@defform[(λ (id : type-expr) body-expr)]{
+Produces a single-arity procedure, binding the identifier @racket[id] of type
+@racket[type-expr] in @racket[body-expr] and in the type of @racket[body-expr].
+Both @racket[type-expr] and @racket[body-expr] can contain non-curnel forms,
+such as macros.
 
-Currently, Cur will return the underlying representation of a procedure when a @racket[lambda] is
-evaluated at the top-level. Do not rely on this representation.
-
-@examples[#:eval curnel-eval
-          (lambda (x : Type) x)]
+Currently, Cur will return the underlying representation of a procedure when a
+@racket[λ] is evaluated at the top-level.
+Do not rely on this representation.
 
 @examples[#:eval curnel-eval
-          (λ (x : Type) (lambda (y : x) y))]
+          (λ (x : Type) x)]
+
+@examples[#:eval curnel-eval
+          (λ (x : Type) (λ (y : x) y))]
 
 
 @defform[(#%app procedure argument)]{
-Applies the single arity @racket[procedure] to @racket[argument].
+Applies the single-arity @racket[procedure] to @racket[argument].
 }
 
 @examples[#:eval curnel-eval
-          ((lambda (x : (Type 1)) x) Type)]
+          ((λ (x : (Type 1)) x) Type)]
 
 @examples[#:eval curnel-eval
-          (#%app (lambda (x : (Type 1)) x) Type)]
+          (#%app (λ (x : (Type 1)) x) Type)]
 }
 
-@defform*[((forall (id : type-expr) body-expr)
-           (∀ (id : type-expr) body-expr))]{
-Produces a dependent function type, binding the identifier @racket[id] of type @racket[type-expr] in @racket[body-expr].
+@defform[(Π (id : type-expr) body-expr)]{
+Produces a dependent function type, binding the identifier @racket[id] of type
+@racket[type-expr] in @racket[body-expr].
 
 
 @examples[#:eval curnel-eval
-          (forall (x : Type) Type)]
+          (Π (x : Type) Type)]
 
 @examples[#:eval curnel-eval
-          (lambda (x : (forall (x : (Type 1)) Type))
+          (λ (x : (Π (x : (Type 1)) Type))
             (x Type))]
 }
 
@@ -83,10 +84,10 @@ For instance, Cur does not currently perform strict positivity checking.
           (data Bool : Type
                 (true : Bool)
                 (false : Bool))
-          ((lambda (x : Bool) x) true)
+          ((λ (x : Bool) x) true)
           (data False : Type)
-          (data And : (forall (A : Type) (forall (B : Type) Type))
-            (conj : (forall (A : Type) (forall (B : Type) (forall (a : A) (forall (b : B) ((And A) B)))))))
+          (data And : (Π (A : Type) (Π (B : Type) Type))
+            (conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) ((And A) B)))))))
           ((((conj Bool) Bool) true) false)]
 }
 
@@ -103,11 +104,11 @@ The following example runs @racket[(sub1 (s z))].
 @examples[#:eval curnel-eval
           (data Nat : Type
             (z : Nat)
-            (s : (forall (n : Nat) Nat)))
+            (s : (Π (n : Nat) Nat)))
           (((((elim Nat Type)
-              (lambda (x : Nat) Nat))
+              (λ (x : Nat) Nat))
              z)
-            (lambda (n : Nat) (lambda (IH : Nat) n)))
+            (λ (n : Nat) (λ (IH : Nat) n)))
            (s z))]
 }
 
@@ -117,11 +118,11 @@ Binds @racket[id] to the result of @racket[expr].
 @examples[#:eval curnel-eval
           (data Nat : Type
             (z : Nat)
-            (s : (forall (n : Nat) Nat)))
-          (define sub1 (lambda (n : Nat)
-                         (((((elim Nat Type) (lambda (x : Nat) Nat))
+            (s : (Π (n : Nat) Nat)))
+          (define sub1 (λ (n : Nat)
+                         (((((elim Nat Type) (λ (x : Nat) Nat))
                            z)
-                          (lambda (n : Nat) (lambda (IH : Nat) n))) n)))
+                          (λ (n : Nat) (λ (IH : Nat) n))) n)))
           (sub1 (s (s z)))
           (sub1 (s z))
           (sub1 z)]

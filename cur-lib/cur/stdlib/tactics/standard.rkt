@@ -22,7 +22,7 @@
     [(forall (x:id : P:expr) body:expr)
      (let* ([ps (proof-state-extend-env ps name #'P)]
             [ps (proof-state-current-goal-set ps #'body)]
-            [ps (proof-state-fill-proof-hole ps (lambda (x) #`(lambda (#,name : P) #,x)))])
+            [ps (proof-state-fill-proof-hole ps (lambda (x) #`(λ (#,name : P) #,x)))])
        ps)]
     [_ (error 'intro "Can only intro when current goal is of the form (∀ (x : P) body)")]))
 

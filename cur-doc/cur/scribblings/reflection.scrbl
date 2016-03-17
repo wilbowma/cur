@@ -25,8 +25,8 @@ phase 1 in Cur.}
 
 @examples[
 (eval:alts (define-syntax-rule (computed-type _) Type) (void))
-(eval:alts (cur-expand #'(lambda (x : (computed-type bla)) x))
-           (eval:result @racket[#'(lambda (x : Type) x)] "" ""))
+(eval:alts (cur-expand #'(λ (x : (computed-type bla)) x))
+           (eval:result @racket[#'(λ (x : Type) x)] "" ""))
 ]
 }
 
@@ -35,8 +35,8 @@ phase 1 in Cur.}
 Returns the type of the Cur term @racket[syn], or @racket[#f] if no type could be inferred.
 
 @examples[
-(eval:alts (type-infer/syn #'(lambda (x : Type) x))
-           (eval:result @racket[#'(forall (x : (Type 0)) (Type 0))] "" ""))
+(eval:alts (type-infer/syn #'(λ (x : Type) x))
+           (eval:result @racket[#'(Π (x : (Type 0)) (Type 0))] "" ""))
 (eval:alts (type-infer/syn #'Type)
            (eval:result @racket[#'(Type 1)] "" ""))
 ]
@@ -47,7 +47,7 @@ Returns the type of the Cur term @racket[syn], or @racket[#f] if no type could b
 Returns @racket[#t] if the Cur term @racket[syn] is well-typed, or @racket[#f] otherwise.
 
 @examples[
-(eval:alts (type-check/syn? #'(lambda (x : Type) x))
+(eval:alts (type-check/syn? #'(λ (x : Type) x))
            (eval:result @racket[#t] "" ""))
 (eval:alts (type-check/syn? #'Type)
            (eval:result @racket[#t] "" ""))
@@ -61,7 +61,7 @@ Returns @racket[#t] if the Cur term @racket[syn] is well-typed, or @racket[#f] o
 Runs the Cur term @racket[syn] to a value.
 
 @examples[
-(eval:alts (normalize/syn #'((lambda (x : Type) x) Bool))
+(eval:alts (normalize/syn #'((λ (x : Type) x) Bool))
            (eval:result @racket[#'Bool] "" ""))
 (eval:alts (normalize/syn #'(sub1 (s (s z))))
            (eval:result @racket[#'(s z)] "" ""))
@@ -73,12 +73,12 @@ Runs the Cur term @racket[syn] to a value.
 Runs the Cur term @racket[syn] for one step.
 
 @examples[
-(eval:alts (step/syn #'((lambda (x : Type) x) Bool))
+(eval:alts (step/syn #'((λ (x : Type) x) Bool))
            (eval:result @racket[#'Bool] "" ""))
 (eval:alts (step/syn #'(sub1 (s (s z))))
            (eval:result @racket[#'(((((elim Nat (Type 0))
-                                      (lambda (x2 : Nat) Nat)) z)
-                                    (lambda (x2 : Nat) (lambda (ih-n2 : Nat) x2)))
+                                      (λ (x2 : Nat) Nat)) z)
+                                    (λ (x2 : Nat) (λ (ih-n2 : Nat) x2)))
                                    (s (s z)))] "" ""))
 ]
 }
@@ -90,11 +90,11 @@ equal modulo α and β-equivalence.
 @examples[
 
 
-(eval:alts (cur-equal? #'(lambda (a : Type) a) #'(lambda (b : Type) b))
+(eval:alts (cur-equal? #'(λ (a : Type) a) #'(λ (b : Type) b))
            (eval:result @racket[#t] "" ""))
-(eval:alts (cur-equal? #'((lambda (a : Type) a) Bool) #'Bool)
+(eval:alts (cur-equal? #'((λ (a : Type) a) Bool) #'Bool)
            (eval:result @racket[#t] "" ""))
-(eval:alts (cur-equal? #'(lambda (a : Type) (sub1 (s z))) #'(lambda (a : Type) z))
+(eval:alts (cur-equal? #'(λ (a : Type) (sub1 (s z))) #'(λ (a : Type) z))
            (eval:result @racket[#f] "" ""))
 ]
 }
@@ -106,7 +106,7 @@ Converts @racket[s] to a datum representation of the @tech{curnel form}, after e
 @examples[
 
 
-(eval:alts (cur-?datum #'(lambda (a : Type) a))
+(eval:alts (cur->datum #'(λ (a : Type) a))
            (eval:result @racket['(λ (a : (Unv 0) a))] "" ""))
 ]
 }

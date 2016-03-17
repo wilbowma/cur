@@ -6,6 +6,8 @@
     [-> →]
     [-> forall]
     [-> ∀]
+    [-> Π]
+    [-> Pi]
     [lambda λ])
   #%app
   define
@@ -28,7 +30,8 @@
   (only-in "../cur.rkt"
     [elim real-elim]
     [#%app real-app]
-    [lambda real-lambda]
+    [λ real-lambda]
+    [Π real-Π]
     [define real-define]))
 
 (begin-for-syntax
@@ -51,7 +54,7 @@
     [(_ d:parameter-declaration ...+ result:result-type)
      (foldr (lambda (src name type r)
               (quasisyntax/loc src
-                (forall (#,name : #,type) #,r)))
+                (real-Π (#,name : #,type) #,r)))
             #'result
             (attribute d)
             (attribute d.name)
@@ -97,7 +100,7 @@
 (define-syntax define-type
   (syntax-rules ()
     [(_ (name (a : t) ...) body)
-     (define name (forall (a : t) ... body))]
+     (define name (-> (a : t) ... body))]
     [(_ name type)
      (define name type)]))
 

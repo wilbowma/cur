@@ -30,10 +30,10 @@
     [dep-provide provide]
     [dep-require require]
 
-    [dep-lambda lambda]
+    [dep-lambda λ]
     [dep-app #%app]
 
-    [dep-forall forall]
+    [dep-forall Π]
 
     [dep-inductive data]
 

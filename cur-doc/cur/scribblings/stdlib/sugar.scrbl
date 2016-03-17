@@ -21,12 +21,15 @@ This library defines various syntactic extensions making Cur easier to write tha
 @defform*[((-> decl decl ... type)
            (→ decl decl ... type)
 	   (forall decl decl ... type)
-	   (∀ decl decl ... type))
+	   (∀ decl decl ... type)
+	   (Π decl decl ... type)
+	   (Pi decl decl ... type))
 	  #:grammar
 	  [(decl
 	     type
 	     (code:line (identifier : type)))]]{
 A multi-artiy function type that supports dependent and non-dependent type declarations and automatic currying.
+We provide lots of names for this form, because there are lots of synonyms in the literature.
 
 @examples[#:eval curnel-eval
           (data And : (-> Type Type Type)
