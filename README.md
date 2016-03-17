@@ -54,7 +54,7 @@ Try entering the following in the interaction area:
 
 Don't like parenthesis? Use Cur with sweet-expressions:
 ```racket
-#lang sweet-exp
+#lang sweet-exp cur
 require
  cur/stdlib/bool
  cur/stdlib/nat
