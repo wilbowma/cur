@@ -1,4 +1,4 @@
-#lang s-exp "../cur.rkt"
+#lang s-exp "../main.rkt"
 (provide
   ->
   lambda
@@ -27,7 +27,7 @@
   query-type)
 
 (require
-  (only-in "../cur.rkt"
+  (only-in "../main.rkt"
     [elim real-elim]
     [#%app real-app]
     [λ real-lambda]

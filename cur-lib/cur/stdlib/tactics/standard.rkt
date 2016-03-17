@@ -1,4 +1,4 @@
-#lang s-exp "../../cur.rkt"
+#lang s-exp "../../main.rkt"
 (require
   "base.rkt"
   (for-syntax racket/syntax))

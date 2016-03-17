@@ -1,4 +1,4 @@
-#lang s-exp "../cur.rkt"
+#lang s-exp "../main.rkt"
 (require
   "nat.rkt"
   "bool.rkt"

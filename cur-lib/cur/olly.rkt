@@ -1,4 +1,4 @@
-#lang s-exp "cur.rkt"
+#lang s-exp "main.rkt"
 ;; Olly: The OTT-Like LibrarY
 ;; TODO: Automagically create a parser from bnf grammar
 (require
@@ -6,7 +6,7 @@
   "stdlib/nat.rkt"
   ;; TODO: "real-"? More like "curnel-"
   (only-in
-   "cur.rkt"
+   "main.rkt"
    [#%app real-app]
    [elim real-elim]
    [Π real-forall]

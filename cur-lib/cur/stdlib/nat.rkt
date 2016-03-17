@@ -1,4 +1,4 @@
-#lang s-exp "../cur.rkt"
+#lang s-exp "../main.rkt"
 (require "sugar.rkt" "bool.rkt")
 ;; TODO: override (all-defined-out) to enable exporting all these
 ;; properly.

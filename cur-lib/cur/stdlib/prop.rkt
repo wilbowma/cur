@@ -1,4 +1,4 @@
-#lang s-exp "../cur.rkt"
+#lang s-exp "../main.rkt"
 (require "sugar.rkt")
 ;; TODO: Handle multiple provide forms properly
 ;; TODO: Handle (all-defined-out) properly

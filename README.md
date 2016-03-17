@@ -52,6 +52,22 @@ Try entering the following in the interaction area:
 (sub1 (s (s z)))
 ```
 
+Don't like parenthesis? Use Cur with sweet-expressions:
+```racket
+#lang sweet-exp
+require
+ cur/stdlib/bool
+ cur/stdlib/nat
+
+if true
+   false
+   true
+
+define + plus
+
+{z + s(z)}
+```
+
 See the docs: `raco docs cur`.
 
 Going further
