@@ -410,8 +410,9 @@
 ;;
 ;; TODO: Can these be simplified further?
 (define-syntax (dep-lambda syn)
-  (syntax-case syn (:)
-    [(_ (x : t) e)
+  (syntax-parse syn
+    #:datum-literals (:)
+    [(_ (x:id : t) e)
      (syntax->curnel-syntax
        (quasisyntax/loc syn (λ (x : t) e)))]))
 
@@ -422,28 +423,30 @@
        (quasisyntax/loc syn (#%app e1 e2)))]))
 
 (define-syntax (dep-forall syn)
-  (syntax-case syn (:)
-    [(_ (x : t) e)
+  (syntax-parse syn
+    #:datum-literals (:)
+    [(_ (x:id : t) e)
      (syntax->curnel-syntax
        (quasisyntax/loc syn (Π (x : t) e)))]))
 
 (define-syntax (Type syn)
-  (syntax-case syn ()
-    [(_ i)
+  (syntax-parse syn
+    [(_ i:nat)
      (syntax->curnel-syntax
        (quasisyntax/loc syn (Unv i)))]
     [_ (quasisyntax/loc syn (Type 0))]))
 
 (define-syntax (dep-inductive syn)
-  (syntax-case syn (:)
-    [(_ i : ti (x1 : t1) ...)
+  (syntax-parse syn
+    #:datum-literals (:)
+    [(_ i:id : ti (x1:id : t1) ...)
      (begin
        (extend-Δ/syn! delta #'i #'ti #'((x1 : t1) ...))
        #'(void))]))
 
 (define-syntax (dep-elim syn)
-  (syntax-case syn ()
-    [(_ D T)
+  (syntax-parse syn
+    [(_ D:id T)
      (syntax->curnel-syntax
        (quasisyntax/loc syn (elim D T)))]))
 
