@@ -45,6 +45,10 @@ Try it out: open up DrRacket and put the following in the definition area:
 (if true
     false
     true)
+
+(: + (-> Nat Nat Nat))
+(define + plus)
+(+ z (s z))
 ```
 
 Try entering the following in the interaction area:

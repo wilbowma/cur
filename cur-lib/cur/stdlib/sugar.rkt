@@ -11,6 +11,7 @@
     [lambda λ])
   #%app
   define
+  :
   elim
   define-type
   match
@@ -104,9 +105,57 @@
     [(_ name type)
      (define name type)]))
 
+;; Cooperates with define to allow Haskell-esque type annotations
+#| TODO NB:
+ | This method of cooperating macros is sort of a terrible
+ | hack. Instead, need principled way of adding/retrieving information
+ | to/from current module. E.g. perhaps provide extensions an interface to
+ | module's term environment and inductive signature. Then, :: could add
+ | new "id : type" to environment, and define could extract type and use.
+ |#
+(begin-for-syntax
+  (define annotation-dict (make-hash))
+  (define (annotation->types type-syn)
+    (let loop ([ls '()]
+               [syn type-syn])
+      (syntax-parse (cur-expand syn)
+        #:datum-literals (:)
+        [(real-Π (x:id : type) body)
+         (loop (cons #'type ls) #'body)]
+        [_ (reverse ls)]))))
+
+(define-syntax (: syn)
+  (syntax-parse syn
+    [(_ name:id type:expr)
+     ;; NB: Unhygenic; need to reuse Racket's identifiers, and make this type annotation a syntax property
+     (syntax-parse (cur-expand #'type)
+      #:datum-literals (:)
+      [(real-Π (x:id : type) body) (void)]
+      [_
+       (raise-syntax-error
+        ':
+        "Can only declare annotations for functions, but not a function type"
+        syn)])
+     (dict-set! annotation-dict (syntax->datum #'name) (annotation->types #'type))
+     #'(void)]))
+
 ;; TODO: Allow inferring types as in above TODOs for lambda, forall
 (define-syntax (define syn)
-  (syntax-case syn ()
+  (syntax-parse syn
+    #:datum-literals (:)
+    [(define (name:id x:id ...) body)
+     (cond
+       [(dict-ref annotation-dict (syntax->datum #'name)) =>
+        (lambda (anns)
+          (quasisyntax/loc syn
+            (real-define name (lambda #,@(for/list ([x (syntax->list #'(x ...))]
+                                                    [type anns])
+                                           #`(#,x : #,type)) body))))]
+       [else
+        (raise-syntax-error
+         'define
+         "Cannot omit type annotations unless you have declared them with (: name type) form first."
+         syn)])]
     [(define (name (x : t) ...) body)
      (quasisyntax/loc syn
        (real-define name (lambda (x : t) ... body)))]
@@ -355,8 +404,8 @@
     [(let (c:let-clause ...) body)
      #'((lambda (c.id : c.type) ... body) c.e ...)]))
 
-;; Normally type checking will only happen if a term is actually used. This forces a term to be
-;; checked against a particular type.
+;; Normally type checking will only happen if a term is actually used/appears at top-level.
+;; This forces a term to be checked against a particular type.
 (define-syntax (:: syn)
   (syntax-case syn ()
     [(_ pf t)

@@ -62,10 +62,24 @@ Defines multi-arity procedure application via automatic currying.
           (conj Bool Bool true false)]
 }
 
+@defform[(: name type)]{
+Declare that the @emph{function} which will be defined as @racket[name] has type @racket[type].
+Must precede the definition of @racket[name].
+@racket[type] must expand to a function type of the form @racket[(Π (x : t1) t2)]
+When used, this form allows omitting the annotations on arguments in the definition @racket[name]
+}
+
 @defform*[((define name body)
-           (define (name (x : t) ...) body))]{
+           (define (name x ...) body)
+	   (define (name (x : t) ...) body))]{
 Like the @racket[define] provided by @racketmodname[cur], but supports
 defining curried functions via @racket[lambda].
+The second form, @racket[(define (name x ...) body)], can only be used when
+a @racket[(: name type)] form appears earlier in the module.
+
+@examples[#:eval curnel-eval
+          (: id (forall (A : Type) (a : A) A))
+	  (define (id A a) a)]
 }
 
 @defform[(elim type motive-result-type e ...)]{
