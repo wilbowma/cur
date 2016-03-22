@@ -402,8 +402,8 @@
   ;; determining whether or not it is partially applied cannot be done with the grammar alone.
   (v   ::= x U (Π (x : t) t) (λ (x : t) t) (elim x U) (in-hole Θv x) (in-hole Θv (elim x U)))
   (Θv  ::= hole (Θv v))
-  ;; call-by-value, plus reduce under Π (helps with typing checking)
-  (E   ::= hole (E e) (v E) (Π (x : v) E) (Π (x : E) e)))
+  ;; call-by-value
+  (E   ::= hole (E e) (v E)))
 
 (define Θv? (redex-match? tt-redL Θv))
 (define E? (redex-match? tt-redL E))
@@ -570,15 +570,15 @@
    ----------------- "≼-Unv"
    (convert Δ Γ (Unv i_0) (Unv i_1))]
 
-  [(where t_2 (reduce Δ t_0))
-   (where t_3 (reduce Δ t_1))
-   (side-condition (α-equivalent? t_2 t_3))
+  [(where (t_2 t_2) ((reduce Δ t_0) (reduce Δ t_1)))
    ----------------- "≼-αβ"
    (convert Δ Γ t_0 t_1)]
 
-  [(convert Δ (Γ x : t_0) t_1 t_2)
+  [(where (t_a t_a) ((reduce Δ t_0) (reduce Δ t_1)))
+   (convert Δ (Γ x_0 : t_0) e_0 (subst e_1 x_1 x_0))
    ----------------- "≼-Π"
-   (convert Δ Γ (Π (x : t_0) t_1) (Π (x : t_0) t_2))])
+   (convert Δ Γ (Π (x_0 : t_0) e_0)
+                (Π (x_1 : t_1) e_1))])
 
 (define-metafunction tt-typingL
   Γ-union : Γ Γ -> Γ
