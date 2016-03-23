@@ -32,11 +32,11 @@
  (:: (lambda (A : Type) (n : Nat) (none A)) (forall (A : Type) (-> Nat (Maybe A)))))
 (check-equal?
  (void)
- (:: (elim List Type (lambda (A : Type) (ls : (List A)) Nat)
-          (lambda (A : Type) z)
-          (lambda (A : Type) (a : A) (ls : (List A)) (ih : Nat)
-                   z)
-          Bool
+ (:: (elim List (lambda (A : Type) (ls : (List A)) Nat)
+           (Bool)
+          ((lambda (A : Type) z)
+           (lambda (A : Type) (a : A) (ls : (List A)) (ih : Nat)
+                   z))
           (nil Bool))
     Nat))
 

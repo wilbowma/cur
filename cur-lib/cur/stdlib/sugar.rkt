@@ -12,7 +12,6 @@
   #%app
   define
   :
-  elim
   define-type
   match
   recur
@@ -29,7 +28,6 @@
 
 (require
   (only-in "../main.rkt"
-    [elim real-elim]
     [#%app real-app]
     [λ real-lambda]
     [Π real-Π]
@@ -163,8 +161,67 @@
      (quasisyntax/loc syn
        (real-define id body))]))
 
-(define-syntax-rule (elim t1 t2 e ...)
-  ((real-elim t1 t2) e ...))
+#|
+(begin-for-syntax
+  (define (type->telescope syn)
+    (syntax-parse (cur-expand syn)
+      #:literals (real-Π)
+      #:datum-literals (:)
+      [(real-Π (x:id : t) body)
+       (cons #'(x : t) (type->telescope #'body))]
+      [_ '()]))
+
+  (define (type->body syn)
+    (syntax-parse syn
+      #:literals (real-Π)
+      #:datum-literals (:)
+      [(real-Π (x:id : t) body)
+       (type->body #'body)]
+      [e #'e]))
+
+  (define (constructor-indices D syn)
+    (let loop ([syn syn]
+               [args '()])
+      (syntax-parse (cur-expand syn)
+        #:literals (real-app)
+        [D:id args]
+        [(real-app e1 e2)
+         (loop #'e1 (cons #'e2 args))])))
+
+  (define (inductive-index-telescope D)
+    (type->telescope (cur-type-infer D)))
+
+  (define (inductive-method-telescope D motive)
+    (for/list ([syn (cur-constructor-map D)])
+      (with-syntax ([(c : t) syn]
+                    [name (gensym (format-symbol "~a-~a" #'c 'method))]
+                    [((arg : arg-type) ...) (type->telescope #'t)]
+                    [((rarg : rarg-type) ...) (constructor-recursive-args D #'((arg : arg-type) ...))]
+                    [((ih : ih-type) ...) (constructor-inductive-hypotheses #'((rarg : rarg-type) ...) motive)]
+                    [(iarg ...) (constructor-indices D (type->body #'t))]
+                    )
+        #`(name : (forall (arg : arg-type) ...
+                          (ih : ih-type) ...
+                          (motive iarg ...)))))))
+
+(define-syntax (elim syn)
+  (syntax-parse syn
+    [(elim D:id U e ...)
+     (with-syntax ([((x : t) ...) (inductive-index-telescope #'D)]
+                   [motive (gensym 'motive)]
+                   [y (gensym 'y)]
+                   [disc (gensym 'disc)]
+                   [((method : method-type) ...) (inductive-method-telescope #'D #'motive)])
+       #`((lambda
+            (motive : (forall (x : t) ... (y : (D x ...)) U))
+            (method : ) ...
+            (x : t) ...
+            (disc : (D x ...)) ...
+            (real-elim D motive (x ...) (method ...) disc))
+          e ...)
+       )
+     ]))
+|#
 
 ;; Quite fragie to give a syntactic treatment of pattern matching -> eliminator. Replace with "Elimination with a Motive"
 (begin-for-syntax
@@ -366,15 +423,9 @@
      (quasisyntax/loc syn
        (elim
         D.inductive-name
-        #,(or
-           (cur-type-infer (attribute return-type))
-           (raise-syntax-error
-            'match
-            "Could not infer type of motive. Sorry, you'll have to use elim."
-            syn))
         motive
-        c.method ...
-        #,@(attribute D.indices)
+        #,(attribute D.indices)
+        (c.method ...)
         d))]))
 
 (begin-for-syntax

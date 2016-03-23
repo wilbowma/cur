@@ -95,8 +95,18 @@
                                      (cur->coq #'t))]))))
                "")]
             [(Type i) "Type"]
-            [(real-elim var t)
-             (format "~a_rect" (cur->coq #'var))]
+            [(real-elim var:id motive (i ...) (m ...) d)
+             (format
+              "(~a_rect ~a~a~a ~a)"
+              (cur->coq #'var)
+              (cur->coq #'motive)
+              (for/fold ([strs ""])
+                        ([m (syntax->list #'(m ...))])
+                (format "~a ~a" strs (cur->coq m)))
+              (for/fold ([strs ""])
+                        ([i (syntax->list #'(i ...))])
+                (format "~a ~a" strs (cur->coq i)))
+              (cur->coq #'d))]
             [(real-app e1 e2)
              (format "(~a ~a)" (cur->coq #'e1) (cur->coq #'e2))]
             [e:id (sanitize-id (format "~a" (syntax->datum #'e)))])))

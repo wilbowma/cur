@@ -11,9 +11,7 @@
            (equal? : (forall (a : A) (b : A) Bool)))
 (impl (Eqv Bool)
       (define (equal? (a : Bool) (b : Bool))
-        (if a
-            (if b true false)
-            (if b false true))))
+        (if a b (not b))))
 (impl (Eqv Nat)
       (define equal? nat-equal?))
 (check-equal?
