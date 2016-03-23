@@ -41,11 +41,12 @@
      "\\| T-Bla : \\(forall g : gamma, \\(forall e : term, \\(forall t : type, \\(\\(\\(meow g\\) e\\) t\\)\\)\\)\\)\\."
      (second (string-split t "\n"))))
   (let ([t (cur->coq
-            #'(elim nat Type (lambda (x : nat) nat) z
-                    (lambda (x : nat) (ih-x : nat) ih-x)
+            #'(elim nat (lambda (x : nat) nat)
+                    ()
+                    (z (lambda (x : nat) (ih-x : nat) ih-x))
                     e))])
     (check-regexp-match
-     "\\(\\(\\(\\(nat_rect \\(fun x : nat => nat\\)\\) z\\) \\(fun x : nat => \\(fun ih_x : nat => ih_x\\)\\)\\) e\\)"
+     "\\(nat_rect \\(fun x : nat => nat\\) z \\(fun x : nat => \\(fun ih_x : nat => ih_x\\)\\) e\\)"
      t))
   (check-regexp-match
    "Definition thm_plus_commutes := \\(forall n : nat, \\(forall m : nat, \\(\\(\\(== nat\\) \\(\\(plus n\\) m\\)\\) \\(\\(plus m\\) n\\)\\)\\)\\).\n"

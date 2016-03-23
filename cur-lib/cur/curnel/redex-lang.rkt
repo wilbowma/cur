@@ -2,7 +2,7 @@
 ;; This module just provide module language sugar over the redex model.
 
 (require
-  "redex-core.rkt"
+  (except-in "redex-core.rkt" apply)
   redex/reduction-semantics
   racket/provide-syntax
   (for-syntax
@@ -11,7 +11,7 @@
     racket/syntax
     (except-in racket/provide-transform export)
     racket/require-transform
-    "redex-core.rkt"
+    (except-in "redex-core.rkt" apply)
     redex/reduction-semantics))
 (provide
   ;; Basic syntax
@@ -177,10 +177,11 @@
                     [e (parameterize ([gamma (extend-Γ/term gamma x t)])
                          (cur->datum #'e))])
                (term (,(syntax->datum #'b) (,x : ,t) ,e)))]
-            [(elim t1 t2)
-             (let* ([t1 (cur->datum #'t1)]
-                    [t2 (cur->datum #'t2)])
-               (term (elim ,t1 ,t2)))]
+            [(elim D motive (i ...) (m ...) d)
+             (term (elim ,(cur->datum #'D) ,(cur->datum #'motive)
+                         ,(map cur->datum (syntax->list #'(i ...)))
+                         ,(map cur->datum (syntax->list #'(m ...)))
+                         ,(cur->datum #'d)))]
             [(#%app e1 e2)
              (term (,(cur->datum #'e1) ,(cur->datum #'e2)))]))))
     (unless (or (inner-expand?) (type-infer/term reified-term))
@@ -446,9 +447,9 @@
 
 (define-syntax (dep-elim syn)
   (syntax-parse syn
-    [(_ D:id T)
+    [(_ D:id motive (i ...) (m ...) e)
      (syntax->curnel-syntax
-       (quasisyntax/loc syn (elim D T)))]))
+       (quasisyntax/loc syn (elim D motive (i ...) (m ...) e)))]))
 
 (define-syntax-rule (dep-void) (void))
 

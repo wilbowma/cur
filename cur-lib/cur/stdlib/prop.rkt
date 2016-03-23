@@ -71,11 +71,12 @@
 (define proof:A-or-A
   (lambda (A : Type) (c : (Or A A))
     ;; TODO: What should the motive be?
-    (elim Or Type (lambda (A : Type) (B : Type) (c : (Or A B)) A)
-      (lambda (A : Type) (B : Type) (a : A) a)
-      ;; TODO: How do we know B is A?
-      (lambda (A : Type) (B : Type) (b : B) b)
-      A A c)))
+    (elim Or (lambda (A : Type) (B : Type) (c : (Or A B)) A)
+          (A A)
+          ((lambda (A : Type) (B : Type) (a : A) a)
+           ;; TODO: How do we know B is A?
+           (lambda (A : Type) (B : Type) (b : B) b))
+          c)))
 
 (qed thm:A-or-A proof:A-or-A)
 |#

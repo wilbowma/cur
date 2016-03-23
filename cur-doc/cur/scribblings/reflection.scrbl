@@ -76,10 +76,10 @@ Runs the Cur term @racket[syn] for one step.
 (eval:alts (cur-step #'((λ (x : Type) x) Bool))
            (eval:result @racket[#'Bool] "" ""))
 (eval:alts (cur-step #'(sub1 (s (s z))))
-           (eval:result @racket[#'(((((elim Nat (Type 0))
-                                      (λ (x2 : Nat) Nat)) z)
-                                    (λ (x2 : Nat) (λ (ih-n2 : Nat) x2)))
-                                   (s (s z)))] "" ""))
+           (eval:result @racket[#'(elim Nat (λ (x2 : Nat) Nat)
+                                        ()
+                                        (z (λ (x2 : Nat) (λ (ih-n2 : Nat) x2)))
+                                        (s (s z)))] "" ""))
 ]
 }
 

@@ -22,7 +22,7 @@ A syntactic form that expands to the inductive eliminator for @racket[Bool]. Thi
 
 @examples[#:eval curnel-eval
           (if true false true)
-	  (elim Bool Type (λ (x : Bool) Bool) false true true)]
+	  (elim Bool (λ (x : Bool) Bool) () (false true) true)]
 }
 
 @defproc[(not [x Bool])
