@@ -82,17 +82,6 @@ a @racket[(: name type)] form appears earlier in the module.
 	  (define (id A a) a)]
 }
 
-@defform[(elim type motive-result-type e ...)]{
-Like the @racket[elim] provided by @racketmodname[cur], but supports
-automatically curries the remaining arguments @racket[e ...].
-
-@examples[#:eval curnel-eval
-          (elim Bool Type (lambda (x : Bool) Bool)
-            false
-            true
-            true)]
-}
-
 @defform*[((define-type name type)
            (define-type (name (a : t) ...) body))]{
 Like @racket[define], but uses @racket[forall] instead of @racket[lambda].
