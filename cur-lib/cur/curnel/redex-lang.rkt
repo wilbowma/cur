@@ -273,8 +273,9 @@
   (define (cur-identifier-bound? id)
     (let ([x (syntax->datum id)])
       (and (x? x)
-        (or (term (Γ-ref ,(gamma) ,x))
-          (term (Δ-ref-type ,(delta) ,x))))))
+        (or (term (Γ-in-dom ,(gamma) ,x))
+            (term (Δ-in-dom ,(delta) ,x))
+            (term (Δ-in-constructor-dom ,(delta) ,x))))))
 
   (define (filter-cur-exports syn modes)
     (partition (compose cur-identifier-bound? export-local-id)

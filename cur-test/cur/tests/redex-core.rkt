@@ -153,7 +153,7 @@
 (check-not-equiv? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) (x_0 x)) x))))
                   (term (Π (x : t) (x x))))
 
-(check-equal? (term (Δ-constructor-index ,Δ nat zero)) 0)
+(check-equal? (term (Δ-constructor-index ,Δ zero)) 0)
 (check-equiv? (term (reduce ,Δ (elim nat (λ (x : nat) nat)
                                      ()
                                      ((s zero)

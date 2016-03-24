@@ -70,49 +70,86 @@
 ;;; ------------------------------------------------------------------------
 ;;; Primitive Operations on signatures Δ (those operations that do not require contexts)
 
+;; TODO: Define generic traversals of Δ and Γ ?
+(define-metafunction ttL
+  Δ-in-dom : Δ D -> #t or #f
+  [(Δ-in-dom ∅ D)
+   #f]
+  [(Δ-in-dom (Δ (D : t any)) D)
+   #t]
+  [(Δ-in-dom (Δ (D_!_0 : any_D any)) (name D D_!_0))
+   (Δ-in-dom Δ D)])
+
+(define-metafunction ttL
+  Δ-in-constructor-dom : Δ c -> #t or #f
+  [(Δ-in-constructor-dom ∅ c)
+   #f]
+  [(Δ-in-constructor-dom (Δ (D : any_D ((c_!_0 : any) ... (c_i : any_i) any_r ...))) (name c_i c_!_0))
+   #t]
+  [(Δ-in-constructor-dom (Δ (D : any_D ((c_!_0 : any) ...))) (name c c_!_0))
+   (Δ-in-constructor-dom Δ c)])
+
 ;;; TODO: Might be worth maintaining the above bijection between Δ and maps for performance reasons
-
-;; TODO: This is doing too many things
-;; NB: Depends on clause order
 (define-metafunction ttL
-  Δ-ref-type : Δ x -> t or #f
-  [(Δ-ref-type ∅ x) #f]
-  [(Δ-ref-type (Δ (x : t any)) x) t]
-  [(Δ-ref-type (Δ (x_0 : t_0 ((x_1 : t_1) ... (x : t) (x_2 : t_2) ...))) x) t]
-  [(Δ-ref-type (Δ (x_0 : t_0 any)) x) (Δ-ref-type Δ x)])
+  Δ-ref-type : Δ_0 D_0 -> t
+  #:pre (Δ-in-dom Δ_0 D_0)
+  [(Δ-ref-type (Δ (D : t any)) D)
+   t]
+  [(Δ-ref-type (Δ (D_!_0 : t any)) (name D D_!_0))
+   (Δ-ref-type Δ D)])
 
-;; TODO: Should not use Δ-ref-type
+;; Returns the inductively defined type that x constructs
 (define-metafunction ttL
-  Δ-ref-constructor-type : Δ x x -> t
-  [(Δ-ref-constructor-type Δ x_D x_ci)
-   (Δ-ref-type Δ x_ci)])
+  Δ-key-by-constructor : Δ_0 c_0 -> D
+  #:pre (Δ-in-constructor-dom Δ_0 c_0)
+  [(Δ-key-by-constructor (Δ (D : any_D ((c_!_0 : any_c) ... (c : any_ci) any_r ...))) (name c c_!_0))
+   D]
+  [(Δ-key-by-constructor (Δ (D : any_D ((c_!_0 : any_c) ...))) (name c c_!_0))
+   (Δ-key-by-constructor Δ c)])
 
-;; Get the list of constructors for the inducitvely defined type x_D
-;; NB: Depends on clause order
+;; Returns the constructor map for the inductively defined type D in the signature Δ
 (define-metafunction ttL
-  Δ-ref-constructors : Δ x -> (x ...) or #f
-  [(Δ-ref-constructors ∅ x_D) #f]
-  [(Δ-ref-constructors (Δ (x_D : t_D ((x : t) ...))) x_D)
-   (x ...)]
-  [(Δ-ref-constructors (Δ (x_1 : t_1 any)) x_D)
-   (Δ-ref-constructors Δ x_D)])
+  Δ-ref-constructor-map : Δ_0 D_0 -> ((c : t) ...)
+  #:pre (Δ-in-dom Δ_0 D_0)
+  [(Δ-ref-constructor-map (Δ (D : any_D any)) D)
+   any]
+  [(Δ-ref-constructor-map (Δ (D_!_0 : any_D any)) (name D D_!_0))
+   (Δ-ref-constructor-map Δ D)])
+
+;; Return the type of the constructor c_i
+(define-metafunction ttL
+  Δ-ref-constructor-type : Δ_0 c_0 -> t
+  #:pre (Δ-in-constructor-dom Δ_0 c_0)
+  [(Δ-ref-constructor-type Δ c)
+   t
+   (where D (Δ-key-by-constructor Δ c))
+   (where (any_1 ... (c : t) any_0 ...)
+          (Δ-ref-constructor-map Δ D))])
+
+(define-metafunction ttL
+  Δ-ref-constructors : Δ_0 D_0 -> (c ...)
+  #:pre (Δ-in-dom Δ_0 D_0)
+  [(Δ-ref-constructors Δ D)
+   (c ...)
+   (where ((c : any) ...) (Δ-ref-constructor-map Δ D))])
 
 ;; TODO: Mix of pure Redex/escaping to Racket sometimes is getting confusing.
 ;; TODO: Justify, or stop.
 
-;; NB: Depends on clause order
 (define-metafunction ttL
   sequence-index-of : any (any ...) -> natural
   [(sequence-index-of any_0 (any_0 any ...))
    0]
-  [(sequence-index-of any_0 (any_1 any ...))
+  [(sequence-index-of (name any_0 any_!_0) (any_!_0 any ...))
    ,(add1 (term (sequence-index-of any_0 (any ...))))])
 
-;; Get the index of the constructor x_ci in the list of constructors for x_D
+;; Get the index of the constructor c_i
 (define-metafunction ttL
-  Δ-constructor-index : Δ x x -> natural
-  [(Δ-constructor-index Δ x_D x_ci)
-   (sequence-index-of x_ci (Δ-ref-constructors Δ x_D))])
+  Δ-constructor-index : Δ_0 c_0 -> natural
+  #:pre (Δ-in-constructor-dom Δ_0 c_0)
+  [(Δ-constructor-index Δ c)
+   (sequence-index-of c (Δ-ref-constructors Δ D))
+   (where D (Δ-key-by-constructor Δ c))])
 
 ;;; ------------------------------------------------------------------------
 ;;; Operations that involve contexts.
@@ -129,11 +166,6 @@
 
 ;; Applies the term t to the telescope Ξ.
 ;; TODO: Test
-#| TODO:
- | This essentially eta-expands t at the type-level. Why is this necessary? Shouldn't it be true
- | that (convert t (Ξ-apply Ξ t))?
- | Maybe not. t is a lambda whose type is convert to (Ξ-apply Ξ t)? Yes.
- |#
 (define-metafunction tt-ctxtL
   Ξ-apply : Ξ t -> t
   [(Ξ-apply hole t) t]
@@ -153,102 +185,110 @@
 ;;; ------------------------------------------------------------------------
 ;;; Computing the types of eliminators
 
-;; Return the indices of x_D as a telescope Ξ
-;; TODO: Define generic traversals of Δ and Γ ?
+;; Return the indices of D as a telescope Ξ
 (define-metafunction tt-ctxtL
-  Δ-ref-index-Ξ : Δ x -> Ξ or #f
-  [(Δ-ref-index-Ξ (Δ (x_D : (in-hole Ξ U) any)) x_D)
-   Ξ]
-  [(Δ-ref-index-Ξ (Δ (x_1 : t_1 any)) x_D)
-   (Δ-ref-index-Ξ Δ x_D)]
-  [(Δ-ref-index-Ξ Δ x)
-   #f])
-
-;; Returns the telescope of the arguments for the constructor x_ci of the inductively defined type x_D
-(define-metafunction tt-ctxtL
-  Δ-constructor-telescope : Δ x x -> Ξ
-  [(Δ-constructor-telescope Δ x_D x_ci)
+  Δ-ref-index-Ξ : Δ_0 D_0 -> Ξ
+  #:pre (Δ-in-dom Δ_0 D_0)
+  [(Δ-ref-index-Ξ any_Δ any_D)
    Ξ
-   (where (in-hole Ξ (in-hole Θ x_D))
-     (Δ-ref-constructor-type Δ x_D x_ci))])
+   (where (in-hole Ξ U) (Δ-ref-type any_Δ any_D))])
 
-;; Returns the index arguments as an apply context of the constructor x_ci of the inductively
-;; defined type x_D
+;; Returns the telescope of the arguments for the constructor c_i of the inductively defined type D
 (define-metafunction tt-ctxtL
-  Δ-constructor-indices : Δ x x -> Θ
-  [(Δ-constructor-indices Δ x_D x_ci)
+  Δ-constructor-telescope : Δ_0 c_0 -> Ξ
+  #:pre (Δ-in-constructor-dom Δ_0 c_0)
+  [(Δ-constructor-telescope Δ c)
+   Ξ
+   (where D (Δ-key-by-constructor Δ c))
+   (where (in-hole Ξ (in-hole Θ D))
+     (Δ-ref-constructor-type Δ c))])
+
+;; Returns the index arguments as an apply context of the constructor c_i of the inductively
+;; defined type D
+(define-metafunction tt-ctxtL
+  Δ-constructor-indices : Δ_0 c_0 -> Θ
+  #:pre (Δ-in-constructor-dom Δ_0 c_0)
+  [(Δ-constructor-indices Δ c)
    Θ
-   (where (in-hole Ξ (in-hole Θ x_D))
-     (Δ-ref-constructor-type Δ x_D x_ci))])
+   (where D (Δ-key-by-constructor Δ c))
+   (where (in-hole Ξ (in-hole Θ D))
+     (Δ-ref-constructor-type Δ c))])
 
 ;; Inner loop for Δ-constructor-inductive-telescope
 ;; NB: Depends on clause order
 (define-metafunction tt-ctxtL
-  inductive-loop : x Φ -> Φ
-  [(inductive-loop x_D hole) hole]
-  [(inductive-loop x_D (Π (x : (in-hole Φ (in-hole Θ x_D))) Φ_1))
-   (Π (x : (in-hole Φ (in-hole Θ x_D))) (inductive-loop x_D Φ_1))]
-  [(inductive-loop x_D (Π (x : t) Φ_1))
-   (inductive-loop x_D Φ_1)])
+  inductive-loop : D Φ -> Φ
+  [(inductive-loop D hole) hole]
+  [(inductive-loop D (Π (x : (in-hole Φ (in-hole Θ D))) Φ_1))
+   (Π (x : (in-hole Φ (in-hole Θ D))) (inductive-loop D Φ_1))]
+  [(inductive-loop D (Π (x : t) Φ_1))
+   (inductive-loop D Φ_1)])
 
-;; Returns the inductive arguments to the constructor x_ci of the inducitvely defined type x_D
+;; Returns the inductive arguments to the constructor c_i
 (define-metafunction tt-ctxtL
-  Δ-constructor-inductive-telescope : Δ x x -> Ξ
-  [(Δ-constructor-inductive-telescope Δ x_D x_ci)
-   (inductive-loop x_D (Δ-constructor-telescope Δ x_D x_ci))])
+  Δ-constructor-inductive-telescope : Δ_0 c_0 -> Ξ
+  #:pre (Δ-in-constructor-dom Δ_0 c_0)
+  [(Δ-constructor-inductive-telescope Δ c)
+   (inductive-loop D (Δ-constructor-telescope Δ c))
+   (where D (Δ-key-by-constructor Δ c))])
 
-;; Returns the inductive hypotheses required for eliminating the inductively defined type x_D with
-;; motive t_P, where the telescope Φ are the inductive arguments to a constructor for x_D
+;; Returns the inductive hypotheses required for eliminating the inductively defined type D with
+;; motive t_P, where the telescope Φ are the inductive arguments to a constructor for D
 (define-metafunction tt-ctxtL
-  hypotheses-loop : x t Φ -> Φ
-  [(hypotheses-loop x_D t_P hole) hole]
-  [(hypotheses-loop x_D t_P (name any_0 (Π (x : (in-hole Φ (in-hole Θ x_D))) Φ_1)))
-   ;; TODO: Instead of this nonsense, it might be simpler to pass in the type of t_P and use that
-   ;; as/to compute the type of the hypothesis.
+  hypotheses-loop : D t Φ -> Φ
+  [(hypotheses-loop D t_P hole) hole]
+  [(hypotheses-loop D t_P (name any_0 (Π (x : (in-hole Φ (in-hole Θ D))) Φ_1)))
    (Π (x_h : (in-hole Φ ((in-hole Θ t_P) (Ξ-apply Φ x))))
-      (hypotheses-loop x_D t_P Φ_1))
-   (where x_h ,(variable-not-in (term (x_D t_P any_0)) 'x-ih))])
+      (hypotheses-loop D t_P Φ_1))
+   (where x_h ,(variable-not-in (term (D t_P any_0)) 'x-ih))])
 
-;; Computes the type of the eliminator for the inductively defined type x_D with a motive whose result
+;; Computes the type of the eliminator for the inductively defined type D with a motive whose result
 ;; is in universe U.
 ;;
-;; The type of (elim x_D U) is something like:
+;; The type of (elim D U) is something like:
 ;;  (∀ (P : (∀ a -> ... -> (D a ...) -> U))
 ;;     (method_ci ...) -> ... ->
 ;;     (a -> ... -> (D a ...) ->
 ;;       (P a ... (D a ...))))
 ;;
-;; x_D   is an inductively defined type
+;; D   is an inductively defined type
 ;; U     is the sort the motive
 ;; x_P   is the name of the motive
-;; Ξ_P*D is the telescope of the indices of x_D and
-;;       the witness of type x_D (applied to the indices)
-;; Ξ_m   is the telescope of the methods for x_D
+;; Ξ_P*D is the telescope of the indices of D and
+;;       the witness of type D (applied to the indices)
+;; Ξ_m   is the telescope of the methods for D
 
 ;; Returns the inductive hypotheses required for the elimination method of constructor c_i for
 ;; inductive type D, when eliminating with motive t_P.
 (define-metafunction tt-ctxtL
-  Δ-constructor-inductive-hypotheses : Δ D c t -> Ξ
-  [(Δ-constructor-inductive-hypotheses Δ D c_i t_P)
-   (hypotheses-loop D t_P (Δ-constructor-inductive-telescope Δ D c_i))])
+  Δ-constructor-inductive-hypotheses : Δ_0 c_0 t -> Ξ
+  #:pre (Δ-in-constructor-dom Δ_0 c_0)
+  [(Δ-constructor-inductive-hypotheses Δ c_i t_P)
+   (hypotheses-loop D t_P (Δ-constructor-inductive-telescope Δ c_i))
+   (where D (Δ-key-by-constructor Δ c_i))])
 
 ;; Returns the type of the method corresponding to c_i
 (define-metafunction tt-ctxtL
-  Δ-constructor-method-type : Δ D c t -> t
-  [(Δ-constructor-method-type Δ D c_i t_P)
+  Δ-constructor-method-type : Δ_0 c_0 t -> t
+  #:pre (Δ-in-constructor-dom Δ_0 c_0)
+  [(Δ-constructor-method-type Δ c_i t_P)
    (in-hole Ξ_a (in-hole Ξ_h ((in-hole Θ_p t_P) (Ξ-apply Ξ_a c_i))))
-   (where Θ_p (Δ-constructor-indices Δ D c_i))
-   (where Ξ_a (Δ-constructor-telescope Δ D c_i))
-   (where Ξ_h (Δ-constructor-inductive-hypotheses Δ D c_i t_P))])
+   (where Θ_p (Δ-constructor-indices Δ c_i))
+   (where Ξ_a (Δ-constructor-telescope Δ c_i))
+   (where Ξ_h (Δ-constructor-inductive-hypotheses Δ c_i t_P))])
 
+;; Return the types of the methods required to eliminate D with motive e
 (define-metafunction tt-ctxtL
-  Δ-method-types : Δ D e -> (t ...)
+  Δ-method-types : Δ_0 D_0 e -> (t ...)
+  #:pre (Δ-in-dom Δ_0 D_0)
   [(Δ-method-types Δ D e)
-   ,(map (lambda (c) (term (Δ-constructor-method-type Δ D ,c e))) (term (c ...)))
+   ,(map (lambda (c) (term (Δ-constructor-method-type Δ ,c e))) (term (c ...)))
    (where (c ...) (Δ-ref-constructors Δ D))])
 
+;; Return the type of the motive to eliminate D
 (define-metafunction tt-ctxtL
-  Δ-motive-type : Δ D U -> t
+  Δ-motive-type : Δ_0 D_0 U -> t
+  #:pre (Δ-in-dom Δ_0 D_0)
   [(Δ-motive-type Δ D U)
    (in-hole Ξ_P*D U)
    (where Ξ (Δ-ref-index-Ξ Δ D))
@@ -285,27 +325,26 @@
  |   U         is the universe of the result of the motive
  |   v_P       is the motive
  |   m_{0..n}  are the methods
- |   p ...     are the indices of x_D
- |   c_i       is a constructor of x_d
+ |   p ...     are the indices of D
+ |   c_i       is a constructor of D
  |   a ...     are the arguments to c_i
  |
  | Using contexts, this appears as (in-hole Θ ((elim D U) v_P))
  |#
 (define-metafunction tt-ctxtL
-  is-inductive-argument : Δ D t -> #t or #f
+  is-inductive-argument : Δ_0 D_0 t -> #t or #f
+  #:pre (Δ-in-dom Δ_0 D_0)
   ;; Think this only works in call-by-value. A better solution would
   ;; be to check position of the argument w.r.t. the current
   ;; method. requires more arguments, and more though.q
   [(is-inductive-argument Δ D (in-hole Θ c_i))
    ,(and (memq (term c_i) (term (Δ-ref-constructors Δ D))) #t)])
 
-;; Generate recursive applications of the eliminator for each inductive argument of type x_D.
-;; In more detail, given motive t_P, indices Θ_p, methods Θ_m, and arguments Θ_i to constructor
-;; x_ci for x_D, for each inductively smaller term t_i of type (in-hole Θ_p x_D) inside Θ_i,
-;; generate: (elim x_D U t_P  Θ_m ... Θ_p ... t_i)
+;; Generate recursive applications of the eliminator for each inductive argument in Θ.
 ;; TODO TTEESSSSSTTTTTTTT
 (define-metafunction tt-redL
-  Δ-inductive-elim : Δ D C-elim Θ -> Θ
+  Δ-inductive-elim : Δ_0 D_0 C-elim Θ -> Θ
+  #:pre (Δ-in-dom Δ_0 D_0)
   ;; NB: If metafunction fails, recursive
   ;; NB: elimination will be wrong. This will introduced extremely sublte bugs,
   ;; NB: inconsistency, failure of type safety, and other bad things.
@@ -327,7 +366,7 @@
     (--> (Δ (in-hole E (elim D e_motive (e_i ...) (v_m ...) (in-hole Θv_c c))))
          (Δ (in-hole E (in-hole Θ_mi v_mi)))
          ;; Find the method for constructor c_i, relying on the order of the arguments.
-         (where natural (Δ-constructor-index Δ D c))
+         (where natural (Δ-constructor-index Δ c))
          (where v_mi ,(list-ref (term (v_m ...)) (term natural)))
          ;; Generate the inductive recursion
          (where Θ_ih (Δ-inductive-elim Δ D (elim D e_motive (e_i ...) (v_m ...) hole) Θv_c))
@@ -365,12 +404,22 @@
    ----------------- "≼-Π"
    (convert Δ Γ (Π (x : t_0) t_1) (Π (x : t_0) t_2))])
 
-;; NB: Depends on clause order
 (define-metafunction tt-typingL
-  Γ-ref : Γ x -> t or #f
-  [(Γ-ref ∅ x) #f]
-  [(Γ-ref (Γ x : t) x) t]
-  [(Γ-ref (Γ x_0 : t_0) x_1) (Γ-ref Γ x_1)])
+  Γ-in-dom : Γ x -> #t or #f
+  [(Γ-in-dom ∅ x)
+   #f]
+  [(Γ-in-dom (Γ x : t) x)
+   #t]
+  [(Γ-in-dom (Γ x_!_0 : t) (name x x_!_0))
+   (Γ-in-dom Γ x)])
+
+(define-metafunction tt-typingL
+  Γ-ref : Γ_0 x_0 -> t
+  #:pre (Γ-in-dom Γ_0 x_0)
+  [(Γ-ref (Γ x : t) x)
+   t]
+  [(Γ-ref (Γ x_!_0 : t_0) (name x_1 x_!_0))
+   (Γ-ref Γ x_1)])
 
 (define-metafunction tt-typingL
   nonpositive : x t -> #t or #f
@@ -394,12 +443,12 @@
 
 (define-metafunction tt-typingL
   positive* : x (t ...) -> #t or #f
-  [(positive* x_D ()) #t]
-  [(positive* x_D (t_c t_rest ...))
+  [(positive* D ()) #t]
+  [(positive* D (t_c t_rest ...))
    ;; Replace the result of the constructor with (Unv 0), to avoid the result being considered a
    ;; nonpositive position.
-   ,(and (term (positive x_D (in-hole Ξ (Unv 0)))) (term (positive* x_D (t_rest ...))))
-   (where (in-hole Ξ (in-hole Θ x_D)) t_c)])
+   ,(and (term (positive D (in-hole Ξ (Unv 0)))) (term (positive* D (t_rest ...))))
+   (where (in-hole Ξ (in-hole Θ D)) t_c)])
 
 ;; Holds when the signature Δ and typing context Γ are well-formed.
 (define-judgment-form tt-typingL
@@ -416,15 +465,15 @@
 
   [(wf Δ ∅)
    (type-infer Δ ∅ t_D U_D)
-   (type-infer Δ (∅ x_D : t_D) t_c U_c) ...
+   (type-infer Δ (∅ D : t_D) t_c U_c) ...
    ;; NB: Ugh this should be possible with pattern matching alone ....
-   (side-condition ,(map (curry equal? (term x_D)) (term (x_D* ...))))
-   (side-condition (positive* x_D (t_c ...)))
+   (side-condition ,(map (curry equal? (term D)) (term (D_0 ...))))
+   (side-condition (positive* D (t_c ...)))
    ----------------- "WF-Inductive"
-   (wf (Δ (x_D : t_D
+   (wf (Δ (D : t_D
                ;; Checks that a constructor for x actually produces an x, i.e., that
                ;; the constructor is well-formed.
-               ((x_c : (name t_c (in-hole Ξ (in-hole Θ x_D*)))) ...))) ∅)])
+               ((c : (name t_c (in-hole Ξ (in-hole Θ D_0)))) ...))) ∅)])
 
 ;; TODO: Bi-directional and inference?
 ;; TODO: http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
@@ -439,11 +488,18 @@
    ----------------- "DTR-Unv"
    (type-infer Δ Γ U_0 U_1)]
 
-  [(where t (Δ-ref-type Δ x))
+  [(where #t (Δ-in-dom Δ x))
+   (where t (Δ-ref-type Δ x))
    ----------------- "DTR-Inductive"
    (type-infer Δ Γ x t)]
 
-  [(where t (Γ-ref Γ x))
+  [(where #t (Δ-in-constructor-dom Δ x))
+   (where t (Δ-ref-constructor-type Δ x))
+   ----------------- "DTR-Constructor"
+   (type-infer Δ Γ x t)]
+
+  [(where #t (Γ-in-dom Γ x))
+   (where t (Γ-ref Γ x))
    ----------------- "DTR-Start"
    (type-infer Δ Γ x t)]
 

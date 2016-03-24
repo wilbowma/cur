@@ -63,3 +63,4 @@
   [(Γ-remove (Γ x : t) x) Γ]
   [(Γ-remove (Γ x_0 : t_0) x_1) (Γ-remove Γ x_1)])
 
+
