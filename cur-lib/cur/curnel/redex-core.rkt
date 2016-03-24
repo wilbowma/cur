@@ -158,15 +158,15 @@
 ;;; ------------------------------------------------------------------------
 ;;; Computing the types of eliminators
 
-;; Return the parameters of x_D as a telescope Ξ
+;; Return the indices of x_D as a telescope Ξ
 ;; TODO: Define generic traversals of Δ and Γ ?
 (define-metafunction tt-ctxtL
-  Δ-ref-parameter-Ξ : Δ x -> Ξ or #f
-  [(Δ-ref-parameter-Ξ (Δ (x_D : (in-hole Ξ U) any)) x_D)
+  Δ-ref-index-Ξ : Δ x -> Ξ or #f
+  [(Δ-ref-index-Ξ (Δ (x_D : (in-hole Ξ U) any)) x_D)
    Ξ]
-  [(Δ-ref-parameter-Ξ (Δ (x_1 : t_1 any)) x_D)
-   (Δ-ref-parameter-Ξ Δ x_D)]
-  [(Δ-ref-parameter-Ξ Δ x)
+  [(Δ-ref-index-Ξ (Δ (x_1 : t_1 any)) x_D)
+   (Δ-ref-index-Ξ Δ x_D)]
+  [(Δ-ref-index-Ξ Δ x)
    #f])
 
 ;; Returns the telescope of the arguments for the constructor x_ci of the inductively defined type x_D
@@ -177,11 +177,11 @@
    (where (in-hole Ξ (in-hole Θ x_D))
      (Δ-ref-constructor-type Δ x_D x_ci))])
 
-;; Returns the parameter arguments as an apply context of the constructor x_ci of the inductively
+;; Returns the index arguments as an apply context of the constructor x_ci of the inductively
 ;; defined type x_D
 (define-metafunction tt-ctxtL
-  Δ-constructor-parameters : Δ x x -> Θ
-  [(Δ-constructor-parameters Δ x_D x_ci)
+  Δ-constructor-indices : Δ x x -> Θ
+  [(Δ-constructor-indices Δ x_D x_ci)
    Θ
    (where (in-hole Ξ (in-hole Θ x_D))
      (Δ-ref-constructor-type Δ x_D x_ci))])
@@ -226,8 +226,8 @@
 ;; x_D   is an inductively defined type
 ;; U     is the sort the motive
 ;; x_P   is the name of the motive
-;; Ξ_P*D is the telescope of the parameters of x_D and
-;;       the witness of type x_D (applied to the parameters)
+;; Ξ_P*D is the telescope of the indices of x_D and
+;;       the witness of type x_D (applied to the indices)
 ;; Ξ_m   is the telescope of the methods for x_D
 
 ;; Returns the inductive hypotheses required for the elimination method of constructor c_i for
@@ -242,7 +242,7 @@
   Δ-constructor-method-type : Δ D c t -> t
   [(Δ-constructor-method-type Δ D c_i t_P)
    (in-hole Ξ_a (in-hole Ξ_h ((in-hole Θ_p t_P) (Ξ-apply Ξ_a c_i))))
-   (where Θ_p (Δ-constructor-parameters Δ D c_i))
+   (where Θ_p (Δ-constructor-indices Δ D c_i))
    (where Ξ_a (Δ-constructor-telescope Δ D c_i))
    (where Ξ_h (Δ-constructor-inductive-hypotheses Δ D c_i t_P))])
 
@@ -256,7 +256,7 @@
   Δ-motive-type : Δ D U -> t
   [(Δ-motive-type Δ D U)
    (in-hole Ξ_P*D U)
-   (where Ξ (Δ-ref-parameter-Ξ Δ D))
+   (where Ξ (Δ-ref-index-Ξ Δ D))
    ;; A fresh name to bind the discriminant
    (where x ,(variable-not-in (term (Δ D Ξ)) 'x-D))
    ;; The telescope (∀ a -> ... -> (D a ...) hole), i.e.,
@@ -290,7 +290,7 @@
  |   U         is the universe of the result of the motive
  |   v_P       is the motive
  |   m_{0..n}  are the methods
- |   p ...     are the parameters of x_D
+ |   p ...     are the indices of x_D
  |   c_i       is a constructor of x_d
  |   a ...     are the arguments to c_i
  |
@@ -305,7 +305,7 @@
    ,(and (memq (term c_i) (term (Δ-ref-constructors Δ D))) #t)])
 
 ;; Generate recursive applications of the eliminator for each inductive argument of type x_D.
-;; In more detail, given motive t_P, parameters Θ_p, methods Θ_m, and arguments Θ_i to constructor
+;; In more detail, given motive t_P, indices Θ_p, methods Θ_m, and arguments Θ_i to constructor
 ;; x_ci for x_D, for each inductively smaller term t_i of type (in-hole Θ_p x_D) inside Θ_i,
 ;; generate: (elim x_D U t_P  Θ_m ... Θ_p ... t_i)
 ;; TODO TTEESSSSSTTTTTTTT

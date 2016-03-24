@@ -92,10 +92,10 @@
   (check (compose not telescope-equiv) e1 e2))
 
 (check-telescope-equiv?
- (term (Δ-ref-parameter-Ξ ,Δ nat))
+ (term (Δ-ref-index-Ξ ,Δ nat))
  (term hole))
 (check-telescope-equiv?
- (term (Δ-ref-parameter-Ξ ,Δ4 and))
+ (term (Δ-ref-index-Ξ ,Δ4 and))
  (term (Π (A : Type) (Π (B : Type) hole))))
 
 (check-true (x? (term false)))
@@ -105,7 +105,7 @@
 
 ;; Tests for inductive elimination
 ;; ------------------------------------------------------------------------
-;; TODO: Insufficient tests, no tests of inductives with parameters, or complex induction.
+;; TODO: Insufficient tests, no tests of inductives with indices, or complex induction.
 (check-true
  (redex-match? tt-ctxtL (in-hole Θ_i (hole (in-hole Θ_r zero))) (term (hole zero))))
 (check-telescope-equiv?
@@ -643,7 +643,7 @@
   (term (((((hole
              (λ (A1 : (Unv 0)) (λ (x1 : A1) zero))) bool) true) true) ((refl bool) true)))))
 (check-telescope-equiv?
- (term (Δ-ref-parameter-Ξ ,Δ= ==))
+ (term (Δ-ref-index-Ξ ,Δ= ==))
  (term (Π (A : Type) (Π (a : A) (Π (b : A) hole)))))
 (check-equal?
  (term (reduce ,Δ= ,refl-elim))
