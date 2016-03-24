@@ -61,11 +61,6 @@
    ----------------
    (unv-pred (Unv i_1) (Unv i_2) (Unv i_3))])
 
-(define-metafunction ttL
-  α-equivalent?  : t t -> #t or #f
-  [(α-equivalent? t_0 t_1)
-   ,(alpha-equivalent? ttL (term t_0) (term t_1))])
-
 ;; Replace x by t_1 in t_0
 (define-metafunction ttL
   subst : t x t -> t
@@ -362,9 +357,7 @@
    ----------------- "≼-Unv"
    (convert Δ Γ (Unv i_0) (Unv i_1))]
 
-  [(where t_2 (reduce Δ t_0))
-   (where t_3 (reduce Δ t_1))
-   (side-condition (α-equivalent? t_2 t_3))
+  [(where (t t) ((reduce Δ t_0) (reduce Δ t_1)))
    ----------------- "≼-αβ"
    (convert Δ Γ t_0 t_1)]
 

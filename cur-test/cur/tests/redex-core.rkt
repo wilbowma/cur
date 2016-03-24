@@ -16,7 +16,7 @@
 (define-syntax-rule (check-not-equiv? e1 e2)
   (check (compose not (default-equiv)) e1 e2))
 
-(default-equiv (lambda (x y) (term (α-equivalent? ,x ,y))))
+(default-equiv (curry alpha-equivalent? ttL))
 
 ;; Syntax tests
 ;; ------------------------------------------------------------------------
@@ -73,13 +73,10 @@
 (check-true (t? (term (Π (a : A) (Π (b : B) ((and A) B))))))
 
 
-;; α-equiv and subst tests
-;; ------------------------------------------------------------------------
-(check-true
- (term
-  (α-equivalent?
-   (Π (a : S) (Π (b : B) ((and S) B)))
-   (subst (Π (a : A) (Π (b : B) ((and A) B))) A S))))
+;; alpha-equivalent and subst tests
+(check-equiv?
+ (term (subst (Π (a : A) (Π (b : B) ((and A) B))) A S))
+ (term (Π (a : S) (Π (b : B) ((and S) B)))))
 
 ;; Telescope tests
 ;; ------------------------------------------------------------------------
