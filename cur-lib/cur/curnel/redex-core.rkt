@@ -35,12 +35,6 @@
   (λ (x : t) e #:refers-to x)
   (Π (x : t_0) t_1 #:refers-to x))
 
-(define x? (redex-match? ttL x))
-(define t? (redex-match? ttL t))
-(define e? (redex-match? ttL e))
-(define U? (redex-match? ttL U))
-(define Δ? (redex-match? ttL Δ))
-
 ;;; ------------------------------------------------------------------------
 ;;; Universe typing
 
@@ -78,12 +72,6 @@
   [(subst t_0 x t_1)
    (substitute t_0 x t_1)])
 
-(define-metafunction ttL
-  subst-all : t (x ...) (e ...) -> t
-  [(subst-all t () ()) t]
-  [(subst-all t (x_0 x ...) (e_0 e ...))
-   (subst-all (subst t x_0 e_0) (x ...) (e ...))])
-
 ;;; ------------------------------------------------------------------------
 ;;; Primitive Operations on signatures Δ (those operations that do not require contexts)
 
@@ -97,16 +85,6 @@
   [(Δ-ref-type (Δ (x : t any)) x) t]
   [(Δ-ref-type (Δ (x_0 : t_0 ((x_1 : t_1) ... (x : t) (x_2 : t_2) ...))) x) t]
   [(Δ-ref-type (Δ (x_0 : t_0 any)) x) (Δ-ref-type Δ x)])
-
-(define-metafunction ttL
-  Δ-set : Δ x t ((x : t) ...) -> Δ
-  [(Δ-set Δ x t any) (Δ (x : t any))])
-
-(define-metafunction ttL
-  Δ-union : Δ Δ -> Δ
-  [(Δ-union Δ ∅) Δ]
-  [(Δ-union Δ_2 (Δ_1 (x : t any)))
-   ((Δ-union Δ_2 Δ_1) (x : t any))])
 
 ;; TODO: Should not use Δ-ref-type
 (define-metafunction ttL
@@ -152,12 +130,7 @@
   ;; NB: There is a bijection between this an a vector expressions
   (Θ   ::= hole (Θ e)))
 
-(define Ξ? (redex-match? tt-ctxtL Ξ))
-(define Φ? (redex-match? tt-ctxtL Φ))
-(define Θ? (redex-match? tt-ctxtL Θ))
-
 ;; TODO: Might be worth it to actually maintain the above bijections, for performance reasons.
-
 
 ;; Applies the term t to the telescope Ξ.
 ;; TODO: Test
@@ -171,12 +144,6 @@
   [(Ξ-apply hole t) t]
   [(Ξ-apply (Π (x : t) Ξ) t_0) (Ξ-apply Ξ (t_0 x))])
 
-;; Compute the number of arguments in a Ξ
-(define-metafunction tt-ctxtL
-  Ξ-length : Ξ -> natural
-  [(Ξ-length hole) 0]
-  [(Ξ-length (Π (x : t) Ξ)) ,(add1 (term (Ξ-length Ξ)))])
-
 (define-metafunction tt-ctxtL
   list->Θ : (e ...) -> Θ
   [(list->Θ ()) hole]
@@ -187,13 +154,6 @@
   apply : e e ... -> e
   [(apply e_f e ...)
    (in-hole (list->Θ (e ...)) e_f)])
-
-;; Reference an expression in Θ by index; index 0 corresponds to the the expression applied to a hole.
-(define-metafunction tt-ctxtL
-  Θ-ref : Θ natural -> e or #f
-  [(Θ-ref hole natural) #f]
-  [(Θ-ref (in-hole Θ (hole e)) 0) e]
-  [(Θ-ref (in-hole Θ (hole e)) natural) (Θ-ref Θ ,(sub1 (term natural)))])
 
 ;;; ------------------------------------------------------------------------
 ;;; Computing the types of eliminators
@@ -321,10 +281,6 @@
       ;; TODO: Should be done in conversion judgment
       (Π (x : v) E) (Π (x : E) e)))
 
-(define Θv? (redex-match? tt-redL Θv))
-(define E? (redex-match? tt-redL E))
-(define v? (redex-match? tt-redL v))
-
 #|
  | The elim form must appear applied like so:
  | (elim D U v_P m_0 ... m_i m_j ... m_n p ... (c_i a ...))
@@ -384,12 +340,6 @@
          -->elim)))
 
 (define-metafunction tt-redL
-  step : Δ e -> e
-  [(step Δ e)
-   e_r
-   (where (_ e_r) ,(car (apply-reduction-relation tt--> (term (Δ e)))))])
-
-(define-metafunction tt-redL
   reduce : Δ e -> e
   [(reduce Δ e)
    e_r
@@ -403,7 +353,6 @@
   ;; NB: There may be a bijection between Γ and Ξ. That's interesting.
   ;; NB: Also a bijection between Γ and a list of maps from x to t.
   (Γ   ::= ∅ (Γ x : t)))
-(define Γ? (redex-match? tt-typingL Γ))
 
 (define-judgment-form tt-typingL
   #:mode (convert I I I I)
@@ -423,29 +372,12 @@
    ----------------- "≼-Π"
    (convert Δ Γ (Π (x : t_0) t_1) (Π (x : t_0) t_2))])
 
-(define-metafunction tt-typingL
-  Γ-union : Γ Γ -> Γ
-  [(Γ-union Γ ∅) Γ]
-  [(Γ-union Γ_2 (Γ_1 x : t))
-   ((Γ-union Γ_2 Γ_1) x : t)])
-
-(define-metafunction tt-typingL
-  Γ-set : Γ x t -> Γ
-  [(Γ-set Γ x t) (Γ x : t)])
-
 ;; NB: Depends on clause order
 (define-metafunction tt-typingL
   Γ-ref : Γ x -> t or #f
   [(Γ-ref ∅ x) #f]
   [(Γ-ref (Γ x : t) x) t]
   [(Γ-ref (Γ x_0 : t_0) x_1) (Γ-ref Γ x_1)])
-
-;; NB: Depends on clause order
-(define-metafunction tt-typingL
-  Γ-remove : Γ x -> Γ
-  [(Γ-remove ∅ x) ∅]
-  [(Γ-remove (Γ x : t) x) Γ]
-  [(Γ-remove (Γ x_0 : t_0) x_1) (Γ-remove Γ x_1)])
 
 (define-metafunction tt-typingL
   nonpositive : x t -> #t or #f

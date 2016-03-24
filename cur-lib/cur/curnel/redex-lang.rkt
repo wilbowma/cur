@@ -2,7 +2,7 @@
 ;; This module just provide module language sugar over the redex model.
 
 (require
-  (except-in "redex-core.rkt" apply)
+  "redex-core-api.rkt"
   redex/reduction-semantics
   racket/provide-syntax
   (for-syntax
@@ -11,7 +11,7 @@
     racket/syntax
     (except-in racket/provide-transform export)
     racket/require-transform
-    (except-in "redex-core.rkt" apply)
+    "redex-core-api.rkt"
     redex/reduction-semantics))
 (provide
   ;; Basic syntax
