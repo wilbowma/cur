@@ -18,6 +18,8 @@
 
 (default-equiv (curry alpha-equivalent? ttL))
 
+(check-redundancy #t)
+
 ;; Syntax tests
 ;; ------------------------------------------------------------------------
 
