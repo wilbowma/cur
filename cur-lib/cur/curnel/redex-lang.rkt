@@ -2,7 +2,7 @@
 ;; This module just provide module language sugar over the redex model.
 
 (require
-  (except-in "redex-core.rkt" apply)
+  "redex-core-api.rkt"
   redex/reduction-semantics
   racket/provide-syntax
   (for-syntax
@@ -11,7 +11,7 @@
     racket/syntax
     (except-in racket/provide-transform export)
     racket/require-transform
-    (except-in "redex-core.rkt" apply)
+    "redex-core-api.rkt"
     redex/reduction-semantics))
 (provide
   ;; Basic syntax
@@ -273,8 +273,9 @@
   (define (cur-identifier-bound? id)
     (let ([x (syntax->datum id)])
       (and (x? x)
-        (or (term (Γ-ref ,(gamma) ,x))
-          (term (Δ-ref-type ,(delta) ,x))))))
+        (or (term (Γ-in-dom ,(gamma) ,x))
+            (term (Δ-in-dom ,(delta) ,x))
+            (term (Δ-in-constructor-dom ,(delta) ,x))))))
 
   (define (filter-cur-exports syn modes)
     (partition (compose cur-identifier-bound? export-local-id)

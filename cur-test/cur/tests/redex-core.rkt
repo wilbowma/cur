@@ -1,7 +1,7 @@
 #lang racket/base
 (require
  redex/reduction-semantics
- cur/curnel/redex-core
+ cur/curnel/redex-core-api
  rackunit
  racket/function
  (only-in racket/set set=?))
@@ -16,7 +16,9 @@
 (define-syntax-rule (check-not-equiv? e1 e2)
   (check (compose not (default-equiv)) e1 e2))
 
-(default-equiv (lambda (x y) (term (α-equivalent? ,x ,y))))
+(default-equiv (curry alpha-equivalent? ttL))
+
+(check-redundancy #t)
 
 ;; Syntax tests
 ;; ------------------------------------------------------------------------
@@ -73,13 +75,10 @@
 (check-true (t? (term (Π (a : A) (Π (b : B) ((and A) B))))))
 
 
-;; α-equiv and subst tests
-;; ------------------------------------------------------------------------
-(check-true
- (term
-  (α-equivalent?
-   (Π (a : S) (Π (b : B) ((and S) B)))
-   (subst (Π (a : A) (Π (b : B) ((and A) B))) A S))))
+;; alpha-equivalent and subst tests
+(check-equiv?
+ (term (subst (Π (a : A) (Π (b : B) ((and A) B))) A S))
+ (term (Π (a : S) (Π (b : B) ((and S) B)))))
 
 ;; Telescope tests
 ;; ------------------------------------------------------------------------
@@ -92,10 +91,10 @@
   (check (compose not telescope-equiv) e1 e2))
 
 (check-telescope-equiv?
- (term (Δ-ref-parameter-Ξ ,Δ nat))
+ (term (Δ-ref-index-Ξ ,Δ nat))
  (term hole))
 (check-telescope-equiv?
- (term (Δ-ref-parameter-Ξ ,Δ4 and))
+ (term (Δ-ref-index-Ξ ,Δ4 and))
  (term (Π (A : Type) (Π (B : Type) hole))))
 
 (check-true (x? (term false)))
@@ -105,7 +104,7 @@
 
 ;; Tests for inductive elimination
 ;; ------------------------------------------------------------------------
-;; TODO: Insufficient tests, no tests of inductives with parameters, or complex induction.
+;; TODO: Insufficient tests, no tests of inductives with indices, or complex induction.
 (check-true
  (redex-match? tt-ctxtL (in-hole Θ_i (hole (in-hole Θ_r zero))) (term (hole zero))))
 (check-telescope-equiv?
@@ -154,7 +153,7 @@
 (check-not-equiv? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) (x_0 x)) x))))
                   (term (Π (x : t) (x x))))
 
-(check-equal? (term (Δ-constructor-index ,Δ nat zero)) 0)
+(check-equal? (term (Δ-constructor-index ,Δ zero)) 0)
 (check-equiv? (term (reduce ,Δ (elim nat (λ (x : nat) nat)
                                      ()
                                      ((s zero)
@@ -226,19 +225,26 @@
 ;; Test static semantics
 ;; ------------------------------------------------------------------------
 
-(check-true (term (positive* nat (nat))))
-(check-true (term (positive* nat ((Π (x : (Unv 0)) (Π (y : (Unv 0)) nat))))))
-(check-true (term (positive* nat ((Π (x : nat) nat)))))
+(check-holds
+ (valid-constructor nat nat))
+(check-holds
+ (valid-constructor nat (Π (x : (Unv 0)) (Π (y : (Unv 0)) nat))))
+(check-holds
+ (valid-constructor nat (Π (x : nat) nat)))
 ;; (nat -> nat) -> nat
 ;; Not sure if this is actually supposed to pass
-(check-false (term (positive* nat ((Π (x : (Π (y : nat) nat)) nat)))))
+(check-not-holds
+ (valid-constructor nat (Π (x : (Π (y : nat) nat)) nat)))
 ;; ((Unv 0) -> nat) -> nat
-(check-true (term (positive* nat ((Π (x : (Π (y : (Unv 0)) nat)) nat)))))
+(check-holds
+ (valid-constructor nat (Π (x : (Π (y : (Unv 0)) nat)) nat)))
 ;; (((nat -> (Unv 0)) -> nat) -> nat)
-(check-true (term (positive* nat ((Π (x : (Π (y : (Π (x : nat) (Unv 0))) nat)) nat)))))
+(check-holds
+ (valid-constructor nat (Π (x : (Π (y : (Π (x : nat) (Unv 0))) nat)) nat)))
 ;; Not sure if this is actually supposed to pass
 ;; ((nat -> nat) -> nat) -> nat
-(check-false (term (positive* nat ((Π (x : (Π (y : (Π (x : nat) nat)) nat)) nat)))))
+(check-not-holds
+ (valid-constructor nat (Π (x : (Π (y : (Π (x : nat) nat)) nat)) nat)))
 
 (check-true (judgment-holds (wf ,Δ0 ∅)))
 (check-true (redex-match? tt-redL (in-hole Ξ (Unv 0)) (term (Unv 0))))
@@ -281,7 +287,8 @@
 (check-holds (type-infer ∅ ∅ (Unv 0) U))
 (check-holds (type-infer ∅ (∅ nat : (Unv 0)) nat U))
 (check-holds (type-infer ∅ (∅ nat : (Unv 0)) (Π (x : nat) nat) U))
-(check-true (term (positive* nat (nat (Π (x : nat) nat)))))
+(check-holds (valid-constructor nat nat))
+(check-holds (valid-constructor nat (Π (x : nat) nat)))
 (check-holds
  (wf (∅ (nat : (Unv 0) ((zero : nat)))) ∅))
 (check-holds
@@ -331,6 +338,7 @@
 
 (check-holds (type-check ,Δtruth ∅ (λ (x : truth) (Unv 1)) (Π (x : truth) (Unv 2))))
 
+(require (only-in cur/curnel/redex-core apply))
 (check-equiv?
  (term (apply (λ (x : truth) (Unv 1)) T))
  (term ((λ (x : truth) (Unv 1)) T)))
@@ -642,7 +650,7 @@
   (term (((((hole
              (λ (A1 : (Unv 0)) (λ (x1 : A1) zero))) bool) true) true) ((refl bool) true)))))
 (check-telescope-equiv?
- (term (Δ-ref-parameter-Ξ ,Δ= ==))
+ (term (Δ-ref-index-Ξ ,Δ= ==))
  (term (Π (A : Type) (Π (a : A) (Π (b : A) hole)))))
 (check-equal?
  (term (reduce ,Δ= ,refl-elim))
