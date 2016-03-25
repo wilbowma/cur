@@ -485,17 +485,17 @@
    ----------------- "DTR-Unv"
    (type-infer Δ Γ U_0 U_1)]
 
-  [(where #t (Δ-in-dom Δ x))
+  [(side-condition (Δ-in-dom Δ x))
    (where t (Δ-ref-type Δ x))
    ----------------- "DTR-Inductive"
    (type-infer Δ Γ x t)]
 
-  [(where #t (Δ-in-constructor-dom Δ x))
+  [(side-condition (Δ-in-constructor-dom Δ x))
    (where t (Δ-ref-constructor-type Δ x))
    ----------------- "DTR-Constructor"
    (type-infer Δ Γ x t)]
 
-  [(where #t (Γ-in-dom Γ x))
+  [(side-condition (Γ-in-dom Γ x))
    (where t (Γ-ref Γ x))
    ----------------- "DTR-Start"
    (type-infer Δ Γ x t)]
