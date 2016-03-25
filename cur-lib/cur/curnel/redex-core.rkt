@@ -534,14 +534,17 @@
    (type-infer Δ Γ U_0 U_1)]
 
   [(Δ-type-in Δ x t)
+   (wf Δ Γ)
    ----------------- "DTR-Inductive"
    (type-infer Δ Γ x t)]
 
   [(Δ-constr-in Δ x t)
+   (wf Δ Γ)
    ----------------- "DTR-Constructor"
    (type-infer Δ Γ x t)]
 
   [(Γ-in Γ x t)
+   (wf Δ Γ)
    ----------------- "DTR-Start"
    (type-infer Δ Γ x t)]
 

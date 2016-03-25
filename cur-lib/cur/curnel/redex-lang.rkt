@@ -225,7 +225,7 @@
 
   ;; Reflection tools
 
-  (define (cur-normalize syn)
+  (define (cur-normalize syn #:local-env [env '()])
     (datum->cur
       syn
       (eval-cur syn)))
@@ -239,7 +239,8 @@
   (define (cur-equal? e1 e2)
     (and (judgment-holds (convert ,(delta) ,(gamma) ,(eval-cur e1) ,(eval-cur e2))) #t))
 
-  ;; TODO: Document local-env
+  ;; TODO: local-env is a hack; need principled way of descending under binders
+  ;; Perhaps a wrapper around syntax-parse? Maybe a transformer-under-binder function?
   (define (cur-type-infer syn #:local-env [env '()])
     (parameterize ([gamma (for/fold ([gamma (gamma)])
                                     ([(x t) (in-dict env)])

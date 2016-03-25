@@ -74,8 +74,15 @@ this may change if the representation of variables used by
 @racket[define-language] changes.
 
 If @racket[#:output-coq] is given, it should be a string representing a
-filename. The form @racket[define-language] will output Coq versions of
-the language definitions to the @racket[coq-filename], overwriting the file.
+filename.
+The form @racket[define-language] will output Coq versions of the language
+definitions to the @racket[coq-filename], overwriting the file.
+@emph{Note well}: this feature is very fragile right now, as the extractor
+descends under binders while expanding.
+If the Cur code being extracted uses reflection, these bindings may not be
+properly tracked resulting in unexpected type errors during extraction.
+This feature is also not well tested, so it may or may not produce well-formed
+Coq code.
 
 If @racket[#:output-latex] is given, it should be a string representing a
 filename. The form @racket[define-language] will output Latex versions of
