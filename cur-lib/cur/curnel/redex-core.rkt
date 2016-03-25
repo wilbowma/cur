@@ -470,7 +470,7 @@
    (type-infer Δ ∅ t_D U_D)
    (type-infer Δ (∅ D : t_D) t_c U_c) ...
    ;; NB: Ugh this should be possible with pattern matching alone ....
-   (side-condition ,(map (curry equal? (term D)) (term (D_0 ...))))
+   (side-condition ,(andmap (curry equal? (term D)) (term (D_0 ...))))
    (side-condition (positive* D (t_c ...)))
    ----------------- "WF-Inductive"
    (wf (Δ (D : t_D
