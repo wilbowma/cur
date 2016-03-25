@@ -43,8 +43,7 @@
 (define-metafunction tt-redL
   step : Δ e -> e
   [(step Δ e)
-   e_r
-   (where (_ e_r) ,(car (apply-reduction-relation tt--> (term (Δ e)))))])
+   ,(car (apply-reduction-relation (tt-->cbv (term Δ)) (term e)))])
 
 (define-metafunction tt-typingL
   Γ-union : Γ Γ -> Γ

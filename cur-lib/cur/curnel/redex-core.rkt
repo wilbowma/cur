@@ -28,7 +28,7 @@
   (U ::= (Unv i))
   (D x c ::= variable-not-otherwise-mentioned)
   (Δ   ::= ∅ (Δ (D : t ((c : t) ...))))
-  (t e ::= U (λ (x : t) e) x (Π (x : t) t) (e e)
+  (t e ::= U (λ (x : e) e) x (Π (x : e) e) (e e)
      ;; (elim inductive-type motive (indices ...) (methods ...) discriminant)
      (elim D e (e ...) (e ...) e))
   #:binding-forms
@@ -358,27 +358,30 @@
  |
  | Steps to (m_i a ... ih ...), where ih are computed from the recursive arguments to c_i
  |#
-(define tt-->
-  (reduction-relation tt-redL
-    (--> (Δ (in-hole E ((λ (x : t_0) t_1) t_2)))
-         (Δ (in-hole E (subst t_1 x t_2)))
-         -->β)
-    (--> (Δ (in-hole E (elim D e_motive (e_i ...) (v_m ...) (in-hole Θv_c c))))
-         (Δ (in-hole E (in-hole Θ_mi v_mi)))
-         ;; Find the method for constructor c_i, relying on the order of the arguments.
-         (where natural (Δ-constructor-index Δ c))
-         (where v_mi ,(list-ref (term (v_m ...)) (term natural)))
-         ;; Generate the inductive recursion
-         (where Θ_ih (Δ-inductive-elim Δ D (elim D e_motive (e_i ...) (v_m ...) hole) Θv_c))
-         (where Θ_mi (in-hole Θ_ih Θv_c))
-         -->elim)))
+(define (tt--> D)
+  (term-let ([Δ D])
+    (reduction-relation tt-redL
+      (--> ((λ (x : t_0) t_1) t_2)
+           (subst t_1 x t_2)
+           -->β)
+      (--> (elim D e_motive (e_i ...) (e_m ...) (in-hole Θ_c c))
+           (in-hole Θ_mi e_mi)
+           (side-condition (term (Δ-in-constructor-dom Δ c)))
+           ;; Find the method for constructor c_i, relying on the order of the arguments.
+           (where natural (Δ-constructor-index Δ c))
+           (where e_mi ,(list-ref (term (e_m ...)) (term natural)))
+           ;; Generate the inductive recursion
+           (where Θ_ih (Δ-inductive-elim Δ D (elim D e_motive (e_i ...) (e_m ...) hole) Θ_c))
+           (where Θ_mi (in-hole Θ_ih Θ_c))
+           -->elim))))
+
+(define (tt-->cbv D) (context-closure (tt--> D) tt-redL E))
+(define (tt-->full D) (compatible-closure (tt--> D) tt-redL e))
 
 (define-metafunction tt-redL
   reduce : Δ e -> e
   [(reduce Δ e)
-   e_r
-   (where (_ e_r)
-          ,(car (apply-reduction-relation* tt--> (term (Δ e)) #:cache-all? #t)))])
+   ,(car (apply-reduction-relation* (tt-->cbv (term Δ)) (term e) #:cache-all? #t))])
 
 ;;; ------------------------------------------------------------------------
 ;;; Type checking and synthesis
