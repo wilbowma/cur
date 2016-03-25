@@ -214,7 +214,7 @@
    (where (in-hole Ξ (in-hole Θ D))
      (Δ-ref-constructor-type Δ c))])
 
-;; Inner loop for Δ-constructor-inductive-telescope
+;; Fold over the telescope Φ building a new telescope with only arguments of type D
 ;; NB: Depends on clause order
 (define-metafunction tt-ctxtL
   inductive-loop : D Φ -> Φ
@@ -232,8 +232,9 @@
    (inductive-loop D (Δ-constructor-telescope Δ c))
    (where D (Δ-key-by-constructor Δ c))])
 
-;; Returns the inductive hypotheses required for eliminating the inductively defined type D with
-;; motive t_P, where the telescope Φ are the inductive arguments to a constructor for D
+;; Fold over the telescope Φ computing a new telescope with all
+;; inductive arguments of type D modified to an inductive hypotheses
+;; computed from the motive t.
 (define-metafunction tt-ctxtL
   hypotheses-loop : D t Φ -> Φ
   [(hypotheses-loop D t_P hole) hole]
@@ -316,21 +317,6 @@
       ;; TODO: Should be done in conversion judgment
       (Π (x : v) E) (Π (x : E) e)))
 
-#|
- | The elim form must appear applied like so:
- | (elim D U v_P m_0 ... m_i m_j ... m_n p ... (c_i a ...))
- |
- | Where:
- |   D       is the inductive being eliminated
- |   U         is the universe of the result of the motive
- |   v_P       is the motive
- |   m_{0..n}  are the methods
- |   p ...     are the indices of D
- |   c_i       is a constructor of D
- |   a ...     are the arguments to c_i
- |
- | Using contexts, this appears as (in-hole Θ ((elim D U) v_P))
- |#
 (define-metafunction tt-ctxtL
   is-inductive-argument : Δ_0 D_0 t -> #t or #f
   #:pre (Δ-in-dom Δ_0 D_0)
@@ -358,6 +344,20 @@
   [(Δ-inductive-elim any ... (Θ_c t_i))
    (Δ-inductive-elim any ... Θ_c)])
 
+#|
+ | The elim form must appear applied like so:
+ | (elim D v_P (i ...) (m_0 ... m_i m_j ... m_n) (c_i a ...))
+ |
+ | Where:
+ |   D       is the inductive being eliminated
+ |   v_P       is the motive
+ |   m_{0..n}  are the methods
+ |   i ...     are the indices of D
+ |   c_i       is a constructor of D
+ |   a ...     are the arguments to c_i
+ |
+ | Steps to (m_i a ... ih ...), where ih are computed from the recursive arguments to c_i
+ |#
 (define tt-->
   (reduction-relation tt-redL
     (--> (Δ (in-hole E ((λ (x : t_0) t_1) t_2)))
