@@ -447,30 +447,39 @@
    ,(and (term (positive D (in-hole Ξ (Unv 0)))) (term (positive* D (t_rest ...))))
    (where (in-hole Ξ (in-hole Θ D)) t_c)])
 
-;; Holds when the signature Δ and typing context Γ are well-formed.
+;; Holds when the signature Δ is valid
 (define-judgment-form tt-typingL
-  #:mode (wf I I)
-  #:contract (wf Δ Γ)
+  #:mode (valid I)
+  #:contract (valid Δ)
 
-  [----------------- "WF-Empty"
-   (wf ∅ ∅)]
+  [-------- "Valid-Empty"
+   (valid ∅)]
 
-  [(type-infer Δ Γ t t_0)
-   (wf Δ Γ)
-   ----------------- "WF-Var"
-   (wf Δ (Γ x : t))]
-
-  [(wf Δ ∅)
+  [(valid Δ)
    (type-infer Δ ∅ t_D U_D)
    (type-infer Δ (∅ D : t_D) t_c U_c) ...
    ;; NB: Ugh this should be possible with pattern matching alone ....
    (side-condition ,(andmap (curry equal? (term D)) (term (D_0 ...))))
    (side-condition (positive* D (t_c ...)))
-   ----------------- "WF-Inductive"
-   (wf (Δ (D : t_D
+   ----------------- "Valid-Inductive"
+   (valid (Δ (D : t_D
                ;; Checks that a constructor for x actually produces an x, i.e., that
                ;; the constructor is well-formed.
-               ((c : (name t_c (in-hole Ξ (in-hole Θ D_0)))) ...))) ∅)])
+               ((c : (name t_c (in-hole Ξ (in-hole Θ D_0)))) ...))))])
+
+;; Holds when the signature Δ and typing context Γ are well-formed.
+(define-judgment-form tt-typingL
+  #:mode (wf I I)
+  #:contract (wf Δ Γ)
+
+  [(valid Δ)
+   ----------------- "WF-Empty"
+   (wf Δ ∅)]
+
+  [(type-infer Δ Γ t t_0)
+   (wf Δ Γ)
+   ----------------- "WF-Var"
+   (wf Δ (Γ x : t))])
 
 ;; TODO: Bi-directional and inference?
 ;; TODO: http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
