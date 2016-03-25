@@ -225,19 +225,26 @@
 ;; Test static semantics
 ;; ------------------------------------------------------------------------
 
-(check-true (term (positive* nat (nat))))
-(check-true (term (positive* nat ((Π (x : (Unv 0)) (Π (y : (Unv 0)) nat))))))
-(check-true (term (positive* nat ((Π (x : nat) nat)))))
+(check-holds
+ (valid-constructor nat nat))
+(check-holds
+ (valid-constructor nat (Π (x : (Unv 0)) (Π (y : (Unv 0)) nat))))
+(check-holds
+ (valid-constructor nat (Π (x : nat) nat)))
 ;; (nat -> nat) -> nat
 ;; Not sure if this is actually supposed to pass
-(check-false (term (positive* nat ((Π (x : (Π (y : nat) nat)) nat)))))
+(check-not-holds
+ (valid-constructor nat (Π (x : (Π (y : nat) nat)) nat)))
 ;; ((Unv 0) -> nat) -> nat
-(check-true (term (positive* nat ((Π (x : (Π (y : (Unv 0)) nat)) nat)))))
+(check-holds
+ (valid-constructor nat (Π (x : (Π (y : (Unv 0)) nat)) nat)))
 ;; (((nat -> (Unv 0)) -> nat) -> nat)
-(check-true (term (positive* nat ((Π (x : (Π (y : (Π (x : nat) (Unv 0))) nat)) nat)))))
+(check-holds
+ (valid-constructor nat (Π (x : (Π (y : (Π (x : nat) (Unv 0))) nat)) nat)))
 ;; Not sure if this is actually supposed to pass
 ;; ((nat -> nat) -> nat) -> nat
-(check-false (term (positive* nat ((Π (x : (Π (y : (Π (x : nat) nat)) nat)) nat)))))
+(check-not-holds
+ (valid-constructor nat (Π (x : (Π (y : (Π (x : nat) nat)) nat)) nat)))
 
 (check-true (judgment-holds (wf ,Δ0 ∅)))
 (check-true (redex-match? tt-redL (in-hole Ξ (Unv 0)) (term (Unv 0))))
@@ -280,7 +287,8 @@
 (check-holds (type-infer ∅ ∅ (Unv 0) U))
 (check-holds (type-infer ∅ (∅ nat : (Unv 0)) nat U))
 (check-holds (type-infer ∅ (∅ nat : (Unv 0)) (Π (x : nat) nat) U))
-(check-true (term (positive* nat (nat (Π (x : nat) nat)))))
+(check-holds (valid-constructor nat nat))
+(check-holds (valid-constructor nat (Π (x : nat) nat)))
 (check-holds
  (wf (∅ (nat : (Unv 0) ((zero : nat)))) ∅))
 (check-holds

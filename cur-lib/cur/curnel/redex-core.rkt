@@ -438,14 +438,15 @@
    ,(and (term (nonpositive x t_0)) (term (positive x t)))]
   [(positive x t) #t])
 
-(define-metafunction tt-typingL
-  positive* : x (t ...) -> #t or #f
-  [(positive* D ()) #t]
-  [(positive* D (t_c t_rest ...))
-   ;; Replace the result of the constructor with (Unv 0), to avoid the result being considered a
-   ;; nonpositive position.
-   ,(and (term (positive D (in-hole Ξ (Unv 0)))) (term (positive* D (t_rest ...))))
-   (where (in-hole Ξ (in-hole Θ D)) t_c)])
+;; Holds when the type t is a valid type for a constructor of D
+(define-judgment-form tt-typingL
+  #:mode (valid-constructor I I)
+  #:contract (valid-constructor D t)
+
+  ;; NB TODO: Ignore the "positive" occurrence of D in the result; this is hacky way to do this
+  [(side-condition (positive D (in-hole Ξ (Unv 0))))
+   ---------------------------------------------------------
+   (valid-constructor D (name t_c (in-hole Ξ (in-hole Θ D))))])
 
 ;; Holds when the signature Δ is valid
 (define-judgment-form tt-typingL
@@ -457,15 +458,10 @@
 
   [(valid Δ)
    (type-infer Δ ∅ t_D U_D)
+   (valid-constructor D t_c) ...
    (type-infer Δ (∅ D : t_D) t_c U_c) ...
-   ;; NB: Ugh this should be possible with pattern matching alone ....
-   (side-condition ,(andmap (curry equal? (term D)) (term (D_0 ...))))
-   (side-condition (positive* D (t_c ...)))
    ----------------- "Valid-Inductive"
-   (valid (Δ (D : t_D
-               ;; Checks that a constructor for x actually produces an x, i.e., that
-               ;; the constructor is well-formed.
-               ((c : (name t_c (in-hole Ξ (in-hole Θ D_0)))) ...))))])
+   (valid (Δ (D : t_D ((c : t_c) ...))))])
 
 ;; Holds when the signature Δ and typing context Γ are well-formed.
 (define-judgment-form tt-typingL
