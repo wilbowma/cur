@@ -29,6 +29,7 @@
   (D x c ::= variable-not-otherwise-mentioned)
   (Δ   ::= ∅ (Δ (D : t ((c : t) ...))))
   (t e ::= U (λ (x : e) e) x (Π (x : e) e) (e e)
+     ;; TODO: Might make more sense for methods to come first
      ;; (elim inductive-type motive (indices ...) (methods ...) discriminant)
      (elim D e (e ...) (e ...) e))
   #:binding-forms
@@ -243,22 +244,6 @@
       (hypotheses-loop D t_P Φ_1))
    (where x_h ,(variable-not-in (term (D t_P any_0)) 'x-ih))])
 
-;; Computes the type of the eliminator for the inductively defined type D with a motive whose result
-;; is in universe U.
-;;
-;; The type of (elim D U) is something like:
-;;  (∀ (P : (∀ a -> ... -> (D a ...) -> U))
-;;     (method_ci ...) -> ... ->
-;;     (a -> ... -> (D a ...) ->
-;;       (P a ... (D a ...))))
-;;
-;; D   is an inductively defined type
-;; U     is the sort the motive
-;; x_P   is the name of the motive
-;; Ξ_P*D is the telescope of the indices of D and
-;;       the witness of type D (applied to the indices)
-;; Ξ_m   is the telescope of the methods for D
-
 ;; Returns the inductive hypotheses required for the elimination method of constructor c_i for
 ;; inductive type D, when eliminating with motive t_P.
 (define-metafunction tt-ctxtL
@@ -306,16 +291,7 @@
 ;;; inductively defined type x with a motive whose result is in universe U
 
 (define-extended-language tt-redL tt-ctxtL
-  (v  ::= x U (Π (x : t) t) (λ (x : t) t) (in-hole Θv c))
-  (Θv ::= hole (Θv v))
-  (C-elim  ::= (elim D t_P (e_i ...) (e_m ...) hole))
-  ;; call-by-value
-  (E  ::= hole (E e) (v E)
-      (elim D e (e ...) (v ... E e ...) e)
-      (elim D e (e ...) (v ...) E)
-      ;; reduce under Π (helps with typing checking)
-      ;; TODO: Should be done in conversion judgment
-      (Π (x : v) E) (Π (x : E) e)))
+  (C-elim  ::= (elim D t_P (e_i ...) (e_m ...) hole)))
 
 (define-metafunction tt-ctxtL
   is-inductive-argument : Δ_0 D_0 t -> #t or #f
@@ -375,7 +351,23 @@
            (where Θ_mi (in-hole Θ_ih Θ_c))
            -->elim))))
 
-(define (tt-->cbv D) (context-closure (tt--> D) tt-redL E))
+(define-extended-language tt-cbvL tt-redL
+  ;; NB: Not exactly right; only true when c is a constructor
+  (v  ::= x U (Π (x : t) t) (λ (x : t) t) (in-hole Θv c))
+  (Θv ::= hole (Θv v))
+  (E  ::= hole (E e) (v E)
+      (elim D e (e ...) (v ... E e ...) e)
+      (elim D e (e ...) (v ...) E)
+      ;; NB: Reducing under Π seems necessary
+      (Π (x : E) e) (Π (x : v) E)))
+
+(define-extended-language tt-cbnL tt-cbvL
+  (E  ::= hole (E e) (elim D e (e ...) (e ...) E)))
+
+(define (tt-->cbv D) (context-closure (tt--> D) tt-cbvL E))
+;; Lazyness has lots of implications, such as on conversion and test suite.
+(define (tt-->cbn D) (context-closure (tt--> D) tt-cbnL E))
+;; Full reduction seems to loop forever
 (define (tt-->full D) (compatible-closure (tt--> D) tt-redL e))
 
 (define-metafunction tt-redL
@@ -423,6 +415,8 @@
    t]
   [(Γ-ref (Γ x_!_0 : t_0) (name x_1 x_!_0))
    (Γ-ref Γ x_1)])
+
+;; TODO: After reading https://coq.inria.fr/doc/Reference-Manual006.html#sec209, not convinced this is right.
 
 (define-metafunction tt-typingL
   nonpositive : x t -> #t or #f

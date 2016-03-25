@@ -20,9 +20,9 @@
 (define Ξ? (redex-match? tt-ctxtL Ξ))
 (define Φ? (redex-match? tt-ctxtL Φ))
 (define Θ? (redex-match? tt-ctxtL Θ))
-(define Θv? (redex-match? tt-redL Θv))
-(define E? (redex-match? tt-redL E))
-(define v? (redex-match? tt-redL v))
+(define Θv? (redex-match? tt-cbvL Θv))
+(define E? (redex-match? tt-cbvL E))
+(define v? (redex-match? tt-cbvL v))
 
 (define-metafunction ttL
   subst-all : t (x ...) (e ...) -> t
