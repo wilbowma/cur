@@ -487,16 +487,19 @@
 
   [(side-condition (Δ-in-dom Δ x))
    (where t (Δ-ref-type Δ x))
+   (wf Δ Γ)
    ----------------- "DTR-Inductive"
    (type-infer Δ Γ x t)]
 
   [(side-condition (Δ-in-constructor-dom Δ x))
    (where t (Δ-ref-constructor-type Δ x))
+   (wf Δ Γ)
    ----------------- "DTR-Constructor"
    (type-infer Δ Γ x t)]
 
   [(side-condition (Γ-in-dom Γ x))
    (where t (Γ-ref Γ x))
+   (wf Δ Γ)
    ----------------- "DTR-Start"
    (type-infer Δ Γ x t)]
 
