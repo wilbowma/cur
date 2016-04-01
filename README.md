@@ -90,5 +90,7 @@ Open up `cur-lib/cur/stdlib/tactics` to see one way to implement tactics in Cur.
 Open up anything in `cur-lib/cur/stdlib/` to see some standard dependent-type
 formalisms.
 
-Open up `cur-lib/cur/curnel/redex-core.rkt` to see the entire
-implementation of the core language, <600 lines of code.
+Open up `cur-lib/cur/curnel/model/core.rkt` to see a model of the core
+language, <600 lines of code.
+Currently, this model is also the implementation, although that is
+likely to change for performance reasons.

@@ -3,12 +3,12 @@
 ;; Additional API utilities for interacting with the core, but aren't necessary for the model of the core language.
 (require
  (except-in
-  "redex-core.rkt"
+  "core.rkt"
   apply)
   redex/reduction-semantics)
 
 (provide
- (all-from-out "redex-core.rkt")
+ (all-from-out "core.rkt")
  (all-defined-out))
 
 (define x? (redex-match? ttL x))

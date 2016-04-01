@@ -1,7 +1,7 @@
 #lang racket/base
 (require
  redex/reduction-semantics
- cur/curnel/redex-core-api
+ cur/curnel/model/core-api
  rackunit
  racket/function
  (only-in racket/set set=?))
@@ -338,7 +338,7 @@
 
 (check-holds (type-check ,Δtruth ∅ (λ (x : truth) (Unv 1)) (Π (x : truth) (Unv 2))))
 
-(require (only-in cur/curnel/redex-core apply))
+(require (only-in cur/curnel/model/core apply))
 (check-equiv?
  (term (apply (λ (x : truth) (Unv 1)) T))
  (term ((λ (x : truth) (Unv 1)) T)))
