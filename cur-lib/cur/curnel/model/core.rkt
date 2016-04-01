@@ -99,6 +99,16 @@
   [(Δ-ref-type (Δ (D_!_0 : t any)) (name D D_!_0))
    (Δ-ref-type Δ D)])
 
+;; Make D : t ∈ Δ a little easier to use, prettier to render
+(define-judgment-form ttL
+  #:mode (Δ-type-in I I O)
+  #:contract (Δ-type-in Δ D t)
+
+  [(side-condition (Δ-in-dom Δ D))
+   (where t (Δ-ref-type Δ D))
+   -------------------------------
+   (Δ-type-in Δ D t)])
+
 ;; Returns the inductively defined type that x constructs
 (define-metafunction ttL
   Δ-key-by-constructor : Δ_0 c_0 -> D
@@ -126,6 +136,16 @@
    (where D (Δ-key-by-constructor Δ c))
    (where (any_1 ... (c : t) any_0 ...)
           (Δ-ref-constructor-map Δ D))])
+
+;; Make c : t ∈ Δ a little easier to use, prettier to render
+(define-judgment-form ttL
+  #:mode (Δ-constr-in I I O)
+  #:contract (Δ-constr-in Δ c t)
+
+  [(side-condition (Δ-in-constructor-dom Δ c))
+   (where t (Δ-ref-constructor-type Δ c))
+   -------------------------------
+   (Δ-constr-in Δ c t)])
 
 (define-metafunction ttL
   Δ-ref-constructors : Δ_0 D_0 -> (c ...)
@@ -416,6 +436,16 @@
   [(Γ-ref (Γ x_!_0 : t_0) (name x_1 x_!_0))
    (Γ-ref Γ x_1)])
 
+;; Make ∈ Γ a little easier to use, prettier to render
+(define-judgment-form tt-typingL
+  #:mode (Γ-in I I O)
+  #:contract (Γ-in Γ x t)
+
+  [(side-condition (Γ-in-dom Γ x))
+   (where t (Γ-ref Γ x))
+   -------------------------------
+   (Γ-in Γ x t)])
+
 ;; TODO: After reading https://coq.inria.fr/doc/Reference-Manual006.html#sec209, not convinced this is right.
 
 (define-metafunction tt-typingL
@@ -490,20 +520,17 @@
    ----------------- "DTR-Unv"
    (type-infer Δ Γ U_0 U_1)]
 
-  [(side-condition (Δ-in-dom Δ x))
-   (where t (Δ-ref-type Δ x))
+  [(Δ-type-in Δ x t)
    (wf Δ Γ)
    ----------------- "DTR-Inductive"
    (type-infer Δ Γ x t)]
 
-  [(side-condition (Δ-in-constructor-dom Δ x))
-   (where t (Δ-ref-constructor-type Δ x))
+  [(Δ-constr-in Δ x t)
    (wf Δ Γ)
    ----------------- "DTR-Constructor"
    (type-infer Δ Γ x t)]
 
-  [(side-condition (Γ-in-dom Γ x))
-   (where t (Γ-ref Γ x))
+  [(Γ-in x t)
    (wf Δ Γ)
    ----------------- "DTR-Start"
    (type-infer Δ Γ x t)]
