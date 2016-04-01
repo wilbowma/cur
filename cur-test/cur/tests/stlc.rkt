@@ -24,7 +24,10 @@
 (define (extend-env (g : (List stlc-type)) (t : stlc-type))
   (cons stlc-type t g))
 
-(define-relation (has-type (List stlc-type) stlc-term stlc-type)
+;; TODO BUG: Can't refer to functions in inductive definitions; either
+;; need global defs and defs in environment, or need to inline defs in Δ
+;; and Γ. Probably the former.
+#;(define-relation (has-type (List stlc-type) stlc-term stlc-type)
   #:output-coq "stlc.v"
   #:output-latex "stlc.tex"
   [(g : (List stlc-type))
