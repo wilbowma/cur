@@ -519,17 +519,14 @@
    ----------------- "DTR-Product"
    (type-infer Δ Γ (Π (x : t_0) t) U)]
 
-  [(type-infer Δ Γ e_0 t)
-   ;; Cannot rely on type-infer producing normal forms.
-   (where (Π (x_0 : t_0) t_1) (reduce Δ t))
+  [(type-infer-normal Δ Γ e_0 (Π (x_0 : t_0) t_1))
    (type-check Δ Γ e_1 t_0)
-   (where t_3 (subst t_1 x_0 e_1))
    ----------------- "DTR-Application"
-   (type-infer Δ Γ (e_0 e_1) t_3)]
+   (type-infer Δ Γ (e_0 e_1) (subst t_1 x_0 e_1))]
 
   [(type-check Δ Γ e_c (apply D e_i ...))
 
-   (type-infer Δ Γ e_motive (name t_motive (in-hole Ξ U)))
+   (type-infer-normal Δ Γ e_motive (name t_motive (in-hole Ξ U)))
    (convert Δ Γ t_motive (Δ-motive-type Δ D U))
 
    (where (t_m ...) (Δ-method-types Δ D e_motive))
@@ -537,6 +534,14 @@
    ----------------- "DTR-Elim_D"
    (type-infer Δ Γ (elim D e_motive (e_i ...) (e_m ...) e_c)
                (apply e_motive e_i ... e_c))])
+
+(define-judgment-form tt-typingL
+  #:mode (type-infer-normal I I I O)
+  #:contract (type-infer-normal Δ Γ e t)
+
+  [(type-infer Δ Γ e t)
+   ----------------- "DTR-Reduce"
+   (type-infer-normal Δ Γ e (reduce Δ t))])
 
 (define-judgment-form tt-typingL
   #:mode (type-check I I I I)
