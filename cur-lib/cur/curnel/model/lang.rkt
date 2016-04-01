@@ -130,7 +130,7 @@
     (term (subst-all ,t ,(first (bind-subst)) ,(second (bind-subst)))))
 
   (define (type-infer/term t)
-    (let ([t (judgment-holds (type-infer ,(delta) ,(gamma) ,(subst-bindings t) t_0) t_0)])
+    (let ([t (judgment-holds (type-infer-normal ,(delta) ,(gamma) ,(subst-bindings t) t_0) t_0)])
       (and (pair? t) (car t))))
 
   (define (type-check/term? e t)
