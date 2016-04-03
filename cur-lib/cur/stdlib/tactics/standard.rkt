@@ -1,6 +1,7 @@
 #lang s-exp "../../main.rkt"
 (require
   "base.rkt"
+  "../sugar.rkt"
   (for-syntax racket/syntax))
 
 (provide

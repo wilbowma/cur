@@ -24,7 +24,11 @@
   run
   step
   step-n
-  query-type)
+  query-type
+
+  ;; extension abstractions
+  (for-syntax
+   cur-match))
 
 (require
   (only-in "../main.rkt"
@@ -496,3 +500,10 @@
        (printf "\"~a\" has type \"~a\"~n" (syntax->datum #'term) (syntax->datum (cur-type-infer #'term)))
        ;; Void is undocumented and a hack, but sort of works
        #'(void))]))
+
+(begin-for-syntax
+  (define-syntax (cur-match syn)
+    (syntax-case syn ()
+      [(_ syn [pattern body] ...)
+       #'(syntax-parse (cur-expand syn)
+           [pattern body] ...)])))
