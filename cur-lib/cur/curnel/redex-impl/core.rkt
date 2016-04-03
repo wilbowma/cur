@@ -71,7 +71,8 @@
   [(Δ-in-constructor-dom (Δ (D : any_D ((c_!_0 : any) ...))) (name c c_!_0))
    (Δ-in-constructor-dom Δ c)])
 
-;;; TODO: Might be worth maintaining the above bijection between Δ and maps for performance reasons
+;;; NB: Might be worth maintaining the above bijection between Δ and maps for performance reasons
+;;; Hypothesis tested: Actually, makes things slower if done naively. Best to leave it alone.
 (define-metafunction ttL
   [(Δ-ref-type (Δ (D : t any)) D)
    t]

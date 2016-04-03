@@ -90,7 +90,6 @@
   [(Δ-in-constructor-dom (Δ (D : any_D ((c_!_0 : any) ...))) (name c c_!_0))
    (Δ-in-constructor-dom Δ c)])
 
-;;; TODO: Might be worth maintaining the above bijection between Δ and maps for performance reasons
 (define-metafunction ttL
   Δ-ref-type : Δ_0 D_0 -> t
   #:pre (Δ-in-dom Δ_0 D_0)
@@ -182,8 +181,6 @@
   ;; Apply context
   ;; NB: There is a bijection between this an a vector expressions
   (Θ   ::= hole (Θ e)))
-
-;; TODO: Might be worth it to actually maintain the above bijections, for performance reasons.
 
 ;; Applies the term t to the telescope Ξ.
 ;; TODO: Test
