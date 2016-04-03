@@ -216,7 +216,7 @@
           zero)))))
 
 (define-syntax-rule (check-equivalent e1 e2)
-  (check-holds (convert ∅ ∅ e1 e2)))
+  (check-holds (subtype ∅ ∅ e1 e2)))
 (check-equivalent
  (λ (x : Type) x) (λ (y : Type) y))
 (check-equivalent
@@ -344,7 +344,7 @@
  (term ((λ (x : truth) (Unv 1)) T)))
 
 (check-holds
- (convert ,Δtruth ∅ (apply (λ (x : truth) (Unv 1)) T) (Unv 1)))
+ (subtype ,Δtruth ∅ (apply (λ (x : truth) (Unv 1)) T) (Unv 1)))
 
 (check-holds (type-infer ,Δtruth
                          ∅
@@ -509,7 +509,7 @@
                                            ((and B) A))))
              (in-hole Ξ (Π (x : (in-hole Θ and)) U))))
 (check-holds
- (convert ,Δ4 ∅
+ (subtype ,Δ4 ∅
              (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Π (x : ((and A) B)) (Unv 0))))
              (Π (P : (Unv 0)) (Π (Q : (Unv 0)) (Π (x : ((and P) Q)) (Unv 0))))))
 (check-holds
