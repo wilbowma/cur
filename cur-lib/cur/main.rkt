@@ -5,7 +5,7 @@
     racket/syntax
     syntax/parse
     (for-template
-      (only-in "curnel/model/lang.rkt"
+      (only-in "faithful.rkt"
        cur-expand)))
 
   (provide cur-match)
@@ -17,7 +17,7 @@
            [pattern body] ...)])))
 
 (require
-  (rename-in "curnel/model/lang.rkt" [provide -provide])
+  (rename-in "faithful.rkt" [provide -provide])
   (only-in racket/base eof)
   (for-syntax 'extra)
   'extra)
@@ -27,5 +27,5 @@
   (except-out
     (all-from-out
      'extra
-     "curnel/model/lang.rkt")
+     "faithful.rkt")
     -provide))
