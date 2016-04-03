@@ -420,17 +420,26 @@
   #:mode (convert I I I I)
   #:contract (convert Δ Γ t t)
 
+  [(where (t t) ((reduce Δ t_0) (reduce Δ t_1)))
+   ----------------- "≡"
+   (convert Δ Γ t_0 t_1)])
+
+(define-judgment-form tt-typingL
+  #:mode (subtype I I I I)
+  #:contract (subtype Δ Γ t t)
+
+  [(convert Δ Γ t_0 t_1)
+   ------------- "≼-≡"
+   (subtype Δ Γ t_0 t_1)]
+
   [(side-condition ,(<= (term i_0) (term i_1)))
    ----------------- "≼-Unv"
-   (convert Δ Γ (Unv i_0) (Unv i_1))]
+   (subtype Δ Γ (Unv i_0) (Unv i_1))]
 
-  [(where (t t) ((reduce Δ t_0) (reduce Δ t_1)))
-   ----------------- "≼-αβ"
-   (convert Δ Γ t_0 t_1)]
-
-  [(convert Δ (Γ x : t_0) t_1 t_2)
+  [(convert Δ Γ t_0 t_1)
+   (subtype Δ (Γ x_0 : t_0) e_0 (subst e_1 x_1 x_0))
    ----------------- "≼-Π"
-   (convert Δ Γ (Π (x : t_0) t_1) (Π (x : t_0) t_2))])
+   (subtype Δ Γ (Π (x_0 : t_0) e_0) (Π (x_1 : t_1) e_1))])
 
 (define-metafunction tt-typingL
   Γ-in-dom : Γ x -> #t or #f
@@ -567,7 +576,7 @@
   [(type-check Δ Γ e_c (apply D e_i ...))
 
    (type-infer-normal Δ Γ e_motive (name t_motive (in-hole Ξ U)))
-   (convert Δ Γ t_motive (Δ-motive-type Δ D U))
+   (subtype Δ Γ t_motive (Δ-motive-type Δ D U))
 
    (where (t_m ...) (Δ-method-types Δ D e_motive))
    (type-check Δ Γ e_m t_m) ...
@@ -588,6 +597,8 @@
   #:contract (type-check Δ Γ e t)
 
   [(type-infer Δ Γ e t_0)
-   (convert Δ Γ t t_0)
+   (type-infer Δ Γ t U)
+   (subtype Δ Γ t t_0)
    ----------------- "DTR-Check"
    (type-check Δ Γ e t)])
+
