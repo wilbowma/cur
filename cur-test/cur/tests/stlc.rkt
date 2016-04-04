@@ -11,7 +11,8 @@
 
 (define-language stlc
   #:vars (x)
-  #:output-coq "stlc.v"
+  ; TODO BUG: Disabled until #40 fixed.
+  ;#:output-coq "stlc.v"
   #:output-latex "stlc.tex"
   (val  (v)   ::= true false unit)
   ;; TODO: Allow datum, like 1, as terminals
@@ -25,9 +26,8 @@
   (cons stlc-type t g))
 
 (define-relation (has-type (List stlc-type) stlc-term stlc-type)
-; TODO BUG:
-; Coq output broken, as the extractor descends under binders without keeping track of them, then tried to type check (via expanding macros)
-;  #:output-coq "stlc.v"
+  ; TODO BUG: Disabled until #40 fixed.
+  ;#:output-coq "stlc.v"
   #:output-latex "stlc.tex"
   [(g : (List stlc-type))
    ------------------------ T-Unit
