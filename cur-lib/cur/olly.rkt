@@ -79,19 +79,19 @@
              (format "(fun ~a : ~a => ~a)" (cur->coq #'x) (cur->coq #'t)
                      (cur->coq #'body))]
             [(real-forall ~! (x:id (~datum :) t) body:expr)
-             (format "(forall ~a : ~a, ~a)" (syntax-e #'x) (cur->coq #'t)
+             (format "(forall ~a : ~a, ~a)" (cur->coq #'x) (cur->coq #'t)
                      (cur->coq #'body))]
             [(data ~! n:id (~datum :) t (x*:id (~datum :) t*) ...)
              (begin
                (coq-lift-top-level
                 (format "Inductive ~a : ~a :=~a."
-                        (sanitize-id (format "~a" (syntax-e #'n)))
+                        (cur->coq #'n)
                         (cur->coq #'t)
                         (for/fold ([strs ""])
                                   ([clause (syntax->list #'((x* : t*) ...))])
                           (syntax-parse clause
                             [(x (~datum :) t)
-                             (format "~a~n| ~a : ~a" strs (syntax-e #'x)
+                             (format "~a~n| ~a : ~a" strs (cur->coq #'x)
                                      (cur->coq #'t))]))))
                "")]
             [(Type i) "Type"]

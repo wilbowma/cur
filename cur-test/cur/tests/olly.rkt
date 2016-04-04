@@ -38,7 +38,7 @@
      "Inductive meow : \\(forall .+ : gamma, \\(forall .+ : term, \\(forall .+ : type, Type\\)\\)\\) :="
      (first (string-split t "\n")))
     (check-regexp-match
-     "\\| T-Bla : \\(forall g : gamma, \\(forall e : term, \\(forall t : type, \\(\\(\\(meow g\\) e\\) t\\)\\)\\)\\)\\."
+     "\\| T_Bla : \\(forall g : gamma, \\(forall e : term, \\(forall t : type, \\(\\(\\(meow g\\) e\\) t\\)\\)\\)\\)\\."
      (second (string-split t "\n"))))
   (let ([t (cur->coq
             #'(elim nat (lambda (x : nat) nat)
