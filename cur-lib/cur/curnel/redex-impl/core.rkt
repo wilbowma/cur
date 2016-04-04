@@ -5,8 +5,6 @@
  |#
 
 (require
-  racket/function
-  racket/list
   redex/reduction-semantics)
 
 (provide
@@ -123,21 +121,6 @@
   [(Δ-ref-constructors Δ D)
    (c ...)
    (where ((c : any) ...) (Δ-ref-constructor-map Δ D))])
-
-;; TODO: Mix of pure Redex/escaping to Racket sometimes is getting confusing.
-;; TODO: Justify, or stop.
-
-(define-metafunction ttL
-  [(sequence-index-of any_0 (any_0 any ...))
-   0]
-  [(sequence-index-of (name any_0 any_!_0) (any_!_0 any ...))
-   ,(add1 (term (sequence-index-of any_0 (any ...))))])
-
-;; Get the index of the constructor c_i
-(define-metafunction ttL
-  [(Δ-constructor-index Δ c)
-   (sequence-index-of c (Δ-ref-constructors Δ D))
-   (where D (Δ-key-by-constructor Δ c))])
 
 ;;; ------------------------------------------------------------------------
 ;;; Operations that involve contexts.
@@ -302,14 +285,13 @@
       (--> ((λ (x : t_0) t_1) t_2)
            (substitute t_1 x t_2)
            -->β)
-      (--> (elim D e_motive (e_i ...) (e_m ...) (in-hole Θ_c c))
+      (--> (elim D e_motive any_i any_m (in-hole Θ_c c))
            (in-hole Θ_mi e_mi)
            (side-condition (term (Δ-in-constructor-dom Δ c)))
            ;; Find the method for constructor c_i, relying on the order of the arguments.
-           (where natural (Δ-constructor-index Δ c))
-           (where e_mi ,(list-ref (term (e_m ...)) (term natural)))
+           (where e_mi ,(cdr (assq (term c) (map cons (term (Δ-ref-constructors Δ D)) (term any_m)))))
            ;; Generate the inductive recursion
-           (where Θ_ih (Δ-inductive-elim Δ D (elim D e_motive (e_i ...) (e_m ...) hole) Θ_c))
+           (where Θ_ih (Δ-inductive-elim Δ D (elim D e_motive any_i any_m hole) Θ_c))
            (where Θ_mi (in-hole Θ_ih Θ_c))
            -->elim))))
 

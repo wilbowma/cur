@@ -100,14 +100,7 @@
   (define (extend-Δ/syn! env x t c*)
     (env (extend-Δ/syn env x t c*)))
 
-  (define subst? (list/c (listof x?)  (listof e?)))
-  (define bind-subst
-    (make-parameter
-     (list null null)
-     (lambda (x)
-       (unless (subst? x)
-           (error 'core-error "We build a bad subst ~s" x))
-       x)))
+  (define bind-subst (make-parameter (list null null)))
 
   (define (add-binding/term! x t)
     (let ([vars (first (bind-subst))]
