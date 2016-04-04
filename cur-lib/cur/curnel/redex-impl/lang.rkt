@@ -70,7 +70,7 @@
   ;; TODO: Gamma and Delta seem to get reset inside a module+
   (define gamma (make-parameter (term ∅)))
 
-  (define delta (make-parameter (term ∅)))
+  (define delta (make-parameter (term ())))
 
   ;; These should be provided by core, so details of envs can be hidden.
   (define (extend-Γ/term env x t)

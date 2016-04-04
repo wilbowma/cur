@@ -43,35 +43,32 @@
 (check-true (t? (term (λ (x_0 : (Unv 0)) x_0))))
 
 ;; TODO: Rename these signatures, and use them in all future tests.
-(define Δ (term ((∅ (nat : (Unv 0) ((zero : nat) (s : (Π (x : nat) nat)))))
-                 (bool : (Unv 0) ((true : bool) (false : bool))))))
-(define Δ0 (term ∅))
-(define Δ3 (term (∅ (and : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0))) ()))))
-(define Δ4 (term (∅ (and : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
-                         ((conj : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Π (a : A) (Π (b : B) ((and A) B)))))))))))
+(define Δ (term (((nat : (Unv 0)) (zero : nat) (s : (Π (x : nat) nat)))
+                 ((bool : (Unv 0)) (true : bool) (false : bool)))))
+(define Δ0 (term ()))
+(define Δ3 (term (((and : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0))))))))
+(define Δ4 (term (((and : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0))))
+                  (conj : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Π (a : A) (Π (b : B) ((and A) B))))))))))
 (check-true (Δ? Δ0))
 (check-true (Δ? Δ))
 (check-true (Δ? Δ4))
 (check-true (Δ? Δ3))
 (check-true (Δ? Δ4))
-(define sigma (term ((((((∅ (true : (Unv 0) ((T : true))))
-                         (false : (Unv 0) ()))
-                        (equal : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
-                               ()))
-                       (nat : (Unv 0) ()))
-                      (heap : (Unv 0) ()))
-                     (pre : (Π (temp808 : heap) (Unv 0)) ()))))
-(check-true (Δ? (term (∅ (true : (Unv 0) ((T : true)))))))
-(check-true (Δ? (term (∅ (false : (Unv 0) ())))))
-(check-true (Δ? (term (∅ (equal : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
-                                ())))))
-(check-true (Δ? (term (∅ (nat : (Unv 0) ())))))
-(check-true (Δ? (term (∅ (pre : (Π (temp808 : heap) (Unv 0)) ())))))
+(define sigma (term (((true : (Unv 0))
+                      (T : true))
+                     ((false : (Unv 0)))
+                     ((equal : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))))
+                     ((nat : (Unv 0)))
+                     ((heap : (Unv 0)))
+                     ((pre : (Π (temp808 : heap) (Unv 0)))))))
+(check-true (Δ? (list (list-ref sigma 0))))
+(check-true (Δ? (list (list-ref sigma 1))))
+(check-true (Δ? (list (list-ref sigma 2))))
+(check-true (Δ? (list (list-ref sigma 3))))
+(check-true (Δ? (list (list-ref sigma 4))))
 
-(check-true (Δ? (term ((∅ (true : (Unv 0) ((T : true)))) (false : (Unv 0) ())))))
-(check-true (Δ? (term (((∅ (true : (Unv 0) ((T : true)))) (false : (Unv 0) ()))
-                       (equal : (Π (A : (Unv 0)) (Π (B : (Unv 0)) (Unv 0)))
-                              ())))))
+(check-true (Δ? (take sigma 2)))
+(check-true (Δ? (take sigma 3)))
 (check-true (Δ? sigma))
 (check-true (t? (term (Π (a : A) (Π (b : B) ((and A) B))))))
 
@@ -147,12 +144,12 @@
 (check-true (v? (term (s zero))))
 
 ;; TODO: Move equivalence up here, and use in these tests.
-(check-equiv? (term (reduce ∅ (Unv 0))) (term (Unv 0)))
-(check-equiv? (term (reduce ∅ ((λ (x : t) x) (Unv 0)))) (term (Unv 0)))
-(check-not-equiv? (term (reduce ∅ ((Π (x : t) x) (Unv 0)))) (term (Unv 0)))
-(check-not-equiv? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) x_0) (Unv 0)))))
+(check-equiv? (term (reduce () (Unv 0))) (term (Unv 0)))
+(check-equiv? (term (reduce () ((λ (x : t) x) (Unv 0)))) (term (Unv 0)))
+(check-not-equiv? (term (reduce () ((Π (x : t) x) (Unv 0)))) (term (Unv 0)))
+(check-not-equiv? (term (reduce () (Π (x : t) ((Π (x_0 : t) x_0) (Unv 0)))))
                   (term (Π (x : t) (Unv 0))))
-(check-not-equiv? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) (x_0 x)) x))))
+(check-not-equiv? (term (reduce () (Π (x : t) ((Π (x_0 : t) (x_0 x)) x))))
                   (term (Π (x : t) (x x))))
 
 (check-equiv? (term (reduce ,Δ (elim nat (λ (x : nat) nat)
@@ -217,7 +214,7 @@
           zero)))))
 
 (define-syntax-rule (check-equivalent e1 e2)
-  (check-holds (convert ∅ ∅ e1 e2)))
+  (check-holds (convert () ∅ e1 e2)))
 (check-equivalent
  (λ (x : Type) x) (λ (y : Type) y))
 (check-equivalent
@@ -282,49 +279,49 @@
  (redex-match? tt-redL
                (in-hole hole (in-hole (Π (x : nat) hole) (in-hole hole nat)))
                (term (Π (x : nat) nat))))
-(check-holds (wf (∅ (nat : (Unv 0) ())) ∅))
+(check-holds (wf (((nat : (Unv 0)))) ∅))
 
 (check-holds (wf ,Δ0 ∅))
-(check-holds (type-infer ∅ ∅ (Unv 0) U))
-(check-holds (type-infer ∅ (∅ nat : (Unv 0)) nat U))
-(check-holds (type-infer ∅ (∅ nat : (Unv 0)) (Π (x : nat) nat) U))
+(check-holds (type-infer () ∅ (Unv 0) U))
+(check-holds (type-infer () (∅ nat : (Unv 0)) nat U))
+(check-holds (type-infer () (∅ nat : (Unv 0)) (Π (x : nat) nat) U))
 (check-holds (valid-constructor nat nat))
 (check-holds (valid-constructor nat (Π (x : nat) nat)))
 (check-holds
- (wf (∅ (nat : (Unv 0) ((zero : nat)))) ∅))
+ (wf (((nat : (Unv 0)) (zero : nat))) ∅))
 (check-holds
- (wf (∅ (nat : (Unv 0) ((s : (Π (x : nat) nat))))) ∅))
+ (wf (((nat : (Unv 0)) (s : (Π (x : nat) nat)))) ∅))
 (check-holds (wf ,Δ ∅))
 
 (check-holds (wf ,Δ3 ∅))
 (check-holds (wf ,Δ4 ∅))
-(check-holds (wf (∅ (truth : (Unv 0) ())) ∅))
-(check-holds (wf ∅ (∅ x : (Unv 0))))
-(check-holds (wf (∅ (nat : (Unv 0) ())) (∅ x : nat)))
-(check-holds (wf (∅ (nat : (Unv 0) ())) (∅ x : (Π (x : nat) nat))))
+(check-holds (wf (((truth : (Unv 0)))) ∅))
+(check-holds (wf () (∅ x : (Unv 0))))
+(check-holds (wf (((nat : (Unv 0)))) (∅ x : nat)))
+(check-holds (wf (((nat : (Unv 0)))) (∅ x : (Π (x : nat) nat))))
 
-(check-holds (type-infer ∅ ∅ (Unv 0) (Unv 1)))
-(check-holds (type-infer ∅ (∅ x : (Unv 0)) (Unv 0) (Unv 1)))
-(check-holds (type-infer ∅ (∅ x : (Unv 0)) x (Unv 0)))
-(check-holds (type-infer ∅ ((∅ x_0 : (Unv 0)) x_1 : (Unv 0))
+(check-holds (type-infer () ∅ (Unv 0) (Unv 1)))
+(check-holds (type-infer () (∅ x : (Unv 0)) (Unv 0) (Unv 1)))
+(check-holds (type-infer () (∅ x : (Unv 0)) x (Unv 0)))
+(check-holds (type-infer () ((∅ x_0 : (Unv 0)) x_1 : (Unv 0))
                            (Π (x_3 : x_0) x_1) (Unv 0)))
-(check-holds (type-infer ∅ (∅ x_0 : (Unv 0)) x_0 U_1))
-(check-holds (type-infer ∅ ((∅ x_0 : (Unv 0)) x_2 : x_0) (Unv 0) U_2))
+(check-holds (type-infer () (∅ x_0 : (Unv 0)) x_0 U_1))
+(check-holds (type-infer () ((∅ x_0 : (Unv 0)) x_2 : x_0) (Unv 0) U_2))
 (check-holds (unv-pred (Unv 0) (Unv 0) (Unv 0)))
-(check-holds (type-infer ∅ (∅ x_0 : (Unv 0)) (Π (x_2 : x_0) (Unv 0)) t))
+(check-holds (type-infer () (∅ x_0 : (Unv 0)) (Π (x_2 : x_0) (Unv 0)) t))
 
-(check-holds (type-check ∅ ∅ (λ (x : (Unv 0)) x) (Π (x : (Unv 0)) (Unv 0))))
-(check-holds (type-check ∅ ∅ (λ (y : (Unv 0)) (λ (x : y) x))
+(check-holds (type-check () ∅ (λ (x : (Unv 0)) x) (Π (x : (Unv 0)) (Unv 0))))
+(check-holds (type-check () ∅ (λ (y : (Unv 0)) (λ (x : y) x))
                              (Π (y : (Unv 0)) (Π (x : y) y))))
 
 (check-equal? (list (term (Unv 1)))
               (judgment-holds
-               (type-infer ∅ ((∅ x1 : (Unv 0)) x2 : (Unv 0)) (Π (t6 : x1) (Π (t2 : x2) (Unv 0)))
+               (type-infer () ((∅ x1 : (Unv 0)) x2 : (Unv 0)) (Π (t6 : x1) (Π (t2 : x2) (Unv 0)))
                              U)
                U))
 ;; ---- Elim
 ;; TODO: Clean up/Reorganize these tests
-(define Δtruth (term (∅ (truth : (Unv 0) ((T : truth))))))
+(define Δtruth (term (((truth : (Unv 0)) (T : truth)))))
 (check-holds (type-infer ,Δtruth ∅ truth (in-hole Ξ U)))
 (check-holds (type-infer ,Δtruth ∅ T (in-hole Θ_ai truth)))
 (check-holds (type-infer ,Δtruth ∅ (λ (x : truth) (Unv 1))
@@ -358,14 +355,14 @@
                          (elim truth (λ (x : truth) (Unv 1))
                                () ((Unv 0)) T)
                          (Unv 1)))
-(check-not-holds (type-check (∅ (truth : (Unv 0) ((T : truth))))
+(check-not-holds (type-check (((truth : (Unv 0)) (T : truth)))
                              ∅
                              (elim truth Type () (Type) T)
                              (Unv 1)))
 (check-holds
- (type-infer ∅ ∅ (Π (x2 : (Unv 0)) (Unv 0)) U))
+ (type-infer () ∅ (Π (x2 : (Unv 0)) (Unv 0)) U))
 (check-holds
- (type-infer ∅ (∅ x1 : (Unv 0)) (λ (x2 : (Unv 0)) (Π (t6 : x1) (Π (t2 : x2) (Unv 0))))
+ (type-infer () (∅ x1 : (Unv 0)) (λ (x2 : (Unv 0)) (Π (t6 : x1) (Π (t2 : x2) (Unv 0))))
                t))
 (check-holds
  (type-infer ,Δ ∅ nat (in-hole Ξ U)))
@@ -416,11 +413,11 @@
                 n)
           nat)
 (check-holds
- (type-check (,Δ (bool : (Unv 0) ((btrue : bool) (bfalse : bool))))
+ (type-check ,Δ
              (∅ n2 : nat)
              (elim nat (λ (x : nat) bool)
                    ()
-                   (btrue (λ (x : nat) (λ (ih-x : bool) bfalse)))
+                   (true (λ (x : nat) (λ (ih-x : bool) false)))
                    n2)
              bool))
 (check-not-holds
@@ -436,14 +433,14 @@
  ,(car (judgment-holds (type-infer ,Δ ∅ ,lam t) t)))
 (check-equivalent
  (Π (x : (Π (y : (Unv 0)) y)) nat)
- ,(car (judgment-holds (type-infer (∅ (nat : (Unv 0) ())) ∅ (λ (x : (Π (y : (Unv 0)) y)) (x nat))
+ ,(car (judgment-holds (type-infer (((nat : (Unv 0)))) ∅ (λ (x : (Π (y : (Unv 0)) y)) (x nat))
                                    t) t)))
 (check-equivalent
  (Π (y : (Unv 0)) (Unv 0))
- ,(car (judgment-holds (type-infer (∅ (nat : (Unv 0) ())) ∅ (λ (y : (Unv 0)) y) t) t)))
+ ,(car (judgment-holds (type-infer (((nat : (Unv 0)))) ∅ (λ (y : (Unv 0)) y) t) t)))
 (check-equivalent
  (Unv 0)
- ,(car (judgment-holds (type-infer (∅ (nat : (Unv 0) ())) ∅
+ ,(car (judgment-holds (type-infer (((nat : (Unv 0)))) ∅
                                    ((λ (x : (Π (y : (Unv 0)) (Unv 0))) (x nat))
                                     (λ (y : (Unv 0)) y))
                                    t) t)))

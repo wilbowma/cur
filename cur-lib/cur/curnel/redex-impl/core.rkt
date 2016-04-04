@@ -16,7 +16,7 @@
   (i j k  ::= natural)
   (U ::= (Unv i))
   (D x c ::= variable-not-otherwise-mentioned)
-  (Δ   ::= ∅ (Δ (D : t ((c : t) ...))))
+  (Δ   ::= (((D : t) (c : t) ...) ...))
   (t e ::= U (λ (x : e) e) x (Π (x : e) e) (e e)
      ;; TODO: Might make more sense for methods to come first
      ;; (elim inductive-type motive (indices ...) (methods ...) discriminant)
@@ -54,28 +54,20 @@
 
 ;; TODO: Define generic traversals of Δ and Γ ?
 (define-metafunction ttL
-  [(Δ-in-dom ∅ D)
-   #f]
-  [(Δ-in-dom (Δ (D : t any)) D)
-   #t]
-  [(Δ-in-dom (Δ (D_!_0 : any_D any)) (name D D_!_0))
-   (Δ-in-dom Δ D)])
+  Δ-in-dom : Δ D -> #t or #f
+  [(Δ-in-dom (((D_0 : t_0) any ...) ...) D)
+   ,(and (memq (term D) (term (D_0 ...))) #t)])
 
 (define-metafunction ttL
-  [(Δ-in-constructor-dom ∅ c)
-   #f]
-  [(Δ-in-constructor-dom (Δ (D : any_D ((c_!_0 : any) ... (c_i : any_i) any_r ...))) (name c_i c_!_0))
-   #t]
-  [(Δ-in-constructor-dom (Δ (D : any_D ((c_!_0 : any) ...))) (name c c_!_0))
-   (Δ-in-constructor-dom Δ c)])
+  Δ-in-constructor-dom : Δ c -> #t or #f
+  [(Δ-in-constructor-dom ((any (c_0 : t_0) ...) ...) c)
+   ,(and (memq (term c) (term (c_0 ... ...))) #t)])
 
 ;;; NB: Might be worth maintaining the above bijection between Δ and maps for performance reasons
 ;;; Hypothesis tested: Actually, makes things slower if done naively. Best to leave it alone.
 (define-metafunction ttL
-  [(Δ-ref-type (Δ (D : t any)) D)
-   t]
-  [(Δ-ref-type (Δ (D_!_0 : t any)) (name D D_!_0))
-   (Δ-ref-type Δ D)])
+  [(Δ-ref-type (((D_0 : t_0) any ...) ...) D)
+   ,(cdr (assq (term D) (map cons (term (D_0 ...)) (term (t_0 ...)))))])
 
 ;; Make D : t ∈ Δ a little easier to use, prettier to render
 (define-judgment-form ttL
@@ -88,17 +80,17 @@
 
 ;; Returns the inductively defined type that x constructs
 (define-metafunction ttL
-  [(Δ-key-by-constructor (Δ (D : any_D ((c_!_0 : any_c) ... (c : any_ci) any_r ...))) (name c c_!_0))
-   D]
-  [(Δ-key-by-constructor (Δ (D : any_D ((c_!_0 : any_c) ...))) (name c c_!_0))
-   (Δ-key-by-constructor Δ c)])
+  ;; NB: Assumes constructors are unique across all inductive types
+  [(Δ-key-by-constructor (any_0 ...
+                          ((D : any_D) any_c ... (c : any_ci) any_r ...)
+                          any_1 ...)
+                         c)
+   D])
 
 ;; Returns the constructor map for the inductively defined type D in the signature Δ
 (define-metafunction ttL
-  [(Δ-ref-constructor-map (Δ (D : any_D any)) D)
-   any]
-  [(Δ-ref-constructor-map (Δ (D_!_0 : any_D any)) (name D D_!_0))
-   (Δ-ref-constructor-map Δ D)])
+  [(Δ-ref-constructor-map (any_0 ... ((D : any_D) any ...) any_r ...) D)
+   (any ...)])
 
 ;; Return the type of the constructor c_i
 (define-metafunction ttL
@@ -411,14 +403,15 @@
   #:mode (valid I)
 
   [-------- "Valid-Empty"
-   (valid ∅)]
+   (valid ())]
 
-  [(valid Δ)
+  [(where Δ (any_r ...))
+   (valid Δ)
    (type-infer Δ ∅ t_D U_D)
    (valid-constructor D t_c) ...
    (type-infer Δ (∅ D : t_D) t_c U_c) ...
    ----------------- "Valid-Inductive"
-   (valid (Δ (D : t_D ((c : t_c) ...))))])
+   (valid (any_r ... ((D : t_D) (c : t_c) ...)))])
 
 ;; Holds when the signature Δ and typing context Γ are well-formed.
 (define-judgment-form tt-typingL

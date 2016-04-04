@@ -30,12 +30,12 @@
    (subst-all (substitute t x_0 e_0) (x ...) (e ...))])
 
 (define-metafunction ttL
-  [(Δ-set Δ x t any) (Δ (x : t any))])
+  [(Δ-set (any_Δ ...) D t (any_c ...))
+   (any_Δ ... ((D : t) any_c ...))])
 
 (define-metafunction ttL
-  [(Δ-union Δ ∅) Δ]
-  [(Δ-union Δ_2 (Δ_1 (x : t any)))
-   ((Δ-union Δ_2 Δ_1) (x : t any))])
+  [(Δ-union any_2 any_1)
+   ,(append (term any_2) (term any_1))])
 
 (define-metafunction tt-redL
   [(step Δ e)
