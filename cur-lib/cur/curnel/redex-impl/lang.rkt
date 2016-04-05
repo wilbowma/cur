@@ -100,15 +100,15 @@
   (define (extend-Δ/syn! env x t c*)
     (env (extend-Δ/syn env x t c*)))
 
-  (define bind-subst (make-parameter (list null null)))
+  (define defs (make-parameter (list null null)))
 
   (define (add-binding/term! x t)
-    (let ([vars (first (bind-subst))]
-          [exprs (second (bind-subst))])
-      (bind-subst (list (cons x vars) (cons t exprs)))))
+    (let ([vars (first (defs))]
+          [exprs (second (defs))])
+      (defs (list (cons x vars) (cons t exprs)))))
 
   (define (subst-bindings t)
-    (term (subst-all ,t ,(first (bind-subst)) ,(second (bind-subst)))))
+    (term (subst-all ,t ,(first (defs)) ,(second (defs)))))
 
   (define (type-infer/term t)
     (let ([t (judgment-holds (type-infer-normal ,(delta) ,(gamma) ,(subst-bindings t) t_0) t_0)])
@@ -187,7 +187,7 @@
            (dep-lambda (#,(datum->syntax syn x) : #,(datum->cur t)) #,(datum->cur body)))]
        [(list (quote elim) D motive i m d)
          (quasisyntax/loc syn
-           (dep-elim #,(datum->cur D) #,(datum->cur motive) #,(map datum->cur i) #,(map datum->cur m) #,(datum->cur d)))] 
+           (dep-elim #,(datum->cur D) #,(datum->cur motive) #,(map datum->cur i) #,(map datum->cur m) #,(datum->cur d)))]
         [(list e1 e2)
          (quasisyntax/loc syn
            (dep-app #,(datum->cur e1) #,(datum->cur e2)))]
@@ -202,7 +202,7 @@
     (quasisyntax/loc
       syn
       ;; TODO: this subst-all should be #,(subst-bindings (cur->datum syn)), but doesn't work
-      (term (reduce #,(delta) (subst-all #,(cur->datum syn) #,(first (bind-subst)) #,(second (bind-subst)))))))
+      (term (reduce #,(delta) (subst-all #,(cur->datum syn) #,(first (defs)) #,(second (defs)))))))
 
   ;; Reflection tools
 
@@ -242,6 +242,39 @@
         'expression
         (append (syntax-e #'(Type dep-inductive dep-lambda dep-app dep-elim dep-forall dep-top))
                 ls)))))
+
+;;; -----------------------------------------------------------------
+;;; Module semantics
+(define-syntax (cur-module-begin syn)
+  (syntax-case syn
+    [(_ e ...)
+     ;; Gather require/provides.
+     ;; Add requires to module environments
+     ;; Gather top-level forms, define and data
+     ;; add to module environment
+     ;; expand terms into begin, and run
+     (parameterize ([delta (empty-Δ)]
+                    [gamma (empty-Γ)]
+                    [defs (empty-defs)])
+       #`(module-begin
+          (begin-for-syntax
+            (define delta #,(seriaize-delta))
+            (define gamma #,(seriaize-gamma))
+            (define defs #,(seriaize-defs)))
+          (provide (for-syntax delta gamma defs))
+          (syntax-parameterize ([cur-require cur-requiref]
+                                [cur-provide cur-providef]
+                                [cur-define cur-definef]
+                                [cur-data cur-dataf])
+            (cur-begin e ...)))))]))
+
+(begin-for-syntax
+  (define (cur-requiref syn)
+    )
+  (define (cur-providef syn))
+  (define (cur-definf syn))
+  (define (cur-data syn))
+  )
 
 ;; -----------------------------------------------------------------
 ;; Require/provide macros
@@ -285,7 +318,7 @@
        #`(begin-for-syntax
           (define gamma-out (term #,(gamma)))
           (define delta-out (term #,(delta)))
-          (define bind-out '#,(bind-subst))))]))
+          (define bind-out '#,(defs))))]))
 
 ;; TODO: This can only handle a single provide form, otherwise generates multiple *-out
 (define-syntax (dep-provide syn)
@@ -349,12 +382,12 @@
                        ;; TODO: Do not DIY gensym
                        (set! bn (add1 bn))
                        (set! out-binds
-                             #`(#,@out-binds (bind-subst (list (append
+                             #`(#,@out-binds (defs (list (append
                                                                  (first #,new-id)
-                                                                 (first (bind-subst)))
+                                                                 (first (defs)))
                                                                (append
                                                                  (second #,new-id)
-                                                                 (second (bind-subst)))))))
+                                                                 (second (defs)))))))
                        (cons (struct-copy import imp [local-id new-id])
                              imports))]
                     [else (cons imp imports)]))
@@ -386,7 +419,7 @@
          (begin-for-syntax
            (gamma (term #,(gamma)))
            (delta (term #,(delta)))
-           (bind-subst '#,(bind-subst)))
+           (defs '#,(defs)))
          body ...)]))
 
 ;; -----------------------------------------------------------------
@@ -455,7 +488,7 @@
            (export-envs gamma-out delta-out bind-out)
            (begin-for-syntax
              (define nm (map (lambda (x) (namespace-variable-value x #f (lambda x #t))) (namespace-mapped-symbols)))
-             (bind-subst (first (memf subst? nm)))
+             (defs (first (memf subst? nm)))
              (gamma (first (memf Γ? nm)))
              (delta (first (memf Δ? nm))))
           form))]))
