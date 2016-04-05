@@ -204,9 +204,9 @@
         [(list (quote λ) (list x (quote :) t) body)
          (quasisyntax/loc syn
            (dep-lambda (#,(datum->syntax syn x) : #,(datum->cur t)) #,(datum->cur body)))]
-        [(list (list (quote elim) t1) t2)
+        [(list (quote elim) D motive i m d)
          (quasisyntax/loc syn
-           (dep-elim #,(datum->cur t1) #,(datum->cur t2)))]
+           (dep-elim #,(datum->cur D) #,(datum->cur motive) #,(map datum->cur i) #,(map datum->cur m) #,(datum->cur d)))]
         [(list e1 e2)
          (quasisyntax/loc syn
            (dep-app #,(datum->cur e1) #,(datum->cur e2)))]
