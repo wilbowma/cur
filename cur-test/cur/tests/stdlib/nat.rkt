@@ -14,10 +14,10 @@
 (check-equal? (mult (s (s z)) z) z)
 (check-equal? (mult (s (s z)) (s z)) (s (s z)))
 
-;; TODO Disabled due to performance bugs
-#;(check-equal? (exp z z) (s z))
-#;(check-equal? (exp (s z) z) z)
-#;(check-equal? (square (s (s z))) (s (s (s (s z)))))
+(check-equal? (exp z z) (s z))
+(check-equal? (exp (s z) z) z)
+(check-equal? (square (s (s z))) (s (s (s (s z)))))
+(check-equal? (square (s (s (s z)))) (s (s (s (s (s (s (s (s (s z))))))))))
 
 (check-equal? (nat-equal? z z) true)
 (check-equal? (nat-equal? z (s z)) false)
