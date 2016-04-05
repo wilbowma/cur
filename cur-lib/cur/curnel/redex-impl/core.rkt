@@ -319,9 +319,46 @@
 ;; CBV, plus under Π
 (define (tt-->cbv D) (context-closure (tt--> D) tt-cbvL E))
 
+(require
+ (for-syntax racket/base)
+ racket/match)
+
+(define deconstruct-apply-ctxt
+  (term-match/single tt-ctxtL [(in-hole Θ c) (list (term Θ) (term c))]))
+
+(define destructable?
+  (redex-match? tt-ctxtL (in-hole Θ c)))
+
+(define ((constructor? Δ) c)
+  (term (Δ-in-constructor-dom ,Δ ,c)))
+
+(define-match-expander apply-ctxt
+  (lambda (syn)
+    (syntax-case syn ()
+      [(_ Δ Θ c)
+       #'(? destructable? (app deconstruct-apply-ctxt (list Θ (? (constructor? Δ) c))))])))
+
+(define (cbv-eval Δ e)
+  (let eval ([e e])
+    (match e
+      [`(elim ,D ,(app eval motive) ,(list (app eval is) ...) ,(list (app eval ms) ...) ,(app eval (apply-ctxt Δ Θ c)))
+       (term-let ([e_mi (cdr (assq (term ,c) (map cons (term (Δ-ref-constructors ,Δ ,D)) (term ,ms))))]
+                  [Θ_ih (term (Δ-inductive-elim ,Δ ,D (elim ,D ,motive ,is ,ms hole) ,Θ))]
+                  [Θ_mi (term (in-hole Θ_ih ,Θ))])
+                 (eval (term (in-hole Θ_mi e_mi))))]
+      [`(,(app eval `(λ (,x : ,t) ,body)) ,(app eval v))
+       (eval (term (substitute ,body ,x ,v)))]
+      [`(,(app eval c) ,(app eval v))
+       (term (,c ,v))]
+      [`(Π (,x : ,(app eval t)) ,(app eval e))
+       (term (Π (,x : ,t) ,e))]
+      [`(λ (,x : ,t) ,(app eval e))
+       (term (λ (,x : ,t) ,e))]
+      [_ e])))
+
 (define-metafunction tt-redL
   [(reduce Δ e)
-   ,(car (apply-reduction-relation* (tt-->cbv (term Δ)) (term e) #:cache-all? #t))])
+   ,(cbv-eval (term Δ) (term e))])
 
 ;;; ------------------------------------------------------------------------
 ;;; Type checking and synthesis
