@@ -304,7 +304,8 @@
      #:attr sym (syntax->datum #'x)
      #:fail-when (dict-has-key? (mv-map) (attribute sym)) #f
      #:attr constructor-name
-     (format-id #'x "~a-~a" (lang-name) #'x)))
+     (quasisyntax/loc #'x
+       #,(format-id #'x "~a-~a" (lang-name) #'x))))
 
   ;; A terminal-args can appear as the argument to a terminal in
   ;; an expression, or as a sub-expression in a terminal-args.
@@ -365,9 +366,9 @@
     (pattern
      e:meta-variable
      #:attr constructor-name
-     (format-id #'e "~a->~a" #'e.type non-terminal-type)
+     (quasisyntax/loc #'e #,(format-id #'e "~a->~a" #'e.type non-terminal-type))
      #:attr constr-decl
-     #`(constructor-name : (-> e.type #,non-terminal-type))
+     (quasisyntax/loc #'e (constructor-name : (-> e.type #,non-terminal-type)))
      #:attr latex
      (format "~a" (syntax-e #'e)))
 
@@ -375,7 +376,7 @@
     (pattern
      x:terminal
      #:attr constr-decl
-     #`(x.constructor-name : #,non-terminal-type)
+     (quasisyntax/loc #'x (x.constructor-name : #,non-terminal-type))
      #:attr latex
      (format "~a" (syntax-e #'x)))
 
@@ -383,7 +384,7 @@
     (pattern
      (x:terminal . (~var c (terminal-args non-terminal-type)))
      #:attr constr-decl
-     #`(x.constructor-name : (-> #,@(attribute c.args) #,non-terminal-type))
+     (quasisyntax/loc #'x (x.constructor-name : (-> #,@(attribute c.args) #,non-terminal-type)))
      #:attr latex
      (format "(~a ~a)" (syntax-e #'x) (attribute c.latex))))
 
@@ -394,7 +395,7 @@
       (~optional (~datum ::=))
       ;; Create a name for the type of this non-terminal, from the
       ;; language name and the non-terminal name.
-      (~bind [nt-type (format-id #'name "~a-~a" (lang-name) #'name)])
+      (~bind [nt-type (quasisyntax/loc #'name #,(format-id #'name "~a-~a" (lang-name) #'name))])
       ;; Imperatively update the map from meta-variables to the
       ;; nt-type, to be used when generating the types of the constructors
       ;; for this and later non-terminal.
@@ -403,7 +404,7 @@
       (~var c (expression (attribute nt-type))) ...)
      ;; Generates the inductive data type for this non-terminal definition.
      #:attr def
-     #`(data nt-type : Type c.constr-decl ...)
+     (quasisyntax/loc #'name (data nt-type : Type c.constr-decl ...))
      #:attr latex
      (format
       "\\mbox{\\textit{~a}} & ~a & \\bnfdef & ~a\\\\~n"
@@ -451,7 +452,7 @@
            (dict-set! (mv-map) (syntax-e x) #'Nat)))])
     (syntax-parse #'non-terminal-defs
       [(def:non-terminal-def ...)
-       (let ([output #`(begin def.def ...)])
+       (let ([output (quasisyntax/loc #'name (begin def.def ...))])
          (when (attribute latex-file)
            (with-output-to-file (syntax-e #'latex-file)
              (thunk (typeset-bnf (attribute def.latex)))
