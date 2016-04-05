@@ -319,6 +319,32 @@
 ;; CBV, plus under Π
 (define (tt-->cbv D) (context-closure (tt--> D) tt-cbvL E))
 
+(require racket/match)
+
+(define deconstruct-apply-ctxt
+  (term-match/single tt-ctxtL [(in-hole Θ c) (list (term Θ) (term c))]))
+
+(define-match-expander apply-ctxt
+  (lambda (syn)
+    (syntax-case syn ()
+      [(_ Θ c)
+       #'(app deconstruct-apply-ctxt (list Θ c))])))
+
+(define (cbv-eval Δ e)
+  (let eval ([e e])
+    (match e
+      [`(elim ,D ,motive ,is ,ms ,(app eval (apply-ctxt Θ c)))
+       (term-let ([e_mi (cdr (assq (term ,c) (map cons (term (Δ-ref-constructors ,Δ ,D)) (term ,ms))))]
+                  [Θ_ih (term (Δ-inductive-elim ,Δ ,D (elim ,D ,motive ,is ,ms hole) ,Θ))]
+                  [Θ_mi (term (in-hole Θ_ih Θ_c))])
+        (eval (term (in-hole Θ_mi e_mi))))]
+      [`(,(app eval `(λ (,x : ,t) ,body)) ,(app eval v))
+       (eval (term (substitute ,body ,x ,v)))]
+      [`(Π (,x : ,(app eval t)) ,(app eval e))
+       (term (Π (,x : ,t) ,e))]
+      [`(λ (,x : ,t) ,(app eval e))
+       (term (λ (,x : ,t) ,e))]
+      [_ e])))
 (define-metafunction tt-redL
   [(reduce Δ e)
    ,(car (apply-reduction-relation* (tt-->cbv (term Δ)) (term e) #:cache-all? #t))])
