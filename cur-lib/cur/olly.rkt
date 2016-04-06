@@ -46,76 +46,92 @@
                         (symbol->string (second p))))))
 
   (define (cur->coq syn)
-    (parameterize ([coq-defns ""])
-      (define output
-        (let cur->coq ([syn syn])
-          (syntax-parse (cur-expand syn #'define #'begin)
-            ;; TODO: Need to add these to a literal set and export it
-            ;; Or, maybe overwrite syntax-parse
-            #:literals (real-lambda real-forall data real-app real-elim define begin Type)
-            [(begin e ...)
-             (for/fold ([str ""])
-                       ([e (syntax->list #'(e ...))])
-               (format "~a~n" (cur->coq e)))]
-            [(define name:id body)
-             (begin
-               (coq-lift-top-level
-                (format "Definition ~a := ~a.~n"
-                        (cur->coq #'name)
-                        (cur->coq #'body)))
-               "")]
-            [(define (name:id (x:id : t) ...) body)
-             (begin
-               (coq-lift-top-level
-                (format "Function ~a ~a := ~a.~n"
-                        (cur->coq #'name)
-                        (for/fold ([str ""])
-                                  ([n (syntax->list #'(x ...))]
-                                   [t (syntax->list #'(t ...))])
-                          (format "~a(~a : ~a) " str (cur->coq n) (cur->coq t)))
-                        (cur->coq #'body)))
-               "")]
-            [(real-lambda ~! (x:id (~datum :) t) body:expr)
-             (format "(fun ~a : ~a => ~a)" (cur->coq #'x) (cur->coq #'t)
-                     (cur->coq #'body))]
-            [(real-forall ~! (x:id (~datum :) t) body:expr)
-             (format "(forall ~a : ~a, ~a)" (cur->coq #'x) (cur->coq #'t)
-                     (cur->coq #'body))]
-            [(data ~! n:id (~datum :) t (x*:id (~datum :) t*) ...)
-             (begin
-               (coq-lift-top-level
-                (format "Inductive ~a : ~a :=~a."
-                        (cur->coq #'n)
-                        (cur->coq #'t)
-                        (for/fold ([strs ""])
-                                  ([clause (syntax->list #'((x* : t*) ...))])
-                          (syntax-parse clause
-                            [(x (~datum :) t)
-                             (format "~a~n| ~a : ~a" strs (cur->coq #'x)
-                                     (cur->coq #'t))]))))
-               "")]
-            [(Type i) "Type"]
-            [(real-elim var:id motive (i ...) (m ...) d)
-             (format
-              "(~a_rect ~a~a~a ~a)"
-              (cur->coq #'var)
-              (cur->coq #'motive)
-              (for/fold ([strs ""])
-                        ([m (syntax->list #'(m ...))])
-                (format "~a ~a" strs (cur->coq m)))
-              (for/fold ([strs ""])
-                        ([i (syntax->list #'(i ...))])
-                (format "~a ~a" strs (cur->coq i)))
-              (cur->coq #'d))]
-            [(real-app e1 e2)
-             (format "(~a ~a)" (cur->coq #'e1) (cur->coq #'e2))]
-            [e:id (sanitize-id (format "~a" (syntax->datum #'e)))])))
-      (format
-       "~a~a"
-       (coq-defns)
-       (if (regexp-match "^\\s*$" output)
-           ""
-           (format "Eval compute in ~a." output))))))
+    (local-data-scope
+     (parameterize ([coq-defns ""])
+       (define output
+         (let cur->coq ([syn syn])
+           (syntax-parse (cur-expand syn #'define #'begin)
+             ;; TODO: Need to add these to a literal set and export it
+             ;; Or, maybe overwrite syntax-parse
+             #:literals (real-lambda real-forall data real-app real-elim define begin Type)
+             [(begin e ...)
+              (for/fold ([str ""])
+                        ([e (syntax->list #'(e ...))])
+                (format "~a~n" (cur->coq e)))]
+             [(define name:id body)
+              (begin
+                (coq-lift-top-level
+                 (format "Definition ~a := ~a.~n"
+                         (cur->coq #'name)
+                         (cur->coq #'body)))
+                "")]
+             [(define (name:id (x:id : t) ...) body)
+              (let ([args (for/fold ([str ""])
+                                    ([n (attribute x)]
+                                     [t (attribute t)])
+                            (format
+                             "~a(~a : ~a) "
+                             str
+                             (cur->coq n)
+                             (cur->coq t)))])
+                (coq-lift-top-level
+                 (format "Function ~a ~a := ~a.~n"
+                         (cur->coq #'name)
+                         args
+                         (with-env (map cons (attribute x) (attribute t))
+                           (cur->coq #'body))))
+                "")
+                ]
+             [(real-lambda ~! (x:id (~datum :) t) body:expr)
+              (format "(fun ~a : ~a => ~a)" (cur->coq #'x) (cur->coq #'t)
+                      (with-env (list (cons (attribute x) (attribute t)))
+                        (cur->coq #'body)))]
+             [(real-forall ~! (x:id (~datum :) t) body:expr)
+              (format "(forall ~a : ~a, ~a)" (cur->coq #'x) (cur->coq #'t)
+                      (with-env (list (cons (attribute x) (attribute t)))
+                        (cur->coq #'body)))]
+             [(data ~! n:id (~datum :) t (x*:id (~datum :) t*) ...)
+              (begin
+                (coq-lift-top-level
+                 (format "Inductive ~a : ~a :=~a."
+                         (cur->coq #'n)
+                         (cur->coq #'t)
+                         (call-with-values
+                          (thunk
+                           (with-env (list (cons #'n #'t))
+                             (for/fold ([strs ""]
+                                      [local-env `((,#'n . ,#'t))])
+                                     ([x (attribute x*)]
+                                      [t (attribute t*)])
+                             (values
+                              (format "~a~n| ~a : ~a" strs (cur->coq x)
+                                      (cur->coq t))
+                              (dict-set local-env x t)))))
+                          (lambda (x y) x))))
+                (declare-data! #'n #'t (map cons (attribute x*) (attribute t*)))
+                "")]
+             [(Type i) "Type"]
+             [(real-elim var:id motive (i ...) (m ...) d)
+              (format
+               "(~a_rect ~a~a~a ~a)"
+               (cur->coq #'var)
+               (cur->coq #'motive)
+               (for/fold ([strs ""])
+                         ([m (syntax->list #'(m ...))])
+                 (format "~a ~a" strs (cur->coq m)))
+               (for/fold ([strs ""])
+                         ([i (syntax->list #'(i ...))])
+                 (format "~a ~a" strs (cur->coq i)))
+               (cur->coq #'d))]
+             [(real-app e1 e2)
+              (format "(~a ~a)" (cur->coq #'e1) (cur->coq #'e2))]
+             [e:id (sanitize-id (format "~a" (syntax->datum #'e)))])))
+       (format
+        "~a~a"
+        (coq-defns)
+        (if (regexp-match "^\\s*$" output)
+            ""
+            (format "Eval compute in ~a." output)))))))
 
 (define-syntax (generate-coq syn)
   (syntax-parse syn

@@ -11,8 +11,7 @@
 
 (define-language stlc
   #:vars (x)
-  ; TODO BUG: Disabled until #40 fixed.
-  ;#:output-coq "stlc.v"
+  #:output-coq "stlc.v"
   #:output-latex "stlc.tex"
   (val  (v)   ::= true false unit)
   ;; TODO: Allow datum, like 1, as terminals
@@ -26,8 +25,7 @@
   (cons stlc-type t g))
 
 (define-relation (has-type (List stlc-type) stlc-term stlc-type)
-  ; TODO BUG: Disabled until #40 fixed.
-  ;#:output-coq "stlc.v"
+  #:output-coq "stlc.v"
   #:output-latex "stlc.tex"
   [(g : (List stlc-type))
    ------------------------ T-Unit
