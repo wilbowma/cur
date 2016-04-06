@@ -13,10 +13,44 @@ Many of these features are extremely hacky.
 
 @(define curnel-eval (curnel-sandbox "(require cur/stdlib/bool cur/stdlib/nat)"))
 
-@defproc[(cur-expand [syn syntax?] [id identifier?] ...)
+@defproc[(declare-data! [name syntax?] [type syntax?] [constructor-map (listof (cons/c syntax? syntax?))])
+         void?]{
+Extends the global inductive declarations with a new inductive type
+@racket[name] of type @racket[type], with constructors declared in
+@racket[constructor-map]. Constructors should in order, with the 0th
+constructor appearing at position 0 in the @racket[constructor-map].
+}
+
+@defproc[(call-local-data-scope [thunk (-> any?)])
+         any?]{
+Calls @racket[thunk] with a local scope for inductive declarations.
+Once outside of this new scope, any inductive types declared via @racket[data]
+or via @racket[declare-data!] will be forgotten.
+}
+
+@defform[(local-data-scope e)]{
+Syntax that expands to @racket[(call-local-data-scope (thunk e))].
+}
+
+@todo{Actually, env could be any ordered dictionary...}
+@defproc[(call-with-env [env (listof (cons/c syntax? syntax?))] [thunk (-> any?)])
+         any?]{
+Calls @racket[thunk] with the lexical environment extended by @racket[env].
+@racket[env] should be in reverse dependency order; the 0th element of
+@racket[env] may depend on the 1st, the 1st may depend on the 2nd, etc.
+}
+
+@defform[(with-env env e)]{
+Syntax that expands to @racket[(call-with-env env (thunk e))].
+}
+
+@defproc[(cur-expand [syn syntax?] [#:local-env env (listof (cons/c syntax? syntax?)) '()] [id identifier?] ...)
          syntax?]{
 Expands the Cur term @racket[syn] until the expansion reaches a either @tech{Curnel form} or one of
 the identifiers @racket[id]. See also @racket[local-expand].
+
+If @racket[#:local-env] is specified, expands under an extended lexical environment via @racket[with-env].
+@todo{Examples of #:local-env.}
 
 @todo{Figure out how to get evaluator to pretend to be at phase 1 so these examples work properly.}
 
@@ -30,9 +64,11 @@ phase 1 in Cur.}
 ]
 }
 
-@defproc[(cur-type-infer [syn syntax?])
+@defproc[(cur-type-infer [syn syntax?] [#:local-env env (listof (cons/c syntax? syntax?)) '()])
          (or/c syntax? #f)]{
 Returns the type of the Cur term @racket[syn], or @racket[#f] if no type could be inferred.
+
+If @racket[#:local-env] is specified, infers types under an extended lexical environment via @racket[with-env].
 
 @examples[
 (eval:alts (cur-type-infer #'(λ (x : Type) x))
@@ -42,9 +78,11 @@ Returns the type of the Cur term @racket[syn], or @racket[#f] if no type could b
 ]
 }
 
-@defproc[(cur-type-check? [syn syntax?])
+@defproc[(cur-type-check? [syn syntax?] [#:local-env env (listof (cons/c syntax? syntax?)) '()])
          boolean?]{
 Returns @racket[#t] if the Cur term @racket[syn] is well-typed, or @racket[#f] otherwise.
+
+If @racket[#:local-env] is specified, checks the type under an extended lexical environment via @racket[with-env].
 
 @examples[
 (eval:alts (cur-type-check? #'(λ (x : Type) x))
@@ -56,9 +94,11 @@ Returns @racket[#t] if the Cur term @racket[syn] is well-typed, or @racket[#f] o
 ]
 }
 
-@defproc[(cur-normalize [syn syntax?])
+@defproc[(cur-normalize [syn syntax?] [#:local-env env (listof (cons/c syntax? syntax?)) '()])
          syntax?]{
 Runs the Cur term @racket[syn] to a value.
+
+If @racket[#:local-env] is specified, runs under an extended lexical environment via @racket[with-env].
 
 @examples[
 (eval:alts (cur-normalize #'((λ (x : Type) x) Bool))
@@ -68,9 +108,11 @@ Runs the Cur term @racket[syn] to a value.
 ]
 }
 
-@defproc[(cur-step [syn syntax?])
+@defproc[(cur-step [syn syntax?] [#:local-env env (listof (cons/c syntax? syntax?)) '()])
          syntax?]{
 Runs the Cur term @racket[syn] for one step.
+
+If @racket[#:local-env] is specified, runs under an extended lexical environment via @racket[with-env].
 
 @examples[
 (eval:alts (cur-step #'((λ (x : Type) x) Bool))
@@ -83,10 +125,12 @@ Runs the Cur term @racket[syn] for one step.
 ]
 }
 
-@defproc[(cur-equal? [e1 syntax?] [e2 syntax?])
+@defproc[(cur-equal? [e1 syntax?] [e2 syntax?] [#:local-env env (listof (cons/c syntax? syntax?)) '()])
          boolean?]{
 Returns @racket[#t] if the Cur terms @racket[e1] and @racket[e2] and equivalent according to
 equal modulo α and β-equivalence.
+
+If @racket[#:local-env] is specified, runs under an extended lexical environment via @racket[with-env].
 @examples[
 
 
@@ -100,9 +144,11 @@ equal modulo α and β-equivalence.
 }
 
 
-@defproc[(cur->datum [s syntax?])
+@defproc[(cur->datum [s syntax?] [#:local-env env (listof (cons/c syntax? syntax?)) '()])
          (or/c symbol? list?)]{
 Converts @racket[s] to a datum representation of the @tech{curnel form}, after expansion.
+
+If @racket[#:local-env] is specified, runs under an extended lexical environment via @racket[with-env].
 @examples[
 
 

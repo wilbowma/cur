@@ -224,43 +224,70 @@
       (term (reduce #,(delta) (subst-all #,(cur->datum syn) #,(first (bind-subst)) #,(second (bind-subst)))))))
 
   ;; Reflection tools
-
-  (define (cur-normalize syn #:local-env [env '()])
-    (datum->cur
-      syn
-      (eval-cur syn)))
-
-  (define (cur-step syn)
-    (datum->cur
-      syn
-      (term (step ,(delta) ,(subst-bindings (cur->datum syn))))))
-
-  ;; Are these two terms equivalent in type-systems internal equational reasoning?
-  (define (cur-equal? e1 e2)
-    (and (judgment-holds (convert ,(delta) ,(gamma) ,(eval-cur e1) ,(eval-cur e2))) #t))
-
   ;; TODO: local-env is a hack; need principled way of descending under binders
   ;; Perhaps a wrapper around syntax-parse? Maybe a transformer-under-binder function?
+  ;; But for now, this will do.
+  ;; NB: This with-env might be better
+  (define (local-env->gamma env)
+    (for/fold ([gamma (gamma)])
+              ([(x t) (in-dict env)])
+      (extend-Γ/syn (thunk gamma) x t)))
+
+  (define (declare-data! name type const-map)
+    (extend-Δ/syn! delta name type #`(#,@(map (lambda (x) #`(#,(car x) : #,(cdr x))) const-map))))
+
+  (define (call-local-data-scope t)
+    (parameterize ([delta (delta)])
+      (t)))
+
+  (define-syntax-rule (local-data-scope e) (call-local-data-scope (thunk e)))
+
+  (provide poke)
+  (define (poke) (displayln (gamma)) (displayln (delta)))
+  (define (call-with-env env t)
+    (parameterize ([gamma (local-env->gamma env)])
+      (t)))
+
+  (define-syntax-rule (with-env env e)
+    (call-with-env env (thunk e)))
+
+  (define (cur-normalize syn #:local-env [env '()])
+    (with-env env
+      (datum->cur
+       syn
+       (eval-cur syn))))
+
+  (define (cur-step syn #:local-env [env '()])
+    (with-env env
+      (datum->cur
+       syn
+       (term (step ,(delta) ,(subst-bindings (cur->datum syn)))))))
+
+  ;; Are these two terms equivalent in type-systems internal equational reasoning?
+  (define (cur-equal? e1 e2 #:local-env [env '()])
+    (with-env env
+      (and (judgment-holds (convert ,(delta) ,(gamma) ,(eval-cur e1) ,(eval-cur e2))) #t)))
+
   (define (cur-type-infer syn #:local-env [env '()])
-    (parameterize ([gamma (for/fold ([gamma (gamma)])
-                                    ([(x t) (in-dict env)])
-                            (extend-Γ/syn (thunk gamma) x t))])
+    (with-env env
       (let ([t (type-infer/term (eval-cur syn))])
         (and t (datum->cur syn t)))))
 
-  (define (cur-type-check? syn type)
-    (type-check/term? (eval-cur syn) (eval-cur type)))
+  (define (cur-type-check? syn type #:local-env [env '()])
+    (with-env env
+      (type-check/term? (eval-cur syn) (eval-cur type))))
 
   ;; Takes a Cur term syn and an arbitrary number of identifiers ls. The cur term is
   ;; expanded until expansion reaches a Curnel form, or one of the
   ;; identifiers in ls.
-  (define (cur-expand syn . ls)
-    (disarm
-      (local-expand
+  (define (cur-expand syn #:local-env [env '()] . ls)
+    (with-env env
+      (disarm
+       (local-expand
         syn
         'expression
         (append (syntax-e #'(Type dep-inductive dep-lambda dep-app dep-elim dep-forall dep-top))
-                ls)))))
+                ls))))))
 
 ;; -----------------------------------------------------------------
 ;; Require/provide macros
