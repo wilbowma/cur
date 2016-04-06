@@ -28,7 +28,7 @@
   subst-all : t (x ...) (e ...) -> t
   [(subst-all t () ()) t]
   [(subst-all t (x_0 x ...) (e_0 e ...))
-   (subst-all (subst t x_0 e_0) (x ...) (e ...))])
+   (subst-all (substitute t x_0 e_0) (x ...) (e ...))])
 
 (define-metafunction ttL
   Δ-set : Δ x t ((x : t) ...) -> Δ

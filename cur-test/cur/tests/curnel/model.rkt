@@ -76,8 +76,9 @@
 
 
 ;; alpha-equivalent and subst tests
+(default-language ttL)
 (check-equiv?
- (term (subst (Π (a : A) (Π (b : B) ((and A) B))) A S))
+ (term (substitute (Π (a : A) (Π (b : B) ((and A) B))) A S))
  (term (Π (a : S) (Π (b : B) ((and S) B)))))
 
 ;; Telescope tests
@@ -153,7 +154,6 @@
 (check-not-equiv? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) (x_0 x)) x))))
                   (term (Π (x : t) (x x))))
 
-(check-equal? (term (Δ-constructor-index ,Δ zero)) 0)
 (check-equiv? (term (reduce ,Δ (elim nat (λ (x : nat) nat)
                                      ()
                                      ((s zero)
