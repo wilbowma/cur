@@ -78,19 +78,21 @@ If @racket[#:local-env] is specified, infers types under an extended lexical env
 ]
 }
 
-@defproc[(cur-type-check? [syn syntax?] [#:local-env env (listof (cons/c syntax? syntax?)) '()])
+@defproc[(cur-type-check? [term syntax?] [type syntax?] [#:local-env env (listof (cons/c syntax? syntax?)) '()])
          boolean?]{
-Returns @racket[#t] if the Cur term @racket[syn] is well-typed, or @racket[#f] otherwise.
+Returns @racket[#t] if the Cur term @racket[term] is well-typed with a subtype of @racket[type], or @racket[#f] otherwise.
 
 If @racket[#:local-env] is specified, checks the type under an extended lexical environment via @racket[with-env].
 
 @examples[
-(eval:alts (cur-type-check? #'(λ (x : Type) x))
+(eval:alts (cur-type-check? #'(λ (x : Type) x) #'(Π (x : (Type 1)) Type))
            (eval:result @racket[#t] "" ""))
-(eval:alts (cur-type-check? #'Type)
+(eval:alts (cur-type-check? #'Type #'(Type 1))
            (eval:result @racket[#t] "" ""))
-(eval:alts (cur-type-check? #'x)
+(eval:alts (cur-type-check? #'x #'Nat)
            (eval:result @racket[#f] "" ""))
+(eval:alts (cur-type-check? #'x #'Nat #:local-env (list (cons #'x #'Nat)))
+           (eval:result @racket[#t] "" ""))
 ]
 }
 
