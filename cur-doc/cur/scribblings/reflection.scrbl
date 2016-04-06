@@ -9,7 +9,11 @@
 To support the addition of new user-defined language features, @racketmodname[cur] provides access to
 various parts of the language implementation as Racket forms at @gtech{phase} 1.
 The reflection features are @emph{unstable} and may change without warning.
-Many of these features are extremely hacky.
+
+The reflection API enforced type safety; all terms are first expanded, then
+type checked, then reduced; individual API function may not complete this
+route---e.g, cur-expand stops after expansion---but not API functions will
+reduce before type checking, or type check before expansion.
 
 @(define curnel-eval (curnel-sandbox "(require cur/stdlib/bool cur/stdlib/nat)"))
 
