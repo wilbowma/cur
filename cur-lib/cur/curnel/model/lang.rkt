@@ -143,10 +143,10 @@
   ;; Locally expand everything down to core forms.
   (define (core-expand syn)
     (disarm
-      (local-expand
-        syn
-        'expression
-        (append (syntax-e #'(term reduce subst-all dep-top #%app λ Π elim Unv #%datum void))))))
+     (local-expand
+      syn
+      'expression
+      (append (syntax-e #'(term reduce subst-all dep-top #%app λ Π elim Unv #%datum void))))))
 
   ;; Only type-check at the top-level, to prevent exponential
   ;; type-checking. Redex is expensive enough.
