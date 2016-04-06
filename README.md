@@ -20,6 +20,12 @@ performance bugs, and hacks that should never have been written by a
 reasonable human being.
 These may or may not be fixed shortly.
 
+Versioning
+=======
+Cur is in alpha. Version numbers are 0.N, where N increases when an
+API changes, or a sub-package depends on a new feature (e.g. if
+cur-test depends on a feature that did not exist in a previous version).
+
 Getting started
 ===============
 
