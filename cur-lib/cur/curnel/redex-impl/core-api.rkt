@@ -31,28 +31,38 @@
 
 (define-metafunction ttL
   [(Δ-set (any_Δ ...) D t (any_c ...))
+   (any_Δ ...)
+   (judgment-holds (Δ-type-in (any_Δ ...) D t))
+   (where (any_c ...) (Δ-ref-constructor-map (any_Δ ...) D))]
+  [(Δ-set (any_Δ ...) D t (any_c ...))
    (any_Δ ... ((D : t) any_c ...))])
 
 (define-metafunction ttL
-  [(Δ-union any_2 any_1)
-   ,(append (term any_2) (term any_1))])
+  [(Δ-union any_Δ ())
+   any_Δ]
+  [(Δ-union any_2 (((D : t) (c : t_c) ...)
+                   any_r ...))
+   (Δ-union (Δ-set any_2 D t ((c : t_c) ...)) (any_r ...))])
+;; TODO: Maybe do append · remove-duplicate
 
 (define-metafunction tt-redL
   [(step Δ e)
    ,(car (apply-reduction-relation (tt-->cbv (term Δ)) (term e)))])
 
 (define-metafunction tt-typingL
-  [(Γ-union Γ ∅) Γ]
-  [(Γ-union Γ_2 (Γ_1 x : t))
-   ((Γ-union Γ_2 Γ_1) x : t)])
+  [(Γ-set Γ x t)
+   Γ
+   (judgment-holds (Γ-in Γ x t))]
+  [(Γ-set Γ x t)
+   (Γ x : t)])
 
 (define-metafunction tt-typingL
-  [(Γ-set Γ x t) (Γ x : t)])
+  [(Γ-union Γ ∅) Γ]
+  [(Γ-union Γ_2 (Γ_1 x : t))
+   (Γ-set (Γ-union Γ_2 Γ_1) x t)])
 
 ;; NB: Depends on clause order
 (define-metafunction tt-typingL
   [(Γ-remove ∅ x) ∅]
   [(Γ-remove (Γ x : t) x) Γ]
   [(Γ-remove (Γ x_0 : t_0) x_1) (Γ-remove Γ x_1)])
-
-
