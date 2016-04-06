@@ -62,16 +62,9 @@
    ----------------
    (unv-pred (Unv i_1) (Unv i_2) (Unv i_3))])
 
-;; Replace x by t_1 in t_0
-(define-metafunction ttL
-  subst : t x t -> t
-  [(subst t_0 x t_1)
-   (substitute t_0 x t_1)])
-
 ;;; ------------------------------------------------------------------------
 ;;; Primitive Operations on signatures Δ (those operations that do not require contexts)
 
-;; TODO: Define generic traversals of Δ and Γ ?
 (define-metafunction ttL
   Δ-in-dom : Δ D -> #t or #f
   [(Δ-in-dom ∅ D)
@@ -153,33 +146,13 @@
    (c ...)
    (where ((c : any) ...) (Δ-ref-constructor-map Δ D))])
 
-;; TODO: Mix of pure Redex/escaping to Racket sometimes is getting confusing.
-;; TODO: Justify, or stop.
-
-(define-metafunction ttL
-  sequence-index-of : any (any ...) -> natural
-  [(sequence-index-of any_0 (any_0 any ...))
-   0]
-  [(sequence-index-of (name any_0 any_!_0) (any_!_0 any ...))
-   ,(add1 (term (sequence-index-of any_0 (any ...))))])
-
-;; Get the index of the constructor c_i
-(define-metafunction ttL
-  Δ-constructor-index : Δ_0 c_0 -> natural
-  #:pre (Δ-in-constructor-dom Δ_0 c_0)
-  [(Δ-constructor-index Δ c)
-   (sequence-index-of c (Δ-ref-constructors Δ D))
-   (where D (Δ-key-by-constructor Δ c))])
-
 ;;; ------------------------------------------------------------------------
 ;;; Operations that involve contexts.
 
 (define-extended-language tt-ctxtL ttL
   ;; Telescope.
-  ;; NB: There is a bijection between this an a vector of maps from x to t
   (Ξ Φ ::= hole (Π (x : t) Ξ))
   ;; Apply context
-  ;; NB: There is a bijection between this an a vector expressions
   (Θ   ::= hole (Θ e)))
 
 ;; Applies the term t to the telescope Ξ.
@@ -285,7 +258,7 @@
   Δ-method-types : Δ_0 D_0 e -> (t ...)
   #:pre (Δ-in-dom Δ_0 D_0)
   [(Δ-method-types Δ D e)
-   ,(map (lambda (c) (term (Δ-constructor-method-type Δ ,c e))) (term (c ...)))
+   ((Δ-constructor-method-type Δ c e) ...)
    (where (c ...) (Δ-ref-constructors Δ D))])
 
 ;; Return the type of the motive to eliminate D
@@ -355,16 +328,17 @@
   (term-let ([Δ D])
     (reduction-relation tt-redL
       (--> ((λ (x : t_0) t_1) t_2)
-           (subst t_1 x t_2)
+           (substitute t_1 x t_2)
            -->β)
       (--> (elim D e_motive (e_i ...) (e_m ...) (in-hole Θ_c c))
            (in-hole Θ_mi e_mi)
            (side-condition (term (Δ-in-constructor-dom Δ c)))
            ;; Find the method for constructor c_i, relying on the order of the arguments.
-           (where natural (Δ-constructor-index Δ c))
-           (where e_mi ,(list-ref (term (e_m ...)) (term natural)))
+           (where (c_i ...) (Δ-ref-constructors Δ D))
+           (where (_ ... (c e_mi) _ ...) ((c_i e_m) ...))
            ;; Generate the inductive recursion
            (where Θ_ih (Δ-inductive-elim Δ D (elim D e_motive (e_i ...) (e_m ...) hole) Θ_c))
+           ;; Generate the method arguments, which are the constructor's arguments and the inductive arguments
            (where Θ_mi (in-hole Θ_ih Θ_c))
            -->elim))))
 
@@ -434,7 +408,7 @@
    (subtype Δ Γ (Unv i_0) (Unv i_1))]
 
   [(convert Δ Γ t_0 t_1)
-   (subtype Δ (Γ x_0 : t_0) e_0 (subst e_1 x_1 x_0))
+   (subtype Δ (Γ x_0 : t_0) e_0 (substitute e_1 x_1 x_0))
    ----------------- "≼-Π"
    (subtype Δ Γ (Π (x_0 : t_0) e_0) (Π (x_1 : t_1) e_1))])
 
@@ -568,7 +542,7 @@
   [(type-infer-normal Δ Γ e_0 (Π (x_0 : t_0) t_1))
    (type-check Δ Γ e_1 t_0)
    ----------------- "DTR-Application"
-   (type-infer Δ Γ (e_0 e_1) (subst t_1 x_0 e_1))]
+   (type-infer Δ Γ (e_0 e_1) (substitute t_1 x_0 e_1))]
 
   [(type-check Δ Γ e_c (apply D e_i ...))
 
