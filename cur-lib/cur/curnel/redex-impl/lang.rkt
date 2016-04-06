@@ -229,8 +229,6 @@
 
   (define-syntax-rule (local-data-scope e) (call-local-data-scope (thunk e)))
 
-  (provide poke)
-  (define (poke) (displayln (gamma)) (displayln (delta)))
   (define (call-with-env env t)
     (parameterize ([gamma (local-env->gamma env)])
       (t)))

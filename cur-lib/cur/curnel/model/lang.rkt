@@ -58,6 +58,11 @@
    (all-from-out syntax/parse)
    (all-from-out racket)
    (all-from-out racket/syntax)
+    declare-data!
+    call-local-data-scope
+    local-data-scope
+    with-env
+    call-with-env
     cur->datum
     cur-expand
     cur-type-infer
@@ -242,8 +247,6 @@
 
   (define-syntax-rule (local-data-scope e) (call-local-data-scope (thunk e)))
 
-  (provide poke)
-  (define (poke) (displayln (gamma)) (displayln (delta)))
   (define (call-with-env env t)
     (parameterize ([gamma (local-env->gamma env)])
       (t)))
