@@ -100,6 +100,7 @@
   (define (extend-Δ/syn! env x t c*)
     (env (extend-Δ/syn env x t c*)))
 
+  (define subst? (list/c (listof x?)  (listof e?)))
   (define bind-subst (make-parameter (list null null)))
 
   (define (add-binding/term! x t)
