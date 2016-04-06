@@ -92,5 +92,6 @@ formalisms.
 
 Open up `cur-lib/cur/curnel/model/core.rkt` to see a model of the core
 language, <600 lines of code.
-Currently, this model is also the implementation, although that is
-likely to change for performance reasons.
+You can run Cur using this model, but the
+`cur-lib/cur/curnel/redex-impl/core.rkt` (the default Curnel) is much
+faster.
