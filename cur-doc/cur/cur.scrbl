@@ -25,7 +25,7 @@ The language @racketmodname[cur] exports everything in @racketmodname[racket],
 
 The language @racketmodname[cur] provides reflection features to equip users with the tools necessary
 to write advanced meta-programs.
-These features in includes compile-time functions for type-checking, performing naïve type inference,
+These features include compile-time functions for type-checking, performing naïve type inference,
 deciding equivalence between @racketmodname[cur] terms, expanding macros in @racketmodname[cur] forms,
 and evaluating @racketmodname[cur] forms at compile-time.
 Programmers can use these reflection feature with little fear, as the resulting @tech{curnel forms}
