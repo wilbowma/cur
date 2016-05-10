@@ -28,6 +28,7 @@
   (U ::= (Unv i))
   (D x c ::= variable-not-otherwise-mentioned)
   (Δ   ::= ∅ (Δ (D : t ((c : t) ...))))
+  (Γ   ::= ∅ (Γ x : t))
   (t e ::= U (λ (x : e) e) x (Π (x : e) e) (e e)
      ;; TODO: Might make more sense for methods to come first
      ;; (elim inductive-type motive (indices ...) (methods ...) discriminant)
@@ -63,7 +64,34 @@
    (unv-pred (Unv i_1) (Unv i_2) (Unv i_3))])
 
 ;;; ------------------------------------------------------------------------
-;;; Primitive Operations on signatures Δ (those operations that do not require contexts)
+;;; Primitive Operations on signatures Δ (those operations that do not require contexts) and Γ
+
+(define-metafunction ttL
+  Γ-in-dom : Γ x -> #t or #f
+  [(Γ-in-dom ∅ x)
+   #f]
+  [(Γ-in-dom (Γ x : t) x)
+   #t]
+  [(Γ-in-dom (Γ x_!_0 : t) (name x x_!_0))
+   (Γ-in-dom Γ x)])
+
+(define-metafunction ttL
+  Γ-ref : Γ_0 x_0 -> t
+  #:pre (Γ-in-dom Γ_0 x_0)
+  [(Γ-ref (Γ x : t) x)
+   t]
+  [(Γ-ref (Γ x_!_0 : t_0) (name x_1 x_!_0))
+   (Γ-ref Γ x_1)])
+
+;; Make ∈ Γ a little easier to use, prettier to render
+(define-judgment-form ttL
+  #:mode (Γ-in I I O)
+  #:contract (Γ-in Γ x t)
+
+  [(side-condition (Γ-in-dom Γ x))
+   (where t (Γ-ref Γ x))
+   -------------------------------
+   (Γ-in Γ x t)])
 
 (define-metafunction ttL
   Δ-in-dom : Δ D -> #t or #f
@@ -167,6 +195,13 @@
   [(list->Θ ()) hole]
   [(list->Θ (e e_r ...))
    (in-hole (list->Θ (e_r ...)) (hole e))])
+
+(define-metafunction tt-ctxtL
+  Θ-flatten : Θ -> (e ...)
+  [(Θ-flatten hole) ()]
+  [(Θ-flatten (Θ e))
+   (any ... e)
+   (where (any ...) (Θ-flatten Θ))])
 
 (define-metafunction tt-ctxtL
   apply : e e ... -> e
@@ -344,8 +379,11 @@
 
 (define-extended-language tt-cbvL tt-redL
   ;; NB: Not exactly right; only true when c is a constructor
-  (v  ::= x U (Π (x : t) t) (λ (x : t) t) (in-hole Θv c))
+  ;; TODO: Values and such probably should be in tt-redL
+  (v  ::= x U (Π (x : t) t) βη)
   (Θv ::= hole (Θv v))
+  (λC ::= hole (λ (x : t) λC))
+  (βη ::= (in-hole λC (in-hole Θv c)))
   (E  ::= hole (E e) (v E)
       (elim D e (e ...) (v ... E e ...) e)
       (elim D e (e ...) (v ...) E)
@@ -374,28 +412,59 @@
 ;; CBV, plus under Π
 (define (tt-->cbv D) (context-closure (tt--> D) tt-cbvL E))
 
-(define-metafunction tt-redL
-  reduce : Δ e -> e
-  [(reduce Δ e)
-   ,(car (apply-reduction-relation* (tt-->cbv (term Δ)) (term e) #:cache-all? #t))])
+(define-metafunction tt-cbvL
+  instantiate : t (e ...) -> t
+  [(instantiate t ()) t]
+  [(instantiate (Π (x : t) t_1) (e any ...))
+   (instantiate (substitute t_1 x e) (any ...))])
+
+(define-metafunction tt-cbvL
+  still-function : Δ Γ (in-hole Θ x_f) -> t or #f
+  [(still-function Δ Γ (in-hole Θ x_f))
+   t
+   (judgment-holds (Δ-constr-in Δ x_f t_D))
+   (where (Π (x : t) _) (instantiate t_D (Θ-flatten Θ)))]
+  [(still-function Δ Γ (in-hole Θ x_f))
+   t
+   (judgment-holds (Δ-type-in Δ x_f t_D))
+   (where (Π (x : t) _) (instantiate t_D (Θ-flatten Θ)))]
+  [(still-function Δ Γ (in-hole Θ x_f))
+   t
+   (judgment-holds (Γ-in Γ x_f t_D))
+   (where (Π (x : t) _) (instantiate t_D (Θ-flatten Θ)))]
+  [(still-function _ ...)
+   #f])
+
+(define (tt-->η Δ Γ)
+  (reduction-relation
+   tt-cbvL
+   (--> (in-hole λC (in-hole Θ x_f))
+        (λ (x : t) (in-hole λC ((in-hole Θ x_f) x)))
+        (where t (still-function ,Δ ,Γ (in-hole Θ x_f)))
+        (fresh x))))
+
+(define-metafunction tt-cbvL
+  reduce : any ... -> v
+  [(reduce e) (reduce ∅ ∅ e)]
+  [(reduce Γ e) (reduce ∅ Γ e)]
+  [(reduce Δ Γ e)
+   ,(car (apply-reduction-relation*
+          (tt-->η (term Δ) (term Γ))
+          (car (apply-reduction-relation* (tt-->cbv (term Δ)) (term e) #:cache-all? #t))
+          #:cache-all? #t))])
 
 ;;; ------------------------------------------------------------------------
 ;;; Type checking and synthesis
 
-(define-extended-language tt-typingL tt-redL
-  ;; NB: There may be a bijection between Γ and Ξ. That's interesting.
-  ;; NB: Also a bijection between Γ and a list of maps from x to t.
-  (Γ   ::= ∅ (Γ x : t)))
-
-(define-judgment-form tt-typingL
+(define-judgment-form ttL
   #:mode (convert I I I I)
   #:contract (convert Δ Γ t t)
 
-  [(where (t t) ((reduce Δ t_0) (reduce Δ t_1)))
+  [(where (t t) ((reduce Δ Γ t_0) (reduce Δ Γ t_1)))
    ----------------- "≡"
    (convert Δ Γ t_0 t_1)])
 
-(define-judgment-form tt-typingL
+(define-judgment-form ttL
   #:mode (subtype I I I I)
   #:contract (subtype Δ Γ t t)
 
@@ -412,36 +481,9 @@
    ----------------- "≼-Π"
    (subtype Δ Γ (Π (x_0 : t_0) e_0) (Π (x_1 : t_1) e_1))])
 
-(define-metafunction tt-typingL
-  Γ-in-dom : Γ x -> #t or #f
-  [(Γ-in-dom ∅ x)
-   #f]
-  [(Γ-in-dom (Γ x : t) x)
-   #t]
-  [(Γ-in-dom (Γ x_!_0 : t) (name x x_!_0))
-   (Γ-in-dom Γ x)])
-
-(define-metafunction tt-typingL
-  Γ-ref : Γ_0 x_0 -> t
-  #:pre (Γ-in-dom Γ_0 x_0)
-  [(Γ-ref (Γ x : t) x)
-   t]
-  [(Γ-ref (Γ x_!_0 : t_0) (name x_1 x_!_0))
-   (Γ-ref Γ x_1)])
-
-;; Make ∈ Γ a little easier to use, prettier to render
-(define-judgment-form tt-typingL
-  #:mode (Γ-in I I O)
-  #:contract (Γ-in Γ x t)
-
-  [(side-condition (Γ-in-dom Γ x))
-   (where t (Γ-ref Γ x))
-   -------------------------------
-   (Γ-in Γ x t)])
-
 ;; TODO: After reading https://coq.inria.fr/doc/Reference-Manual006.html#sec209, not convinced this is right.
 
-(define-metafunction tt-typingL
+(define-metafunction tt-ctxtL
   nonpositive : x t -> #t or #f
   [(nonpositive x (in-hole Θ x))
    #t]
@@ -451,7 +493,7 @@
    ,(and (term (positive x t_0)) (term (nonpositive x t)))]
   [(nonpositive x t) #t])
 
-(define-metafunction tt-typingL
+(define-metafunction tt-ctxtL
   positive : x t -> #t or #f
   [(positive x (in-hole Θ x))
    #f]
@@ -462,7 +504,7 @@
   [(positive x t) #t])
 
 ;; Holds when the type t is a valid type for a constructor of D
-(define-judgment-form tt-typingL
+(define-judgment-form tt-ctxtL
   #:mode (valid-constructor I I)
   #:contract (valid-constructor D t)
 
@@ -472,7 +514,7 @@
    (valid-constructor D (name t_c (in-hole Ξ (in-hole Θ D))))])
 
 ;; Holds when the signature Δ is valid
-(define-judgment-form tt-typingL
+(define-judgment-form ttL
   #:mode (valid I)
   #:contract (valid Δ)
 
@@ -487,7 +529,7 @@
    (valid (Δ (D : t_D ((c : t_c) ...))))])
 
 ;; Holds when the signature Δ and typing context Γ are well-formed.
-(define-judgment-form tt-typingL
+(define-judgment-form ttL
   #:mode (wf I I)
   #:contract (wf Δ Γ)
 
@@ -504,7 +546,7 @@
 ;; TODO: http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/31/slides/stephanie.pdf
 
 ;; Holds when e has type t under signature Δ and typing context Γ
-(define-judgment-form tt-typingL
+(define-judgment-form tt-ctxtL
   #:mode (type-infer I I I O)
   #:contract (type-infer Δ Γ e t)
 
@@ -555,15 +597,15 @@
    (type-infer Δ Γ (elim D e_motive (e_i ...) (e_m ...) e_c)
                (apply e_motive e_i ... e_c))])
 
-(define-judgment-form tt-typingL
+(define-judgment-form ttL
   #:mode (type-infer-normal I I I O)
   #:contract (type-infer-normal Δ Γ e t)
 
   [(type-infer Δ Γ e t)
    ----------------- "DTR-Reduce"
-   (type-infer-normal Δ Γ e (reduce Δ t))])
+   (type-infer-normal Δ Γ e (reduce Δ Γ t))])
 
-(define-judgment-form tt-typingL
+(define-judgment-form ttL
   #:mode (type-check I I I I)
   #:contract (type-check Δ Γ e t)
 

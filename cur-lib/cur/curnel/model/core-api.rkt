@@ -16,7 +16,7 @@
 (define e? (redex-match? ttL e))
 (define U? (redex-match? ttL U))
 (define Δ? (redex-match? ttL Δ))
-(define Γ? (redex-match? tt-typingL Γ))
+(define Γ? (redex-match? ttL Γ))
 (define Ξ? (redex-match? tt-ctxtL Ξ))
 (define Φ? (redex-match? tt-ctxtL Φ))
 (define Θ? (redex-match? tt-ctxtL Θ))
@@ -40,23 +40,24 @@
   [(Δ-union Δ_2 (Δ_1 (x : t any)))
    ((Δ-union Δ_2 Δ_1) (x : t any))])
 
+;; TODO: Adapt to also try η
 (define-metafunction tt-redL
   step : Δ e -> e
   [(step Δ e)
    ,(car (apply-reduction-relation (tt-->cbv (term Δ)) (term e)))])
 
-(define-metafunction tt-typingL
+(define-metafunction ttL
   Γ-union : Γ Γ -> Γ
   [(Γ-union Γ ∅) Γ]
   [(Γ-union Γ_2 (Γ_1 x : t))
    ((Γ-union Γ_2 Γ_1) x : t)])
 
-(define-metafunction tt-typingL
+(define-metafunction ttL
   Γ-set : Γ x t -> Γ
   [(Γ-set Γ x t) (Γ x : t)])
 
 ;; NB: Depends on clause order
-(define-metafunction tt-typingL
+(define-metafunction ttL
   Γ-remove : Γ x -> Γ
   [(Γ-remove ∅ x) ∅]
   [(Γ-remove (Γ x : t) x) Γ]

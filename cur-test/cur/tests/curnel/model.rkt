@@ -22,6 +22,7 @@
 
 ;; Syntax tests
 ;; ------------------------------------------------------------------------
+;; TODO: Rewrite using redex-chk
 
 (define-term Type (Unv 0))
 (check-true (x? (term T)))
@@ -146,27 +147,26 @@
 (check-true (v? (term (s zero))))
 
 ;; TODO: Move equivalence up here, and use in these tests.
-(check-equiv? (term (reduce ∅ (Unv 0))) (term (Unv 0)))
-(check-equiv? (term (reduce ∅ ((λ (x : t) x) (Unv 0)))) (term (Unv 0)))
-(check-not-equiv? (term (reduce ∅ ((Π (x : t) x) (Unv 0)))) (term (Unv 0)))
-(check-not-equiv? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) x_0) (Unv 0)))))
+(check-equiv? (term (reduce (Unv 0))) (term (Unv 0)))
+(check-equiv? (term (reduce ((λ (x : t) x) (Unv 0)))) (term (Unv 0)))
+(check-not-equiv? (term (reduce (Π (x : t) ((Π (x_0 : t) x_0) (Unv 0)))))
                   (term (Π (x : t) (Unv 0))))
-(check-not-equiv? (term (reduce ∅ (Π (x : t) ((Π (x_0 : t) (x_0 x)) x))))
+(check-not-equiv? (term (reduce (Π (x : t) ((Π (x_0 : t) (x_0 x)) x))))
                   (term (Π (x : t) (x x))))
 
-(check-equiv? (term (reduce ,Δ (elim nat (λ (x : nat) nat)
+(check-equiv? (term (reduce ,Δ ∅ (elim nat (λ (x : nat) nat)
                                      ()
                                      ((s zero)
                                       (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                                      zero)))
               (term (s zero)))
-(check-equiv? (term (reduce ,Δ (elim nat (λ (x : nat) nat)
+(check-equiv? (term (reduce ,Δ ∅ (elim nat (λ (x : nat) nat)
                                      ()
                                      ((s zero)
                                       (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                                      (s zero))))
               (term (s (s zero))))
-(check-equiv? (term (reduce ,Δ (elim nat (λ (x : nat) nat)
+(check-equiv? (term (reduce ,Δ ∅ (elim nat (λ (x : nat) nat)
                                      ()
                                      ((s zero)
                                       (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
@@ -174,7 +174,7 @@
               (term (s (s (s (s zero))))))
 
 (check-equiv?
- (term (reduce ,Δ
+ (term (reduce ,Δ ∅
                (elim nat (λ (x : nat) nat)
                      ()
                      ((s (s zero))
@@ -586,10 +586,10 @@
 (check-holds
  (type-check ,Δ ∅ ,zero? (Π (x : nat) bool)))
 (check-equal?
- (term (reduce ,Δ (,zero? zero)))
+ (term (reduce ,Δ ∅ (,zero? zero)))
  (term true))
 (check-equal?
- (term (reduce ,Δ (,zero? (s zero))))
+ (term (reduce ,Δ ∅ (,zero? (s zero))))
  (term false))
 (define ih-equal?
   (term (λ (ih : nat)
@@ -625,10 +625,10 @@
              ,nat-equal?
              (Π (x : nat) (Π (y : nat) bool))))
 (check-equal?
- (term (reduce ,Δ ((,nat-equal? zero) (s zero))))
+ (term (reduce ,Δ ∅ ((,nat-equal? zero) (s zero))))
  (term false))
 (check-equal?
- (term (reduce ,Δ ((,nat-equal? (s zero)) zero)))
+ (term (reduce ,Δ ∅ ((,nat-equal? (s zero)) zero)))
  (term false))
 
 ;; == tests
@@ -653,5 +653,5 @@
  (term (Δ-ref-index-Ξ ,Δ= ==))
  (term (Π (A : Type) (Π (a : A) (Π (b : A) hole)))))
 (check-equal?
- (term (reduce ,Δ= ,refl-elim))
+ (term (reduce ,Δ= ∅ ,refl-elim))
  (term zero))

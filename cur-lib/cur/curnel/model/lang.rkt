@@ -6,7 +6,7 @@
   redex/reduction-semantics
   racket/provide-syntax
   (for-syntax
-    (except-in racket import)
+    (except-in racket import instantiate)
     syntax/parse
     racket/syntax
     (except-in racket/provide-transform export)
@@ -170,7 +170,7 @@
             #:datum-literals (elim Π λ : Unv)
             [x:id (syntax->datum #'x)]
             [(subst-all e _ _) (syntax->datum #'e)]
-            [(reduce Δ e) (cur->datum #'e)]
+            [(reduce _ ... e) (cur->datum #'e)]
             [(term e) (cur->datum #'e)]
             [(Unv i) (term (Unv ,(syntax->datum #'i)))]
             ;; TODO: should really check that b is one of the binders
@@ -220,13 +220,13 @@
            #,(datum->syntax syn t))])))
 
   (define (eval-cur syn)
-    (term (reduce ,(delta) ,(subst-bindings (cur->datum syn)))))
+    (term (reduce ,(delta) ,(gamma) ,(subst-bindings (cur->datum syn)))))
 
   (define (syntax->curnel-syntax syn)
     (quasisyntax/loc
       syn
       ;; TODO: this subst-all should be #,(subst-bindings (cur->datum syn)), but doesn't work
-      (term (reduce #,(delta) (subst-all #,(cur->datum syn) #,(first (bind-subst)) #,(second (bind-subst)))))))
+      (term (reduce #,(delta) #,(gamma) (subst-all #,(cur->datum syn) #,(first (bind-subst)) #,(second (bind-subst)))))))
 
   ;; Reflection tools
   ;; TODO: local-env is a hack; need principled way of descending under binders
