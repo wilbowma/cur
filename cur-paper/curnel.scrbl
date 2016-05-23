@@ -1,11 +1,13 @@
 #lang scribble/base
 @(require
+  (only-in redex/reduction-semantics term)
   "defs.rkt"
   "cur.rkt"
   "bib.rkt"
   scribble/manual
   scriblib/figure
-  racket/function)
+  racket/function
+  racket/list)
 
 @title[#:tag "sec:curnel"]{Core Language}
 Our choice of core language is not vital to our design.
@@ -24,32 +26,43 @@ universes, and an impredicative universe.
 Curnel is inspired by TT, the core language of Idris@~citea{idris:jfp}, and
 similar to Luo's UTT@~citea{luo1994computation}.
 Curnel is implemented in Redex@~citea["matthews2004visual"
-"felleisen2009semantics"] and most figures in this section are extracted from
+"felleisen2009semantics"] and all figures in this section are extracted from
 the Redex implementation, so some notation may be slightly non-standard.
+@(define (rule->table rule)
+  (list
+    (rule-pict-info-lhs rule)
+    (arrow->pict (rule-pict-info-arrow rule))
+    (rule-pict-info-rhs rule)
+    (text (format "     [~a]" (rule-pict-info-label rule)) null (label-font-size))))
+
+@(define (reduction-style rules)
+   (vl-append 4
+     (table 4 (flatten (map rule->table rules)) lc-superimpose cc-superimpose 6 4)
+     (parameterize ([where-make-prefix-pict (thunk (blank))])
+       (vl-append 1
+         (text "where" null (default-font-size))
+         (hc-append 10 (blank) (rule-pict-info->side-condition-pict (list-ref rules 1) 24))))))
+
 @figure["fig:curnel-syntax" "Curnel Syntax and Dynamic Semantics"
-@(render-language ttL)
-@(linebreak)
-@(linebreak)
-@tabular[#:sep @hspace[1]
-(list
-  (list (render-term ((λ (x : t) e_0) e_1)) "→" (render-term (subst e_0 x e_1)))
-  (list (render-term ((elim D U) o_ m_0 ... m_i m_i+1 ... m_n i_ ... (c_i a_ ... y_ ...)))
-        "→"
-        (render-term (m_i a_ ... ih_ ...))))
-]]
+@verbatim|{
+|@(render-language ttL)
+|@(render-language tt-ctxtL)
+
+|@(render-reduction-relation (tt--> (term ·)) #:style reduction-style)
+}|
+]
 
 The top of @Figure-ref{fig:curnel-syntax} presents the syntax of Curnel.
 A Curnel term is either a universe @render-term[U], a function
 @render-term[(λ (x : t) e)], a variable, a dependent function type
 @render-term[(Π (x : t) t)], an application @render-term[(e e)], or the
-elimination of an inductive type @render-term[(elim D U)].
+elimination of an inductive type @render-term[(elim D motive (indices ...) (methods ...) e)].
 We write universes of level @render-term[i] as @render-term[(Unv i)].
 We usually write variables using the meta-variable @render-term[x],
 but we use @render-term[D] for the name of declared inductive types and
 @render-term[c] for the names of inductive-type constructors.
-We annotate the inductive-type eliminator @render-term[(elim D U)] with the
-inductive type @render-term[D], and the universe of the return type
-@render-term[U] to simplify type inference.
+We use application contexts @render-term[Θ] to represent nested application,
+and @render-term[Ξ] to represent nested product contexts (telescopes).
 
 The language is parameterized by a sequence of inductive-type
 declarations @render-term[Δ].
@@ -63,31 +76,25 @@ must satisfy the strict positivity condition.
 
 As an example of writing in Curnel, we can encode the natural numbers and write
 the addition function as follows.
-First we define the natural number:
+First we define the natural numbers:
 @nested[#:style 'code-inset
   @render-term[(∅ (Nat : (Unv 0) ((z : Nat) (s : (Π (x : Nat) Nat)))))]
 ]
 Next, we define addition.
-We intentionally use the precise syntax of the language in this example and
-take no liberties with syntactic sugar.
-The definition of addition has many leading and trailing parenthesis because
-Curnel has only single-arity functions.
-We will come back to this in @secref{sec:surface} when we implement multi-arity
-functions via language extension.
 @nested[#:style 'code-inset
 @render-term[
 (λ (n : Nat)
   (λ (m : Nat)
-    (((((elim Nat (Unv 0))
-        (λ (x : Nat) Nat))
-       m)
-      (λ (n-1 : Nat)
-        (λ (ih : Nat)
-          (s ih))))
+    (elim Nat (λ (x : Nat) Nat) ()
+      (m
+       (λ (n-1 : Nat)
+         (λ (ih : Nat)
+           (s ih))))
      n)))]
 ]
-We annotate the eliminator with @render-term[(Unv 0)] since the result of plus
-is a @render-term[Nat], which is in universe @render-term[(Unv 0)].
+Note that in Cur @render-term[n-1] is a valid identifier.
+
+We annotate the eliminator with the type @render-term[D] being eliminated.
 
 The next argument to the eliminator is the @emph{motive}, a type constructor
 used to compute the result type of the elimination.
@@ -96,7 +103,13 @@ argument being eliminated, and computes the return type.
 In this case, the motive is @render-term[(λ (x : Nat) Nat)], a constant
 function that tells us the result type of addition is @render-term[Nat].
 
-The next two arguments are @emph{methods}.
+The next argument is a sequence of indices for the inductive type.
+The indices are given to the motive during type checking to compute the result
+type.
+There are no indices in this example, since @render-term[Nat] is not an indexed
+type.
+
+The next argument is a sequence of are @emph{methods}.
 The eliminator requires one method for each constructor of the inductive type
 being eliminated.
 For natural numbers, there are two constructors and thus two methods.
@@ -109,35 +122,35 @@ The method for @render-term[s] takes two arguments: one for the argument to
 @render-term[s] and one for the recursive elimination of that argument, since
 the argument is also a @render-term[Nat].
 
-After the methods, the eliminator expects the indices for the inductive type.
-The indices are given to the motive during type checking to compute the result
-type.
-There are no indices in this example, since @render-term[Nat] is not an indexed
-type.
+The final argument is the @emph{discriminant}, @emph{i.e.}, the value to
+eliminate, in this case the argument @render-term[n].
 
-The final argument is the value to eliminate, in this case the argument
-@render-term[n].
-
-The bottom of @Figure-ref{fig:curnel-syntax} presents a sketch of the dynamic
-semantics.
-The Redex implementation of reduction for @render-term[(elim D U)] is somewhat
-involved, so we informally sketch the small-step reduction rules rather than
-extract a figure from Redex.
+The bottom of @Figure-ref{fig:curnel-syntax} presents the small-step reduction
+of Curnel.
 The dynamic semantics of Curnel are standard, with β-reduction and folds over
-inductive types @render-term[D] defined by @render-term[(elim D U)].
+inductive types @render-term[D].
+The fold over an inductive type takes a step when the discriminant is a fully applied
+constructor @render-term[c] of the inductive type @render-term[D].
+we step to the method corresponding to the constructor applied to arguments
+@render-term[Θ_mi], where these arguments are computed from the indices, the
+constructor's arguments, and the recursive application of the eliminator to
+recursive arguments.
+We omit the definitions of various meta-functions used in the reduction
+relation as they are not instructive.
+We extend these small-step rules for a call-by-value normalization strategy in
+the usual way.
 
-Rather than explain the semantics of eliminators general, we give an example
-reducing an eliminator.
-This time, we do take liberties with syntax for clarity.
+Rather than explain in more detail the semantics of eliminators in general, we
+give an example reducing an eliminator.
 Continuing with our addition example, suppose we have called the addition
 function with @render-term[(s z)] and @render-term[z].
 Then the eliminator will take a step as follows:
 @nested[#:style 'code-inset
 @render-term[
-((elim Nat U) o_ m_0 m_1 (s z))]
+(elim Nat o_ () (m_0 m_1) (s z))]
 " → "
 @render-term[
-(m_1 z ((elim Nat U) o_ m_0 m_1 z))]
+((m_1 z) (elim Nat o_ () (m_0 m_1) z))]
 @verbatim|{
 
 |@elem{where:}
@@ -158,8 +171,10 @@ that argument.
      (parameterize ([relation-clauses-combine (λ (l) (apply hb-append 20 l))])
        (render-judgment-form unv-pred)))
    (hline 600 .75 #:segment 5)
-   (parameterize ([relation-clauses-combine (λ (l) (apply hb-append 20 l))])
+   #;(parameterize ([relation-clauses-combine (λ (l) (apply hb-append 20 l))])
      (render-judgment-form convert))
+   (parameterize ([relation-clauses-combine (λ (l) (apply hb-append 20 l))])
+     (render-judgment-form subtype))
    (hline 600 .75 #:segment 5)
    (hb-append 20 (render-judgment-form type-check)
      (parameterize ([judgment-form-cases (build-list 2 values)]
@@ -168,7 +183,7 @@ that argument.
    (parameterize ([judgment-form-cases (build-list 3 (curry + 2))]
                   [relation-clauses-combine (λ (l) (apply hb-append 20 l))])
      (render-judgment-form type-infer))
-   (parameterize ([judgment-form-cases (build-list 2 (curry + 5))]
+   (parameterize ([judgment-form-cases (build-list 2 (curry + 6))]
                   [relation-clauses-combine (λ (l) (apply hb-append 20 l))])
      (render-judgment-form type-infer)))
 ]
@@ -188,18 +203,19 @@ We use predicativity rules similar to Coq; functions are impredicative
 in @render-term[(Unv 0)], but are predicative in all higher universes.
 Unlike Coq, we do not distinguish between Prop and Set.
 
-The convertibility judgment @render-term[(convert Δ Γ t_0 t_1)], in the middle
+The subtyping judgment @render-term[(subtype Δ Γ t_0 t_1)], in the middle
 of @Figure-ref{fig:curnel-types}, defines when the type @render-term[t_0] is
-convertible to the type @render-term[t_1].
-Any universe is convertible to any higher universe.
-A function type @render-term[(Π (x : t_0) t_1)] is convertible to another
-function type @render-term[(Π (x : t_0) t_2)] if @render-term[t_1] is
-convertible to @render-term[t_2].
-Finally, a type @render-term[t_0] is convertible to @render-term[t_1] if
-they reduce to α-equivalent terms in the dynamic semantics.
-The meta-function @render-term[(reduce Δ e)] used in the convertibility
-judgment normalizes the term @render-term[e] with the inductive types declared
-by @render-term[Δ] using a call-by-value semantics.
+a subtype of the type @render-term[t_1].
+A type @render-term[t_0] is a subtype of @render-term[t_1] if
+they @emph{equivalent}, @emph{i.e.}, they reduce to α-equivalent terms in the
+dynamic semantics.
+Any universe is a subtype of any higher universe.
+A function type @render-term[(Π (x : t_0) e_0)] is a subtype of another
+function type @render-term[(Π (x : t_1) e_1)] if @render-term[t_0] is
+@emph{equivalent} to @render-term[t_1], and @render-term[e_0] is a subtype of
+@render-term[e_1].
+Note that we cannot allow @render-term[t_0] to be a subtype of
+@render-term[t_1] due to predicativity rules.
 
 In the bottom of the figure, we define term typing.
 We separate term typing into two judgments to simplify algorithmic
@@ -209,10 +225,10 @@ infers the type @render-term[t] for the term @render-term[e]
 under term environment @render-term[Γ] and declarations
 @render-term[Δ].
 Note that this inference is trivial since Curnel terms are fully annotated.
+Without loss of generality, we assume the inference judgment can return a type
+in normal form if required.
 
 The type-checking judgment @render-term[(type-check Δ Γ e t)]
 checks that term @render-term[e] has a type @render-term[t_0] that is
 convertible to the type @render-term[t].
-The type of the inductive eliminator @render-term[(elim D U)] is computed by
-the meta-function @render-term[Δ-elim-type].
 As the type of the eliminator is standard we omit the presentation.

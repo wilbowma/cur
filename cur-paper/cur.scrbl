@@ -61,7 +61,7 @@ Users should be free to write metalanguage and object language code in the same
 module.
 @;The user should not need to manually deal with parsing object language code.
 Users should only need to write the semantics of extension; the extensions
-should automatically integrate into the parser and received parsed objects to
+should automatically integrate into the parser and receive parsed objects to
 compute over.
 All extensions should be automatically checked for safety.
 
@@ -79,7 +79,7 @@ This adds a barrier to both developing and using such extensions.
 To support @emph{sophisticated} extension, we must allow extensions to perform
 computation in a general-purpose metalanguage.
 New extensions should integrate into the syntax of the object language as
-if it they were native syntax.
+if they were native syntax.
 Users must be able to redefine and extend existing syntax, including base
 syntax like @racket[λ] and application.
 
@@ -110,7 +110,7 @@ Run-time definitions include only value definitions.
 Compile-time definitions are written in a metalanguage, while run-time
 definitions are written in an object language.
 Defining new syntactic forms extends the object language.
-In the Racket (the language), the metalanguage and object language are the same.
+In Racket (the language), the metalanguage and object language are the same.
 In Cur, we create a new object language but leave Racket as metalanguage.
 
 We define syntactic forms using syntactic macros.
@@ -174,8 +174,7 @@ We can redefine application by redefining @racket[#%app], exactly as we defined
 Similarly, we can redefine the semantics of a module by redefining the
 @racket[#%module-begin] form.
 The ability to redefine language features enables the most sophisticated
-language extensions, and is what enables allows us to define new object
-languages in Racket.
+language extensions and allows us to define new object languages in Racket.
 
 We define a new language by defining a library that provides the base syntactic
 forms of the language and a definition for @racket[#%module-begin] to
@@ -193,17 +192,17 @@ For example, we can write the identity function as:
 @codeblock{
 #lang cur
 
-(λ (A : Type) (λ (a : A) a))
+(λ (A : (Type 0) )(λ (a : A) a))
 
 ((id Nat) z)
 
 ; Explicitly use the application form
 (#%app (#%app id Nat) z)
 }
-Cur also provides a @racket[define] form for creating run-time values
+Cur also provides a @racket[define] form for creating run-time value
 definitions and a @racket[data] form for defining inductive types:
 @racketblock[
-(define id (λ (A : Type) (λ (a : A) a)))
+(define id (λ (A : (Type 0)) (λ (a : A) a)))
 
 (data Nat
   (z : Nat)
@@ -217,9 +216,9 @@ module's environment.
 The @racket[data] form extends the module's inductive type declaration
 @render-term[Δ].
 The @racket[define] form extends the module's value definitions.
-Once all expressions in the module are fully expanded, we convert them to the
-Redex representation used in the Curnel implementation, inline all value
-definitions, then type check and normalize each top-level expression.
+As each syntactic form in the module is expanded, prior value definitions are
+inlined and added to the term environment @render-term[Γ], the expanded term is
+type-checked, and top-level expression are normalized and printed.
 
 We can write macros as we saw in the previous section to extend the syntax of
 Cur.
@@ -237,7 +236,8 @@ transformers that just replace the macro identifier with another identifier:
   (make-rename-transformer #'λ))
 
 ; id, now without unicode
-(define id (lambda (A : Type) (lambda (a : A) a)))
+(define id
+  (lambda (A : (Type 0)) (lambda (a : A) a)))
 }
 
 @section{Reflection API}
@@ -264,7 +264,7 @@ For instance, @racket[(cur-expand #'(λ (x : t) e))] does not expand @racket[t]
 or @racket[e] since @racket[λ] is a base form.
 This function lets users write extensions by only considering certain syntactic
 forms.
-Since users can arbitrary extend the syntax of Cur, using @racket[cur-expand]
+Since users can arbitrarily extend the syntax of Cur, using @racket[cur-expand]
 before pattern matching in a new extensions ensures all unexpected extensions
 are already expanded.
 }
@@ -272,7 +272,7 @@ are already expanded.
 @defproc[(cur-type-check? [term SyntaxObject] [type SyntaxObject]) Boolean]{
 The @racket[cur-type-check?] function returns @racket[true] when @racket[term]
 expands to @render-term[e], @racket[type] expands to @render-term[t], and
-@render-term[(type-check Δ ∅ e t)] holds, and returns @racket[false] otherwise.
+@render-term[(type-check Δ Γ e t)] holds, and returns @racket[false] otherwise.
 Note that this function is not meant to provide an error message; it is meant
 to be used by extensions that catch type errors in surface syntax and provide
 their own error messages.
@@ -281,7 +281,7 @@ their own error messages.
 @defproc[(cur-type-infer [term SyntaxObject]) (Maybe SyntaxObject)]{
 The @racket[cur-type-infer] function returns a syntax representation of
 @render-term[t] when @racket[term] expands to the term @render-term[e] and
-@render-term[(type-infer Δ ∅ e t)] holds, and @racket[false] otherwise.
+@render-term[(type-infer Δ Γ e t)] holds, and @racket[false] otherwise.
 This function allows users to build type inference into extensions and reduce
 annotation burden.
 }

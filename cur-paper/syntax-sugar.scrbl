@@ -26,6 +26,30 @@ compile-time behaviors but do not necessarily generate code, like debugging
 features and staged meta-programming.
 
 @section{Simple Syntax}
+@subsubsub*section*{Alias for @code{(Type 0)}}
+Writing @code{(Type 0)} for all these examples is somewhat tedious.
+We start with a simple example macro that elaborates @code{Type} to @code{(Type
+0)}.
+Eventually, a more sophisticated extension could resolve all universe levels
+automatically, but this will do for now.
+First, let us import a renamed copy of the default form:
+@racketblock[
+(require
+  (only-in curnel
+    [Type default-Type]))
+]
+Next we define a simple macro with two syntaxes: one applied to an argument,
+one without any argument.
+In the first case, we simply expand to the default form.
+In the second case, we provide level @racket[0] as a default.
+
+@racketblock[
+(define-syntax (Type syn)
+  (syntax-case syn ()
+    [(Type i) #'(default-Type i)]
+    [Type #'(default-Type 0)]))
+]
+
 @subsubsub*section*{Multi-Arity Syntax}
 Cur provides only single-arity functions in the base language.
 As mentioned in @secref{sec:cur}, we can redefine existing forms like function
@@ -160,14 +184,13 @@ Now we can use the notation to state a lemma:
         (e1 . ↦ . e2)
         (Γ . ⊢ . e2 : t))))
 ]
-The dot notation seen in @code{(Γ . ⊢ . e : t)} is Racket's syntax for using
-identifiers in infix position.
+The dot notation seen in @code{(Γ . ⊢ . e : t)} is Racket's default syntax for
+using identifiers in infix position.
 We could provide better support for infix notation by extending the
-language-extension system with support for declaring certain identifiers as
-infix.
-Racket supports this via an extensible reader, although we have not yet tested
-it in Cur.
-Recent work has even developed language-extension via syntactic macros based on
+language-extension system.
+Racket supports this via an extensible reader, which recent work has used to
+implement syntax-extension for algebraic notation@~citea{rafkind2012}.
+Other work has even developed language-extension via syntactic macros based on
 parsing expression grammars, rather than on
 s-expressions@~citea{allen2009growing}.
 
@@ -229,10 +252,8 @@ expression, but we omit this for clarity.
             [D (cur-type-infer #'e)]
             [motive #`(lambda (x : #,D) #,R)]
             [U (cur-type-infer R)])
-       #`((elim #,D #,U) #,motive
-            ; Splice a list of syntax into a syntax template
-            ; Like @racket[...], but work on expressions instead of pattern variables
-            #,@(map (curry clause->method D motive) clauses)
+       #`(elim #,D #,motive ()
+            #,(map (curry clause->method D motive) clauses)
             e))]))
 
 (define-syntax (recur syn)
@@ -274,15 +295,16 @@ Recall the addition function for natural number we defined in
 @#reader scribble/comment-reader
 (racketblock
 (define (plus (n1 : Nat) (n2 : Nat))
-  ((elim Nat Type)
-     (lambda (x : Nat) Nat)
-     n2
-     (lambda (x : Nat) (ih : Nat) (s ih))
-     n1))
+  (elim Nat
+   (lambda (x : Nat) Nat)
+   ()
+   (n2
+    (lambda (x : Nat) (ih : Nat) (s ih)))
+   n1))
 )
 
 This version of @racket[plus] is easier to read and write now that we have
-multi-arity functions, but stills requires a lot of annotations and other
+multi-arity functions, but still requires a lot of annotations and other
 syntactic overhead.
 Instead, we would like to define @racket[plus] using pattern matching and
 to avoid writing obvious annotations, like the motive, when they can be inferred.
@@ -326,9 +348,9 @@ After parsing each clause, we compute the motive.
 The body of the motive is the type @racket[R] of the
 result of the @racket[match], and the argument to the motive has type
 @racket[D] of the discriminant.
-Note that inferring @racket[D] and will fail for indexed inductive types in
-this implementation; the full implementation can infer some indexed inductive
-types and supports optional annotation syntax for when inference fails.
+Note that in this implementation, we do not handle indexed inductive types.
+The full implementation can infer some indexed inductive types and supports
+optional annotation syntax for when inference fails.
 
 Finally, we generate a method for each clause using @racket[clause->method].
 While generating methods, we infer which arguments are recursive arguments and
@@ -360,9 +382,9 @@ that an expression has a particular type and receive a type error if not:
 ; Usage:
 (z . :: . Nat)
 )
-We check at during expansion that @racket[e] has type @racket[t].
+We check during expansion that @racket[e] has type @racket[t].
 If the check succeeds, we generate the no-op expression @racket[#'(void)].
-If the check fails, it reports an error similar to what we do for checking 
+If the check fails, it reports an error similar to what we do for checking
 annotations in the @racket[let] form.
 This form has no behavior in the object language but provides extra
 behavior at compile-time to support debugging.
@@ -385,5 +407,5 @@ For example, we specialize the exponentiation function @racket[exp] to the
     [z (s z)]
     [(s (x : Nat)) (mult e (recur x))]))
 
-(define (square (e : Nat)) (run (exp (s (s z)))))
+(define square (run (exp (s (s z)))))
 ]

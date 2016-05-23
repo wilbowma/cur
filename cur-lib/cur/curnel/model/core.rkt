@@ -28,10 +28,9 @@
   (U ::= (Unv i))
   (D x c ::= variable-not-otherwise-mentioned)
   (Δ   ::= ∅ (Δ (D : t ((c : t) ...))))
-  (t e ::= U (λ (x : e) e) x (Π (x : e) e) (e e)
-     ;; TODO: Might make more sense for methods to come first
-     ;; (elim inductive-type motive (indices ...) (methods ...) discriminant)
-     (elim D e (e ...) (e ...) e))
+  ;; TODO: Might make more sense for methods to come first
+  ;; (elim inductive-type motive (indices ...) (methods ...) discriminant)
+  (t e ::= U (λ (x : e) e) x (Π (x : e) e) (e e) (elim D e (e ...) (e ...) e))
   #:binding-forms
   (λ (x : t) e #:refers-to x)
   (Π (x : t_0) t_1 #:refers-to x))
@@ -327,11 +326,9 @@
 (define (tt--> D)
   (term-let ([Δ D])
     (reduction-relation tt-redL
-      (--> ((λ (x : t_0) t_1) t_2)
-           (substitute t_1 x t_2)
-           -->β)
-      (--> (elim D e_motive (e_i ...) (e_m ...) (in-hole Θ_c c))
-           (in-hole Θ_mi e_mi)
+      (--> ((λ (x : t_0) t_1) t_2) (substitute t_1 x t_2)
+           "-->β")
+      (--> (elim D e_motive (e_i ...) (e_m ...) (in-hole Θ_c c)) (in-hole Θ_mi e_mi)
            (side-condition (term (Δ-in-constructor-dom Δ c)))
            ;; Find the method for constructor c_i, relying on the order of the arguments.
            (where (c_i ...) (Δ-ref-constructors Δ D))
@@ -340,7 +337,7 @@
            (where Θ_ih (Δ-inductive-elim Δ D (elim D e_motive (e_i ...) (e_m ...) hole) Θ_c))
            ;; Generate the method arguments, which are the constructor's arguments and the inductive arguments
            (where Θ_mi (in-hole Θ_ih Θ_c))
-           -->elim))))
+           "-->elim"))))
 
 (define-extended-language tt-cbvL tt-redL
   ;; NB: Not exactly right; only true when c is a constructor
@@ -513,15 +510,15 @@
    ----------------- "DTR-Unv"
    (type-infer Δ Γ U_0 U_1)]
 
-  [(Δ-type-in Δ x t)
+  [(Δ-type-in Δ D t)
    (wf Δ Γ)
    ----------------- "DTR-Inductive"
-   (type-infer Δ Γ x t)]
+   (type-infer Δ Γ D t)]
 
-  [(Δ-constr-in Δ x t)
+  [(Δ-constr-in Δ c t)
    (wf Δ Γ)
    ----------------- "DTR-Constructor"
-   (type-infer Δ Γ x t)]
+   (type-infer Δ Γ c t)]
 
   [(Γ-in Γ x t)
    (wf Δ Γ)
@@ -552,8 +549,7 @@
    (where (t_m ...) (Δ-method-types Δ D e_motive))
    (type-check Δ Γ e_m t_m) ...
    ----------------- "DTR-Elim_D"
-   (type-infer Δ Γ (elim D e_motive (e_i ...) (e_m ...) e_c)
-               (apply e_motive e_i ... e_c))])
+   (type-infer Δ Γ (elim D e_motive (e_i ...) (e_m ...) e_c) (apply e_motive e_i ... e_c))])
 
 (define-judgment-form tt-typingL
   #:mode (type-infer-normal I I I O)
@@ -569,7 +565,6 @@
 
   [(type-infer Δ Γ e t_0)
    (type-infer Δ Γ t U)
-   (subtype Δ Γ t t_0)
+   (subtype Δ Γ t_0 t)
    ----------------- "DTR-Check"
    (type-check Δ Γ e t)])
-

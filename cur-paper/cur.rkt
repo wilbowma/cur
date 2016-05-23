@@ -2,6 +2,7 @@
 
 (require
  racket/function
+ racket/list
  scribble/base
  (except-in cur/curnel/model/core apply)
  redex/reduction-semantics
@@ -9,7 +10,8 @@
   redex/pict
   (render-term _render-term)
   (render-language _render-language)
-  (render-judgment-form _render-judgment-form)]
+  (render-judgment-form _render-judgment-form)
+  (render-reduction-relation _render-reduction-relation)]
  pict)
 
 (provide
@@ -36,6 +38,15 @@
            (list-ref lws 4)
            (list-ref lws 5)))
         (list "" Δ ";" Γ " ⊢ " e " ⇒ " t ""))]
+     ['type-infer-normal
+      (lambda (lws)
+        (define-values (Δ Γ e t)
+          (values
+           (list-ref lws 2)
+           (list-ref lws 3)
+           (list-ref lws 4)
+           (list-ref lws 5)))
+        (list "" Δ ";" Γ " ⊢ " e " ⇒ " t ""))]
      ['type-check
       (lambda (lws)
         (define-values (Δ Γ e t)
@@ -52,7 +63,7 @@
            (list-ref lws 2)
            (list-ref lws 3)))
         (list "" " ⊨ " Δ ";" Γ ""))]
-     ['subst
+     ['substitute
       (lambda (lws)
         (define-values (e1 x e2)
           (values
@@ -60,7 +71,7 @@
            (list-ref lws 3)
            (list-ref lws 4)))
         (list "" e1 "[" x " / " e2 "]" ""))]
-     ['convert
+     ['subtype
       (lambda (lws)
         (define-values (Δ Γ t1 t2)
           (values
@@ -69,36 +80,52 @@
            (list-ref lws 4)
            (list-ref lws 5)))
         (list "" Δ ";" Γ " ⊢ " t1 " ≼ " t2 ""))]
+     ['convert
+      (lambda (lws)
+        (define-values (Δ Γ t1 t2)
+          (values
+           (list-ref lws 2)
+           (list-ref lws 3)
+           (list-ref lws 4)
+           (list-ref lws 5)))
+        (list "" Δ ";" Γ " ⊢ " t1 " ≡ " t2 ""))]
      ['elim
       (lambda (lws)
-        (define-values (elim D U)
+        (define-values (elim D motive indices methods e)
           (values
            (list-ref lws 1)
            (list-ref lws 2)
-           (list-ref lws 3)))
+           (list-ref lws 3)
+           (list-ref lws 4)
+           (list-ref lws 5)
+           (list-ref lws 6)))
         (list "" "(" elim (struct-copy lw D
                                        [e (text (format "~a" (lw-e D)) (non-terminal-subscript-style))]
-                                       [column (sub1 (lw-column D))]) " " U ")" ""))]
-     ['Δ-ref-type
+                                       [column (sub1 (lw-column D))]) " " motive indices methods e ")" ""))]
+     ['Δ-type-in
       (lambda (lws)
-        (define-values (start Δ x)
+        (define-values (Δ D t)
           (values
-           (list-ref lws 1)
            (list-ref lws 2)
-           (list-ref lws 3)))
-        (define new-Δ (struct-copy lw Δ
-                                   [column (lw-column start)]))
-        (list "" new-Δ "(" x ")" ""))]
-     ['Γ-ref
+           (list-ref lws 3)
+           (list-ref lws 4)))
+        (list "" "(" D ":" t ") ∈ " (struct-copy lw Δ [column (add1 (lw-column t))]) ""))]
+     ['Δ-constr-in
       (lambda (lws)
-        (define-values (start Γ x)
+        (define-values (Δ c t)
           (values
-           (list-ref lws 1)
            (list-ref lws 2)
-           (list-ref lws 3)))
-        (define new-Γ (struct-copy lw Γ
-                                   [column (lw-column start)]))
-        (list "" new-Γ "(" x ")" ""))]
+           (list-ref lws 3)
+           (list-ref lws 4)))
+        (list "" "(" c ":" t ") ∈ " (struct-copy lw Δ [column (add1 (lw-column t))]) ""))]
+     ['Γ-in
+      (lambda (lws)
+        (define-values (Γ x t)
+          (values
+           (list-ref lws 2)
+           (list-ref lws 3)
+           (list-ref lws 4)))
+        (list "" "(" x ":" t ") ∈ " (struct-copy lw Γ [column (add1 (lw-column t))]) ""))]
      ['unv-type
       (lambda (lws)
         (define-values (U1 U2)
@@ -123,9 +150,8 @@
         (list "" "(Type " i ")" ""))]
      ['<=
       (lambda (lws)
-        (define-values (<= i0 i1)
+        (define-values (i0 i1)
           (values
-           (list-ref lws 1)
            (list-ref lws 2)
            (list-ref lws 3)))
         (list "" i0 " ≤ " i1 ""))]
@@ -143,7 +169,10 @@
           (values
            (list-ref lws 1)
            (list-ref lws 2)))
-        (list "" i0 " + 1" ""))])
+        (list "" i0 " + 1" ""))]
+     ['apply
+      (lambda (lws)
+        `("" "(" ,@(drop lws 2) ")" ""))])
     (bla)))
 
 (define-syntax-rule (render-term e)
@@ -154,3 +183,6 @@
 
 (define-syntax-rule (render-language e)
   (wrap (thunk (_render-language e))))
+
+(define-syntax-rule (render-reduction-relation e ...)
+  (wrap (thunk (_render-reduction-relation e ...))))

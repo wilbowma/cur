@@ -56,7 +56,7 @@ We explain the design in detail by:
   proof assistant from a core language and a language-extension system.}
 ]
 We evaluate this design by implementing a proof assistant called Cur that
-supports the safe, convenient, and sophisticated language extension as define
+supports safe, convenient, and sophisticated language extension as defined
 in @secref{sec:cur}.
 To evaluate convenience, we rely partially on lines of code as a proxy,
 although it does not take into account automatic integration into the proof

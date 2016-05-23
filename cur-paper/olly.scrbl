@@ -13,10 +13,10 @@ programming languages, which provides features that no other proof assistant
 supports.
 Olly provides BNF notation for generating inductive types that represent
 programming language syntax.
-The BNF notation automatically converts variables in the syntax to De Bruijn
+The BNF notation automatically converts variables in the syntax to de Bruijn
 indices.
 Olly also supports inference rule notation for modeling relations.
-Both notations support extracting the models to Latex and Coq, in addition to
+Both notations support extracting the models to LaTeX and Coq, in addition to
 using the models directly in Cur.
 
 Olly is inspired by Ott@~citea{sewell:2007}, a tool for generating models of
@@ -63,22 +63,22 @@ first look at the code generated for the @racket[term] non-terminal.
   (Nat->stlc-term : (-> Nat stlc-term))
   (stlc-val->stlc-term : (-> stlc-value
                              stlc-term))
-  (stlc-app : (-> stlc-term stlc-term stlc-term))
   (stlc-lambda : (-> stlc-type stlc-term
                      stlc-term))
+  (stlc-app : (-> stlc-term stlc-term stlc-term))
   (stlc-cons : (-> stlc-term stlc-term
                    stlc-term))
   (stlc-let : (-> stlc-term stlc-term
                   stlc-term)))
 ]
-References to other non-terminal, such as the reference to @racket[x], result
+References to other non-terminals, such as the reference to @racket[x], result
 in @emph{conversion constructors} which simply inject one non-terminal into the
 other.
 The names of the conversion constructors are generated from the types of the
-non-terminals with a the sigil @racket[->] between them, indicating
+non-terminals with the sigil @racket[->] between them, indicating
 conversion.
 For example, @racket[Nat->stlc-term] is a @racket[stlc-term]
-constructor that converts a @racket[Nat] (representing a De Bruijn index) to a
+constructor that converts a @racket[Nat] (representing a de Bruijn index) to a
 @racket[stlc-term].
 Other constructor names are generated from the name of the language,
 @racket[stlc], and the name of the constructor given in the syntax.
@@ -93,23 +93,23 @@ Each @racket[syn-clause] must be either a reference to a previously defined
 non-terminal, a terminal represented by a unique identifier, or an s-expression
 whose first element is a unique identifier.
 
-For each non-terminal, we generate a new inductive types.
+For each non-terminal, we generate a new inductive type.
 We generate a constructors for the inductive type for each @racket[syn-clause].
 We prefix the name of each inductive type and each constructor by the language name.
-For references to previously defined non-terminal, we generate a constructor
+For references to previously defined non-terminals, we generate a constructor
 that act as a tag and injects the previous non-terminal into the new one.
 
 For terminals, we generate a constructor that take no arguments and whose name
 is based on the terminal.
 
 For s-expressions, we create a new constructor whose name is based on
-identifier at the head of the s-expression and whose arguments' types are
+the identifier at the head of the s-expression and whose arguments' types are
 computed from the meta-variables that appear in the rest of the s-expression.
 We only use the non-meta-variable symbols such as @racket[:] 
 in the Latex rendering of the BNF grammar.
 The syntax @racket[#:bind x] declares @racket[x] to be a binding position, so
 it is not treated as an argument.
-Since we use De Bruijn indices for binding, binding positions are erased.
+Since we use de Bruijn indices for binding, binding positions are erased.
 
 The @racket[define-language] form allows us to create the model using BNF
 notation, but working with the model requires using the generated constructor
@@ -124,7 +124,7 @@ The form @racket[begin-stlc] simply calls the metalanguage function
 The @racket[parse-stlc] function declares each of the constructor names and
 syntactic symbols as literals, and loops over the syntax object generating the
 constructors that correspond to the @racket[stlc] syntax.
-It uses the hashtable to map variable names to De Bruijn indices.
+It uses the hashtable to map variable names to de Bruijn indices.
 When parsing a @racket[lambda], it shifts each index in the hashtable.
 For convenience, the parser accepts the syntax @racket[(e1 e2)] for
 application instead of @racket[(app e1 e2)] and @racket[1] for the unit type
@@ -212,8 +212,8 @@ applied to its arguments.
 @Figure-ref{fig:define-relation-impl} presents an excerpt of the implementation
 for @racket[define-relation].
 To implement this form, we use @racket[syntax-parse]@~citea{ryan2012}, but
-only present enough of @racket[syntax-parse] the key ideas in our
-implementation.
+only present enough of @racket[syntax-parse] to undeerstand the key ideas in
+our implementation.
 
 The @racket[syntax-parse] form allows parsing syntax objects rather than merely
 pattern matching on them.
@@ -222,7 +222,7 @@ support refining the patterns using syntax classes that specify subpatterns and
 side-conditions.
 We can apply a syntax class to a pattern variable by using the syntax
 @racket[pv:class], or by using the syntax @racket[(~var pv class)].
-Both declare the pattern variable @racket[pv] must matches the syntax class
+Both declare the pattern variable @racket[pv] must match the syntax class
 @racket[class], but the @racket[~var] syntax is required when the syntax class
 takes arguments.
 
@@ -253,7 +253,7 @@ hypothesis, followed by a horizontal line, a name, and a conclusion.
 The rule name must be an identifier.
 
 The syntax class for a horizontal line converts the syntax to a string and uses
-a regular expressions to match when the string is an arbitrary number of
+a regular expression to match when the string is an arbitrary number of
 hyphens.
 
 The syntax class for a conclusion uses the name of the relation and the indices

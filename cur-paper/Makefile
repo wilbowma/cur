@@ -5,7 +5,7 @@ SCRIBBLE=scribble
 
 all: /tmp/main.pdf /tmp/abstract.md
 
-/tmp/main.pdf: cur.rkt main.scrbl bib.rkt bib.bib defs.rkt abstract.scrbl intro.scrbl curnel.scrbl cur.scrbl syntax-sugar.scrbl related.scrbl smaller.tex tactics.scrbl olly.scrbl
+/tmp/main.pdf: ../cur-lib/cur/curnel/model/*.rkt cur.rkt main.scrbl bib.rkt bib.bib defs.rkt abstract.scrbl intro.scrbl curnel.scrbl cur.scrbl syntax-sugar.scrbl related.scrbl smaller.tex tactics.scrbl olly.scrbl
 	$(SCRIBBLE) ++style smaller.tex --dest /tmp --pdf main.scrbl
 # dvipdf fails on OS X
 

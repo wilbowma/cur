@@ -7,16 +7,16 @@
 Proof assistants remain an active area of study, but much of this work focuses
 on aspects other than notation.
 
-VeriML features a proof assistant with a small core plus a ML for writing
-extensions@~citea{stampoulis2010veriml}.
-All extensions in VeriML ML functions, and are therefore strongly
+VeriML features a proof assistant with a small core over which the user can use
+ML for writing extensions@~citea{stampoulis2010veriml}.
+All extensions in VeriML are ML functions, and are therefore strongly
 typed.
 This enabled writing strongly typed tactics and decision procedures to
 manipulate or generate proof terms.
 Our work and the VeriML work would complement each other.
-Extension in VeriML are ML functions, so the user is limited to the notation of
-function application but get strongly typed extensions.
-Our work enables advanced notation, we do not consider the issue of
+Extensions in VeriML are ML functions, so the user is limited to the notation of
+function application but gets strongly typed extensions.
+Our work enables advanced notation, but we do not consider the issue of
 static guarantees for notation.
 A language extensions system designed with a strongly typed language such as ML
 would enable defining strongly typed notation.
@@ -43,11 +43,11 @@ rather than the expanded language.
 justify new typing rules in terms of the old type system.
 Since each extension is well-typed, type checking happens in the extended
 language rather than after expansion.
-However, these extensions are currently limited to desugaring do not enable
+However, these extensions are currently limited to desugaring and do not enable
 general purpose computation in a metalanguage.
 
 @citeta{pombrio2015hygienic} develop techniques for @emph{resugaring}; rather
-than catch error before expanding extensions, these systems undo the expansion
+than catch errors before expanding extensions, these systems undo the expansion
 before reporting errors.
 Integrating this with a language-extension system could reduce the burden of
 manually catching errors in new extensions.
@@ -57,7 +57,7 @@ redefine the proof-checking function, after establishing that the new proof
 checker is valid.
 The new proof checker may admit new syntax and new axioms can report errors in
 terms of the extended proof language.
-This is enables sophisticated and safe extensions, and ensures type errors
+This enables sophisticated and safe extensions, and ensures type errors
 occur in the surface language, but requires defining a new proof checker to
 define macro expressible syntactic transformations.
 

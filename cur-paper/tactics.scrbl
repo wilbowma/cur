@@ -25,7 +25,7 @@ In this tactic system, theorems are Cur types and must be defined using the
 @racket[define-theorem] form.
 After a @racket[define-theorem] form, we can use the @racket[proof] form to
 begin a tactic script and use tactics to write a term that inhabits the type
-declare in the preceding @racket[define-theorem].
+declared in the preceding @racket[define-theorem].
 The tactic script is a sequence of tactics applied to their arguments.
 
 In this example, we use the @racket[intro] tactic, which takes a single argument
@@ -61,9 +61,9 @@ We begin implementing this by implementing the @racket[define-theorem] and
 The @racket[define-theorem] form uses the functions
 @racket[set-current-theorem] and @racket[set-current-theorem-name] to store the
 theorem and name that will be used by the @racket[proof] form.
-The @racket[proof] form we generates a definition by using the stored theorem
+The @racket[proof] form generates a definition by using the stored theorem
 name and running the tactic script using the metalanguage function
-@racket[run-tactic-script], which takes a the theorem as a goal and the take
+@racket[run-tactic-script], which takes the theorem as a goal and the take
 script to run.
 
 We choose this imperative design intentionally to demonstrate accumulating
@@ -179,7 +179,7 @@ It will solve any theorem that follows immediately from its premises.
 @racketblock[
 (define-tactic (obvious ps)
   (syntax-case (cur-expand (current-goal ps))
-    [(Π (x : P) t) (obvious (intro #'x ps))]
+    [(Π (x : P) t) (obvious (intro ps #'x))]
     [t (if (ref-by-type ps #'t)
            (by-assumption ps)
            (error 'obvious "Not obvious."))]))
@@ -189,13 +189,13 @@ not match a dependent function type.
 Then it tries @racket[by-assumption].
 Recall that we use unconditional errors as failures in tactics, so we must manually
 check if a suitable assumption exists before trying @racket[by-assumption] in
-order to a more appropriate error message.
+order to provide a more appropriate error message.
 
 As we have the entire metalanguage available, we can define sophisticated
 tactics that do arbitrary metalanguage computation.
 For instance, since our metalanguage provides I/O and reflection, we can define
 interactivity as a user-defined tactic.
-We being implementing interactive by first implementing the @racket[print]
+We begin implementing interactive by first implementing the @racket[print]
 tactic.
 This tactic will print the proof state and return it unmodified.
 @racketblock[
@@ -237,11 +237,11 @@ at the end of the session.
 The REPL also accepts @racket[quit] as a command that exits the REPL, prints
 the tactic script, and returns the final proof state.
 Recall that syntax objects have location information attached, so we could in
-principle write the tactic script to directly source file.
+principle write the tactic script directly to the source file.
 
 Now we have defined not only a user-defined tactic system, but a user-defined
 @emph{interactive} tactic system.
-We can use the tactic just like other tactic:
+We can use the interactive tactic just like any other tactic:
 @racketblock[
 (define-theorem id2 (forall (A : Type) (a : A) A))
 (proof (interactive))

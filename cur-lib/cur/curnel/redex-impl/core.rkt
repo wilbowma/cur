@@ -528,6 +528,6 @@
   #:mode (type-check I I I I)
 
   [(type-infer Δ Γ e t_0)
-   (convert Δ Γ t t_0)
+   (convert Δ Γ t_0 t)
    ----------------- "DTR-Check"
    (type-check Δ Γ e t)])
