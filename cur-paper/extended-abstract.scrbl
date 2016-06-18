@@ -102,4 +102,7 @@ computation, macros provide a hook for sophisticated extensions such as type
 inference, staged computation, embedded DSLs, program extraction, and solvers.
 We describe several such extensions built in Cur.
 
+A draft paper explaining the design in detail and the current implementation
+are available online at @url{https://www.williamjbowman.com/papers/#cur}.
+
 @(generate-bibliography)
