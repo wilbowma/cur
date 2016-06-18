@@ -26,9 +26,10 @@ tool external to the proof assistant, which is cumbersome.
 To support sophisticated user-defined notation, we propose to use
 @emph{language extension} as a fundamental part of the design of a proof
 assistant.
-We describe how to design a language-extension system that support safe,
-convenient, and sophisticated user-defined extensions, and how to design a
-proof assistant based on language extension.
+We describe how to design a proof assistant that support safe,
+convenient, and sophisticated user-defined extensions, and show how
+language extension gives users the power to implement features of
+contemporary proof assistants.
 }
 
 @;Copy-pasta from intro
