@@ -5,9 +5,10 @@
 
 Sophisticated domain-specific and user-defined notation is widely used in
 formal models, but is poorly supported by proof assistants.
-Many proof assistants support simple notation definitions, but no proof
-assistant enables users to @emph{conveniently} define @emph{sophisticated}
-notation.
+This notation provides informal extensions to formal model that aid in
+communicating and reasoning about key ideas.
+Unfortunately, proof assistants do not allows users to @emph{conveniently}
+define @emph{sophisticated} notation.
 For instance, in modeling a programming language, we often define infix
 relations such as @code{Γ ⊢ e : t} and use BNF notation to specify the syntax
 of the language.
