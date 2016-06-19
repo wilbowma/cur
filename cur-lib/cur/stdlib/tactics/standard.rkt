@@ -6,7 +6,8 @@
 
 (provide
   (for-syntax
-    intro
+   intro
+   intros
     obvious
     restart
     forget
@@ -18,14 +19,45 @@
  | Tactics should probably not error on failure. Perhaps Maybe monad, or list monad, or return proof
  | state unmodified, or raise exception, or ...
  |#
-(define-tactic (intro name ps)
-  (cur-match (proof-state-current-goal-ref ps)
-    [(forall (x:id : P:expr) body:expr)
-     (let* ([ps (proof-state-extend-env ps name #'P)]
-            [ps (proof-state-current-goal-set ps #'body)]
-            [ps (proof-state-fill-proof-hole ps (lambda (x) #`(λ (#,name : P) #,x)))])
-       ps)]
-    [_ (error 'intro "Can only intro when current goal is of the form (∀ (x : P) body)")]))
+(define-tactic intro
+  (case-lambda
+    [(ps)
+     (cur-match
+      (proof-state-current-goal-ref ps)
+      [(forall (x:id : P:expr) body:expr)
+       (intro #'x ps)]
+      [_
+       (error 'intro
+              "Can only intro when current goal is of the form (∀ (x : P) body)")])]
+    [(name ps)
+     (cur-match
+      (proof-state-current-goal-ref ps)
+      [(forall (x:id : P:expr) body:expr)
+       (let* ([ps (proof-state-extend-env ps name #'P)]
+              [ps (proof-state-current-goal-set ps #'body)]
+              [ps
+               (proof-state-fill-proof-hole
+                ps (lambda (x)
+                     (if (syntax? x)
+                         #`(λ (#,name : P) #,x)
+                         (error 'intro "Cannot fill hole with ~e" x))))])
+         ps)]
+      [_
+       (error 'intro
+              "Can only intro when current goal is of the form (∀ (x : P) body)")])]))
+
+(define-tactic intros
+  (case-lambda
+    [(ps)
+     (cur-match
+      (proof-state-current-goal-ref ps)
+      [(forall (x:id : P:expr) body:expr)
+       (intros (intro #'x ps))]
+      [_
+       ps])]
+    [(names ps)
+     (for/fold ([ps ps]) ([n (in-list (syntax->list names))])
+       (intro n ps))]))
 
 (define-tactic (by-assumption ps)
   (cond
@@ -49,7 +81,8 @@
      (obvious (intro #'x ps))]
     [t:expr
      (cond
-       ;; TODO: This would be cleaner if I could say "try all these things and do whichever works".
+       ;; TODO: This would be cleaner if I could say "try all these
+       ;; things and do whichever works".
        [(proof-state-env-ref-by-type ps #'t) (by-assumption ps)]
        ;[(inductive? ps #'t) (by-constructor ps)]
        [else (error 'obvious "This is not all that obvious to me.")])]))
@@ -73,8 +106,11 @@
         [(quit)
          (begin
            (printf "Your tactic script:~n")
-           ;; TODO: Using clever trickery, could problem write a version of interactive that actually
-           ;; modifies the file.
+           ;; TODO: Using clever trickery, could problem write a
+           ;; version of interactive that actually modifies the file.
+
+           ;; JAY: Better to embed interactive inside of file and use
+           ;; Emacs-y expr-feeding to send in the commands one by one
            (pretty-print (reverse (map syntax->datum cmds)))
            (newline)
            ps)]

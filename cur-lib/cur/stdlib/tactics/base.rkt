@@ -86,7 +86,6 @@
 
   (define-struct proof-state (env goals current-goal proof theorem))
 
-
   (define (new-proof-state prop)
     (proof-state
       (make-immutable-hash)
@@ -141,8 +140,17 @@
   (define (proof-state-fill-proof-hole ps pf)
     ;; TODO: Check for proof completion?
     ;; TODO: What about multiple holes?
-    (struct-copy proof-state ps
-      [proof ((proof-state-proof ps) pf)]))
+    (struct-copy
+     proof-state ps
+     [proof
+      (match (proof-state-proof ps)
+        [(? procedure? ctxt)
+         (match pf
+           [(? syntax?)
+            (ctxt pf)]
+           [(? procedure?)
+            (compose ctxt pf)])]
+        [x (error 'proof-state-fill-proof-hole "Can't fill syntactic goal: ~e" x)])]))
 
   ;; Place the current proof in the context ctxt.
   (define (proof-state-extend-proof-context ps ctxt)
