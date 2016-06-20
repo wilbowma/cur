@@ -16,6 +16,7 @@ all: /tmp/extended-abstract.pdf /tmp/main.pdf /tmp/abstract.md
 	$(SCRIBBLE) --dest /tmp --markdown abstract.scrbl
 
 clean:
+	$(RM) -rf /tmp/retex-cache
 
 distclean: clean
 	$(RM) /tmp/main.pdf

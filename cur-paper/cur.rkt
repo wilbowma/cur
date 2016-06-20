@@ -4,14 +4,18 @@
  racket/function
  racket/list
  scribble/base
+ (rename-in
+  retex
+  [render-mathpar-judgment _render-mathpar-judgment])
+ typeset-rewriter
  (except-in cur/curnel/model/core apply)
  redex/reduction-semantics
- [rename-in
+ [except-in
   redex/pict
-  (render-term _render-term)
-  (render-language _render-language)
-  (render-judgment-form _render-judgment-form)
-  (render-reduction-relation _render-reduction-relation)]
+  render-term
+  render-language
+  render-judgment-form
+  render-reduction-relation]
  pict)
 
 (provide
@@ -19,6 +23,7 @@
  #;(except-out
   (all-from-out redex/pict)
   render-term)
+ table-reduction-style
  (all-from-out
   redex/pict
   cur/curnel/model/core
@@ -27,162 +32,168 @@
 (default-font-size 9)
 (metafunction-font-size 9)
 (label-font-size 9)
-(define (wrap bla)
-  (with-compound-rewriters
-    (['type-infer
-      (lambda (lws)
-        (define-values (Δ Γ e t)
-          (values
-           (list-ref lws 2)
-           (list-ref lws 3)
-           (list-ref lws 4)
-           (list-ref lws 5)))
-        (list "" Δ ";" Γ " ⊢ " e " ⇒ " t ""))]
-     ['type-infer-normal
-      (lambda (lws)
-        (define-values (Δ Γ e t)
-          (values
-           (list-ref lws 2)
-           (list-ref lws 3)
-           (list-ref lws 4)
-           (list-ref lws 5)))
-        (list "" Δ ";" Γ " ⊢ " e " ⇒ " t ""))]
-     ['type-check
-      (lambda (lws)
-        (define-values (Δ Γ e t)
-          (values
-           (list-ref lws 2)
-           (list-ref lws 3)
-           (list-ref lws 4)
-           (list-ref lws 5)))
-        (list "" Δ ";" Γ " ⊢ " e " ⇐ " t ""))]
-     ['wf
-      (lambda (lws)
-        (define-values (Δ Γ)
-          (values
-           (list-ref lws 2)
-           (list-ref lws 3)))
-        (list "" " ⊨ " Δ ";" Γ ""))]
-     ['substitute
-      (lambda (lws)
-        (define-values (e1 x e2)
-          (values
-           (list-ref lws 2)
-           (list-ref lws 3)
-           (list-ref lws 4)))
-        (list "" e1 "[" x " / " e2 "]" ""))]
-     ['subtype
-      (lambda (lws)
-        (define-values (Δ Γ t1 t2)
-          (values
-           (list-ref lws 2)
-           (list-ref lws 3)
-           (list-ref lws 4)
-           (list-ref lws 5)))
-        (list "" Δ ";" Γ " ⊢ " t1 " ≼ " t2 ""))]
-     ['convert
-      (lambda (lws)
-        (define-values (Δ Γ t1 t2)
-          (values
-           (list-ref lws 2)
-           (list-ref lws 3)
-           (list-ref lws 4)
-           (list-ref lws 5)))
-        (list "" Δ ";" Γ " ⊢ " t1 " ≡ " t2 ""))]
-     ['elim
-      (lambda (lws)
-        (define-values (elim D motive indices methods e)
-          (values
-           (list-ref lws 1)
-           (list-ref lws 2)
-           (list-ref lws 3)
-           (list-ref lws 4)
-           (list-ref lws 5)
-           (list-ref lws 6)))
-        (list "" "(" elim (struct-copy lw D
-                                       [e (text (format "~a" (lw-e D)) (non-terminal-subscript-style))]
-                                       [column (sub1 (lw-column D))]) " " motive indices methods e ")" ""))]
-     ['Δ-type-in
-      (lambda (lws)
-        (define-values (Δ D t)
-          (values
-           (list-ref lws 2)
-           (list-ref lws 3)
-           (list-ref lws 4)))
-        (list "" "(" D ":" t ") ∈ " (struct-copy lw Δ [column (add1 (lw-column t))]) ""))]
-     ['Δ-constr-in
-      (lambda (lws)
-        (define-values (Δ c t)
-          (values
-           (list-ref lws 2)
-           (list-ref lws 3)
-           (list-ref lws 4)))
-        (list "" "(" c ":" t ") ∈ " (struct-copy lw Δ [column (add1 (lw-column t))]) ""))]
-     ['Γ-in
-      (lambda (lws)
-        (define-values (Γ x t)
-          (values
-           (list-ref lws 2)
-           (list-ref lws 3)
-           (list-ref lws 4)))
-        (list "" "(" x ":" t ") ∈ " (struct-copy lw Γ [column (add1 (lw-column t))]) ""))]
-     ['unv-type
-      (lambda (lws)
-        (define-values (U1 U2)
-          (values
-           (list-ref lws 2)
-           (list-ref lws 3)))
-        (list "" "(" U1 ", " U2 ") ∈ A" ""))]
-     ['unv-pred
-      (lambda (lws)
-        (define-values (U1 U2 U3)
-          (values
-           (list-ref lws 2)
-           (list-ref lws 3)
-           (list-ref lws 4)))
-        (list "" "(" U1 ", " U2 ", " U3 ") ∈ R" ""))]
-     ['Unv
-      (lambda (lws)
-        (define-values (unv i)
-          (values
-           (list-ref lws 1)
-           (list-ref lws 2)))
-        (list "" "(Type " i ")" ""))]
-     ['<=
-      (lambda (lws)
-        (define-values (i0 i1)
-          (values
-           (list-ref lws 2)
-           (list-ref lws 3)))
-        (list "" i0 " ≤ " i1 ""))]
-     ['max
-      (lambda (lws)
-        (define-values (max i0 i1)
-          (values
-           (list-ref lws 1)
-           (list-ref lws 2)
-           (list-ref lws 3)))
-        (list "" "max(" i0 ", " i1 ")" ""))]
-     ['add1
-      (lambda (lws)
-        (define-values (add1 i0)
-          (values
-           (list-ref lws 1)
-           (list-ref lws 2)))
-        (list "" i0 " + 1" ""))]
-     ['apply
-      (lambda (lws)
-        `("" "(" ,@(drop lws 2) ")" ""))])
-    (bla)))
+(greek-style 'roman)
+(upgreek-style 'roman)
+
+(non-terminal-subscript-style
+ (cons 'large-script (non-terminal-subscript-style)))
+
+(define-rw-context with-curnel-rws
+  #:compound
+  (['type-infer type-infer-rw]
+   ['type-infer-normal
+    (rw-lambda 
+     [`(type-infer-normal ,Δ ,Γ ,e ,t) =>
+      `("" ,Δ ";" ,Γ " ⊢ " ,e " ⇒ " ,t "")])]
+   ['type-check
+    (rw-lambda 
+     [`(type-check ,Δ ,Γ ,e ,t) =>
+      `("" ,Δ ";" ,Γ " ⊢ " ,e " ⇐ " ,t "")])]
+   ['wf wf-rw]
+   ['valid valid-rw]
+   ['substitute substitute-rw]
+   ['subtype
+    (rw-lambda
+     [`(subtype ,Δ ,Γ ,t1 ,t2) =>
+      `("" ,Δ ";" ,Γ " ⊢ " ,t1 " ≼ " ,t2 "")])]
+   ['convert
+    (rw-lambda
+     [`(convert ,Δ ,Γ ,t1 ,t2)
+      => (list "" Δ ";" Γ " ⊢ " t1 " ≡ " t2 "")])]
+   ['λ
+       (rw-lambda
+        [`(λ (,x : ,t) ,e)
+         => `(""
+              ,(just-before (text "λ" (greek-style) (default-font-size)) x)
+              ""
+              ,x ":"
+              ,t "." ,e
+              "")])]
+   ['Π
+    (rw-lambda
+     [`(Π (,x : ,t) ,e) =>
+      `(""
+        ,(just-before (text "Π" (upgreek-style) (default-font-size)) x)
+        ""
+        ,x ":"
+        ,t "." ,e
+        "")])]
+   ['elim
+       (rw-lambda
+        [`(elim ,D ,motive ,indices ,methods ,e) =>
+         `(""
+           "elim"
+           ,(just-before
+             (text (format "~a" (lw-e D)) (non-terminal-subscript-style) (default-font-size))
+             motive)
+           " "
+           ,motive
+           ,indices
+           ,methods
+           ,e
+           "")])]
+   ['Γ
+    (rw-lambda
+     [`(Γ ,x : ,t) =>
+      `(""
+        ,(just-before (text "Γ" (upgreek-style) (default-font-size)) x)
+        ","
+        ,x
+        ":"
+        ,t
+        "")])]
+
+   ['Unv
+    (rw-lambda
+     [`(Unv ,i) =>
+      `(""
+        "Unv "
+        ,i
+;        ,(just-before (text "Unv" (literal-style) (default-font-size)) i)
+;        ,(text (format "~a" (lw-e i)) (non-terminal-subscript-style) (default-font-size))
+        "")])]
+   ['Δ-type-in
+    (rw-lambda
+     [`(Δ-type-in ,Δ ,D ,t)
+      => (list ""
+               (set-column D values Δ) " : "
+               (set-column t (curry + (lw-column-span D)) D) " ∈ "
+               (set-column Δ (curry + (lw-column-span D) (lw-column-span t) -1) t)
+               "")])]
+   ['Δ-constr-in
+    (rw-lambda
+     [`(Δ-constr-in ,Δ ,c ,t)
+      => (list ""
+               (set-column c values Δ) " : "
+               (set-column t (curry + (lw-column-span c)) c) " ∈ "
+               (set-column Δ (curry + (lw-column-span c) (lw-column-span t) -1) t)
+               "")])]
+   ['Γ-in
+    (rw-lambda
+     [`(Γ-in ,Γ ,x ,t)
+      =>
+      (list ""
+            (set-column x values Γ) " : "
+            (set-column t (curry + (lw-column-span x)) x) " ∈ "
+            (set-column Γ (curry + (lw-column-span x) (lw-column-span t) -1) t)
+            "")])]
+   ['unv-type
+    (lambda (lws)
+      (define-values (U1 U2)
+        (values
+         (list-ref lws 2)
+         (list-ref lws 3)))
+      (list "" "(" U1 ", " U2 ") ∈ A" ""))]
+   ['unv-pred
+    (lambda (lws)
+      (define-values (U1 U2 U3)
+        (values
+         (list-ref lws 2)
+         (list-ref lws 3)
+         (list-ref lws 4)))
+      (list "" "(" U1 ", " U2 ", " U3 ") ∈ R" ""))]
+   ['<=
+    (lambda (lws)
+      (define-values (i0 i1)
+        (values
+         (list-ref lws 2)
+         (list-ref lws 3)))
+      (list "" i0 " ≤ " i1 ""))]
+   ['max
+    (lambda (lws)
+      (define-values (max i0 i1)
+        (values
+         (list-ref lws 1)
+         (list-ref lws 2)
+         (list-ref lws 3)))
+      (list "" "max(" i0 ", " i1 ")" ""))]
+   ['add1
+    (lambda (lws)
+      (define-values (i0)
+        (values
+         (list-ref lws 2)))
+      (list "" i0 " + 1" ""))]
+   ['apply
+    (lambda (lws)
+      `("" "(" ,@(drop lws 2) ")" ""))]))
+
+(define (curnel-format e)
+  (with-curnel-rws (e)))
+
+(define-syntax-rule (with-curnel e ...)
+  (curnel-format (thunk e ...)))
 
 (define-syntax-rule (render-term e)
-  (wrap (thunk (_render-term ttL e))))
+  (with-curnel (render-term-cache ttL e)))
 
 (define-syntax-rule (render-judgment-form e)
-  (wrap (thunk (_render-judgment-form e))))
+  (with-curnel (render-judgment-form-cache e)))
 
 (define-syntax-rule (render-language e)
-  (wrap (thunk (_render-language e))))
+  (with-curnel (render-language-cache e)))
 
 (define-syntax-rule (render-reduction-relation e ...)
-  (wrap (thunk (_render-reduction-relation e ...))))
+  (with-curnel (render-reduction-relation-cache e ...)))
+
+(define-syntax-rule (render-mathpar-judgment e ...)
+  (with-curnel (_render-mathpar-judgment e ...)))

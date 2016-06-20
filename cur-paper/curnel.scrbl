@@ -28,27 +28,12 @@ similar to Luo's UTT@~citea{luo1994computation}.
 Curnel is implemented in Redex@~citea["matthews2004visual"
 "felleisen2009semantics"] and all figures in this section are extracted from
 the Redex implementation, so some notation may be slightly non-standard.
-@(define (rule->table rule)
-  (list
-    (rule-pict-info-lhs rule)
-    (arrow->pict (rule-pict-info-arrow rule))
-    (rule-pict-info-rhs rule)
-    (text (format "     [~a]" (rule-pict-info-label rule)) null (label-font-size))))
-
-@(define (reduction-style rules)
-   (vl-append 4
-     (table 4 (flatten (map rule->table rules)) lc-superimpose cc-superimpose 6 4)
-     (parameterize ([where-make-prefix-pict (thunk (blank))])
-       (vl-append 1
-         (text "where" null (default-font-size))
-         (hc-append 10 (blank) (rule-pict-info->side-condition-pict (list-ref rules 1) 24))))))
-
 @figure["fig:curnel-syntax" "Curnel Syntax and Dynamic Semantics"
 @verbatim|{
 |@(render-language ttL)
 |@(render-language tt-ctxtL)
 
-|@(render-reduction-relation (tt--> (term ·)) #:style reduction-style)
+|@(render-reduction-relation (tt--> (term ·)) #:style table-reduction-style)
 }|
 ]
 
@@ -165,27 +150,15 @@ for @render-term[Nat], we step to a use of the second method @render-term[m_1].
 We pass this method the argument to @render-term[s], and recursively eliminate
 that argument.
 @figure**["fig:curnel-types" "Cur's Type System (excerpts)"
-@(vc-append 10
-   (hb-append 20
-     (render-judgment-form unv-type)
-     (parameterize ([relation-clauses-combine (λ (l) (apply hb-append 20 l))])
-       (render-judgment-form unv-pred)))
-   (hline 600 .75 #:segment 5)
-   #;(parameterize ([relation-clauses-combine (λ (l) (apply hb-append 20 l))])
-     (render-judgment-form convert))
-   (parameterize ([relation-clauses-combine (λ (l) (apply hb-append 20 l))])
-     (render-judgment-form subtype))
-   (hline 600 .75 #:segment 5)
-   (hb-append 20 (render-judgment-form type-check)
-     (parameterize ([judgment-form-cases (build-list 2 values)]
-                    [relation-clauses-combine (λ (l) (apply hb-append 20 l))])
-       (render-judgment-form type-infer)))
-   (parameterize ([judgment-form-cases (build-list 3 (curry + 2))]
-                  [relation-clauses-combine (λ (l) (apply hb-append 20 l))])
-     (render-judgment-form type-infer))
-   (parameterize ([judgment-form-cases (build-list 2 (curry + 6))]
-                  [relation-clauses-combine (λ (l) (apply hb-append 20 l))])
-     (render-judgment-form type-infer)))
+@render-mathpar-judgment[(unv-type 1) (unv-pred 3)]
+@(linebreak)
+@(hline 600 .75 #:segment 5)
+@(linebreak)
+@render-mathpar-judgment[(subtype 3)]
+@(linebreak)
+@(hline 600 .75 #:segment 5)
+@(linebreak)
+@render-mathpar-judgment[(type-check 1) (type-infer 8)]
 ]
 
 The type system of Curnel is a standard intuitionistic dependent-type theory,
