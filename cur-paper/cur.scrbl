@@ -198,7 +198,7 @@ literals or entirely new kinds of syntax for writing object and metalanguage
 programs.
 A reader mixin is an extension to the reader.
 Users can use reader mixins by adding them before the language name in the
-@code{#lang} line.
+@racketmodfont{#lang name} line.
 For example, @code{#lang sweet-exp cur} adds the sweet-expression reader
 @code{sweet-exp} to Cur, allowing users to write Cur using sweet-expressions
 instead of Racket's usual s-expressions.
