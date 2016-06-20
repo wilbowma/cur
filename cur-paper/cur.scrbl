@@ -83,6 +83,12 @@ if they were native syntax.
 Users must be able to redefine and extend existing syntax, including base
 syntax like @racket[λ] and application.
 
+Language-extension should also support extensions to non-syntactic features of the language.
+A user may want to extend the reader to parse new literals, rather than just
+perform rewrites on the AST of the object language.
+A user may want to extend the interpretation of a module to perform advanced
+type inference before the existing type checker runs.
+
 Mixfix notation in Agda only supports defining new functions whose arguments
 appear in non-standard positions.
 It does not support defining a form whose subforms are not evaluated as object
@@ -99,6 +105,9 @@ Racket is both a language and a system for defining
 languages@~citea{samth:2011}.
 We use Racket as both: we implement Cur as an object language in Racket as a
 system, and write language extensions in Cur using Racket as the metalanguage.
+We use Racket because Racket's existing language extension features support
+convenient and sophisticated extensions as defined earlier in the section.
+We describe how we enforce safety later in this section.
 
 Each Racket library provides a set of definitions that includes both syntactic
 forms such as @racket[lambda] or @racket[define] and values such as
@@ -115,7 +124,7 @@ In Cur, we create a new object language but leave Racket as metalanguage.
 
 We define syntactic forms using syntactic macros.
 Each macro binds an identifier to a @emph{transformer}, a metalanguage function
-from syntax to syntax.
+on @emph{syntax objects}---a data type representing object language syntax.
 For example, if we assume the object language contains the form @racket[λ], we
 can define a new ASCII version @racket[lambda] as follows:
 @#reader scribble/comment-reader
@@ -136,8 +145,7 @@ The form @code{begin-for-syntax} starts a metalanguage block; it can contain
 arbitrary Racket definitions that will only be visible at compile-time.
 
 The transformer function @racket[transform-lambda] uses @code{syntax-case} to
-pattern match on the @emph{syntax object}---a data type representing object
-language syntax.
+pattern match on the syntax object.
 It also takes a set of literals.
 This set, @racket[(:)], declares that @racket[:] should be treated as a
 literal and not as a pattern variable.
@@ -163,8 +171,9 @@ transformer when it reaches a use of a macro identifier.
 This recursive expansion enables macros to generate calls to other macros, and
 to build abstractions for defining macros.
 
-In Racket, we can even use macros to redefine language features that do not
-normally have an associated identifier, like the semantics of application.
+In Racket, we can even use macros to extend and redefine language features that
+do not normally have an associated syntactic identifier, like the semantics of
+application.
 Language features that do not normally have an associated identifier have a
 secondary explicit name.
 For example, while we normally write application @racket[(f e)], this is just a
@@ -183,6 +192,19 @@ Each Racket module begins with a line of the form @racketmodfont{#lang name},
 where @racketmodfont{name} is the name of a library.
 This causes Racket to use the library @racketmodfont{name} to interpret the
 module.
+
+We can also define extensions to the language reader which allow adding new
+literals or entirely new kinds of syntax for writing object and metalanguage
+programs.
+A reader mixin is an extension to the reader.
+Users can use reader mixins by adding them before the language name in the
+@code{#lang} line.
+For example, @code{#lang sweet-exp cur} adds the sweet-expression reader
+@code{sweet-exp} to Cur, allowing users to write Cur using sweet-expressions
+instead of Racket's usual s-expressions.
+Using reader mixins does not affect how macros are written, since macros are
+defined on syntax objects representing the object language, which the reader
+and will be the same no matter which reader mixins the user chooses.
 
 @section{Implementing Cur}
 We define Cur as a Racket language invoked using @code{#lang cur}.
