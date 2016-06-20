@@ -136,7 +136,7 @@ can define a new ASCII version @racket[lambda] as follows:
     ;; Expect ":" to be a literal symbol
     (syntax-case syn (:)
       [(_ (x : t) e)
-      #'(λ (x : t) e)])))
+       #'(λ (x : t) e)])))
 
 ;; Defines an object language "lambda" form
 (define-syntax lambda transform-lambda)
