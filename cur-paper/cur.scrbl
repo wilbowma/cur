@@ -203,8 +203,7 @@ For example, @code{#lang sweet-exp cur} adds the sweet-expression reader
 @code{sweet-exp} to Cur, allowing users to write Cur using sweet-expressions
 instead of Racket's usual s-expressions.
 Using reader mixins does not affect how macros are written, since macros are
-defined on syntax objects representing the object language, which the reader
-and will be the same no matter which reader mixins the user chooses.
+defined on syntax objects which the reader returns, and not on, say, token streams.
 
 @section{Implementing Cur}
 We define Cur as a Racket language invoked using @code{#lang cur}.
@@ -214,7 +213,7 @@ For example, we can write the identity function as:
 @codeblock{
 #lang cur
 
-(λ (A : (Type 0) )(λ (a : A) a))
+(λ (A : (Type 0)) (λ (a : A) a))
 
 ((id Nat) z)
 
