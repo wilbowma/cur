@@ -10,14 +10,14 @@ In this section we describe a proof-of-concept tactic system implemented in
 Cur.
 We begin with an example of using the tactic system to prove a trivial theorem:
 @racketblock[
-(define-theorem id0 (forall (A : Type) (a : A) A))
-(proof
-  (intro A)
-  (intro b)
-  (by-assumption))
+define-theorem id0 $ forall (A : Type) (a : A) A
+proof
+  intro A
+  intro b
+  (by-assumption)
 
-(define-theorem id1 (forall (A : Type) (a : A) A))
-(proof (obvious))
+define-theorem id1 $ forall (A : Type) (a : A) A
+proof (obvious)
 ]
 This example shows the type of the polymorphic identity function written as a
 theorem.
@@ -42,21 +42,21 @@ certain trivial theorems.
 We begin implementing this by implementing the @racket[define-theorem] and
 @racket[proof] forms:
 @RACKETBLOCK[
-(define-syntax (define-theorem syn)
-  (syntax-case syn ()
+define-syntax (define-theorem syn)
+  syntax-case syn ()
     [(_ name prop)
      (begin
        (set-current-theorem #'prop)
        (set-current-theorem-name #'name)
-       #'(void))]))
+       #'(void))]
 
-(define-syntax (proof syn)
-  (syntax-case syn ()
+define-syntax (proof syn)
+  syntax-case syn ()
     [(_ (f args ...) ...)
      #`(define #,(get-current-theorem-name)
          #,(run-tactic-script
              (get-current-theorem)
-             (syntax->list #'((f args ...) ...))))]))
+             syntax->list #'((f args ...) ...)))]
 ]
 The @racket[define-theorem] form uses the functions
 @racket[set-current-theorem] and @racket[set-current-theorem-name] to store the
@@ -79,11 +79,11 @@ a proof state and an arbitrary number of other arguments.
 Since tactics are just metalanguage functions, we can create syntactic sugar
 for defining tactics as follows:
 @racketblock[
-(define-syntax (define-tactic syn)
-  (syntax-rules ()
+define-syntax (define-tactic syn)
+  syntax-rules ()
     [(_ e ...)
      (begin-for-syntax
-       (define e ...))]))
+       (define e ...))]
 ]
 The form @racket[define-tactic] is simply a wrapper for conveniently
 defining a new metalanguage function.
@@ -98,13 +98,13 @@ We begin by defining the function @racket[run-tactic], which takes a proof
 state and a syntax object representing a call to a tactic as written by the
 user.
 @racketblock[
-(begin-for-syntax
-  (define (run-tactic ps t)
-    (syntax-case t ()
-      [(f args ...)
-       (apply (eval #'f)
-         (cons ps
-           (syntax->list #'(args ...))))])))
+begin-for-syntax
+  define (run-tactic ps t)
+    syntax-case t ()
+      (f args ...)
+       apply $ eval #'f
+         cons ps
+           syntax->list #'(args ...)
 ]
 We use @racket[eval] to evaluate the syntax representing the function name and
 get a function value.
@@ -117,14 +117,14 @@ Then we apply the function to the list of arguments using @racket[apply].
 
 Finally, we define @racket[run-tactic-script] to run entire tactic scripts.
 @racketblock[
-(begin-for-syntax
-  (define (run-tactic-script thm script)
-    (define ps
-      (for/fold ([ps (new-proof-state thm)])
-                ([tactic script])
-        (run-tactic ps tactic)))
-    (check-final-proof-state theorem ps)
-    (proof-state-proof ps)))
+begin-for-syntax
+  define (run-tactic-script thm script)
+    define ps
+      for/fold ([ps (new-proof-state thm)])
+               ([tactic script])
+        run-tactic ps tactic
+    check-final-proof-state theorem ps
+    proof-state-proof ps
 ]
 We begin by generating a fresh proof state whose initial goal is the theorem.
 The @racket[for/fold] form folds @racket[run-tactic] over the list of tactic
@@ -135,16 +135,16 @@ raises an error or returns, then extract and return the proof.
 We begin defining tactics with the @racket[intro] tactic seen in our earlier
 example.
 @RACKETBLOCK[
-(define-tactic (intro ps name)
-  (syntax-case (cur-expand (current-goal ps)) (:)
+define-tactic (intro ps name)
+  syntax-case (cur-expand (current-goal ps)) (:)
     [(Π (x : P) body)
-     (let* ([ps (extend-env ps name #'P)]
-            [ps (set-current-goal ps #'body)]
-            [ps (fill-hole ps
-                  (new-hole x
-                    #`(λ (#,name : P) #,x)))])
-       ps)]
-    [_ (error 'intro "Goal not (Π (x : P) t)")]))
+     let* ([ps (extend-env ps name #'P)]
+           [ps (set-current-goal ps #'body)]
+           [ps (fill-hole ps
+                 (new-hole x
+                   #`(λ (#,name : P) #,x)))])
+      ps]
+    [_ (error 'intro "Goal not (Π (x : P) t)")]
 ]
 In @racket[intro], we start by expanding the current goal into a Curnel form,
 so we do not need to consider arbitrary syntax sugar.
@@ -158,13 +158,13 @@ better design might use exceptions or a failure monad instead.
 
 Next we define @racket[by-assumption].
 @racketblock[
-(define-tactic (by-assumption ps)
-  (define maybe-name
-    (env-ref-by-type ps (current-goal ps)))
-  (unless maybe-name
-    (error 'by-assumption "No assumption"))
-  (let ([ps (fill-hole ps maybe-name)])
-    (finish-current-goal ps)))
+define-tactic (by-assumption ps)
+  define maybe-name
+    env-ref-by-type ps $ current-goal ps
+  unless maybe-name
+    error 'by-assumption "No assumption"
+  let ([ps (fill-hole ps maybe-name)])
+    finish-current-goal ps
 ]
 We look for an assumption whose type matches the current goal.
 If we do not find a matching assumption, we raise an error.
@@ -177,12 +177,12 @@ programs or solvers through the foreign-function interface of our metalanguage.
 Our next tactic, @racket[obvious], demonstrates these first two features.
 It will solve any theorem that follows immediately from its premises.
 @racketblock[
-(define-tactic (obvious ps)
-  (syntax-case (cur-expand (current-goal ps))
-    [(Π (x : P) t) (obvious (intro ps #'x))]
+define-tactic (obvious ps)
+  syntax-case (cur-expand (current-goal ps))
+    [(Π (x : P) t) obvious (intro ps #'x)]
     [t (if (ref-by-type ps #'t)
-           (by-assumption ps)
-           (error 'obvious "Not obvious."))]))
+          (by-assumption ps)
+          (error 'obvious "Not obvious."))]
 ]
 The @racket[obvious] tactic tries @racket[intro] and recurs until the goal does
 not match a dependent function type.
@@ -199,15 +199,15 @@ We begin implementing interactive by first implementing the @racket[print]
 tactic.
 This tactic will print the proof state and return it unmodified.
 @racketblock[
-(define-tactic (print ps)
-  (printf "\n")
-  (for ([(k v) (in-dict (proof-state-env ps))])
-    (printf "~a : ~a\n" k v))
-  (printf "--------------------------------\n")
-  (if (proof-complete? ps)
-      (printf "Goal complete!\n\n")
-      (printf "~a\n\n" (current-goal ps)))
-  ps)
+define-tactic (print ps)
+  printf "\n"
+  for ([(k v) (in-dict (proof-state-env ps))])
+    printf "~a : ~a\n" k v
+  printf "--------------------------------\n"
+  if $ proof-complete? ps
+     printf "Goal complete!\n\n"
+     printf "~a\n\n" $ current-goal ps
+  ps
 ]
 To print a proof state, we print each assumption in the local environment as
 @racket[name : type].
@@ -218,17 +218,17 @@ Now we define @racket[interactive].
 This tactic uses the @racket[print] tactic to print the proof state, then
 starts a read-eval-print-loop (REPL).
 @racketblock[
-(define-tactic (interactive ps)
-  (printf "Starting interactive session:\n")
-  (printf "Type (quit) to quit.\n")
-  (let loop ([ps ps] [cmds '()])
-    (print ps)
-    (let ([cmd (read-syntax)])
-      (syntax-case cmd (quit)
+define-tactic (interactive ps)
+  printf "Starting interactive session:\n"
+  printf "Type (quit) to quit.\n"
+  let loop ([ps ps] [cmds '()])
+    print ps
+    let ([cmd (read-syntax)])
+      syntax-case cmd (quit)
         [(quit) ....]
         [(f args ...)
          (loop (run-tactic ps #'(f args ...))
-               (cons cmd cmds))]))))
+               (cons cmd cmds))]
 ]
 The REPL reads in a command and runs it via @racket[run-tactics] if it is a
 tactic.
@@ -243,8 +243,8 @@ Now we have defined not only a user-defined tactic system, but a user-defined
 @emph{interactive} tactic system.
 We can use the interactive tactic just like any other tactic:
 @racketblock[
-(define-theorem id2 (forall (A : Type) (a : A) A))
-(proof (interactive))
+define-theorem id2 $ forall (A : Type) (a : A) A
+proof (interactive)
 ]
 The following is a sample session in our interactive tactic:
 @racketblock[

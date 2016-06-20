@@ -30,26 +30,27 @@ features and staged meta-programming.
 @exact{\vspace{-1.5em}}
 @subsubsub*section*{Alias for @code{(Type 0)}}
 Writing @code{(Type 0)} for all these examples is somewhat tedious.
-We start with a simple example macro that elaborates @code{Type} to @code{(Type
-0)}.
+We start with a simple example macro that elaborates @code{Type} to @code{(Type 0)}.
 Eventually, a more sophisticated extension could resolve all universe levels
 automatically, but this will do for now.
 First, let us import a renamed copy of the default form:
 @racketblock[
-(require
-  (only-in curnel
-    [Type default-Type]))
+require
+  only-in curnel
+    Type default-Type
 ]
 Next we define a simple macro with two syntaxes: one applied to an argument,
 one without any argument.
 In the first case, we simply expand to the default form.
 In the second case, we provide level @racket[0] as a default.
+Note that the choice of surface syntax does not affect how we write syntax
+objects.
 
 @racketblock[
-(define-syntax (Type syn)
-  (syntax-case syn ()
+define-syntax (Type syn)
+  syntax-case syn ()
     [(Type i) #'(default-Type i)]
-    [Type #'(default-Type 0)]))
+    [Type #'(default-Type 0)]
 ]
 
 @exact{\vspace{-1.5em}}
@@ -60,10 +61,10 @@ and application syntax, so we redefine them to support multi-arity functions
 via automatic currying.
 First, let us import renamed copies of the default forms:
 @racketblock[
-(require
-  (only-in curnel
-    [#%app default-app]
-    [λ default-λ]))
+require
+  only-in curnel
+    #%app default-app
+    λ default-λ
 ]
 With these renamed copies, we can redefine @racket[#%app] and @racket[λ] while
 still generating code that uses the original forms.
@@ -71,14 +72,14 @@ still generating code that uses the original forms.
 Next, we define a simple recursive macro for @racket[λ] that curries all
 arguments using @racket[default-λ].
 @racketblock[
-(define-syntax λ
-  (syntax-rules (:)
+define-syntax λ
+  syntax-rules (:)
     [(λ b) b]
     [(λ (a : t) (ar : tr) ... b)
-     (default-λ (a : t) (λ (ar : tr) ... b))]))
+     (default-λ (a : t) (λ (ar : tr) ... b))]
 
-(define-syntax lambda
-  (make-rename-transformer #'λ))
+define-syntax lambda
+  make-rename-transformer(#'λ)
 ]
 The @racket[syntax-rules] form is similar to @racket[syntax-case], but
 specialized to support writing simple syntactic rewrites rather than arbitrary
@@ -91,29 +92,29 @@ In a template, it splices in the list indicated by the preceding pattern.
 Next, we redefine application.
 The macro automatically curries applications using @racket[default-app].
 @racketblock[
-(define-syntax #%app
-  (syntax-rules ()
+define-syntax #%app
+  syntax-rules ()
     [(#%app e1 e2)
      (default-app e1 e2)]
     [(#%app e1 e2 e3 ...)
-     (#%app (#%app e1 e2) e3 ...)]))
+     (#%app (#%app e1 e2) e3 ...)]
 ]
 
 These forms are automatically integrated into the object language, replacing
 the old forms, and are ready to use even later in the same module:
 @racketblock[
-(define id (lambda (A : Type) (a : A) a))
-(id Nat z)
+define id $ lambda (A : Type) (a : A) a
+id Nat z
 ]
 @exact{\vspace{-1.5em}}
 @subsubsub*section*{Non-dependent Arrow Syntax}
 Now let us define a non-dependent arrow form.
 We start by defining a single-arity arrow syntax @racket[arrow]:
 @RACKETBLOCK[
-(define-syntax (arrow syn)
-  (syntax-case syn ()
+define-syntax (arrow syn)
+  syntax-case syn ()
     [(arrow t1 t2)
-    #`(Π (#,(gensym) : t1) t2)]))
+     #`(Π (#,(gensym) : t1) t2)]
 ]
 Note that in Cur we must explicitly generate a fresh name using
 @racket[gensym], due to a limitation in the representation of names in our
@@ -126,35 +127,35 @@ Now we can easily define the multi-arity arrow, with both ASCII and unicode
 names.
 @#reader scribble/comment-reader
 (racketblock
-(define-syntax ->
-  (syntax-rules ()
+define-syntax ->
+  syntax-rules ()
     [(-> a) a]
     [(-> a a* ...)
-     (arrow a (-> a* ...))]))
+     (arrow a (-> a* ...))]
 
-(define-syntax → (make-rename-transformer #'->))
+define-syntax → make-rename-transformer(#'->)
 
 ;; Usage:
-(data Nat : Type
-  (z : Nat)
-  (s : (→ Nat Nat))))
-@exact{\vspace{-1.5em}}
+data Nat : Type
+  z : Nat
+  s : {Nat → Nat}
+)
+
 @subsubsub*section*{Top-level Function Definition Syntax}
 Writing top-level function definitions using @racket[lambda] is verbose.
 Most languages features special syntax for conveniently defining top-level
 functions, so let us add this to Cur:
 @racketblock[
-(define-syntax define
-  (syntax-rules (:)
+define-syntax define
+  syntax-rules (:)
     [(define (id (x : t) ...) body)
      (default-define id (lambda (x : t) ... body))]
     [(define id body)
-     (default-define id body)]))
+     (default-define id body)]
 
-(define (id (A : Type) (a : A)) a)
+define (id (A : Type) (a : A)) a
 ]
 
-@exact{\vspace{-1.5em}}
 @subsubsub*section*{Notation for Formal Models and Proofs}
 Recall that our original goal was to provide better support for user-defined
 notation in formal models and proofs.
@@ -170,33 +171,39 @@ After writing a small-step evaluation relation and a type-checking relation,
 we want to use standard notation while doing proofs about the model.
 We define this notation as follows:
 @racketblock[
-(define-syntax-rule (↦ e1 e2) (steps-to e1 e2))
+define-syntax-rule (↦ e1 e2) (steps-to e1 e2)
 
-(define-syntax ⊢
-  (syntax-rules (:)
-    [(⊢ Γ e : t) (type-checks Γ e t)]))
+define-syntax ⊢
+  syntax-rules (:)
+    [(⊢ Γ e : t) (type-checks Γ e t)]
+
+define-syntax nfx
+  syntax-rules (⊢ :)
+    [(nfx Γ ⊢ e : t) (⊢ Γ e : t)]
 ]
 The form @racket[define-syntax-rule] is simply syntax sugar using
 @racket[define-syntax] followed by @racket[syntax-rules].
+The @code{nfx} macro is used by the sweet-expression reader to extend the
+reader with new infix notation.
+The reader can automatically parse some infix notation, but the
+@code{type-checks} notation is irregular so we define the @code{nfx} macro to
+assist the reader.
 
 Now we can use the notation to state a lemma:
 @racketblock[
-(define lemma:type-preservation
+define lemma:type-preservation
   (forall (e1 : STLC-Term) (e2 : STLC-Term)
           (Γ : STLC-Env) (t : STLC-Type)
-    (-> (Γ . ⊢ . e1 : t)
-        (e1 . ↦ . e2)
-        (Γ . ⊢ . e2 : t))))
+    {{Γ ⊢ e1 : t} -> {e1 ↦ e2} -> {Γ ⊢ e2 : t}})
 ]
-The dot notation seen in @code{(Γ . ⊢ . e : t)} is Racket's default syntax for
-using identifiers in infix position.
-We could provide better support for infix notation by extending the
-language-extension system.
-Racket supports this via an extensible reader, which recent work has used to
-implement syntax-extension for algebraic notation@~citea{rafkind2012}.
+The sweet-expression reader provides some support for infix notation,
+but other work has implemented more sophisticated support for non-s-expression
+based syntax extensions.
+@citeta{rafkind2012} used the extensible reader to implement syntax-extension for
+algebraic notation.
 Other work has even developed language-extension via syntactic macros based on
-parsing expression grammars, rather than on
-s-expressions@~citea{allen2009growing}.
+parsing expression grammars, rather than on pre-parsed s-expressions
+representations@~citea{allen2009growing}.
 
 @section{Sophisticated Syntax}
 The extensions in the previous section are simple syntactic rewrites, but
@@ -216,23 +223,23 @@ surface syntax.
 In the second syntax, when there is no annotation, we attempt to infer a type
 and report an error if we cannot.
 @RACKETBLOCK[
-(define-syntax (let syn)
-  (syntax-case syn (: =)
+define-syntax (let syn)
+  syntax-case syn (: =)
     [(let ([x = e : t]) body)
      (unless (cur-type-check? #'e #'t)
        (error 'let
          "~a does not have expected type ~a"
          #'e
-         #'t))
-     #'((λ (x : t) body) e)]
+         #'t)
+     #'((λ (x : t) body) e))]
     [(let ([x = e]) body)
      (unless (cur-type-infer #'e)
        (error 'let
          "Could not infer type for ~a; ~a"
          #'e
-         "try adding annotation via [x = e : t]"))
-     #`((λ (x : #,(cur-type-infer #'e)) body)
-        e)]))
+         "try adding annotation via [x = e : t]")
+     #`((λ (x : #,cur-type-infer(#'e)) body)
+        e))]
 ]
 Pattern variables are only bound inside syntax templates, so we use syntax
 quote to refer @racket[e] and @racket[t] in metalanguage code.
@@ -247,78 +254,78 @@ expression, but we omit this for clarity.
 @figure**["fig:match" "A Pattern Matcher for Inductive Types"
 @#reader scribble/comment-reader #:escape-id UNSYNTAX
 (RACKETBLOCK
-(define-syntax (match syn)
-  (syntax-case syn ()
+define-syntax (match syn)
+  syntax-case syn ()
     ; expects discriminant @racket[e] and list of clauses @racket[clause*]
-    [(_ e clause* ...)
-     (let* ([clauses (map clause-parse (syntax->list #'(clause* ...)))]
-            [R (infer-result clauses)]
-            [D (cur-type-infer #'e)]
-            [motive #`(lambda (x : #,D) #,R)]
-            [U (cur-type-infer R)])
+    (_ e clause* ...)
+     let* ([clauses (map clause-parse (syntax->list #'(clause* ...)))]
+           [R (infer-result clauses)]
+           [D (cur-type-infer #'e)]
+           [motive #`(lambda (x : #,D) #,R)]
+           [U (cur-type-infer R)])
        #`(elim #,D #,motive ()
             #,(map (curry clause->method D motive) clauses)
-            e))]))
+            e)
 
-(define-syntax (recur syn)
-  (syntax-case syn ()
-    [(_ id) (dict-ref ih-dict (syntax->datum #'id))]))
+define-syntax (recur syn)
+  syntax-case syn ()
+    (_ id)
+     dict-ref ih-dict $ syntax->datum #'id
 
-(begin-for-syntax
-  (define-struct clause (args body))
-  (define ih-dict (make-hash))
+begin-for-syntax
+  define-struct clause (args body)
+  define ih-dict (make-hash)
 
-  (define (clause-parse syn)
-    (syntax-case syn
-      [(pattern body)
-       (make-clause (syntax-case pattern (:)
+  define (clause-parse syn)
+    syntax-case syn
+      (pattern body)
+       make-clause (syntax-case pattern (:)
                       [c '()]
                       [(c (x : t) ...) (syntax->list #'((x : t) ...))])
-                    #'body)]))
+                    #'body
 
-  (define (infer-result clauses)
-    (for/or ([clause clauses])
-      (cur-type-infer (clause-body clause))))
+  define (infer-result clauses)
+    for/or ([clause clauses])
+      cur-type-infer $ clause-body clause
 
-  (define (infer-ihs D motive args-syn)
-    (syntax-case args-syn () ....))
+  define (infer-ihs D motive args-syn)
+    syntax-case args-syn () ....
 
   ; D needed to detect recursive arguments
   ; motive needed to compute type of inductive hypotheses
-  (define (clause->method D motive clause)
-    (let* ([ihs (infer-ihs D motive (clause-args clause))])
-      (dict-for-each ihs
-        (lambda (k v)
-          (dict-set! ih-dict k (car v))))
+  define (clause->method D motive clause)
+    let* ([ihs (infer-ihs D motive (clause-args clause))])
+      dict-for-each ihs
+        lambda (k v)
+          dict-set! ih-dict k $ car v
       #`(lambda
-          #,@(clause-args clause)
+          #,@clause-args(clause)
           #,@(dict-map ihs (lambda (k v) #`(#,(car v) : #,(cdr v))))
-          #,(clause-body clause))))))]
+          #,clause-body(clause))
+)]
 Recall the addition function for natural number we defined in
-@secref{sec:curnel}, which we redefine as @racket[plus] below:
-@#reader scribble/comment-reader
-(racketblock
-(define (plus (n1 : Nat) (n2 : Nat))
-  (elim Nat
-   (lambda (x : Nat) Nat)
-   ()
-   (n2
-    (lambda (x : Nat) (ih : Nat) (s ih)))
-   n1))
-)
+@secref{sec:curnel}, which we redefine as @racket[+] below:
+@racketblock[
+define (+ [n1 : Nat] [n2 : Nat])
+  elim Nat
+    lambda (x : Nat) Nat
+    ()
+    (n2
+     lambda (x : Nat) (ih : Nat) $ s ih)
+    n1
+]
 
-This version of @racket[plus] is easier to read and write now that we have
+This version of @racket[+] is easier to read and write now that we have
 multi-arity functions, but still requires a lot of annotations and other
 syntactic overhead.
 Instead, we would like to define @racket[plus] using pattern matching and
 to avoid writing obvious annotations, like the motive, when they can be inferred.
 We would like to define @racket[plus], for instance, like so:
 @racketblock[
-(define (plus (n1 : Nat) (n2 : Nat))
-  (match n1
-    [z n2]
-    [(s (x : Nat))
-     (s (recur x))]))
+define (+ [n1 : Nat] [n2 : Nat])
+  match n1
+    z n2
+    (s (x : Nat)) s $ recur x
 ]
 In this definition we use @racket[match], which we present shortly.
 The @racket[match] form automatically infers the motive, the annotations on
@@ -374,17 +381,17 @@ For example, we can create a type assertion form that allows users to check
 that an expression has a particular type and receive a type error if not:
 @#reader scribble/comment-reader
 (racketblock
-(define-syntax (:: syn)
-  (syntax-case syn ()
-    [(_ e t)
-     (if (cur-type-check? #'e #'t)
+define-syntax (:: syn)
+  syntax-case syn ()
+    (_ e t)
+     if $ cur-type-check? #'e #'t
          #'(void)
          (error '::
            "Inferred ~a; expected ~a."
            #'t
-           (cur-type-infer #'e)))]))
+           (cur-type-infer #'e))
 ; Usage:
-(z . :: . Nat)
+{z :: Nat}
 )
 We check during expansion that @racket[e] has type @racket[t].
 If the check succeeds, we generate the no-op expression @racket[#'(void)].
@@ -395,9 +402,9 @@ behavior at compile-time to support debugging.
 
 We can also create a syntactic form that forces normalization at compile-time:
 @racketblock[
-(define-syntax (run syn)
-  (syntax-case syn ()
-    [(_ expr) (cur-normalize #'expr)]))
+define-syntax (run syn)
+  syntax-case syn ()
+    (_ expr) $ cur-normalize #'expr
 ]
 The @racket[run] form does not provide new syntactic sugar, but transforms the
 syntax by normalization via the reflection API.
@@ -406,5 +413,5 @@ This can be used to simplify proofs or perform staged meta-programming.
 For example, we specialize the exponentiation function @racket[exp] to the
 @racket[square] function at compile-time:
 @racketblock[
-(define square (run (exp (s (s z)))))
+define square $ run $ exp (s (s z))
 ]

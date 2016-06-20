@@ -136,7 +136,7 @@ can define a new ASCII version @racket[lambda] as follows:
     ;; Expect ":" to be a literal symbol
     (syntax-case syn (:)
       [(_ (x : t) e)
-      #'(λ (x : t) e)])))
+       #'(λ (x : t) e)])))
 
 ;; Defines an object language "lambda" form
 (define-syntax lambda transform-lambda)
@@ -214,20 +214,30 @@ For example, we can write the identity function as:
 #lang cur
 
 (λ (A : (Type 0)) (λ (a : A) a))
-
-((id Nat) z)
-
-; Explicitly use the application form
-(#%app (#%app id Nat) z)
 }
+
+To eliminate some of the syntactic noise of s-expressions, we can write the
+same code using sweet-expressions.
+Sweet-expressions are similar to s-expressions, but infer some structure
+from indentation, provide some support for infix notation, and support the
+@code{$} operator used in Haskell for controlling precedence.
+S-expressions are also valid sweet-expressions, so we can still express
+structure manually when necessary.
+The rest of the example in this paper will use sweet-expression syntax.
+@codeblock{
+#lang sweet-exp cur
+
+λ (A : (Type 0)) $ λ (a : A) a
+}
+
 Cur also provides a @racket[define] form for creating run-time value
 definitions and a @racket[data] form for defining inductive types:
 @racketblock[
-(define id (λ (A : (Type 0)) (λ (a : A) a)))
+define id $ λ (A : (Type 0)) $ λ (a : A) a
 
-(data Nat
-  (z : Nat)
-  (s : (Π (x : Nat) Nat)))
+data Nat : (Type 0)
+ z : Nat
+ s : (Π (x : Nat) Nat)
 ]
 The base forms plus @racket[define] and @racket[data] make up the default
 object language.
@@ -251,12 +261,12 @@ name to an existing form.
 Instead, we could use the following metalanguage abstraction that generate
 transformers that just replace the macro identifier with another identifier:
 @codeblock{
-(define-syntax lambda
-  (make-rename-transformer #'λ))
+define-syntax lambda
+  make-rename-transformer(#'λ)
 
 ; id, now without unicode
-(define id
-  (lambda (A : (Type 0)) (lambda (a : A) a)))
+define id
+  lambda (A : (Type 0)) $ lambda (a : A) a
 }
 
 @section{Reflection API}
