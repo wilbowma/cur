@@ -4,7 +4,8 @@
   scriblib/footnote
   scribble/manual
   "defs.rkt"
-  "bib.rkt")
+  "bib.rkt"
+  scribble-latex-utils/utils)
 
 @title[#:tag "sec:surface"]{Growing a Surface Language}
 Cur provides an object language with no more convenience than Curnel.
@@ -26,6 +27,7 @@ compile-time behaviors but do not necessarily generate code, like debugging
 features and staged meta-programming.
 
 @section{Simple Syntax}
+@exact{\vspace{-1.5em}}
 @subsubsub*section*{Alias for @code{(Type 0)}}
 Writing @code{(Type 0)} for all these examples is somewhat tedious.
 We start with a simple example macro that elaborates @code{Type} to @code{(Type
@@ -50,6 +52,7 @@ In the second case, we provide level @racket[0] as a default.
     [Type #'(default-Type 0)]))
 ]
 
+@exact{\vspace{-1.5em}}
 @subsubsub*section*{Multi-Arity Syntax}
 Cur provides only single-arity functions in the base language.
 As mentioned in @secref{sec:cur}, we can redefine existing forms like function
@@ -102,7 +105,7 @@ the old forms, and are ready to use even later in the same module:
 (define id (lambda (A : Type) (a : A) a))
 (id Nat z)
 ]
-
+@exact{\vspace{-1.5em}}
 @subsubsub*section*{Non-dependent Arrow Syntax}
 Now let us define a non-dependent arrow form.
 We start by defining a single-arity arrow syntax @racket[arrow]:
@@ -135,7 +138,7 @@ names.
 (data Nat : Type
   (z : Nat)
   (s : (→ Nat Nat))))
-
+@exact{\vspace{-1.5em}}
 @subsubsub*section*{Top-level Function Definition Syntax}
 Writing top-level function definitions using @racket[lambda] is verbose.
 Most languages features special syntax for conveniently defining top-level
@@ -151,6 +154,7 @@ functions, so let us add this to Cur:
 (define (id (A : Type) (a : A)) a)
 ]
 
+@exact{\vspace{-1.5em}}
 @subsubsub*section*{Notation for Formal Models and Proofs}
 Recall that our original goal was to provide better support for user-defined
 notation in formal models and proofs.
@@ -402,10 +406,5 @@ This can be used to simplify proofs or perform staged meta-programming.
 For example, we specialize the exponentiation function @racket[exp] to the
 @racket[square] function at compile-time:
 @racketblock[
-(define (exp (m : Nat) (e : Nat))
-  (match m
-    [z (s z)]
-    [(s (x : Nat)) (mult e (recur x))]))
-
 (define square (run (exp (s (s z)))))
 ]

@@ -251,8 +251,6 @@ name to an existing form.
 Instead, we could use the following metalanguage abstraction that generate
 transformers that just replace the macro identifier with another identifier:
 @codeblock{
-#lang cur
-
 (define-syntax lambda
   (make-rename-transformer #'λ))
 

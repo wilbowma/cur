@@ -7,7 +7,8 @@
   scribble/manual
   scriblib/figure
   racket/function
-  racket/list)
+  racket/list
+  scribble-latex-utils/utils)
 
 @title[#:tag "sec:curnel"]{Core Language}
 Our choice of core language is not vital to our design.
@@ -32,7 +33,6 @@ the Redex implementation, so some notation may be slightly non-standard.
 @verbatim|{
 |@(render-language ttL)
 |@(render-language tt-ctxtL)
-
 |@(render-reduction-relation (tt--> (term ·)) #:style table-reduction-style)
 }|
 ]
@@ -128,7 +128,6 @@ Then the eliminator will take a step as follows:
 @render-term[
 ((m_1 z) (elim Nat o_ () (m_0 m_1) z))]
 @verbatim|{
-
 |@elem{where:}
  |@render-term[U] = |@render-term[(Unv 0)]
  |@render-term[o_] = |@render-term[(λ (x : Nat) Nat)]
@@ -143,12 +142,16 @@ that argument.
 @figure**["fig:curnel-types" "Cur's Type System (excerpts)"
 @render-mathpar-judgment[(unv-type 1) (unv-pred 3)]
 @(linebreak)
+@exact{\vspace{-.75em}}
 @(hline 600 .75 #:segment 5)
 @(linebreak)
+@exact{\vspace{-.75em}}
 @render-mathpar-judgment[(subtype 3)]
 @(linebreak)
+@exact{\vspace{-.75em}}
 @(hline 600 .75 #:segment 5)
 @(linebreak)
+@exact{\vspace{-.5em}}
 @render-mathpar-judgment[(type-infer 8) (type-check 1)]
 ]
 

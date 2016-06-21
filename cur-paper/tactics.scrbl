@@ -255,7 +255,6 @@ Type (quit) to quit.
 
 > (intro A)
 .....
-> (by-assumption)
 
 a : A
 A : Type
