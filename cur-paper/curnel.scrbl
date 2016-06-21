@@ -67,16 +67,7 @@ First we define the natural numbers:
 ]
 Next, we define addition.
 @nested[#:style 'code-inset
-@render-term[
-(λ (n : Nat)
-  (λ (m : Nat)
-    (elim Nat (λ (x : Nat) Nat) ()
-      (m
-       (λ (n-1 : Nat)
-         (λ (ih : Nat)
-           (s ih))))
-     n)))]
-]
+@render-term[(λ (n : Nat) (λ (m : Nat) (elim Nat (λ (x : Nat) Nat) () (m (λ (n-1 : Nat) (λ (ih : Nat) (s ih)))) n)))]]
 Note that in Cur @render-term[n-1] is a valid identifier.
 
 We annotate the eliminator with the type @render-term[D] being eliminated.
@@ -158,7 +149,7 @@ that argument.
 @(linebreak)
 @(hline 600 .75 #:segment 5)
 @(linebreak)
-@render-mathpar-judgment[(type-check 1) (type-infer 8)]
+@render-mathpar-judgment[(type-infer 8) (type-check 1)]
 ]
 
 The type system of Curnel is a standard intuitionistic dependent-type theory,

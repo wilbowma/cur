@@ -25,7 +25,6 @@
   render-term)
  table-reduction-style
  (all-from-out
-  redex/pict
   cur/curnel/model/core
   pict))
 
@@ -34,6 +33,15 @@
 (label-font-size 9)
 (greek-style 'roman)
 (upgreek-style 'roman)
+(metafunction-style 'swiss)
+(label-style 'swiss)
+(default-style 'roman)
+(literal-style 'roman)
+(paren-style 'roman)
+(grammar-style 'roman)
+
+(current-render-pict-adjust
+ (λ (x sym) x))
 
 (non-terminal-subscript-style
  (cons 'large-script (non-terminal-subscript-style)))
@@ -42,11 +50,11 @@
   #:compound
   (['type-infer type-infer-rw]
    ['type-infer-normal
-    (rw-lambda 
+    (rw-lambda
      [`(type-infer-normal ,Δ ,Γ ,e ,t) =>
       `("" ,Δ ";" ,Γ " ⊢ " ,e " ⇒ " ,t "")])]
    ['type-check
-    (rw-lambda 
+    (rw-lambda
      [`(type-check ,Δ ,Γ ,e ,t) =>
       `("" ,Δ ";" ,Γ " ⊢ " ,e " ⇐ " ,t "")])]
    ['wf wf-rw]
@@ -60,15 +68,11 @@
     (rw-lambda
      [`(convert ,Δ ,Γ ,t1 ,t2)
       => (list "" Δ ";" Γ " ⊢ " t1 " ≡ " t2 "")])]
+   ;; NB: Manually compiled because rw-lambda was producing garbage
    ['λ
-       (rw-lambda
-        [`(λ (,x : ,t) ,e)
-         => `(""
-              ,(just-before (text "λ" (greek-style) (default-font-size)) x)
-              ""
-              ,x ":"
-              ,t "." ,e
-              "")])]
+    (rw-lambda
+     [`(λ (,x : ,t) ,e) =>
+      `("" ,(struct-copy lw x [e "λ"] [column (- (lw-column x) 3)]) "" ,x ":" ,t "." ,e "")])]
    ['Π
     (rw-lambda
      [`(Π (,x : ,t) ,e) =>
@@ -82,7 +86,8 @@
        (rw-lambda
         [`(elim ,D ,motive ,indices ,methods ,e) =>
          `(""
-           "elim"
+           ,(struct-copy lw D [e "elim"] [column (sub1 (lw-column D))])
+           ""
            ,(just-before
              (text (format "~a" (lw-e D)) (non-terminal-subscript-style) (default-font-size))
              motive)
@@ -102,7 +107,30 @@
         ":"
         ,t
         "")])]
-
+   ['∅
+    (rw-lambda
+     [`(∅ (,D : ,t (,b (... ...)))) =>
+      `(""
+        ,(just-before (text "∅" (upgreek-style) (default-font-size)) D)
+        ","
+        ,D
+        ":"
+        ,t
+        " := "
+        ,@b
+        "")])]
+   ['Δ
+    (rw-lambda
+     [`(Δ (,D : ,t (,b (... ...)))) =>
+      `(""
+        ,(just-before (text "Δ" (upgreek-style) (default-font-size)) D)
+        ","
+        ,D
+        ":"
+        ,t
+        " := "
+        ,@b
+        "")])]
    ['Unv
     (rw-lambda
      [`(Unv ,i) =>
@@ -185,6 +213,9 @@
 
 (define-syntax-rule (render-term e)
   (with-curnel (render-term-cache ttL e)))
+
+(define-syntax-rule (render-term/pretty e)
+  (with-curnel (render-term/pretty-write ttL (term e))))
 
 (define-syntax-rule (render-judgment-form e)
   (with-curnel (render-judgment-form-cache e)))

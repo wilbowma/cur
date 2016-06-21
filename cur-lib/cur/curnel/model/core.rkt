@@ -327,17 +327,17 @@
   (term-let ([Δ D])
     (reduction-relation tt-redL
       (--> ((λ (x : t_0) t_1) t_2) (substitute t_1 x t_2)
-           "-->β")
+           "β")
       (--> (elim D e_motive (e_i ...) (e_m ...) (in-hole Θ_c c)) (in-hole Θ_mi e_mi)
-           (side-condition (term (Δ-in-constructor-dom Δ c)))
+           (side-condition/hidden (term (Δ-in-constructor-dom Δ c)))
            ;; Find the method for constructor c_i, relying on the order of the arguments.
-           (where (c_i ...) (Δ-ref-constructors Δ D))
-           (where (_ ... (c e_mi) _ ...) ((c_i e_m) ...))
+           (where/hidden (c_i ...) (Δ-ref-constructors Δ D))
+           (where/hidden (_ ... (c e_mi) _ ...) ((c_i e_m) ...))
            ;; Generate the inductive recursion
-           (where Θ_ih (Δ-inductive-elim Δ D (elim D e_motive (e_i ...) (e_m ...) hole) Θ_c))
+           (where/hidden Θ_ih (Δ-inductive-elim Δ D (elim D e_motive (e_i ...) (e_m ...) hole) Θ_c))
            ;; Generate the method arguments, which are the constructor's arguments and the inductive arguments
-           (where Θ_mi (in-hole Θ_ih Θ_c))
-           "-->elim"))))
+           (where/hidden Θ_mi (in-hole Θ_ih Θ_c))
+           "ι"))))
 
 (define-extended-language tt-cbvL tt-redL
   ;; NB: Not exactly right; only true when c is a constructor
@@ -505,40 +505,36 @@
   #:mode (type-infer I I I O)
   #:contract (type-infer Δ Γ e t)
 
-  [(wf Δ Γ)
-   (unv-type U_0 U_1)
-   ----------------- "DTR-Unv"
+  [(wf Δ Γ) (unv-type U_0 U_1)
+   ----------------- "Unv"
    (type-infer Δ Γ U_0 U_1)]
 
-  [(Δ-type-in Δ D t)
-   (wf Δ Γ)
-   ----------------- "DTR-Inductive"
+  [(Δ-type-in Δ D t) (wf Δ Γ)
+   ----------------- "Inductive"
    (type-infer Δ Γ D t)]
 
-  [(Δ-constr-in Δ c t)
-   (wf Δ Γ)
-   ----------------- "DTR-Constructor"
+  [(Δ-constr-in Δ c t) (wf Δ Γ)
+   ----------------- "Constr"
    (type-infer Δ Γ c t)]
 
-  [(Γ-in Γ x t)
-   (wf Δ Γ)
-   ----------------- "DTR-Start"
+  [(Γ-in Γ x t) (wf Δ Γ)
+   ----------------- "Var"
    (type-infer Δ Γ x t)]
 
   [(type-infer-normal Δ (Γ x : t_0) e t_1)
    (type-infer-normal Δ Γ (Π (x : t_0) t_1) U)
-   ----------------- "DTR-Abstraction"
+   ----------------- "Fun"
    (type-infer Δ Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
 
   [(type-infer Δ Γ t_0 U_1)
    (type-infer Δ (Γ x : t_0) t U_2)
    (unv-pred U_1 U_2 U)
-   ----------------- "DTR-Product"
+   ----------------- "Prod"
    (type-infer Δ Γ (Π (x : t_0) t) U)]
 
   [(type-infer-normal Δ Γ e_0 (Π (x_0 : t_0) t_1))
    (type-check Δ Γ e_1 t_0)
-   ----------------- "DTR-Application"
+   ----------------- "App"
    (type-infer Δ Γ (e_0 e_1) (substitute t_1 x_0 e_1))]
 
   [(type-check Δ Γ e_c (apply D e_i ...))
@@ -548,7 +544,7 @@
 
    (where (t_m ...) (Δ-method-types Δ D e_motive))
    (type-check Δ Γ e_m t_m) ...
-   ----------------- "DTR-Elim_D"
+   ----------------- "Elim_D"
    (type-infer Δ Γ (elim D e_motive (e_i ...) (e_m ...) e_c) (apply e_motive e_i ... e_c))])
 
 (define-judgment-form tt-typingL
@@ -566,5 +562,5 @@
   [(type-infer Δ Γ e t_0)
    (type-infer Δ Γ t U)
    (subtype Δ Γ t_0 t)
-   ----------------- "DTR-Check"
+   ----------------- "Conv"
    (type-check Δ Γ e t)])

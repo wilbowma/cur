@@ -1,4 +1,4 @@
-#lang scribble/sigplan @preprint
+#lang scribble/sigplan @preprint @nocopyright
 @(require "defs.rkt" "bib.rkt")
 
 @title{Growing a Proof Assistant}
