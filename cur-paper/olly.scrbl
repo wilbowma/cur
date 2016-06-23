@@ -32,15 +32,15 @@ This language includes booleans, the unit type, pairs, and functions.
 Note that the @racket[let] form is the elimination form for pairs in this
 language, and binds two names.
 @racketblock[
-(define-language stlc
+define-language stlc
   #:vars (x)
   #:output-coq "stlc.v"
   #:output-latex "stlc.tex"
-  (val  (v)   ::= true false unit)
-  (type (A B) ::= boolty unitty (-> A B) (* A A))
-  (term (e)   ::= x v (lambda (#:bind x : A) e)
-              (app e e) (cons e e)
-              (let (#:bind x #:bind x) = e in e)))
+  val  (v)   ::= true false unit
+  type (A B) ::= boolty unitty (-> A B) (* A A)
+  term (e)   ::= x v (lambda (#:bind x : A) e)
+             (app e e) (cons e e)
+             (let (#:bind x #:bind x) = e in e)
 ]
 The first argument to the form is a name for the language---@racket[stlc] in
 this case.
@@ -59,17 +59,17 @@ number of non-terminal definitions from which it generates inductive types.
 To better understand @racket[define-language] non-terminal clauses, let us
 first look at the code generated for the @racket[term] non-terminal.
 @racketblock[
-(data stlc-term : Type
-  (Nat->stlc-term : (-> Nat stlc-term))
-  (stlc-val->stlc-term : (-> stlc-value
-                             stlc-term))
-  (stlc-lambda : (-> stlc-type stlc-term
-                     stlc-term))
-  (stlc-app : (-> stlc-term stlc-term stlc-term))
-  (stlc-cons : (-> stlc-term stlc-term
-                   stlc-term))
-  (stlc-let : (-> stlc-term stlc-term
-                  stlc-term)))
+data stlc-term : Type
+  Nat->stlc-term : {Nat -> stlc-term}
+  stlc-val->stlc-term : {stlc-value ->
+                             stlc-term}
+  stlc-lambda : {stlc-type -> stlc-term ->
+                     stlc-term}
+  stlc-app : {stlc-term -> stlc-term -> stlc-term}
+  stlc-cons : {stlc-term -> stlc-term ->
+                   stlc-term}
+  stlc-let : {stlc-term -> stlc-term ->
+                  stlc-term}
 ]
 References to other non-terminals, such as the reference to @racket[x], result
 in @emph{conversion constructors} which simply inject one non-terminal into the
@@ -132,16 +132,15 @@ instead of @racket[unitty].
 @figure["fig:stlc-parse" "Parser for STLC Syntax (excerpt)"
 @#reader scribble/comment-reader #:escape-id UNSYNTAX
 (RACKETBLOCK0
-(define-syntax (begin-stlc syn)
-  (syntax-case syn ()
-    [(_ e)
-     (parse-stlc #'e (make-immutable-hash))]))
+define-syntax (begin-stlc syn)
+  syntax-case syn ()
+    [(_ e) (parse-stlc #'e (make-immutable-hash))]
 
-(begin-for-syntax
-  (define (parse-stlc syn d)
-    (syntax-case syn (lambda : prj * ->
-                      let in cons bool
-                      unit true false)
+begin-for-syntax
+  define (parse-stlc syn d)
+    syntax-case syn (lambda : prj * ->
+                     let in cons bool
+                     unit true false)
       [(lambda (x : t) e)
        #`(stlc-lambda
            #,(parse-stlc #'t d)
@@ -160,12 +159,12 @@ instead of @racket[unitty].
            #,(parse-stlc #'e2 d))]
       ....
       [false #'(stlc-val->stlc-term stlc-false)]
-      [bool #'stlc-boolty]))
+      [bool #'stlc-boolty]
 
-  (define (dict-shift d)
-    (for/fold ([d (make-immutable-hash)])
-              ([(k v) (in-dict d)])
-      (dict-set d k #`(s #,v)))))
+  define (dict-shift d)
+    for/fold ([d (make-immutable-hash)])
+             ([(k v) (in-dict d)])
+      dict-set d k #`(s #,v)
 )]
 
 @subsubsub*section*{Inference-rule Notation}
@@ -187,26 +186,26 @@ applied to its arguments.
 @figure-here["fig:has-type" "STLC Type System Model (excerpt)"
 @#reader scribble/comment-reader
 (racketblock0
-(define-relation
+define-relation
   (has-type (List stlc-type) stlc-term stlc-type)
   #:output-coq "stlc.v"
   #:output-latex "stlc.tex"
   [(g : (List stlc-type))
    ------------------------ T-Unit
    (has-type g (begin-stlc unit) (begin-stlc 1))]
-  ....)
+  ....
 
 ;; Generates:
-(data has-type : (-> (List stlc-type)
+data has-type : (-> (List stlc-type)
                      stlc-term
                      stlc-type
                      Type)
-  (T-Unit : (forall (g : (List stlc-type))
+  T-Unit : (forall (g : (List stlc-type))
               (has-type
                 g
                 (stlc-val->stlc-term stlc-unit)
-                stlc-unitty)))
-  ....)
+                stlc-unitty))
+  ....
 )]
 
 @Figure-ref{fig:define-relation-impl} presents an excerpt of the implementation
@@ -262,8 +261,8 @@ of arguments.
 @figure["fig:define-relation-impl" @elem{Implementation of @racket[define-relation] (excerpt)}
 @#reader scribble/comment-reader
 (racketblock0
-(define-syntax (define-relation syn)
-  (syntax-parse syn
+define-syntax (define-relation syn)
+  syntax-parse syn
     [(_ (name:id index ...)
         (~optional
           (~seq #:output-coq coq-file:str))
@@ -273,32 +272,32 @@ of arguments.
                      (attribute name)
                      (attribute index)))
         ...)
-      ....]))
+      ....]
 
-(begin-for-syntax
-  (define-syntax-class horizontal-line
-    (pattern
+begin-for-syntax
+  define-syntax-class horizontal-line
+    pattern
      x:id
      #:when (regexp-match?
-              #rx"-+" (syntax->string #'x))))
+              #rx"-+" (syntax->string #'x))
 
-  (define-syntax-class (conclusion n args r)
-    (pattern
+  define-syntax-class (conclusion n args r)
+    pattern
      (name:id arg ...)
      #:fail-unless
        (equal? (syntax->symbol #'name)
                (syntax->symbol #'n))
        (format "Rule ~a: conclusion mismatch" r)
-     ....))
+     ....
 
-  (define-syntax-class (inference-rule name
+  define-syntax-class (inference-rule name
                                        indices)
-    (pattern (h ...
+    pattern (h ...
               line:horizontal-line
               rule-name:id
               (~var t (conclusion
                         name
                         indices
                         (attribute rule-name))))
-     ....)))
+     ....
 )]
