@@ -115,8 +115,10 @@
   ;; Return the name of an assumption with type thm, or #f.
   (define (proof-state-env-ref-by-type ps thm)
     (for/first ([(k v) (in-dict (proof-state-env ps))]
-                #:when (cur-equal? v thm))
-      k))
+                ;; TODO: can't use cur-equal? unless we set local-env to use proof-state-env
+                ;#:when (cur-equal? v thm)
+                #:when (equal? (syntax->datum (car v)) (syntax->datum thm)))
+      (cdr v)))
 
   ;;; Functional updators
 
@@ -129,7 +131,7 @@
   ;; object or a symbol.
   (define (proof-state-extend-env ps name thm)
     (struct-copy proof-state ps
-      [env (dict-set (proof-state-env ps) (maybe-syntax->symbol name) thm)]))
+      [env (dict-set (proof-state-env ps) (maybe-syntax->symbol name) (cons thm name))]))
 
   ;; Updates the current-goal to pf
   (define (proof-state-current-goal-set ps pf)
