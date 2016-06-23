@@ -183,7 +183,7 @@ Each inference rule is a list of assumptions, followed by a horizontal line
 represented by an arbitrary number of hyphens, a name for the rule that will
 become the name of the constructor, and a conclusion that must be the relation
 applied to its arguments.
-@figure-here["fig:has-type" "STLC Type System Model (excerpt)"
+@figure["fig:has-type" "STLC Type System Model (excerpt)"
 @#reader scribble/comment-reader
 (racketblock0
 define-relation
