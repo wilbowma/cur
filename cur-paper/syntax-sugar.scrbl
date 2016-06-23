@@ -156,7 +156,6 @@ define-syntax define
 define (id (A : Type) (a : A)) a
 ]
 
-@exact{\vspace{-1.5em}}
 @subsubsub*section*{Notation for Formal Models and Proofs}
 Recall that our original goal was to provide better support for user-defined
 notation in formal models and proofs.
@@ -414,10 +413,5 @@ This can be used to simplify proofs or perform staged meta-programming.
 For example, we specialize the exponentiation function @racket[exp] to the
 @racket[square] function at compile-time:
 @racketblock[
-define (exp [m : Nat] [e : Nat])
-  match m
-    z $ s z
-    (s (x : Nat)) {e * (recur x)}
-
 define square $ run $ exp (s (s z))
 ]

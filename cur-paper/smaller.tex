@@ -1,6 +1,23 @@
 \renewenvironment{RktBlk}
-{\vspace{-1.3em}\begin{footnotesize}\noindent}
-{\end{footnotesize}}
+{\vspace{-1.5em}\begin{footnotesize}\noindent}
+{\end{footnotesize}\vspace{-.2em}}
 
 \renewcommand{\SColorize}[2]{\begin{footnotesize}\textbf{\color{#1}{#2}}\end{footnotesize}}
+
+%\renewenvironment{Figure}
+%{\begin{figure}\FigureSetRef}
+%{\vspace{-2em}\end{figure}}
+
+\renewenvironment{FigureInside}
+{}
+{\vspace{-1em}}
+
+\renewenvironment{Figure}
+{\begin{figure}\vspace{-1em}\FigureSetRef}
+{\vspace{-2.3em}\end{figure}}
+
+\renewenvironment{FigureMultiWide}
+{\begin{FigureMulti}\vspace{-1em}\FigureSetRef}
+{\vspace{-2.3em}\end{FigureMulti}}
+
 

@@ -40,6 +40,8 @@
 (paren-style 'roman)
 (grammar-style 'roman)
 
+(mathpar-judgment-negspace "-1em")
+
 (current-render-pict-adjust
  (λ (x sym) x))
 
