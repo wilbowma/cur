@@ -3,23 +3,24 @@
   scribble/manual
   "defs.rkt")
 
-Sophisticated domain-specific and user-defined notation is widely used in
-formal models, but is poorly supported by proof assistants.
-This notation provides informal extensions to formal model that aid in
-communicating and reasoning about key ideas.
-Unfortunately, proof assistants do not allows users to @emph{conveniently}
-define @emph{sophisticated} notation.
-For instance, in modeling a programming language, we often define infix
-relations such as @code{Γ ⊢ e : t} and use BNF notation to specify the syntax
-of the language.
-In a proof assistant like Coq or Agda, users can easily define the notation
-for @code{Γ ⊢ e : t}, but to use BNF notation the user must use a preprocessing
-tool external to the proof assistant, which is cumbersome.
+Theoreticians often use sophisticated notation to communicate and reason about
+key ideas in their theories and models.
+Notation is often domain-specific or even invented on-the-fly when creating a
+new theory or model.
+Proof assistants aid theoreticians by rigorously checking formal models, but
+have poor support for allowing users to @emph{conveniently} define and use
+@emph{sophisticated} notation.
+For example, in a proof assistant like Coq or Agda, users can easily define
+simple notation like @code{Γ ⊢ e : t}, but to use BNF notation the user must use
+a preprocessing tool external to the proof assistant, which is cumbersome.
 
-To support sophisticated user-defined notation, we propose to use
-@emph{language extension} as a fundamental part of the design of a proof
-assistant.
-We describe how to design a language-extension system that support safe,
+To support convenient and sophisticated extension, we can use @emph{language
+extension} as a fundamental part of the design of a proof assistant.
+By starting from language extension we can not only facilitate convenient and
+sophisticated user-defined extensions, but also get a single, compositional
+system for writing all extensions to the core proof language.
+
+We describe how to design a language-extension system that supports safe,
 convenient, and sophisticated user-defined extensions, and how to design a
 proof assistant based on language extension.
 We evaluate this design by building a proof assistant that features a small

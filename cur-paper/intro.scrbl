@@ -3,7 +3,8 @@
   scribble/manual
   scriblib/footnote
   "defs.rkt"
-  "bib.rkt")
+  "bib.rkt"
+  scribble-latex-utils/utils)
 
 @title*{Introduction}
 Notation is important to convey ideas quickly while ignoring uninteresting
@@ -17,7 +18,6 @@ needs of each new model or proof.
 Every new programming languages result may use common domain-specific notation,
 like BNF grammars, but may also define new notation to convey new ideas.
 
-Notation is a way of @emph{informally} extending a @emph{formal} model.
 When working with models on papers, we may conveniently create arbitrarily
 sophisticated notation.
 We may define simple syntactic sugar by saying "we write @code{let x = e1 in
@@ -32,12 +32,12 @@ Proof assistants provide increased confidence in formal models and proofs, but
 lack support for allowing users to @emph{conveniently} define
 @emph{sophisticated} extensions.
 This lack of support has two downsides.
-First, formal models need to be reproduced in another medium (such as LaTeX) to
+First, formal models need to be reproduced in another medium (such as @exact{\LaTeX}) to
 communicate them effectively, which duplicates effort and risks the two models
 falling out of sync.
 Second, it decreases confidence that the specification is correct since the
-model must be manually encoded into the language of the proof assistant, rather
-than written in familiar notation.
+specification must be manually encoded into the language of the proof
+assistant, rather than written in familiar notation.
 
 Some proof assistants, like Agda, enable convenient user-defined extensions as
 long as the extension is not sophisticated.
@@ -51,10 +51,15 @@ compile against the Coq implementation, and requires the user to compile and
 link the plugin against their Coq installation.
 However, these plugins support sophisticated extensions like
 Mtac@~citea{ziliani2013mtac}, a new tactic language for Coq.
+To support more convenient but less sophisticated extensions, Coq also provides
+other extensions systems like notations, Ltac, and extensible parsing, but with
+multiple systems comes an increased learning curve for users and the challenge
+of composing multiple extensions from difference extension systems.
 
-To provide support convenience and sophisticated user-defined extension, we
-propose to design proof assistants by using language extension as a fundamental
-feature.
+We propose to design proof assistants by using @emph{language extension}, in
+the style of Lisp and its descendants, as a fundamental feature.
+This not only supports convenient and sophisticated user-defined extension, but
+provides a single and compositional system for writing extensions.
 Informally, we can think of this design as follows: rather than start
 with a proof assistant and add user-defined extensions, we start with a core
 language plus a language-extension system from which we can "grow" a proof
@@ -79,7 +84,7 @@ supports safe, convenient, and sophisticated language extension as defined
 in @secref{sec:cur}.
 To evaluate convenience, we rely partially on lines of code as a proxy,
 although it does not take into account automatic integration into the proof
-assistant.
+assistant or compositionality of the extension system.
 To evaluate the level of sophistication we support, we implement
 proof-of-concept versions of features provided by existing proof assistants and
 one feature that is only supported via external tools.
@@ -111,7 +116,7 @@ Specifically, we demonstrate that Cur:
   models (@secref{sec:olly}).
   In particular, we define a library that enables modeling programming
   languages using BNF and inference rule notation, and extracting the models to
-  Coq and LaTeX in addition to using them in Cur directly.
+  Coq and @exact{\LaTeX} in addition to using them in Cur directly.
   This library is inspired by Ott@~citea{sewell:2007}, an external tool that
   outputs files for multiple proof assistants from a single file with BNF and
   inference rule notation.
