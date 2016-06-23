@@ -79,7 +79,7 @@ define-syntax λ
      (default-λ (a : t) (λ (ar : tr) ... b))]
 
 define-syntax lambda
-  make-rename-transformer(#'λ)
+  make-rename-transformer #'λ
 ]
 The @racket[syntax-rules] form is similar to @racket[syntax-case], but
 specialized to support writing simple syntactic rewrites rather than arbitrary
