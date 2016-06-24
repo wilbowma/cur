@@ -3,8 +3,8 @@
   scribble/manual
   "defs.rkt")
 
-Theoreticians often use sophisticated notation to communicate and reason about
-key ideas in their theories and models.
+Sophisticated notation is used to communicate and reason about the key ideas in
+theories and formal models.
 Notation is often domain-specific or even invented on-the-fly when creating a
 new theory or model.
 Proof assistants aid theoreticians by rigorously checking formal models, but
