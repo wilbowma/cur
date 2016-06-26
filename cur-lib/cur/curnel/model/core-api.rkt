@@ -8,7 +8,8 @@
   redex/reduction-semantics)
 
 (provide
- (all-from-out "core.rkt")
+ (except-out (all-from-out "core.rkt")
+             instantiate)
  (all-defined-out))
 
 (define x? (redex-match? ttL x))
