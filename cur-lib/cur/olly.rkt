@@ -111,17 +111,14 @@
                 (declare-data! #'n #'t (map cons (attribute x*) (attribute t*)))
                 "")]
              [(Type i) "Type"]
-             [(real-elim var:id motive (i ...) (m ...) d)
+             [(real-elim var:id motive (m ...) d)
               (format
-               "(~a_rect ~a~a~a ~a)"
+               "(~a_rect ~a~a ~a)"
                (cur->coq #'var)
                (cur->coq #'motive)
                (for/fold ([strs ""])
                          ([m (syntax->list #'(m ...))])
                  (format "~a ~a" strs (cur->coq m)))
-               (for/fold ([strs ""])
-                         ([i (syntax->list #'(i ...))])
-                 (format "~a ~a" strs (cur->coq i)))
                (cur->coq #'d))]
              [(real-app e1 e2)
               (format "(~a ~a)" (cur->coq #'e1) (cur->coq #'e2))]

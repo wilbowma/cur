@@ -418,7 +418,7 @@
                 "Could not infer return type. Try using #:return to declare it."
                 syn)))
         ;; BUG TODO: return-type is inferred with the indexes of the branches, but those must be abstracted in the motive...
-        ;; Replace each of the D.indicies with the equivalent name from D.decls
+        ;; Replace each of the D.indices with the equivalent name from D.decls
         (~bind (motive (quasisyntax/loc syn
                          (lambda #,@(attribute D.decls)
                            #,((attribute D.abstract-indices) (attribute return-type))))))
@@ -428,7 +428,6 @@
        (elim
         D.inductive-name
         motive
-        #,(attribute D.indices)
         (c.method ...)
         d))]))
 

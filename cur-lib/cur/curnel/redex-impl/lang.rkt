@@ -164,9 +164,8 @@
                     [e (parameterize ([gamma (extend-Γ/term gamma x t)])
                          (cur->datum #'e))])
                (term (,(syntax->datum #'b) (,x : ,t) ,e)))]
-            [(elim D motive (i ...) (m ...) d)
+            [(elim D motive (m ...) d)
              (term (elim ,(cur->datum #'D) ,(cur->datum #'motive)
-                         ,(map cur->datum (syntax->list #'(i ...)))
                          ,(map cur->datum (syntax->list #'(m ...)))
                          ,(cur->datum #'d)))]
             [(#%app e1 e2)
@@ -191,9 +190,9 @@
         [(list (quote λ) (list x (quote :) t) body)
          (quasisyntax/loc syn
            (dep-lambda (#,(datum->syntax syn x) : #,(datum->cur t)) #,(datum->cur body)))]
-       [(list (quote elim) D motive i m d)
+       [(list (quote elim) D motive m d)
          (quasisyntax/loc syn
-           (dep-elim #,(datum->cur D) #,(datum->cur motive) #,(map datum->cur i) #,(map datum->cur m) #,(datum->cur d)))]
+           (dep-elim #,(datum->cur D) #,(datum->cur motive) #,(map datum->cur m) #,(datum->cur d)))]
         [(list e1 e2)
          (quasisyntax/loc syn
            (dep-app #,(datum->cur e1) #,(datum->cur e2)))]
@@ -461,9 +460,9 @@
 
 (define-syntax (dep-elim syn)
   (syntax-parse syn
-    [(_ D:id motive (i ...) (m ...) e)
+    [(_ D:id motive (m ...) e)
      (syntax->curnel-syntax
-       (quasisyntax/loc syn (elim D motive (i ...) (m ...) e)))]))
+       (quasisyntax/loc syn (elim D motive (m ...) e)))]))
 
 (define-syntax-rule (dep-void) (void))
 

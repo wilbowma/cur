@@ -125,7 +125,6 @@ If @racket[#:local-env] is specified, runs under an extended lexical environment
            (eval:result @racket[#'Bool] "" ""))
 (eval:alts (cur-step #'(sub1 (s (s z))))
            (eval:result @racket[#'(elim Nat (λ (x2 : Nat) Nat)
-                                        ()
                                         (z (λ (x2 : Nat) (λ (ih-n2 : Nat) x2)))
                                         (s (s z)))] "" ""))
 ]

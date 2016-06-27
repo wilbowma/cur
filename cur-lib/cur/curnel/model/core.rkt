@@ -30,7 +30,7 @@
   (Δ   ::= ∅ (Δ (D : t ((c : t) ...))))
   ;; TODO: Might make more sense for methods to come first
   ;; (elim inductive-type motive (indices ...) (methods ...) discriminant)
-  (t e ::= U (λ (x : e) e) x (Π (x : e) e) (e e) (elim D e (e ...) (e ...) e))
+  (t e ::= U (λ (x : e) e) x (Π (x : e) e) (e e) (elim D e (e ...) e))
   #:binding-forms
   (λ (x : t) e #:refers-to x)
   (Π (x : t_0) t_1 #:refers-to x))
@@ -280,7 +280,7 @@
 ;;; inductively defined type x with a motive whose result is in universe U
 
 (define-extended-language tt-redL tt-ctxtL
-  (C-elim  ::= (elim D t_P (e_i ...) (e_m ...) hole)))
+  (C-elim  ::= (elim D t_P (e_m ...) hole)))
 
 (define-metafunction tt-ctxtL
   is-inductive-argument : Δ_0 D_0 t -> #t or #f
@@ -328,13 +328,13 @@
     (reduction-relation tt-redL
       (--> ((λ (x : t_0) t_1) t_2) (substitute t_1 x t_2)
            "β")
-      (--> (elim D e_motive (e_i ...) (e_m ...) (in-hole Θ_c c)) (in-hole Θ_mi e_mi)
+      (--> (elim D e_motive (e_m ...) (in-hole Θ_c c)) (in-hole Θ_mi e_mi)
            (side-condition/hidden (term (Δ-in-constructor-dom Δ c)))
            ;; Find the method for constructor c_i, relying on the order of the arguments.
            (where/hidden (c_i ...) (Δ-ref-constructors Δ D))
            (where/hidden (_ ... (c e_mi) _ ...) ((c_i e_m) ...))
            ;; Generate the inductive recursion
-           (where/hidden Θ_ih (Δ-inductive-elim Δ D (elim D e_motive (e_i ...) (e_m ...) hole) Θ_c))
+           (where/hidden Θ_ih (Δ-inductive-elim Δ D (elim D e_motive (e_m ...) hole) Θ_c))
            ;; Generate the method arguments, which are the constructor's arguments and the inductive arguments
            (where/hidden Θ_mi (in-hole Θ_ih Θ_c))
            "ι"))))
@@ -344,8 +344,8 @@
   (v  ::= x U (Π (x : t) t) (λ (x : t) t) (in-hole Θv c))
   (Θv ::= hole (Θv v))
   (E  ::= hole (E e) (v E)
-      (elim D e (e ...) (v ... E e ...) e)
-      (elim D e (e ...) (v ...) E)
+      (elim D e (v ... E e ...) e)
+      (elim D e (v ...) E)
       ;; NB: Reducing under Π seems necessary
       (Π (x : E) e) (Π (x : v) E)))
 
@@ -355,7 +355,7 @@
 ;; Trying to model "head reduction"; chpt 4 of Coq manual
 (define-extended-language tt-head-redL tt-cbvL
   (C-λ ::= Θ (λ (x : t) C-λ))
-  (λv  ::= x U (Π (x : t) t) (elim D e (e ...) (e ...) (in-hole C-λ x)))
+  (λv  ::= x U (Π (x : t) t) (elim D e (e ...) (in-hole C-λ x)))
   (v ::= (in-hole C-λ λv)))
 
 ;; Lazyness has lots of implications, such as on conversion and test suite.
@@ -537,7 +537,7 @@
    ----------------- "App"
    (type-infer Δ Γ (e_0 e_1) (substitute t_1 x_0 e_1))]
 
-  [(type-check Δ Γ e_c (apply D e_i ...))
+  [(type-infer-normal Δ Γ e_c (in-hole Θ_i D))
 
    (type-infer-normal Δ Γ e_motive (name t_motive (in-hole Ξ U)))
    (subtype Δ Γ t_motive (Δ-motive-type Δ D U))
@@ -545,7 +545,7 @@
    (where (t_m ...) (Δ-method-types Δ D e_motive))
    (type-check Δ Γ e_m t_m) ...
    ----------------- "Elim_D"
-   (type-infer Δ Γ (elim D e_motive (e_i ...) (e_m ...) e_c) (apply e_motive e_i ... e_c))])
+   (type-infer Δ Γ (elim D e_motive (e_m ...) e_c) ((in-hole Θ_i e_motive) e_c))])
 
 (define-judgment-form tt-typingL
   #:mode (type-infer-normal I I I O)

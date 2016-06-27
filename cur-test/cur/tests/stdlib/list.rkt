@@ -33,7 +33,6 @@
 (check-equal?
  (void)
  (:: (elim List (lambda (A : Type) (ls : (List A)) Nat)
-           (Bool)
           ((lambda (A : Type) z)
            (lambda (A : Type) (a : A) (ls : (List A)) (ih : Nat)
                    z))

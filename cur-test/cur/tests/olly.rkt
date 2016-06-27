@@ -42,7 +42,6 @@
      (second (string-split t "\n"))))
   (let ([t (cur->coq
             #'(elim Nat (lambda (x : Nat) Nat)
-                    ()
                     (z (lambda (x : Nat) (ih-x : Nat) ih-x))
                     e))])
     (check-regexp-match

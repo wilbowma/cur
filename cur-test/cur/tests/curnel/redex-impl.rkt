@@ -108,27 +108,26 @@
  (redex-match? tt-ctxtL (in-hole Θ_i (hole (in-hole Θ_r zero))) (term (hole zero))))
 (check-telescope-equiv?
  (term (Δ-inductive-elim ,Δ nat
-                         (elim nat (λ (x : nat) nat) ()
+                         (elim nat (λ (x : nat) nat)
                                ((s zero) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                                hole)
                          (hole zero)))
  (term (hole (elim nat (λ (x : nat) nat)
-                   ()
                    ((s zero)
                     (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                    zero))))
 (check-telescope-equiv?
  (term (Δ-inductive-elim ,Δ nat
-                         (elim nat (λ (x : nat) nat) ()
+                         (elim nat (λ (x : nat) nat)
                                ((s zero) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                                hole)
                          (hole (s zero))))
- (term (hole (elim nat (λ (x : nat) nat) ()
+ (term (hole (elim nat (λ (x : nat) nat)
                    ((s zero) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                    (s zero)))))
 (check-telescope-equiv?
  (term (Δ-inductive-elim ,Δ nat
-                         (elim nat (λ (x : nat) nat) ()
+                         (elim nat (λ (x : nat) nat)
                                ((s zero) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                                hole)
                          hole))
@@ -153,19 +152,16 @@
                   (term (Π (x : t) (x x))))
 
 (check-equiv? (term (reduce ,Δ (elim nat (λ (x : nat) nat)
-                                     ()
                                      ((s zero)
                                       (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                                      zero)))
               (term (s zero)))
 (check-equiv? (term (reduce ,Δ (elim nat (λ (x : nat) nat)
-                                     ()
                                      ((s zero)
                                       (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                                      (s zero))))
               (term (s (s zero))))
 (check-equiv? (term (reduce ,Δ (elim nat (λ (x : nat) nat)
-                                     ()
                                      ((s zero)
                                       (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                                 (s (s (s zero))))))
@@ -174,7 +170,6 @@
 (check-equiv?
  (term (reduce ,Δ
                (elim nat (λ (x : nat) nat)
-                     ()
                      ((s (s zero))
                       (λ (x : nat) (λ (ih-x : nat) (s ih-x))))
                      (s (s zero)))))
@@ -182,7 +177,6 @@
 (check-equiv?
  (term (step ,Δ
              (elim nat (λ (x : nat) nat)
-                     ()
                      ((s (s zero))
                       (λ (x : nat) (λ (ih-x : nat) (s ih-x))))
                      (s (s zero)))))
@@ -190,7 +184,6 @@
   (((λ (x : nat) (λ (ih-x : nat) (s ih-x)))
     (s zero))
    (elim nat (λ (x : nat) nat)
-         ()
          ((s (s zero))
           (λ (x : nat) (λ (ih-x : nat) (s ih-x))))
          (s zero)))))
@@ -199,7 +192,6 @@
                       (((λ (x : nat) (λ (ih-x : nat) (s ih-x)))
                         (s zero))
                        (elim nat (λ (x : nat) nat)
-                             ()
                              ((s (s zero))
                               (λ (x : nat) (λ (ih-x : nat) (s ih-x))))
                              (s zero))))))
@@ -208,7 +200,6 @@
    (((λ (x : nat) (λ (ih-x : nat) (s ih-x)))
      zero)
     (elim nat (λ (x : nat) nat)
-          ()
           ((s (s zero))
            (λ (x : nat) (λ (ih-x : nat) (s ih-x))))
           zero)))))
@@ -347,17 +338,17 @@
 (check-holds (type-infer ,Δtruth
                          ∅
                          (elim truth (λ (x : truth) (Unv 1))
-                               () ((Unv 0)) T)
+                               ((Unv 0)) T)
                          t))
 
 (check-holds (type-check ,Δtruth
                          ∅
                          (elim truth (λ (x : truth) (Unv 1))
-                               () ((Unv 0)) T)
+                               ((Unv 0)) T)
                          (Unv 1)))
 (check-not-holds (type-check (((truth : (Unv 0)) (T : truth)))
                              ∅
-                             (elim truth Type () (Type) T)
+                             (elim truth Type (Type) T)
                              (Unv 1)))
 (check-holds
  (type-infer () ∅ (Π (x2 : (Unv 0)) (Unv 0)) U))
@@ -375,7 +366,7 @@
   (check-holds (type-check ,Δ syn ...)))
 (nat-test ∅ (Π (x : nat) nat) (Unv 0))
 (nat-test ∅ (λ (x : nat) x) (Π (x : nat) nat))
-(nat-test ∅ (elim nat (λ (x : nat) nat) ()
+(nat-test ∅ (elim nat (λ (x : nat) nat)
                   (zero (λ (x : nat) (λ (ih-x : nat) x)))
                   zero)
             nat)
@@ -386,29 +377,24 @@
 (check-holds
  (type-infer ,Δ ∅ (λ (x : nat)
                     (elim nat (λ (x : nat) nat)
-                          ()
                           (zero
                            (λ (x : nat) (λ (ih-x : nat) x)))
                           x))
              t))
 (nat-test ∅ (elim nat (λ (x : nat) nat)
-                  ()
                   (zero (λ (x : nat) (λ (ih-x : nat) x)))
                   zero)
             nat)
 (nat-test ∅ (elim nat (λ (x : nat) nat)
-                  ()
                   ((s zero) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                   zero)
             nat)
 (nat-test ∅ (elim nat (λ (x : nat) nat)
-                  ()
                   ((s zero) (λ (x : nat) (λ (ih-x : nat) (s (s x)))))
                   zero)
             nat)
 (nat-test (∅ n : nat)
           (elim nat (λ (x : nat) nat)
-                ()
                 (zero (λ (x : nat) (λ (ih-x : nat) x)))
                 n)
           nat)
@@ -416,13 +402,12 @@
  (type-check ,Δ
              (∅ n2 : nat)
              (elim nat (λ (x : nat) bool)
-                   ()
                    (true (λ (x : nat) (λ (ih-x : bool) false)))
                    n2)
              bool))
 (check-not-holds
  (type-check ,Δ ∅
-             (elim nat nat () ((s zero)) zero)
+             (elim nat nat ((s zero)) zero)
              nat))
 (define lam (term (λ (nat : (Unv 0)) nat)))
 (check-equivalent
@@ -484,7 +469,6 @@
              (elim and
                    (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B))
                                                  true)))
-                   (true true)
                    ((λ (A : (Unv 0))
                       (λ (B : (Unv 0))
                         (λ (a : A)
@@ -521,7 +505,6 @@
              (elim and
                    (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B))
                                                  ((and B) A))))
-                   (P Q)
                    ((λ (A : (Unv 0))
                       (λ (B : (Unv 0))
                         (λ (a : A)
@@ -542,7 +525,6 @@
              (elim and
                   (λ (A : Type) (λ (B : Type) (λ (x : ((and A) B))
                                                 ((and B) A))))
-                 (true true)
                  ((λ (A : (Unv 0))
                    (λ (B : (Unv 0))
                      (λ (a : A)
@@ -573,13 +555,13 @@
 
 (check-holds
  (type-check ,sigma (,gamma x : false)
-             (elim false (λ (y : false) (Π (x : Type) x)) () () x)
+             (elim false (λ (y : false) (Π (x : Type) x)) () x)
              (Π (x : (Unv 0)) x)))
 
 ;; nat-equal? tests
 (define zero?
   (term (λ (n : nat)
-          (elim nat (λ (x : nat) bool) ()
+          (elim nat (λ (x : nat) bool)
               (true (λ (x : nat) (λ (x_ih : bool) false)))
               n))))
 (check-holds
@@ -593,7 +575,6 @@
 (define ih-equal?
   (term (λ (ih : nat)
           (elim nat (λ (x : nat) bool)
-              ()
               (false
                (λ (x : nat) (λ (y : bool) (x_ih x))))
               ih))))
@@ -610,7 +591,6 @@
 (define nat-equal?
   (term (λ (n : nat)
           (elim nat (λ (x : nat) (Π (x : nat) bool))
-              ()
               (,zero?
               (λ (x : nat) (λ (x_ih : (Π (x : nat) bool))
                              ,ih-equal?)))
@@ -637,7 +617,6 @@
 
 (define refl-elim
   (term (elim == (λ (A1 : (Unv 0)) (λ (x1 : A1) (λ (y1 : A1) (λ (p2 : (((== A1) x1) y1)) nat))))
-                  (bool true true)
                   ((λ (A1 : (Unv 0)) (λ (x1 : A1) zero)))
                   ((refl bool) true))))
 (check-holds

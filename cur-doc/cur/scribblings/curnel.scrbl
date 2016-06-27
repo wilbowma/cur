@@ -91,7 +91,7 @@ For instance, Cur does not currently perform strict positivity checking.
           ((((conj Bool) Bool) true) false)]
 }
 
-@defform[(elim inductive-type motive (index ...) (method ...) disc)]{
+@defform[(elim inductive-type motive (method ...) disc)]{
 Fold over the term @racket[disc] of the inductively defined type @racket[inductive-type].
 The @racket[motive] is a function that expects the indices of the inductive
 type and a term of the inductive type and produces the type that this
@@ -109,7 +109,6 @@ The following example runs @racket[(sub1 (s z))].
             (z : Nat)
             (s : (Π (n : Nat) Nat)))
           (elim Nat (λ (x : Nat) Nat)
-                ()
                 (z
                  (λ (n : Nat) (λ (IH : Nat) n)))
                 (s z))]
@@ -124,7 +123,6 @@ Binds @racket[id] to the result of @racket[expr].
             (s : (Π (n : Nat) Nat)))
           (define sub1 (λ (n : Nat)
                          (elim Nat (λ (x : Nat) Nat)
-                               ()
                                (z
                                 (λ (n : Nat) (λ (IH : Nat) n)))
                                n)))
