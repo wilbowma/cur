@@ -263,7 +263,7 @@ define-syntax (match syn)
            [D (cur-type-infer #'e)]
            [motive #`(lambda (x : #,D) #,R)]
            [U (cur-type-infer R)])
-       #`(elim #,D #,motive ()
+       #`(elim #,D #,motive
             #,(map (curry clause->method D motive) clauses)
             e)
 
@@ -309,7 +309,6 @@ Recall the addition function for natural number we defined in
 define (+ [n1 : Nat] [n2 : Nat])
   elim Nat
     lambda (x : Nat) Nat
-    ()
     (n2
      lambda (x : Nat) (ih : Nat) $ s ih)
     n1
@@ -359,7 +358,7 @@ After parsing each clause, we compute the motive.
 The body of the motive is the type @racket[R] of the
 result of the @racket[match], and the argument to the motive has type
 @racket[D] of the discriminant.
-Note that in this implementation, we do not handle indexed inductive types.
+Note that in this implementation, we do not attempt to handle indexed inductive types.
 The full implementation can infer some indexed inductive types and supports
 optional annotation syntax for when inference fails.
 

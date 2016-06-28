@@ -86,7 +86,7 @@
         "")])]
    ['elim
        (rw-lambda
-        [`(elim ,D ,motive ,indices ,methods ,e) =>
+        [`(elim ,D ,motive ,methods ,e) =>
          `(""
            ,(struct-copy lw D [e "elim"] [column (sub1 (lw-column D))])
            ""
@@ -95,7 +95,6 @@
              motive)
            " "
            ,motive
-           ,indices
            ,methods
            ,e
            "")])]

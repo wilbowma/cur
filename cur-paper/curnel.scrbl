@@ -41,7 +41,7 @@ The top of @Figure-ref{fig:curnel-syntax} presents the syntax of Curnel.
 A Curnel term is either a universe @render-term[U], a function
 @render-term[(λ (x : t) e)], a variable, a dependent function type
 @render-term[(Π (x : t) t)], an application @render-term[(e e)], or the
-elimination of an inductive type @render-term[(elim D motive (indices ...) (methods ...) e)].
+elimination of an inductive type @render-term[(elim D motive (methods ...) e)].
 We write universes of level @render-term[i] as @render-term[(Unv i)].
 We usually write variables using the meta-variable @render-term[x],
 but we use @render-term[D] for the name of declared inductive types and
@@ -67,7 +67,7 @@ First we define the natural numbers:
 ]
 Next, we define addition.
 @nested[#:style 'code-inset
-@render-term[(λ (n : Nat) (λ (m : Nat) (elim Nat (λ (x : Nat) Nat) () (m (λ (n-1 : Nat) (λ (ih : Nat) (s ih)))) n)))]]
+@render-term[(λ (n : Nat) (λ (m : Nat) (elim Nat (λ (x : Nat) Nat) (m (λ (n-1 : Nat) (λ (ih : Nat) (s ih)))) n)))]]
 Note that in Cur @render-term[n-1] is a valid identifier.
 
 We annotate the eliminator with the type @render-term[D] being eliminated.
@@ -78,12 +78,6 @@ The motive is a function that takes the indices of the inductive type and the
 argument being eliminated, and computes the return type.
 In this case, the motive is @render-term[(λ (x : Nat) Nat)], a constant
 function that tells us the result type of addition is @render-term[Nat].
-
-The next argument is a sequence of indices for the inductive type.
-The indices are given to the motive during type checking to compute the result
-type.
-There are no indices in this example, since @render-term[Nat] is not an indexed
-type.
 
 The next argument is a sequence of are @emph{methods}.
 The eliminator requires one method for each constructor of the inductive type
@@ -108,7 +102,7 @@ inductive types @render-term[D].
 The fold over an inductive type takes a step when the discriminant is a fully applied
 constructor @render-term[c] of the inductive type @render-term[D].
 we step to the method corresponding to the constructor applied to arguments
-@render-term[Θ_mi], where these arguments are computed from the indices, the
+@render-term[Θ_mi], where these arguments are computed from the
 constructor's arguments, and the recursive application of the eliminator to
 recursive arguments.
 We omit the definitions of various meta-functions used in the reduction
@@ -123,10 +117,10 @@ function with @render-term[(s z)] and @render-term[z].
 Then the eliminator will take a step as follows:
 @nested[#:style 'code-inset
 @render-term[
-(elim Nat o_ () (m_0 m_1) (s z))]
+(elim Nat o_ (m_0 m_1) (s z))]
 " → "
 @render-term[
-((m_1 z) (elim Nat o_ () (m_0 m_1) z))]
+((m_1 z) (elim Nat o_ (m_0 m_1) z))]
 @verbatim|{
 |@elem{where:}
  |@render-term[U] = |@render-term[(Unv 0)]
