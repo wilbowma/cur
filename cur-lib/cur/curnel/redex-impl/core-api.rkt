@@ -30,20 +30,16 @@
    (subst-all (substitute t x_0 e_0) (x ...) (e ...))])
 
 (define-metafunction ttL
-  [(Δ-set (any_Δ ...) D t (any_c ...))
-   (any_Δ ...)
-   (judgment-holds (Δ-type-in (any_Δ ...) D t))
-   (where (any_c ...) (Δ-ref-constructor-map (any_Δ ...) D))]
-  [(Δ-set (any_Δ ...) D t (any_c ...))
-   (any_Δ ... ((D : t) any_c ...))])
+  [(Δ-set Δ D t any)
+   Δ
+   (judgment-holds (Δ-type-in Δ D t))
+   (where any (Δ-ref-constructor-map Δ D))]
+  [(Δ-set Δ x t any) (Δ (x : t any))])
 
 (define-metafunction ttL
-  [(Δ-union any_Δ ())
-   any_Δ]
-  [(Δ-union any_2 (((D : t) (c : t_c) ...)
-                   any_r ...))
-   (Δ-union (Δ-set any_2 D t ((c : t_c) ...)) (any_r ...))])
-;; TODO: Maybe do append · remove-duplicate
+  [(Δ-union Δ ∅) Δ]
+  [(Δ-union Δ_2 (Δ_1 (x : t any)))
+   (Δ-set (Δ-union Δ_2 Δ_1) (x : t any))])
 
 (define-metafunction tt-redL
   [(step Δ e)
