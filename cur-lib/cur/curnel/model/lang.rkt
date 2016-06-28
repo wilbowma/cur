@@ -100,22 +100,22 @@
 
   (define (extend-Γ/syn! env x t) (env (extend-Γ/syn env x t)))
 
-  (define (extend-Δ/term env x t c*)
-    (term (Δ-set ,(env) ,x ,t (,@c*))))
+  (define (extend-Δ/term env x n t c*)
+    (term (Δ-set ,(env) ,x ,n ,t (,@c*))))
 
-  (define (extend-Δ/term! env x t c*)
-    (env (extend-Δ/term env x t c*)))
+  (define (extend-Δ/term! env x n t c*)
+    (env (extend-Δ/term env x n t c*)))
 
-  (define (extend-Δ/syn env x t c*)
-    (extend-Δ/term env (syntax->datum x) (cur->datum t)
+  (define (extend-Δ/syn env x n t c*)
+    (extend-Δ/term env (syntax->datum x) (syntax->datum n) (cur->datum t)
                    (for/list ([c (syntax->list c*)])
                      (syntax-case c ()
                        [(c : ct)
                         (parameterize ([gamma (extend-Γ/syn gamma x t)])
                           (term (,(syntax->datum #'c) : ,(cur->datum #'ct))))]))))
 
-  (define (extend-Δ/syn! env x t c*)
-    (env (extend-Δ/syn env x t c*)))
+  (define (extend-Δ/syn! env x n t c*)
+    (env (extend-Δ/syn env x n t c*)))
 
   (define subst? (list/c (listof x?)  (listof e?)))
   (define bind-subst
@@ -471,9 +471,9 @@
 (define-syntax (dep-inductive syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_ i:id : ti (x1:id : t1) ...)
+    [(_ i:id : n:nat ti (x1:id : t1) ...)
      (begin
-       (extend-Δ/syn! delta #'i #'ti #'((x1 : t1) ...))
+       (extend-Δ/syn! delta #'i #'n #'ti #'((x1 : t1) ...))
        #'(void))]))
 
 (define-syntax (dep-elim syn)

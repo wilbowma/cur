@@ -4,6 +4,7 @@
 (require
  (except-in
   "core.rkt"
+  "snoc-env.rkt"
   apply)
   redex/reduction-semantics)
 
@@ -32,14 +33,14 @@
    (subst-all (substitute t x_0 e_0) (x ...) (e ...))])
 
 (define-metafunction ttL
-  Δ-set : Δ x t ((x : t) ...) -> Δ
-  [(Δ-set Δ x t any) (Δ (x : t any))])
+  Δ-set : Δ x n t ((x : t) ...) -> Δ
+  [(Δ-set Δ x n t any)
+   (Δ (x : n t (snoc-env-build ∅ any)))])
 
 (define-metafunction ttL
   Δ-union : Δ Δ -> Δ
-  [(Δ-union Δ ∅) Δ]
-  [(Δ-union Δ_2 (Δ_1 (x : t any)))
-   ((Δ-union Δ_2 Δ_1) (x : t any))])
+  [(Δ-union Δ_0 Δ_1)
+   (snoc-env-merge Δ_0 Δ_1)])
 
 (define-metafunction tt-redL
   step : Δ e -> e
@@ -48,9 +49,8 @@
 
 (define-metafunction tt-typingL
   Γ-union : Γ Γ -> Γ
-  [(Γ-union Γ ∅) Γ]
-  [(Γ-union Γ_2 (Γ_1 x : t))
-   ((Γ-union Γ_2 Γ_1) x : t)])
+  [(Γ-union Γ_0 Γ_1)
+   (snoc-env-merge Γ_0 Γ_1)])
 
 (define-metafunction tt-typingL
   Γ-set : Γ x t -> Γ
