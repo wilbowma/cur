@@ -59,7 +59,8 @@
 (check-true (Δ? (term ΔAnd)))
 (check-true (Δ? (term Δ=)))
 
-;; alpha-equivalent And subst tests
+
+;; alpha-equivalent and subst tests
 (default-language ttL)
 (check-equiv?
  (term (substitute (Π (a : A) (Π (b : B) ((And A) B))) A S))
@@ -77,7 +78,7 @@
 
 ;; Telescope tests
 ;; ------------------------------------------------------------------------
-;; Are these telescopes the same when filled with alpha-equivalent, And equivalently renamed, termed
+;; Are these telescopes the same when filled with alpha-equivalent, and equivalently renamed, termed
 (define (telescope-equiv x y)
   (alpha-equivalent? ttL (term (in-hole ,x (Unv 0))) (term (in-hole ,y (Unv 0)))))
 (define-syntax-rule (check-telescope-equiv? e1 e2)
@@ -89,7 +90,7 @@
 (check-true (Ξ? (term hole)))
 (check-true (t? (term (λ (y : false) (Π (x : Type) x)))))
 
-;; Tests for inductive elimiNation
+;; Tests for inductive elimination
 ;; ------------------------------------------------------------------------
 ;; TODO: Insufficient tests, no tests of inductives with parameters, indices, or complex induction.
 (check-true
@@ -130,7 +131,7 @@
 (check-true (v? (term z)))
 (check-true (v? (term (s z))))
 
-;; TODO: Move equivalence up here, And use in these tests.
+;; TODO: Move equivalence up here, and use in these tests.
 (check-equiv? (term (reduce ∅ (Unv 0))) (term (Unv 0)))
 (check-equiv? (term (reduce ∅ ((λ (x : t) x) (Unv 0)))) (term (Unv 0)))
 (check-not-equiv? (term (reduce ∅ ((Π (x : t) x) (Unv 0)))) (term (Unv 0)))

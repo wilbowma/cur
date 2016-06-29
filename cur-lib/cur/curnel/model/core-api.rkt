@@ -2,9 +2,9 @@
 
 ;; Additional API utilities for interacting with the core, but aren't necessary for the model of the core language.
 (require
+ "../snoc-env.rkt"
  (except-in
   "core.rkt"
-  "../snoc-env.rkt"
   apply)
   redex/reduction-semantics)
 

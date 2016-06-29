@@ -8,7 +8,8 @@
   redex/reduction-semantics)
 
 (provide
- (all-from-out "core.rkt")
+ (except-out (all-from-out "core.rkt")
+             instantiate)
  (all-defined-out))
 
 (define x? (redex-match? ttL x))
@@ -34,11 +35,13 @@
    Δ
    (judgment-holds (Δ-type-in Δ D t))
    (where any (Δ-ref-constructor-map Δ D))]
-  [(Δ-set Δ x t any) (Δ (x : t any))])
+  [(Δ-set Δ x t any)
+   (Δ (x : n t (snoc-env-build ∅ any)))])
 
 (define-metafunction ttL
   [(Δ-union Δ ∅) Δ]
   [(Δ-union Δ_2 (Δ_1 (x : t any)))
+   ;; TODO: Maybe this should be built into snoc-env-merge
    (Δ-set (Δ-union Δ_2 Δ_1) (x : t any))])
 
 (define-metafunction tt-redL

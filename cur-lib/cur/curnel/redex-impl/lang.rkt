@@ -88,22 +88,22 @@
 
   (define (extend-Γ/syn! env x t) (env (extend-Γ/syn env x t)))
 
-  (define (extend-Δ/term env x t c*)
-    (term (Δ-set ,(env) ,x ,t (,@c*))))
+  (define (extend-Δ/term env x n t c*)
+    (term (Δ-set ,(env) ,x ,n ,t (,@c*))))
 
-  (define (extend-Δ/term! env x t c*)
-    (env (extend-Δ/term env x t c*)))
+  (define (extend-Δ/term! env x n t c*)
+    (env (extend-Δ/term env x n t c*)))
 
-  (define (extend-Δ/syn env x t c*)
-    (extend-Δ/term env (syntax->datum x) (cur->datum t)
+  (define (extend-Δ/syn env x n t c*)
+    (extend-Δ/term env (syntax->datum x) (syntax->datum n) (cur->datum t)
                    (for/list ([c (syntax->list c*)])
                      (syntax-case c ()
                        [(c : ct)
                         (parameterize ([gamma (extend-Γ/syn gamma x t)])
                           (term (,(syntax->datum #'c) : ,(cur->datum #'ct))))]))))
 
-  (define (extend-Δ/syn! env x t c*)
-    (env (extend-Δ/syn env x t c*)))
+  (define (extend-Δ/syn! env x n t c*)
+    (env (extend-Δ/syn env x n t c*)))
 
   (define subst? (list/c (listof x?)  (listof e?)))
   (define bind-subst (make-parameter (list null null)))
@@ -130,10 +130,10 @@
   ;; Locally expand everything down to core forms.
   (define (core-expand syn)
     (disarm
-      (local-expand
-        syn
-        'expression
-        (append (syntax-e #'(term reduce subst-all dep-top #%app λ Π elim Unv #%datum void))))))
+     (local-expand
+      syn
+      'expression
+      (append (syntax-e #'(term reduce subst-all dep-top #%app λ Π elim Unv #%datum void))))))
 
   ;; Only type-check at the top-level, to prevent exponential
   ;; type-checking. Redex is expensive enough.
@@ -190,7 +190,7 @@
         [(list (quote λ) (list x (quote :) t) body)
          (quasisyntax/loc syn
            (dep-lambda (#,(datum->syntax syn x) : #,(datum->cur t)) #,(datum->cur body)))]
-       [(list (quote elim) D motive m d)
+        [(list (quote elim) D motive m d)
          (quasisyntax/loc syn
            (dep-elim #,(datum->cur D) #,(datum->cur motive) #,(map datum->cur m) #,(datum->cur d)))]
         [(list e1 e2)
@@ -453,9 +453,9 @@
 (define-syntax (dep-inductive syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_ i:id : ti (x1:id : t1) ...)
+    [(_ i:id : n:nat ti (x1:id : t1) ...)
      (begin
-       (extend-Δ/syn! delta #'i #'ti #'((x1 : t1) ...))
+       (extend-Δ/syn! delta #'i #'n #'ti #'((x1 : t1) ...))
        #'(void))]))
 
 (define-syntax (dep-elim syn)
