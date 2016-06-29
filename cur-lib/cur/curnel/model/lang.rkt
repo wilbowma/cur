@@ -58,18 +58,20 @@
    (all-from-out syntax/parse)
    (all-from-out racket)
    (all-from-out racket/syntax)
-    declare-data!
-    call-local-data-scope
-    local-data-scope
-    with-env
-    call-with-env
-    cur->datum
-    cur-expand
-    cur-type-infer
-    cur-type-check?
-    cur-normalize
-    cur-step
-    cur-equal?))
+   declare-data!
+   call-local-data-scope
+   local-data-scope
+   with-env
+   call-with-env
+   cur->datum
+   cur-expand
+   cur-type-infer
+   cur-type-check?
+   cur-constructors-for
+   cur-data-parameters
+   cur-normalize
+   cur-step
+   cur-equal?))
 
 (begin-for-syntax
   ;; TODO: Gamma and Delta seem to get reset inside a module+
@@ -237,8 +239,8 @@
               ([(x t) (in-dict env)])
       (extend-Γ/syn (thunk gamma) x t)))
 
-  (define (declare-data! name type const-map)
-    (extend-Δ/syn! delta name type #`(#,@(map (lambda (x) #`(#,(car x) : #,(cdr x))) const-map))))
+  (define (declare-data! name n type const-map)
+    (extend-Δ/syn! delta name n type #`(#,@(map (lambda (x) #`(#,(car x) : #,(cdr x))) const-map))))
 
   (define (call-local-data-scope t)
     (parameterize ([delta (delta)])
@@ -278,6 +280,16 @@
   (define (cur-type-check? syn type #:local-env [env '()])
     (with-env env
       (type-check/term? (eval-cur syn) (eval-cur type))))
+
+  ;; Given an identifiers representing an inductive type, return a sequence of the constructor names
+  ;; (as identifiers) for the inductive type.
+  (define (cur-constructors-for syn)
+    (map (curry datum->syntax syn) (term (Δ-ref-constructors ,(delta) ,(syntax->datum syn)))))
+
+  ;; Given an identifier representing an inductive type, return the number of parameters in that
+  ;; inductive, as a natural starting from the first argument to the inductive type.
+  (define (cur-data-parameters syn)
+    (term (Δ-ref-parameter-count ,(delta) ,(syntax->datum syn))))
 
   ;; Takes a Cur term syn and an arbitrary number of identifiers ls. The cur term is
   ;; expanded until expansion reaches a Curnel form, or one of the
