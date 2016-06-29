@@ -2,7 +2,7 @@
 (require "sugar.rkt")
 (provide Bool true false if not and or)
 
-(data Bool : Type
+(data Bool : 0 Type
   (true : Bool)
   (false : Bool))
 

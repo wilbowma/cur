@@ -2,6 +2,7 @@
 
 ;; Additional API utilities for interacting with the core, but aren't necessary for the model of the core language.
 (require
+ "../snoc-env.rkt"
  (except-in
   "core.rkt"
   apply)
@@ -31,18 +32,20 @@
    (subst-all (substitute t x_0 e_0) (x ...) (e ...))])
 
 (define-metafunction ttL
-  [(Δ-set Δ D t any)
+  [(Δ-set Δ D n t any)
    Δ
    (judgment-holds (Δ-type-in Δ D t))
    (where any (Δ-ref-constructor-map Δ D))]
-  [(Δ-set Δ x t any)
+  [(Δ-set Δ x n t Γc)
+   (Δ (x : n t Γc))]
+  [(Δ-set Δ x n t any)
    (Δ (x : n t (snoc-env-build ∅ any)))])
 
 (define-metafunction ttL
   [(Δ-union Δ ∅) Δ]
-  [(Δ-union Δ_2 (Δ_1 (x : t any)))
+  [(Δ-union Δ_2 (Δ_1 (x : n t any)))
    ;; TODO: Maybe this should be built into snoc-env-merge
-   (Δ-set (Δ-union Δ_2 Δ_1) (x : t any))])
+   (Δ-set (Δ-union Δ_2 Δ_1) x n t any)])
 
 (define-metafunction tt-redL
   [(step Δ e)

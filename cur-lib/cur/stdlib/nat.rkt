@@ -4,7 +4,7 @@
 ;; properly.
 (provide Nat z s add1 sub1 plus mult exp square nat-equal? even? odd?)
 
-(data Nat : Type
+(data Nat : 0 Type
   (z : Nat)
   (s : (-> Nat Nat)))
 

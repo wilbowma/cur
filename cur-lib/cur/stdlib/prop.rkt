@@ -15,16 +15,16 @@
   thm:proj2 pf:proj2
   == refl)
 
-(data True : Type (T : True))
+(data True : 0 Type (T : True))
 
 (define thm:anything-implies-true (forall (P : Type) True))
 (define pf:anything-implies-true (lambda (P : Type) T))
 
-(data False : Type)
+(data False : 0 Type)
 
 (define-type (Not (A : Type)) (-> A False))
 
-(data And : (forall (A : Type) (B : Type) Type)
+(data And : 2 (forall (A : Type) (B : Type) Type)
   (conj : (forall (A : Type) (B : Type)
             (x : A) (y : B) (And A B))))
 
@@ -41,7 +41,7 @@
 (define pf:and-is-symmetric
   (lambda (P : Type) (Q : Type) (ab : (And P Q))
           (match ab
-            [(conj (P : Type) (Q : Type) (x : P) (y : Q))
+            [(conj (x : P) (y : Q))
              (conj/i y x)])))
 
 (define thm:proj1
@@ -50,7 +50,7 @@
 (define pf:proj1
   (lambda (A : Type) (B : Type) (c : (And A B))
           (match c
-            [(conj (A : Type) (B : Type) (a : A) (b : B)) a])))
+            [(conj (a : A) (b : B)) a])))
 
 (define thm:proj2
   (forall (A : Type) (B : Type) (c : (And A B)) B))
@@ -58,7 +58,7 @@
 (define pf:proj2
   (lambda (A : Type) (B : Type) (c : (And A B))
           (match c
-            [(conj (A : Type) (B : Type) (a : A) (b : B)) b])))
+            [(conj (a : A) (b : B)) b])))
 
 #| TODO: Disabled until #22 fixed
 (data Or : (forall (A : Type) (B : Type) Type)
@@ -80,5 +80,5 @@
 (qed thm:A-or-A proof:A-or-A)
 |#
 
-(data == : (forall (A : Type) (x : A) (-> A Type))
+(data == : 1 (forall (A : Type) (x : A) (-> A Type))
   (refl : (forall (A : Type) (x : A) (== A x x))))

@@ -182,10 +182,10 @@
 
 ;; Instantiate a Π type
 (define-metafunction tt-ctxtL
-  [(instantiate t hole)
-   t]
-  [(instantiate (Π (x : t) t_1) (in-hole Θ (hole e)))
-   (instantiate (substitute t_1 x e) Θ)])
+  [(instantiate any hole)
+   any]
+  [(instantiate (Π (x : t) any) (in-hole Θ (hole e)))
+   (instantiate (substitute any x e) Θ)])
 
 (define-metafunction tt-ctxtL
   [(take-parameters Δ D Θ)
