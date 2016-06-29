@@ -408,15 +408,15 @@
   [(positive x t) #t])
 
 (define-judgment-form tt-typingL
-  #:mode (valid-parameters I I I I)
+  #:mode (valid-parameters I I I)
 
   [-------------------------------
-   (valid-parameters Δ 0 t_0 t_1)]
+   (valid-parameters 0 t_0 t_1)]
 
   [(side-condition ,(not (zero? (term n))))
-   (valid-parameters Δ ,(sub1 (term n)) t_0 t_1)
+   (valid-parameters ,(sub1 (term n)) t_0 t_1)
    -------------------------------------------------------
-   (valid-parameters Δ n (Π (x_0 : t) t_0) (Π (x_1 : t) t_1))])
+   (valid-parameters n (Π (x_0 : t) t_0) (Π (x_1 : t) t_1))])
 
 ;; Holds when the type t is a valid type for a constructor of D
 (define-judgment-form tt-typingL
