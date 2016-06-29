@@ -4,7 +4,7 @@
 (require
  (except-in
   "core.rkt"
-  "snoc-env.rkt"
+  "../snoc-env.rkt"
   apply)
   redex/reduction-semantics)
 

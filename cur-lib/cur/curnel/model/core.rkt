@@ -1,7 +1,7 @@
 #lang racket/base
 
 (require
- "snoc-env.rkt"
+ "../snoc-env.rkt"
   racket/function
   racket/list
   redex/reduction-semantics)
@@ -31,7 +31,6 @@
   (D x c ::= variable-not-otherwise-mentioned)
   (Γc  ::= ∅ (Γc (c : t)))
   (Δ   ::= ∅ (Δ (D : n t Γc)))
-  ;; TODO: Might make more sense for methods to come first
   ;; (elim inductive-type motive (methods ...) discriminant)
   (t e ::= U (λ (x : e) e) x (Π (x : e) e) (e e) (elim D e (e ...) e))
   #:binding-forms
@@ -318,7 +317,7 @@
       (Π (x : E) e) (Π (x : v) E)))
 
 (define-extended-language tt-cbnL tt-cbvL
-  (E  ::= hole (E e) (elim D e (e ...) (e ...) E)))
+  (E  ::= hole (E e) (elim D e (e ...) E)))
 
 ;; Trying to model "head reduction"; chpt 4 of Coq manual
 (define-extended-language tt-head-redL tt-cbvL
