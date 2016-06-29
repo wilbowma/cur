@@ -253,9 +253,11 @@
   #:pre (Δ-in-dom Δ_0 D_0)
   ;; Think this only works in call-by-value. A better solution would
   ;; be to check position of the argument w.r.t. the current
-  ;; method. requires more arguments, and more though.q
+  ;; method. requires more arguments, and more though.
   [(is-inductive-argument Δ D (in-hole Θ c_i))
-   ,(and (memq (term c_i) (term (Δ-ref-constructors Δ D))) #t)])
+   ,(and (memq (term c_i) (term (Δ-ref-constructors Δ D))) #t)]
+  [(is-inductive-argument _ _ _)
+   #f])
 
 ;; Generate recursive applications of the eliminator for each inductive argument in Θ.
 ;; TODO TTEESSSSSTTTTTTTT
@@ -432,7 +434,8 @@
   [-------------------------------
    (valid-parameters Δ 0 t_0 t_1)]
 
-  [(valid-parameters Δ ,(sub1 (term n)) t_0 t_1)
+  [(side-condition ,(not (zero? (term n))))
+   (valid-parameters Δ ,(sub1 (term n)) t_0 t_1)
    -------------------------------------------------------
    (valid-parameters Δ n (Π (x_0 : t) t_0) (Π (x_1 : t) t_1))])
 

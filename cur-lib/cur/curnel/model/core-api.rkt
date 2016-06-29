@@ -48,9 +48,9 @@
    ,(car (apply-reduction-relation (tt-->cbv (term Δ)) (term e)))])
 
 (define-metafunction tt-typingL
-  Γ-union : Γ Γ -> Γ
-  [(Γ-union Γ_0 Γ_1)
-   (snoc-env-merge Γ_0 Γ_1)])
+  [(Γ-union Γ ∅) Γ]
+  [(Γ-union Γ_2 (Γ_1 x : t))
+   (Γ-set (Γ-union Γ_2 Γ_1) x t)])
 
 (define-metafunction tt-typingL
   Γ-set : Γ x t -> Γ
