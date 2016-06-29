@@ -221,8 +221,8 @@
               ([(x t) (in-dict env)])
       (extend-Γ/syn (thunk gamma) x t)))
 
-  (define (declare-data! name type const-map)
-    (extend-Δ/syn! delta name type #`(#,@(map (lambda (x) #`(#,(car x) : #,(cdr x))) const-map))))
+  (define (declare-data! name n type const-map)
+    (extend-Δ/syn! delta name n type #`(#,@(map (lambda (x) #`(#,(car x) : #,(cdr x))) const-map))))
 
   (define (call-local-data-scope t)
     (parameterize ([delta (delta)])

@@ -90,7 +90,8 @@
               (format "(forall ~a : ~a, ~a)" (cur->coq #'x) (cur->coq #'t)
                       (with-env (list (cons (attribute x) (attribute t)))
                         (cur->coq #'body)))]
-             [(data ~! n:id (~datum :) t (x*:id (~datum :) t*) ...)
+             [(data ~! n:id (~datum :) p:nat t (x*:id (~datum :) t*) ...)
+              ;; TODO: Emit parameters correctly
               (begin
                 (coq-lift-top-level
                  (format "Inductive ~a : ~a :=~a."
@@ -108,7 +109,7 @@
                                       (cur->coq t))
                               (dict-set local-env x t)))))
                           (lambda (x y) x))))
-                (declare-data! #'n #'t (map cons (attribute x*) (attribute t*)))
+                (declare-data! #'n #'p #'t (map cons (attribute x*) (attribute t*)))
                 "")]
              [(Type i) "Type"]
              [(real-elim var:id motive (m ...) d)
@@ -252,7 +253,8 @@
         (~optional (~seq #:output-coq coq-file:str))
         (~optional (~seq #:output-latex latex-file:str))
         (~var rule (inferrence-rule (attribute name) (attribute index))) ...)
-      (let ([output #`(data name : (-> index ... Type) rule.constr-decl ...)])
+     ;; TODO: support parameters
+      (let ([output #`(data name : 0 (-> index ... Type) rule.constr-decl ...)])
         (when (attribute latex-file)
           (with-output-to-file (syntax->datum #'latex-file)
             (thunk
@@ -400,7 +402,8 @@
       (~var c (expression (attribute nt-type))) ...)
      ;; Generates the inductive data type for this non-terminal definition.
      #:attr def
-     #`(data nt-type : Type c.constr-decl ...)
+     ;; TODO: Support parameters
+     #`(data nt-type : 0 Type c.constr-decl ...)
      #:attr latex
      (format
       "\\mbox{\\textit{~a}} & ~a & \\bnfdef & ~a\\\\~n"
