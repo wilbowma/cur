@@ -9,7 +9,7 @@
 (provide
   (all-defined-out))
 
-;(set-cache-size! 10000)
+(set-cache-size! 10000)
 (check-redundancy #t)
 ;(current-traced-metafunctions '(wf type-infer type-check valid subtype))
 
@@ -480,9 +480,9 @@
   [-------- "Valid-Empty"
    (valid ∅)]
 
-  [(valid Δ)
+  [(valid-constructors Δ_0 (∅ D : t_D) Γc)
    (type-infer Δ ∅ t_D U_D)
-   (valid-constructors Δ_0 (∅ D : t_D) Γc)
+   (valid Δ)
    ----------------- "Valid-Inductive"
    (valid (name Δ_0 (Δ (D : n (name t_D (in-hole Ξ U)) Γc))))])
 
@@ -495,8 +495,8 @@
    ----------------- "WF-Empty"
    (wf Δ ∅)]
 
-  [(wf Δ Γ)
-   (type-infer Δ Γ t t_0)
+  [(type-infer Δ Γ t t_0)
+   (wf Δ Γ)
    ----------------- "WF-Var"
    (wf Δ (Γ x : t))])
 
@@ -524,8 +524,8 @@
    ----------------- "Var"
    (type-infer Δ Γ x t)]
 
-  [(type-infer-normal Δ (Γ x : t_0) e t_1)
-   (type-infer-normal Δ Γ (Π (x : t_0) t_1) U)
+  [(type-infer Δ (Γ x : t_0) e t_1)
+   (type-infer Δ Γ (Π (x : t_0) t_1) U)
    ----------------- "Fun"
    (type-infer Δ Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
 
@@ -541,8 +541,9 @@
    (type-infer Δ Γ (e_0 e_1) (substitute t_1 x_0 e_1))]
 
   [(type-infer-normal Δ Γ e_c (in-hole Θ D))
-   (where Θ_p (take-parameters Δ D Θ))
-   (where Θ_i (take-indices Δ D Θ))
+   (where n (Δ-ref-parameter-count Δ D))
+   (where Θ_p (Θ-take Θ n))
+   (where Θ_i (Θ-drop Θ n))
 
    (type-infer-normal Δ Γ e_P t_B)
    (type-infer Δ Γ (in-hole Θ_p D) t_D)
@@ -550,9 +551,7 @@
 
    (where (c ...) (Δ-ref-constructors Δ D))
    (type-infer-normal Δ Γ (in-hole Θ_p c) t_c) ...
-   (where n (Δ-ref-parameter-count Δ D))
    (where (t_m ...) ((reduce Δ (method-type n D hole (in-hole Θ_p c) t_c e_P)) ...))
-   (side-condition ,(displayln (term (t_m ...))))
    (type-check Δ Γ e_m t_m) ...
    ----------------- "Elim_D"
    (type-infer Δ Γ (elim D e_P (e_m ...) e_c) ((in-hole Θ_i e_P) e_c))])
@@ -609,7 +608,7 @@
   #:contract (type-check Δ Γ e t)
 
   [(type-infer Δ Γ e t_0)
-   (type-infer Δ Γ t U)
    (subtype Δ Γ t_0 t)
+   (type-infer Δ Γ t U)
    ----------------- "Conv"
    (type-check Δ Γ e t)])
