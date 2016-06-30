@@ -10,9 +10,9 @@
 @defmodule[cur/stdlib/list]
 This library defines the datatype @racket[List] and several functions on them.
 
-@deftogether[(@defthing[List (-> Type Type)]
-              @defthing[nil (forall (A : Type) (List A))]
-	      @defthing[cons (forall (A : Type) (a : A) (-> (List A) (List A)))])]{
+@deftogether[(@defthing[#:kind "1 parameter type" List (-> Type Type)]
+              @defthing[#:kind "constructor" nil (forall (A : Type) (List A))]
+	      @defthing[#:kind "constructor" cons (forall (A : Type) (a : A) (-> (List A) (List A)))])]{
 The polymorphic list datatype.
 }
 

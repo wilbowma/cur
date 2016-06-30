@@ -524,8 +524,8 @@
    ----------------- "Var"
    (type-infer Δ Γ x t)]
 
-  [(type-infer Δ (Γ x : t_0) e t_1)
-   (type-infer Δ Γ (Π (x : t_0) t_1) U)
+  [(type-infer-normal Δ (Γ x : t_0) e t_1)
+   (type-infer-normal Δ Γ (Π (x : t_0) t_1) U)
    ----------------- "Fun"
    (type-infer Δ Γ (λ (x : t_0) e) (Π (x : t_0) t_1))]
 

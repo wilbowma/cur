@@ -74,19 +74,20 @@ Produces a dependent function type, binding the identifier @racket[id] of type
             (x Type))]
 }
 
-@defform[(data id : type-expr (id* : type-expr*) ...)]{
-Defines an inductive datatype named @racket[id] of type @racket[type-expr], with constructors
+@defform[(data id : nat type-expr (id* : type-expr*) ...)]{
+Defines an inductive datatype named @racket[id] of type @racket[type-expr]
+whose first @racket[nat] arguments are parameters, with constructors
 @racket[id*] each with the corresponding type @racket[type-expr*].
 Currently, Cur does not attempt to ensure the well-foundedness of the inductive definition.
 For instance, Cur does not currently perform strict positivity checking.
 
 @examples[#:eval curnel-eval
-          (data Bool : Type
+          (data Bool : 0 Type
                 (true : Bool)
                 (false : Bool))
           ((λ (x : Bool) x) true)
-          (data False : Type)
-          (data And : (Π (A : Type) (Π (B : Type) Type))
+          (data False : 0 Type)
+          (data And : 2 (Π (A : Type) (Π (B : Type) Type))
             (conj : (Π (A : Type) (Π (B : Type) (Π (a : A) (Π (b : B) ((And A) B)))))))
           ((((conj Bool) Bool) true) false)]
 }
@@ -105,20 +106,25 @@ arguments of the constructor.
 The following example runs @racket[(sub1 (s z))].
 
 @examples[#:eval curnel-eval
-          (data Nat : Type
+          (data Nat : 0 Type
             (z : Nat)
             (s : (Π (n : Nat) Nat)))
           (elim Nat (λ (x : Nat) Nat)
                 (z
                  (λ (n : Nat) (λ (IH : Nat) n)))
-                (s z))]
+                (s z))
+          (elim And (λ (_ : ((And Nat) Bool)) ((And Bool) Nat))
+                ((λ (n : Nat)
+		  (λ (b : Bool)
+		    ((((conj Bool) Nat) b) n))))
+                ((((conj Nat) Bool) z) true))]
 }
 
 @defform[(define id expr)]{
 Binds @racket[id] to the result of @racket[expr].
 
 @examples[#:eval curnel-eval
-          (data Nat : Type
+          (data Nat : 0 Type
             (z : Nat)
             (s : (Π (n : Nat) Nat)))
           (define sub1 (λ (n : Nat)

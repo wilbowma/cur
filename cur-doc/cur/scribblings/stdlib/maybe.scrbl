@@ -11,9 +11,9 @@
 This library defines the datatype @racket[Maybe] and several forms for using them.
 
 @; TODO: Define a @defdata macro for Cur
-@deftogether[(@defthing[Maybe (∀ (A : Type) Type)]
-              @defthing[none (∀ (A : Type) (Maybe A))]
-	      @defthing[some (∀ (A : Type) (a : A) (Maybe A))])]{
+@deftogether[(@defthing[#:kind "1 Parameter Type" Maybe (∀ (A : Type) Type)]
+              @defthing[#:kind "Constructor" none (∀ (A : Type) (Maybe A))]
+	      @defthing[#:kind "Constructor" some (∀ (A : Type) (a : A) (Maybe A))])]{
 The maybe datatype.
 }
 
