@@ -450,7 +450,7 @@
   [;; constructor's type must return the inductive type D
    (where (in-hole Ξ (in-hole Θ D)) t)
    ;; First n arguments (parameters) of the constructor must match those of the inductive
-   (valid-parameters Δ n t t_D)
+   (valid-parameters n t t_D)
    (side-condition (positive D (in-hole Ξ (Unv 0))))
    (type-infer Δ Γ t U)
    (valid-constructors Δ_0 (Γ c : t) Γc)
