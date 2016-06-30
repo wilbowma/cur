@@ -301,13 +301,8 @@
 
 (check-holds (type-check ΔT ∅ (λ (x : True) (Unv 1)) (Π (x : True) (Unv 2))))
 
-(require (only-in cur/curnel/model/core apply))
-(check-equiv?
- (term (apply (λ (x : True) (Unv 1)) T))
- (term ((λ (x : True) (Unv 1)) T)))
-
 (check-holds
- (subtype ΔT ∅ (apply (λ (x : True) (Unv 1)) T) (Unv 1)))
+ (subtype ΔT ∅ ((λ (x : True) (Unv 1)) T) (Unv 1)))
 
 (check-holds (type-infer ΔT
                          ∅

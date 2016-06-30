@@ -3,14 +3,11 @@
 ;; Additional API utilities for interacting with the core, but aren't necessary for the model of the core language.
 (require
  "../snoc-env.rkt"
- (except-in
-  "core.rkt"
-  apply)
-  redex/reduction-semantics)
+ "core.rkt"
+ redex/reduction-semantics)
 
 (provide
- (except-out (all-from-out "core.rkt")
-             instantiate)
+ (all-from-out "core.rkt")
  (all-defined-out))
 
 (define x? (redex-match? ttL x))

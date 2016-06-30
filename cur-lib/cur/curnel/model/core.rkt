@@ -179,12 +179,6 @@
   [(Ξ-apply (Π (x : t) Ξ) any) (Ξ-apply Ξ (any x))])
 
 (define-metafunction tt-ctxtL
-  list->Θ : (e ...) -> Θ
-  [(list->Θ ()) hole]
-  [(list->Θ (e e_r ...))
-   (in-hole (list->Θ (e_r ...)) (hole e))])
-
-(define-metafunction tt-ctxtL
   Θ-flatten : Θ -> (e ...)
   [(Θ-flatten hole)
    ()]
@@ -212,19 +206,6 @@
    hole]
   [(Θ-take (in-hole Θ (hole e)) n)
    (in-hole (Θ-take Θ ,(sub1 (term n))) (hole e))])
-
-(define-metafunction tt-ctxtL
-  apply : e e ... -> e
-  [(apply e_f e ...)
-   (in-hole (list->Θ (e ...)) e_f)])
-
-;; Instantiate a Π type
-(define-metafunction tt-ctxtL
-  instantiate : any Θ -> any
-  [(instantiate any hole)
-   any]
-  [(instantiate (Π (x : t) any) (in-hole Θ (hole e)))
-   (instantiate (substitute any x e) Θ)])
 
 (define-metafunction tt-ctxtL
   take-parameters : Δ_0 D_0 Θ -> Θ

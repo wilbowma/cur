@@ -24,8 +24,8 @@
      ;; (elim inductive-type motive (methods ...) discriminant)
      (elim D e (e ...) e))
   #:binding-forms
-  (λ (x : t) e #:refers-to x)
-  (Π (x : t_0) t_1 #:refers-to x))
+  (λ (x : any) any_0 #:refers-to x)
+  (Π (x : any) any_0 #:refers-to x))
 
 ;;; ------------------------------------------------------------------------
 ;;; Universe typing
@@ -149,11 +149,6 @@
   [(Ξ-apply (Π (x : t) Ξ) any) (Ξ-apply Ξ (any x))])
 
 (define-metafunction tt-ctxtL
-  [(list->Θ ()) hole]
-  [(list->Θ (e e_r ...))
-   (in-hole (list->Θ (e_r ...)) (hole e))])
-
-(define-metafunction tt-ctxtL
   [(Θ-flatten hole)
    ()]
   [(Θ-flatten (Θ e))
@@ -177,17 +172,6 @@
    (in-hole (Θ-take Θ ,(sub1 (term n))) (hole e))])
 
 (define-metafunction tt-ctxtL
-  [(apply e_f e ...)
-   (in-hole (list->Θ (e ...)) e_f)])
-
-;; Instantiate a Π type
-(define-metafunction tt-ctxtL
-  [(instantiate any hole)
-   any]
-  [(instantiate (Π (x : t) any) (in-hole Θ (hole e)))
-   (instantiate (substitute any x e) Θ)])
-
-(define-metafunction tt-ctxtL
   [(take-parameters Δ D Θ)
    (Θ-take Θ n)
    (where n (Δ-ref-parameter-count Δ D))])
@@ -208,7 +192,7 @@
 (define-metafunction tt-ctxtL
   ;; Think this only works in call-by-value. A better solution would
   ;; be to check position of the argument w.r.t. the current
-  ;; method. requires more arguments, and more though.q
+  ;; method. requires more arguments, and more though.
   [(is-inductive-argument Δ D (in-hole Θ c_i))
    ,(and (memq (term c_i) (term (Δ-ref-constructors Δ D))) #t)]
   [(is-inductive-argument _ _ _)
@@ -442,9 +426,9 @@
   [-------- "Valid-Empty"
    (valid ∅)]
 
-  [(valid Δ)
+  [(valid-constructors Δ_0 (∅ D : t_D) Γc)
    (type-infer Δ ∅ t_D U_D)
-   (valid-constructors Δ_0 (∅ D : t_D) Γc)
+   (valid Δ)
    ----------------- "Valid-Inductive"
    (valid (name Δ_0 (Δ (D : n (name t_D (in-hole Ξ U)) Γc))))])
 
@@ -501,8 +485,9 @@
    (type-infer Δ Γ (e_0 e_1) (substitute t_1 x_0 e_1))]
 
   [(type-infer-normal Δ Γ e_c (in-hole Θ D))
-   (where Θ_p (take-parameters Δ D Θ))
-   (where Θ_i (take-indices Δ D Θ))
+   (where n (Δ-ref-parameter-count Δ D))
+   (where Θ_p (Θ-take Θ n))
+   (where Θ_i (Θ-drop Θ n))
 
    (type-infer-normal Δ Γ e_P t_B)
    (type-infer Δ Γ (in-hole Θ_p D) t_D)
@@ -510,9 +495,9 @@
 
    (where (c ...) (Δ-ref-constructors Δ D))
    (type-infer-normal Δ Γ (in-hole Θ_p c) t_c) ...
-   (where n (Δ-ref-parameter-count Δ D))
-   (type-check Δ Γ e_m (method-type n D hole (in-hole Θ_p c) t_c e_P)) ...
-   ----------------- "DTR-Elim_D"
+   (where (t_m ...) ((reduce Δ (method-type n D hole (in-hole Θ_p c) t_c e_P)) ...))
+   (type-check Δ Γ e_m t_m) ...
+   ----------------- "Elim_D"
    (type-infer Δ Γ (elim D e_P (e_m ...) e_c) ((in-hole Θ_i e_P) e_c))])
 
 (define-judgment-form tt-typingL
@@ -559,7 +544,7 @@
   #:mode (type-check I I I I)
 
   [(type-infer Δ Γ e t_0)
-   (type-infer Δ Γ t U)
    (subtype Δ Γ t_0 t)
+   (type-infer Δ Γ t U)
    ----------------- "Conv"
    (type-check Δ Γ e t)])
