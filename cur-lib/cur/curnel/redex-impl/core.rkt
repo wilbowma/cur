@@ -214,18 +214,6 @@
    ,(map (lambda (c) (term (Δ-constructor-method-type Δ ,c e))) (term (c ...)))
    (where (c ...) (Δ-ref-constructors Δ D))])
 
-;; Return the type of the motive to eliminate D
-(define-metafunction tt-ctxtL
-  [(Δ-motive-type Δ D U)
-   (in-hole Ξ_P*D U)
-   (where Ξ (Δ-ref-index-Ξ Δ D))
-   ;; A fresh name to bind the discriminant
-   (where x ,(variable-not-in (term (Δ D Ξ)) 'x-D))
-   ;; The telescope (∀ a -> ... -> (D a ...) hole), i.e.,
-   ;; of the indices and the inductive type applied to the
-   ;; indices
-   (where Ξ_P*D (in-hole Ξ (Π (x : (Ξ-apply Ξ D)) hole)))])
-
 ;;; ------------------------------------------------------------------------
 ;;; Dynamic semantics
 ;;; The majority of this section is dedicated to evaluation of (elim x U), the eliminator for the
@@ -508,14 +496,25 @@
 
   [(type-infer-normal Δ Γ e_c (in-hole Θ_i D))
 
-   (type-infer-normal Δ Γ e_motive (name t_motive (in-hole Ξ U)))
-   (convert Δ Γ t_motive (Δ-motive-type Δ D U))
+   (type-infer-normal Δ Γ e_motive t_B)
+   (type-infer Δ Γ D t_D)
+   (check-motive D t_D t_B)
 
    (where (t_m ...) (Δ-method-types Δ D e_motive))
    (type-check Δ Γ e_m t_m) ...
    ----------------- "DTR-Elim_D"
    (type-infer Δ Γ (elim D e_motive (e_m ...) e_c)
                ((in-hole Θ_i e_motive) e_c))])
+
+(define-judgment-form tt-typingL
+  #:mode (check-motive I I I)
+
+  [------------------------------------- "Type"
+   (check-motive e U_1 (Π (x : e) U_2))]
+
+  [(check-motive (e x) (substitute t_1 x_0 x) t_1^*)
+   --------------------------------------------------------- "Prod"
+   (check-motive e (Π (x_0 : t_0) t_1) (Π (x : t_0) t_1^*))])
 
 (define-judgment-form tt-typingL
   #:mode (type-infer-normal I I I O)
