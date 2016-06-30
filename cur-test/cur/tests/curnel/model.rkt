@@ -320,10 +320,8 @@
 (check-holds (type-infer ,Δtruth ∅ (λ (x : truth) (Unv 1))
                          (in-hole Ξ (Π (x : (in-hole Θ truth)) U))))
 
-(check-equiv?
- (term (Δ-motive-type ,Δtruth truth (Unv 2)))
- (term (Π (x : truth) (Unv 2))))
-
+(check-holds
+ (check-motive truth (Unv 0) (Π (x : truth) (Unv 2))))
 
 (check-holds (type-check ,Δtruth ∅ (Unv 0) ,(car (term (Δ-method-types ,Δtruth truth (λ (x : truth) (Unv 1)))))))
 

@@ -9,6 +9,7 @@
   (all-defined-out))
 
 (set-cache-size! 10000)
+(check-redundancy #t)
 
 #| References:
  |  http://www3.di.uminho.pt/~mjf/pub/SFV-CIC-2up.pdf
@@ -29,11 +30,11 @@
   (D x c ::= variable-not-otherwise-mentioned)
   (Δ   ::= ∅ (Δ (D : t ((c : t) ...))))
   ;; TODO: Might make more sense for methods to come first
-  ;; (elim inductive-type motive (indices ...) (methods ...) discriminant)
+  ;; (elim inductive-type motive (methods ...) discriminant)
   (t e ::= U (λ (x : e) e) x (Π (x : e) e) (e e) (elim D e (e ...) e))
   #:binding-forms
   (λ (x : t) e #:refers-to x)
-  (Π (x : t_0) t_1 #:refers-to x))
+  (Π (x : t) e #:refers-to x))
 
 ;;; ------------------------------------------------------------------------
 ;;; Universe typing
@@ -259,20 +260,6 @@
   [(Δ-method-types Δ D e)
    ((Δ-constructor-method-type Δ c e) ...)
    (where (c ...) (Δ-ref-constructors Δ D))])
-
-;; Return the type of the motive to eliminate D
-(define-metafunction tt-ctxtL
-  Δ-motive-type : Δ_0 D_0 U -> t
-  #:pre (Δ-in-dom Δ_0 D_0)
-  [(Δ-motive-type Δ D U)
-   (in-hole Ξ_P*D U)
-   (where Ξ (Δ-ref-index-Ξ Δ D))
-   ;; A fresh name to bind the discriminant
-   (where x ,(variable-not-in (term (Δ D Ξ)) 'x-D))
-   ;; The telescope (∀ a -> ... -> (D a ...) hole), i.e.,
-   ;; of the indices and the inductive type applied to the
-   ;; indices
-   (where Ξ_P*D (in-hole Ξ (Π (x : (Ξ-apply Ξ D)) hole)))])
 
 ;;; ------------------------------------------------------------------------
 ;;; Dynamic semantics
@@ -539,13 +526,29 @@
 
   [(type-infer-normal Δ Γ e_c (in-hole Θ_i D))
 
-   (type-infer-normal Δ Γ e_motive (name t_motive (in-hole Ξ U)))
-   (subtype Δ Γ t_motive (Δ-motive-type Δ D U))
+   (type-infer-normal Δ Γ e_P t_B)
+   (type-infer Δ Γ D t_D)
+   ;; TODO: When parameter added, will be (in-hole Θ_p D) instead of D
+   ;; NB: CIC notation is : [D:t_D|t_B]
+   (check-motive D t_D t_B)
 
-   (where (t_m ...) (Δ-method-types Δ D e_motive))
+   (where (t_m ...) (Δ-method-types Δ D e_P))
    (type-check Δ Γ e_m t_m) ...
    ----------------- "Elim_D"
-   (type-infer Δ Γ (elim D e_motive (e_m ...) e_c) ((in-hole Θ_i e_motive) e_c))])
+   (type-infer Δ Γ (elim D e_P (e_m ...) e_c) ((in-hole Θ_i e_P) e_c))])
+
+;; Based on CIC spec "allowed elimination sorts"; except without the Set/Prop rules, and adjusted to
+;; handle recursion
+(define-judgment-form tt-typingL
+  #:mode (check-motive I I I)
+  #:contract (check-motive e t t)
+
+  [------------------------------------- "Type"
+   (check-motive e U_1 (Π (x : e) U_2))]
+
+  [(check-motive (e x) (substitute t_1 x_0 x) t_1^*)
+   --------------------------------------------------------- "Prod"
+   (check-motive e (Π (x_0 : t_0) t_1) (Π (x : t_0) t_1^*))])
 
 (define-judgment-form tt-typingL
   #:mode (type-infer-normal I I I O)
