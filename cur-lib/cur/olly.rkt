@@ -90,7 +90,8 @@
               (format "(forall ~a : ~a, ~a)" (cur->coq #'x) (cur->coq #'t)
                       (with-env (list (cons (attribute x) (attribute t)))
                         (cur->coq #'body)))]
-             [(data ~! n:id (~datum :) t (x*:id (~datum :) t*) ...)
+             [(data ~! n:id (~datum :) p:nat t (x*:id (~datum :) t*) ...)
+              ;; TODO: Emit parameters correctly
               (begin
                 (coq-lift-top-level
                  (format "Inductive ~a : ~a :=~a."
@@ -108,7 +109,7 @@
                                       (cur->coq t))
                               (dict-set local-env x t)))))
                           (lambda (x y) x))))
-                (declare-data! #'n #'t (map cons (attribute x*) (attribute t*)))
+                (declare-data! #'n #'p #'t (map cons (attribute x*) (attribute t*)))
                 "")]
              [(Type i) "Type"]
              [(real-elim var:id motive (m ...) d)
@@ -135,7 +136,8 @@
     [(_ (~optional (~seq #:file file))
         (~optional (~seq #:exists flag))
         body:expr)
-     (parameterize ([current-output-port
+     (let ([coq (cur->coq #'body)])
+       (parameterize ([current-output-port
                      (if (attribute file)
                          (open-output-file
                           (syntax->datum #'file)
@@ -145,8 +147,9 @@
                               (eval (syntax->datum #'flag))
                               'error))
                          (current-output-port))])
-       (displayln (cur->coq #'body))
-       #'(begin))]))
+       (displayln coq))
+       #'(begin)
+       )]))
 
 ;; TODO: Should these display or return a string?
 (begin-for-syntax
@@ -252,7 +255,9 @@
         (~optional (~seq #:output-coq coq-file:str))
         (~optional (~seq #:output-latex latex-file:str))
         (~var rule (inferrence-rule (attribute name) (attribute index))) ...)
-      (let ([output #`(data name : (-> index ... Type) rule.constr-decl ...)])
+     ;; TODO: support parameters
+     (let* ([output #`(data name : 0 (-> index ... Type) rule.constr-decl ...)]
+            [coq (cur->coq output)])
         (when (attribute latex-file)
           (with-output-to-file (syntax->datum #'latex-file)
             (thunk
@@ -262,7 +267,7 @@
             #:exists 'append))
         (when (attribute coq-file)
           (with-output-to-file (syntax->datum #'coq-file)
-            (thunk (displayln (cur->coq output)))
+            (thunk (displayln coq))
             #:exists 'append))
         output)]))
 
@@ -400,7 +405,8 @@
       (~var c (expression (attribute nt-type))) ...)
      ;; Generates the inductive data type for this non-terminal definition.
      #:attr def
-     #`(data nt-type : Type c.constr-decl ...)
+     ;; TODO: Support parameters
+     #`(data nt-type : 0 Type c.constr-decl ...)
      #:attr latex
      (format
       "\\mbox{\\textit{~a}} & ~a & \\bnfdef & ~a\\\\~n"
@@ -448,14 +454,15 @@
            (dict-set! (mv-map) (syntax-e x) #'Nat)))])
     (syntax-parse #'non-terminal-defs
       [(def:non-terminal-def ...)
-       (let ([output #`(begin def.def ...)])
+       (let* ([output #`(begin def.def ...)]
+             [coq (cur->coq output)])
          (when (attribute latex-file)
            (with-output-to-file (syntax-e #'latex-file)
              (thunk (typeset-bnf (attribute def.latex)))
              #:exists 'append))
          (when (attribute coq-file)
            (with-output-to-file (syntax-e #'coq-file)
-             (thunk (displayln (cur->coq output)))
+             (thunk (displayln coq))
              #:exists 'append))
          output)])))
 

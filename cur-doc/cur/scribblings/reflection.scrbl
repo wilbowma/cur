@@ -17,12 +17,13 @@ reduce before type checking, or type check before expansion.
 
 @(define curnel-eval (curnel-sandbox "(require cur/stdlib/bool cur/stdlib/nat)"))
 
-@defproc[(declare-data! [name syntax?] [type syntax?] [constructor-map (listof (cons/c syntax? syntax?))])
+@defproc[(declare-data! [name syntax?] [n natural-number?] [type syntax?] [constructor-map (listof (cons/c syntax? syntax?))])
          void?]{
 Extends the global inductive declarations with a new inductive type
-@racket[name] of type @racket[type], with constructors declared in
-@racket[constructor-map]. Constructors should in order, with the 0th
-constructor appearing at position 0 in the @racket[constructor-map].
+@racket[name] of type @racket[type] with @racket[n] parameters, with
+constructors declared in @racket[constructor-map]. Constructors should in
+order, with the 0th constructor appearing at position 0 in the
+@racket[constructor-map].
 }
 
 @defproc[(call-local-data-scope [thunk (-> any?)])

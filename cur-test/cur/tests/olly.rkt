@@ -25,7 +25,7 @@
 (begin-for-syntax
   (check-equal?
    (format "Inductive nat : Type :=~n| z : nat.~n")
-   (cur->coq #'(data nat : Type (z : nat))))
+   (cur->coq #'(data nat : 0 Type (z : nat))))
   (check-regexp-match
    "(forall .+ : Type, Type)"
    (cur->coq #'(-> Type Type)))

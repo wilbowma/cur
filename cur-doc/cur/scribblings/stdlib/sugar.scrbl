@@ -32,12 +32,12 @@ A multi-artiy function type that supports dependent and non-dependent type decla
 We provide lots of names for this form, because there are lots of synonyms in the literature.
 
 @examples[#:eval curnel-eval
-          (data And : (-> Type Type Type)
+          (data And : 2 (-> Type Type Type)
             (conj : (-> (A : Type) (B : Type) A B ((And A) B))))
           ((((conj Bool) Bool) true) false)]
 
 @examples[#:eval curnel-eval
-          (data And : (forall Type Type Type)
+          (data And : 2 (forall Type Type Type)
             (conj : (forall (A : Type) (B : Type) A B (And A B))))
           ((((conj Bool) Bool) true) false)]
 
@@ -57,7 +57,7 @@ Defines a multi-arity procedure that supports automatic currying.
 Defines multi-arity procedure application via automatic currying.
 
 @examples[#:eval curnel-eval
-          (data And : (-> Type Type Type)
+          (data And : 2 (-> Type Type Type)
 	    (conj : (-> (A : Type) (B : Type) A B ((And A) B))))
           (conj Bool Bool true false)]
 }

@@ -59,7 +59,7 @@ number of non-terminal definitions from which it generates inductive types.
 To better understand @racket[define-language] non-terminal clauses, let us
 first look at the code generated for the @racket[term] non-terminal.
 @racketblock[
-data stlc-term : Type
+data stlc-term : 0 Type
   Nat->stlc-term : {Nat -> stlc-term}
   stlc-val->stlc-term : {stlc-value ->
                              stlc-term}
@@ -196,7 +196,7 @@ define-relation
   ....
 
 ;; Generates:
-data has-type : (-> (List stlc-type)
+data has-type : 0 (-> (List stlc-type)
                      stlc-term
                      stlc-type
                      Type)

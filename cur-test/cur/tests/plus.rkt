@@ -4,7 +4,7 @@
  cur/stdlib/sugar
  rackunit)
 
-(data Nat : Type
+(data Nat : 0 Type
   (z : Nat)
   (s : (Π (x : Nat) Nat)))
 

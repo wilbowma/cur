@@ -8,7 +8,7 @@
   retex
   [render-mathpar-judgment _render-mathpar-judgment])
  typeset-rewriter
- (except-in cur/curnel/model/core apply)
+ cur/curnel/model/core
  redex/reduction-semantics
  [except-in
   redex/pict
@@ -110,27 +110,37 @@
         "")])]
    ['∅
     (rw-lambda
-     [`(∅ (,D : ,t (,b (... ...)))) =>
+     [`(∅ (,D : ,n ,t ,Γc)) =>
       `(""
         ,(just-before (text "∅" (upgreek-style) (default-font-size)) D)
         ","
         ,D
         ":"
+        "[" ,n "]"
         ,t
         " := "
-        ,@b
+        ,Γc
+        "")]
+     [`(∅ (,x : ,t)) =>
+      `(""
+        ,(just-before (text "∅" (upgreek-style) (default-font-size)) x)
+        ","
+        ,x
+        ":"
+        ,t
         "")])]
    ['Δ
     (rw-lambda
-     [`(Δ (,D : ,t (,b (... ...)))) =>
+     [`(Δ (,D : ,n ,t ,Γc)) =>
       `(""
         ,(just-before (text "Δ" (upgreek-style) (default-font-size)) D)
         ","
         ,D
         ":"
+        "[" ,n "]"
         ,t
         " := "
-        ,@b
+        ,Γc
         "")])]
    ['Unv
     (rw-lambda
@@ -201,10 +211,7 @@
       (define-values (i0)
         (values
          (list-ref lws 2)))
-      (list "" i0 " + 1" ""))]
-   ['apply
-    (lambda (lws)
-      `("" "(" ,@(drop lws 2) ")" ""))]))
+      (list "" i0 " + 1" ""))]))
 
 (define (curnel-format e)
   (with-curnel-rws (e)))

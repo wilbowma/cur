@@ -51,10 +51,10 @@ and @render-term[Ξ] to represent nested product contexts (telescopes).
 
 The language is parameterized by a sequence of inductive-type
 declarations @render-term[Δ].
-The declaration @render-term[(Δ (D : t ((c : t_c) ...)))] extends
+The declaration @render-term[(Δ (D : n t Γc))] extends
 @render-term[Δ] with the inductive type @render-term[D] of type
-@render-term[t] whose constructors are @render-term[(c ...)] with
-types @render-term[(t_c ...)].
+@render-term[t], with @render-term[n] parameters, whose constructors are
+declared by @render-term[Γc].
 Inductive types in Curnel do not support @emph{parameters}, indices to
 the inductive family that are invariant across the definition, and
 must satisfy the strict positivity condition.
@@ -63,7 +63,7 @@ As an example of writing in Curnel, we can encode the natural numbers and write
 the addition function as follows.
 First we define the natural numbers:
 @nested[#:style 'code-inset
-  @render-term[(∅ (Nat : (Unv 0) ((z : Nat) (s : (Π (x : Nat) Nat)))))]
+  @render-term[(∅ (Nat : 0 (Unv 0) ((∅ (z : Nat)) (s : (Π (x : Nat) Nat)))))]
 ]
 Next, we define addition.
 @nested[#:style 'code-inset
@@ -192,4 +192,6 @@ in normal form if required.
 The type-checking judgment @render-term[(type-check Δ Γ e t)]
 checks that term @render-term[e] has a type @render-term[t_0] that is
 convertible to the type @render-term[t].
-As the type of the eliminator is standard we omit the presentation.
+The typing for eliminators is based on CIC's typing of @code{case}, but
+extended to handle recursive arguments.
+We omit the presentation as it is standard.

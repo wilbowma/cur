@@ -105,18 +105,18 @@ Example:
 This example is equivalent to
 
 @racketblock[
-(data stlc-val : Type
+(data stlc-val : 0 Type
   (stlc-true : stlc-val)
   (stlc-false : stlc-val)
   (stlc-unit : stlc-val))
 
-(data stlc-type : Type
+(data stlc-type : 0 Type
   (stlc-boolty : stlc-type)
   (stlc-unitty : stlc-type)
   (stlc--> : (forall (x : stlc-type) (forall (y : stlc-type) stlc-type)))
   (stlc-* : (forall (x : stlc-type) (forall (y : stlc-type) stlc-type))))
 
-(data stlc-term : Type
+(data stlc-term : 0 Type
   (Var->-stlc-term : (forall (x : Nat) stlc-term))
   (stlc-val->-stlc-term : (forall (x : stlc-val) stlc-term))
   (stlc-term-lambda : (forall (y : stlc-type)
@@ -200,7 +200,7 @@ explain the syntax in detail, here is an example:
 This example is equivalent to:
 
 @racketblock[
-(data has-type : (forall (x : Gamma)
+(data has-type : 0 (forall (x : Gamma)
                    (forall (y : stlc-term)
                      (forall (z : stlc-type)
                        Type)))

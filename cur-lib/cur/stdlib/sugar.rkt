@@ -86,7 +86,9 @@
             #'body
             (attribute d)
             (attribute d.name)
-            (attribute d.type))]))
+            (attribute d.type))]
+    ;; Support for non-zero number of arguments is handy for meta-programming
+    [(_ body:expr) #'body]))
 
 ;; TODO: This makes for really bad error messages when an identifier is undefined.
 (define-syntax (#%app syn)
@@ -264,8 +266,10 @@
      a:curried-application
      #:attr inductive-name
      (attribute a.name)
+     #:attr params
+     (take (attribute a.args) (cur-data-parameters (attribute a.name)))
      #:attr indices
-     (attribute a.args)
+     (drop (attribute a.args) (cur-data-parameters (attribute a.name)))
      #:attr names
      (for/list ([e (attribute indices)])
        (format-id e "~a" (gensym 'anon-index)))
@@ -288,15 +292,15 @@
           (#,name : #,type)))
       (list
        (quasisyntax/loc #'a
-         (#,(gensym 'anon-discriminant) : (inductive-name #,@(attribute names))))))
+         (#,(gensym 'anon-discriminant) : (inductive-name #,@(attribute params) #,@(attribute names))))))
      #:attr abstract-indices
      (lambda (return)
        ;; NB: unhygenic
        ;; Normalize at compile-time, for efficiency at run-time
        (cur-normalize
         #`((lambda
-              ;; TODO: utteraly fragile; relines on the indices being referred to by name, not computed
-              ;; works only for simple type familes and simply matches on them
+              ;; TODO: utterly fragile; relies on the indices being referred to by name, not computed
+              ;; works only for simple type families and simple matches on them
              #,@(for/list ([name (attribute indices)]
                            [type (attribute types)])
                  #`(#,name : #,type))

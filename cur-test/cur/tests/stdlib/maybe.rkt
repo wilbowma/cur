@@ -9,12 +9,10 @@
 (check-equal?
  (some/i true)
  (some Bool true))
-;; Disabled until #22 fixed
-#;(check-equal?
+(check-equal?
    (match (some Bool true)
-     [(none (A : Type))
+     [none
       false]
-     [(some (A : Type) (x : A))
-      ;; TODO: Don't know how to use dependency yet
+     [(some (x : Bool))
       (if x true false)])
    true)

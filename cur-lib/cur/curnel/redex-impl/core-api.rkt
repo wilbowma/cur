@@ -2,10 +2,9 @@
 
 ;; Additional API utilities for interacting with the core, but aren't necessary for the model of the core language.
 (require
- (except-in
-  "core.rkt"
-  apply)
-  redex/reduction-semantics)
+ "../snoc-env.rkt"
+ "core.rkt"
+ redex/reduction-semantics)
 
 (provide
  (all-from-out "core.rkt")
@@ -30,20 +29,20 @@
    (subst-all (substitute t x_0 e_0) (x ...) (e ...))])
 
 (define-metafunction ttL
-  [(Δ-set (any_Δ ...) D t (any_c ...))
-   (any_Δ ...)
-   (judgment-holds (Δ-type-in (any_Δ ...) D t))
-   (where (any_c ...) (Δ-ref-constructor-map (any_Δ ...) D))]
-  [(Δ-set (any_Δ ...) D t (any_c ...))
-   (any_Δ ... ((D : t) any_c ...))])
+  [(Δ-set Δ D n t any)
+   Δ
+   (judgment-holds (Δ-type-in Δ D t))
+   (where any (Δ-ref-constructor-map Δ D))]
+  [(Δ-set Δ x n t Γc)
+   (Δ (x : n t Γc))]
+  [(Δ-set Δ x n t any)
+   (Δ (x : n t (snoc-env-build ∅ any)))])
 
 (define-metafunction ttL
-  [(Δ-union any_Δ ())
-   any_Δ]
-  [(Δ-union any_2 (((D : t) (c : t_c) ...)
-                   any_r ...))
-   (Δ-union (Δ-set any_2 D t ((c : t_c) ...)) (any_r ...))])
-;; TODO: Maybe do append · remove-duplicate
+  [(Δ-union Δ ∅) Δ]
+  [(Δ-union Δ_2 (Δ_1 (x : n t any)))
+   ;; TODO: Maybe this should be built into snoc-env-merge
+   (Δ-set (Δ-union Δ_2 Δ_1) x n t any)])
 
 (define-metafunction tt-redL
   [(step Δ e)

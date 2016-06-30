@@ -58,24 +58,26 @@
    (all-from-out syntax/parse)
    (all-from-out racket)
    (all-from-out racket/syntax)
-    declare-data!
-    call-local-data-scope
-    local-data-scope
-    with-env
-    call-with-env
-    cur->datum
-    cur-expand
-    cur-type-infer
-    cur-type-check?
-    cur-normalize
-    cur-step
-    cur-equal?))
+   declare-data!
+   call-local-data-scope
+   local-data-scope
+   with-env
+   call-with-env
+   cur->datum
+   cur-expand
+   cur-type-infer
+   cur-type-check?
+   cur-constructors-for
+   cur-data-parameters
+   cur-normalize
+   cur-step
+   cur-equal?))
 
 (begin-for-syntax
   ;; TODO: Gamma and Delta seem to get reset inside a module+
   (define gamma (make-parameter (term ∅)))
 
-  (define delta (make-parameter (term ())))
+  (define delta (make-parameter (term ∅)))
 
   ;; These should be provided by core, so details of envs can be hidden.
   (define (extend-Γ/term env x t)
@@ -88,22 +90,22 @@
 
   (define (extend-Γ/syn! env x t) (env (extend-Γ/syn env x t)))
 
-  (define (extend-Δ/term env x t c*)
-    (term (Δ-set ,(env) ,x ,t (,@c*))))
+  (define (extend-Δ/term env x n t c*)
+    (term (Δ-set ,(env) ,x ,n ,t (,@c*))))
 
-  (define (extend-Δ/term! env x t c*)
-    (env (extend-Δ/term env x t c*)))
+  (define (extend-Δ/term! env x n t c*)
+    (env (extend-Δ/term env x n t c*)))
 
-  (define (extend-Δ/syn env x t c*)
-    (extend-Δ/term env (syntax->datum x) (cur->datum t)
+  (define (extend-Δ/syn env x n t c*)
+    (extend-Δ/term env (syntax->datum x) (syntax->datum n) (cur->datum t)
                    (for/list ([c (syntax->list c*)])
                      (syntax-case c ()
                        [(c : ct)
                         (parameterize ([gamma (extend-Γ/syn gamma x t)])
                           (term (,(syntax->datum #'c) : ,(cur->datum #'ct))))]))))
 
-  (define (extend-Δ/syn! env x t c*)
-    (env (extend-Δ/syn env x t c*)))
+  (define (extend-Δ/syn! env x n t c*)
+    (env (extend-Δ/syn env x n t c*)))
 
   (define subst? (list/c (listof x?)  (listof e?)))
   (define bind-subst (make-parameter (list null null)))
@@ -130,10 +132,10 @@
   ;; Locally expand everything down to core forms.
   (define (core-expand syn)
     (disarm
-      (local-expand
-        syn
-        'expression
-        (append (syntax-e #'(term reduce subst-all dep-top #%app λ Π elim Unv #%datum void))))))
+     (local-expand
+      syn
+      'expression
+      (append (syntax-e #'(term reduce subst-all dep-top #%app λ Π elim Unv #%datum void))))))
 
   ;; Only type-check at the top-level, to prevent exponential
   ;; type-checking. Redex is expensive enough.
@@ -171,7 +173,7 @@
             [(#%app e1 e2)
              (term (,(cur->datum #'e1) ,(cur->datum #'e2)))]))))
     (unless (or (inner-expand?) (type-infer/term reified-term))
-      #;(printf "Delta: ~s~nGamma: ~s~n" (delta) (gamma))
+      (printf "Delta: ~s~nGamma: ~s~n~s~n" (delta) (gamma) reified-term)
       (raise-syntax-error 'cur "term is ill-typed:" reified-term syn))
     reified-term)
 
@@ -190,7 +192,7 @@
         [(list (quote λ) (list x (quote :) t) body)
          (quasisyntax/loc syn
            (dep-lambda (#,(datum->syntax syn x) : #,(datum->cur t)) #,(datum->cur body)))]
-       [(list (quote elim) D motive m d)
+        [(list (quote elim) D motive m d)
          (quasisyntax/loc syn
            (dep-elim #,(datum->cur D) #,(datum->cur motive) #,(map datum->cur m) #,(datum->cur d)))]
         [(list e1 e2)
@@ -219,8 +221,8 @@
               ([(x t) (in-dict env)])
       (extend-Γ/syn (thunk gamma) x t)))
 
-  (define (declare-data! name type const-map)
-    (extend-Δ/syn! delta name type #`(#,@(map (lambda (x) #`(#,(car x) : #,(cdr x))) const-map))))
+  (define (declare-data! name n type const-map)
+    (extend-Δ/syn! delta name n type #`(#,@(map (lambda (x) #`(#,(car x) : #,(cdr x))) const-map))))
 
   (define (call-local-data-scope t)
     (parameterize ([delta (delta)])
@@ -260,6 +262,16 @@
   (define (cur-type-check? syn type #:local-env [env '()])
     (with-env env
       (type-check/term? (eval-cur syn) (eval-cur type))))
+
+  ;; Given an identifiers representing an inductive type, return a sequence of the constructor names
+  ;; (as identifiers) for the inductive type.
+  (define (cur-constructors-for syn)
+    (map (curry datum->syntax syn) (term (Δ-ref-constructors ,(delta) ,(syntax->datum syn)))))
+
+  ;; Given an identifier representing an inductive type, return the number of parameters in that
+  ;; inductive, as a natural starting from the first argument to the inductive type.
+  (define (cur-data-parameters syn)
+    (term (Δ-ref-parameter-count ,(delta) ,(syntax->datum syn))))
 
   ;; Takes a Cur term syn and an arbitrary number of identifiers ls. The cur term is
   ;; expanded until expansion reaches a Curnel form, or one of the
@@ -453,9 +465,9 @@
 (define-syntax (dep-inductive syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_ i:id : ti (x1:id : t1) ...)
+    [(_ i:id : n:nat ti (x1:id : t1) ...)
      (begin
-       (extend-Δ/syn! delta #'i #'ti #'((x1 : t1) ...))
+       (extend-Δ/syn! delta #'i #'n #'ti #'((x1 : t1) ...))
        #'(void))]))
 
 (define-syntax (dep-elim syn)

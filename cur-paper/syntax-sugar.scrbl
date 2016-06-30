@@ -133,7 +133,7 @@ define-syntax ->
 define-syntax → make-rename-transformer(#'->)
 
 ;; Usage:
-data Nat : Type
+data Nat : 0 Type
   z : Nat
   s : {Nat → Nat}
 )
@@ -355,9 +355,10 @@ After parsing each clause, we compute the motive.
 The body of the motive is the type @racket[R] of the
 result of the @racket[match], and the argument to the motive has type
 @racket[D] of the discriminant.
-Note that in this implementation, we do not attempt to handle indexed inductive types.
-The full implementation can infer some indexed inductive types and supports
-optional annotation syntax for when inference fails.
+Note that in this implementation, we do not attempt to handle indexed or
+parameterized inductive types.
+The full implementation can infer parameters and some indexed inductive types
+and supports optional annotation syntax for when inference fails.
 
 Finally, we generate a method for each clause using @racket[clause->method].
 While generating methods, we infer which arguments are recursive arguments and

@@ -235,7 +235,7 @@ definitions and a @racket[data] form for defining inductive types:
 @racketblock[
 define id $ λ (A : (Type 0)) $ λ (a : A) a
 
-data Nat : (Type 0)
+data Nat : 0 (Type 0)
  z : Nat
  s : (Π (x : Nat) Nat)
 ]

@@ -1,6 +1,7 @@
 #lang racket/base
 
 (require
+ "../snoc-env.rkt"
   racket/function
   racket/list
   redex/reduction-semantics)
@@ -25,11 +26,11 @@
  | inference.
  |#
 (define-language ttL
-  (i j k  ::= natural)
+  (n i j k  ::= natural)
   (U ::= (Unv i))
   (D x c ::= variable-not-otherwise-mentioned)
-  (Δ   ::= ∅ (Δ (D : t ((c : t) ...))))
-  ;; TODO: Might make more sense for methods to come first
+  (Γc  ::= ∅ (Γc (c : t)))
+  (Δ   ::= ∅ (Δ (D : n t Γc)))
   ;; (elim inductive-type motive (methods ...) discriminant)
   (t e ::= U (λ (x : e) e) x (Π (x : e) e) (e e) (elim D e (e ...) e))
   #:binding-forms
@@ -67,29 +68,22 @@
 
 (define-metafunction ttL
   Δ-in-dom : Δ D -> #t or #f
-  [(Δ-in-dom ∅ D)
-   #f]
-  [(Δ-in-dom (Δ (D : t any)) D)
-   #t]
-  [(Δ-in-dom (Δ (D_!_0 : any_D any)) (name D D_!_0))
-   (Δ-in-dom Δ D)])
+  [(Δ-in-dom Δ D) (snoc-env-in-dom Δ D)])
 
 (define-metafunction ttL
   Δ-in-constructor-dom : Δ c -> #t or #f
-  [(Δ-in-constructor-dom ∅ c)
-   #f]
-  [(Δ-in-constructor-dom (Δ (D : any_D ((c_!_0 : any) ... (c_i : any_i) any_r ...))) (name c_i c_!_0))
-   #t]
-  [(Δ-in-constructor-dom (Δ (D : any_D ((c_!_0 : any) ...))) (name c c_!_0))
-   (Δ-in-constructor-dom Δ c)])
+  [(Δ-in-constructor-dom Δ c)
+   ,(for/fold ([r #f])
+              ([e (term (snoc-env->als Δ))])
+      #:break r
+      (term (snoc-env-in-dom ,(last e) c)))])
 
 (define-metafunction ttL
   Δ-ref-type : Δ_0 D_0 -> t
   #:pre (Δ-in-dom Δ_0 D_0)
-  [(Δ-ref-type (Δ (D : t any)) D)
-   t]
-  [(Δ-ref-type (Δ (D_!_0 : t any)) (name D D_!_0))
-   (Δ-ref-type Δ D)])
+  [(Δ-ref-type Δ D)
+   t
+   (where (D : _ t _ ...) (snoc-env-ref Δ D))])
 
 ;; Make D : t ∈ Δ a little easier to use, prettier to render
 (define-judgment-form ttL
@@ -105,19 +99,20 @@
 (define-metafunction ttL
   Δ-key-by-constructor : Δ_0 c_0 -> D
   #:pre (Δ-in-constructor-dom Δ_0 c_0)
-  [(Δ-key-by-constructor (Δ (D : any_D ((c_!_0 : any_c) ... (c : any_ci) any_r ...))) (name c c_!_0))
-   D]
-  [(Δ-key-by-constructor (Δ (D : any_D ((c_!_0 : any_c) ...))) (name c c_!_0))
+  [(Δ-key-by-constructor (Δ (D : _ ... Γc)) c)
+   D
+   (side-condition (term (snoc-env-in-dom Γc c)))]
+  [(Δ-key-by-constructor (Δ _) c)
    (Δ-key-by-constructor Δ c)])
 
 ;; Returns the constructor map for the inductively defined type D in the signature Δ
 (define-metafunction ttL
   Δ-ref-constructor-map : Δ_0 D_0 -> ((c : t) ...)
   #:pre (Δ-in-dom Δ_0 D_0)
-  [(Δ-ref-constructor-map (Δ (D : any_D any)) D)
-   any]
-  [(Δ-ref-constructor-map (Δ (D_!_0 : any_D any)) (name D D_!_0))
-   (Δ-ref-constructor-map Δ D)])
+  [(Δ-ref-constructor-map Δ D)
+   ;; NB: Need to return in reverse-dependency order, while ->als returns in dependency order
+   ,(reverse (term (snoc-env->als Γc)))
+   (where (D : _ _ Γc) (snoc-env-ref Δ D))])
 
 ;; Return the type of the constructor c_i
 (define-metafunction ttL
@@ -126,8 +121,8 @@
   [(Δ-ref-constructor-type Δ c)
    t
    (where D (Δ-key-by-constructor Δ c))
-   (where (any_1 ... (c : t) any_0 ...)
-          (Δ-ref-constructor-map Δ D))])
+   (where (D : _ _ Γc) (snoc-env-ref Δ D))
+   (where (_ _ t) (snoc-env-ref Γc c))])
 
 ;; Make c : t ∈ Δ a little easier to use, prettier to render
 (define-judgment-form ttL
@@ -140,11 +135,32 @@
    (Δ-constr-in Δ c t)])
 
 (define-metafunction ttL
+  Δ-ref-by-constructor : Δ_0 c_0 -> (D : n t Γc)
+  #:pre (Δ-in-constructor-dom Δ_0 c_0)
+  [(Δ-ref-by-constructor Δ c)
+   (snoc-env-ref Δ D)
+   (where D (Δ-key-by-constructor Δ c))])
+
+(define-metafunction ttL
   Δ-ref-constructors : Δ_0 D_0 -> (c ...)
   #:pre (Δ-in-dom Δ_0 D_0)
   [(Δ-ref-constructors Δ D)
    (c ...)
-   (where ((c : any) ...) (Δ-ref-constructor-map Δ D))])
+   (where ((c _ _) ...) (Δ-ref-constructor-map Δ D))])
+
+(define-metafunction ttL
+  Δ-ref-parameter-count : Δ_0 D_0 -> n
+  #:pre (Δ-in-dom Δ_0 D_0)
+  [(Δ-ref-parameter-count Δ D)
+   n
+   (where (D : n _ _) (snoc-env-ref Δ D))])
+
+(define-metafunction ttL
+  Δ-constructor-ref-parameter-count : Δ_0 c_0 -> n
+  #:pre (Δ-in-constructor-dom Δ_0 c_0)
+  [(Δ-constructor-ref-parameter-count Δ c)
+   n
+   (where (D : n _ _) (Δ-ref-by-constructor Δ c))])
 
 ;;; ------------------------------------------------------------------------
 ;;; Operations that involve contexts.
@@ -158,20 +174,52 @@
 ;; Applies the term t to the telescope Ξ.
 ;; TODO: Test
 (define-metafunction tt-ctxtL
-  Ξ-apply : Ξ t -> t
-  [(Ξ-apply hole t) t]
-  [(Ξ-apply (Π (x : t) Ξ) t_0) (Ξ-apply Ξ (t_0 x))])
+  Ξ-apply : Ξ any -> any
+  [(Ξ-apply hole any) any]
+  [(Ξ-apply (Π (x : t) Ξ) any) (Ξ-apply Ξ (any x))])
 
 (define-metafunction tt-ctxtL
-  list->Θ : (e ...) -> Θ
-  [(list->Θ ()) hole]
-  [(list->Θ (e e_r ...))
-   (in-hole (list->Θ (e_r ...)) (hole e))])
+  Θ-flatten : Θ -> (e ...)
+  [(Θ-flatten hole)
+   ()]
+  [(Θ-flatten (Θ e))
+   (e_0 ... e)
+   (where (e_0 ...) (Θ-flatten Θ))])
 
 (define-metafunction tt-ctxtL
-  apply : e e ... -> e
-  [(apply e_f e ...)
-   (in-hole (list->Θ (e ...)) e_f)])
+  Θ-length : Θ -> n
+  [(Θ-length Θ)
+   ,(length (term (Θ-flatten Θ)))])
+
+(define-metafunction tt-ctxtL
+  Θ-drop : Θ_0 n_0 -> Θ
+  #:pre ,(<= (term n_0) (term (Θ-length Θ_0)))
+  [(Θ-drop Θ 0)
+   Θ]
+  [(Θ-drop (in-hole Θ (hole e)) n)
+   (Θ-drop Θ ,(sub1 (term n)))])
+
+(define-metafunction tt-ctxtL
+  Θ-take : Θ_0 n_0 -> Θ
+  #:pre ,(<= (term n_0) (term (Θ-length Θ_0)))
+  [(Θ-take Θ 0)
+   hole]
+  [(Θ-take (in-hole Θ (hole e)) n)
+   (in-hole (Θ-take Θ ,(sub1 (term n))) (hole e))])
+
+(define-metafunction tt-ctxtL
+  take-parameters : Δ_0 D_0 Θ -> Θ
+  #:pre (Δ-in-dom Δ_0 D_0)
+  [(take-parameters Δ D Θ)
+   (Θ-take Θ n)
+   (where n (Δ-ref-parameter-count Δ D))])
+
+(define-metafunction tt-ctxtL
+  take-indices : Δ_0 D_0 Θ -> Θ
+  #:pre (Δ-in-dom Δ_0 D_0)
+  [(take-indices Δ D Θ)
+   (Θ-drop Θ n)
+   (where n (Δ-ref-parameter-count Δ D))])
 
 ;;; ------------------------------------------------------------------------
 ;;; Dynamic semantics
@@ -186,9 +234,11 @@
   #:pre (Δ-in-dom Δ_0 D_0)
   ;; Think this only works in call-by-value. A better solution would
   ;; be to check position of the argument w.r.t. the current
-  ;; method. requires more arguments, and more though.q
+  ;; method. requires more arguments, and more though.
   [(is-inductive-argument Δ D (in-hole Θ c_i))
-   ,(and (memq (term c_i) (term (Δ-ref-constructors Δ D))) #t)])
+   ,(and (memq (term c_i) (term (Δ-ref-constructors Δ D))) #t)]
+  [(is-inductive-argument _ _ _)
+   #f])
 
 ;; Generate recursive applications of the eliminator for each inductive argument in Θ.
 ;; TODO TTEESSSSSTTTTTTTT
@@ -199,7 +249,7 @@
   ;; NB: elimination will be wrong. This will introduced extremely sublte bugs,
   ;; NB: inconsistency, failure of type safety, and other bad things.
   ;; NB: It should be tested and audited thoroughly
-  [(Δ-inductive-elim any ... hole)
+  [(Δ-inductive-elim _ ... hole)
    hole]
   [(Δ-inductive-elim Δ D C-elim (Θ_c t_i))
    ((Δ-inductive-elim Δ D C-elim Θ_c)
@@ -235,7 +285,8 @@
            ;; Generate the inductive recursion
            (where/hidden Θ_ih (Δ-inductive-elim Δ D (elim D e_motive (e_m ...) hole) Θ_c))
            ;; Generate the method arguments, which are the constructor's arguments and the inductive arguments
-           (where/hidden Θ_mi (in-hole Θ_ih Θ_c))
+           ;; Drop the parameters
+           (where/hidden Θ_mi (in-hole Θ_ih (take-indices Δ D Θ_c)))
            "ι"))))
 
 (define-extended-language tt-cbvL tt-redL
@@ -249,7 +300,7 @@
       (Π (x : E) e) (Π (x : v) E)))
 
 (define-extended-language tt-cbnL tt-cbvL
-  (E  ::= hole (E e) (elim D e (e ...) (e ...) E)))
+  (E  ::= hole (E e) (elim D e (e ...) E)))
 
 ;; Trying to model "head reduction"; chpt 4 of Coq manual
 (define-extended-language tt-head-redL tt-cbvL
@@ -357,15 +408,35 @@
    ,(and (term (nonpositive x t_0)) (term (positive x t)))]
   [(positive x t) #t])
 
+(define-judgment-form tt-typingL
+  #:mode (valid-parameters I I I)
+  #:contract (valid-parameters n t t)
+
+  [-------------------------------
+   (valid-parameters 0 t_0 t_1)]
+
+  [(side-condition ,(not (zero? (term n))))
+   (valid-parameters ,(sub1 (term n)) t_0 t_1)
+   -------------------------------------------------------
+   (valid-parameters n (Π (x_0 : t) t_0) (Π (x_1 : t) t_1))])
+
 ;; Holds when the type t is a valid type for a constructor of D
 (define-judgment-form tt-typingL
-  #:mode (valid-constructor I I)
-  #:contract (valid-constructor D t)
+  #:mode (valid-constructors I I I)
+  #:contract (valid-constructors (Δ (D : n t Γc)) Γ Γc)
 
-  ;; NB TODO: Ignore the "positive" occurrence of D in the result; this is hacky way to do this
-  [(side-condition (positive D (in-hole Ξ (Unv 0))))
-   ---------------------------------------------------------
-   (valid-constructor D (name t_c (in-hole Ξ (in-hole Θ D))))])
+  [--------------------------- "VC-Empty"
+   (valid-constructors Δ Γ ∅)]
+
+  [;; constructor's type must return the inductive type D
+   (where (in-hole Ξ (in-hole Θ D)) t)
+   ;; First n arguments (parameters) of the constructor must match those of the inductive
+   (valid-parameters n t t_D)
+   (side-condition (positive D (in-hole Ξ (Unv 0))))
+   (type-infer Δ Γ t U)
+   (valid-constructors Δ_0 (Γ c : t) Γc)
+   -----------------------------------------------------------------"VC-C"
+   (valid-constructors (name Δ_0 (Δ (D : n t_D _))) Γ (Γc (c : t)))])
 
 ;; Holds when the signature Δ is valid
 (define-judgment-form tt-typingL
@@ -375,12 +446,11 @@
   [-------- "Valid-Empty"
    (valid ∅)]
 
-  [(valid Δ)
+  [(valid-constructors Δ_0 (∅ D : t_D) Γc)
    (type-infer Δ ∅ t_D U_D)
-   (valid-constructor D t_c) ...
-   (type-infer Δ (∅ D : t_D) t_c U_c) ...
+   (valid Δ)
    ----------------- "Valid-Inductive"
-   (valid (Δ (D : t_D ((c : t_c) ...))))])
+   (valid (name Δ_0 (Δ (D : n (name t_D (in-hole Ξ U)) Γc))))])
 
 ;; Holds when the signature Δ and typing context Γ are well-formed.
 (define-judgment-form tt-typingL
@@ -436,18 +506,19 @@
    ----------------- "App"
    (type-infer Δ Γ (e_0 e_1) (substitute t_1 x_0 e_1))]
 
-  [(type-infer-normal Δ Γ e_c (in-hole Θ_i D))
+  [(type-infer-normal Δ Γ e_c (in-hole Θ D))
+   (where n (Δ-ref-parameter-count Δ D))
+   (where Θ_p (Θ-take Θ n))
+   (where Θ_i (Θ-drop Θ n))
 
    (type-infer-normal Δ Γ e_P t_B)
-   (type-infer Δ Γ D t_D)
-   ;; TODO: When parameter added, will be (in-hole Θ_p D) instead of D
-   (check-motive D t_D t_B)
+   (type-infer Δ Γ (in-hole Θ_p D) t_D)
+   (check-motive (in-hole Θ_p D) t_D t_B)
 
-   (where ((c : t_c) ...) (Δ-ref-constructor-map Δ D))
-   ;; TODO: When parameters added, will need to change to
-   ;; (type-infer-normal Δ Γ (in-hole Θ_p c) t_c) ...
-   ;; (type-check Δ Γ e_m (method-type D hole (in-hole Θ_p c) t_c)) ...
-   (type-check Δ Γ e_m (method-type D hole c t_c e_P)) ...
+   (where (c ...) (Δ-ref-constructors Δ D))
+   (type-infer-normal Δ Γ (in-hole Θ_p c) t_c) ...
+   (where (t_m ...) ((reduce Δ (method-type n D hole (in-hole Θ_p c) t_c e_P)) ...))
+   (type-check Δ Γ e_m t_m) ...
    ----------------- "Elim_D"
    (type-infer Δ Γ (elim D e_P (e_m ...) e_c) ((in-hole Θ_i e_P) e_c))])
 
@@ -467,13 +538,14 @@
 ;; Based on CIC "type of branches", adjusted to handle recursion for folds
 ;; NB: CIC notation is: {c:C}ᴾ
 (define-metafunction tt-ctxtL
-  method-type : D Ξ e_c e_C t_p -> t
-  [(method-type D Ξ e (in-hole Θ D) t_P)
-   (in-hole Ξ ((in-hole Θ t_P) e))]
+  method-type : n D Ξ e_c e_C t_p -> t
+  [(method-type n D Ξ e (in-hole Θ D) t_P)
+   (in-hole Ξ ((in-hole (Θ-drop Θ n) t_P) e))]
   ;; recursive argument; collect an additional inductive hypothesis
-  [(method-type D Ξ e (name any (Π (x : (name t_0 (in-hole Φ (in-hole Θ D)))) t_1)) t_P)
+  [(method-type n D Ξ e (name any (Π (x : (name t_0 (in-hole Φ (in-hole Θ D)))) t_1)) t_P)
    (Π (x : t_0)
       (method-type
+       n
        D
        ;; This is a dense line:
        ;; Add a new inductive hypothesis, x_h, to the end of the IH telescope Ξ.
@@ -481,13 +553,13 @@
        ;; x_φ : t_φ -> ... -> (t_P i ... (x x_φ ...))
        ;; Where x_φ are arguments to the recursive instance of this inductive (implemented by Φ)
        ;; t_P is the motive
-       ;; i ... are the indices (implemented by Θ)
-       (in-hole Ξ (Π (x_h : (in-hole Φ ((in-hole Θ t_P) (Ξ-apply Φ x)))) hole))
+       ;; i ... are the indices (implemented by (Θ-drop Θ n), with n parameters)
+       (in-hole Ξ (Π (x_h : (in-hole Φ ((in-hole (Θ-drop Θ n) t_P) (Ξ-apply Φ x)))) hole))
        (e x) t_1 t_P))
    (where x_h ,(variable-not-in (term (D Ξ e t_P any)) 'x-ih))]
   ;; non-recursive argument; keep on going.
-  [(method-type D Ξ e (Π (x : t_0) t_1) t_P)
-   (Π (x : t_0) (method-type D Ξ (e x) t_1 t_P))])
+  [(method-type n D Ξ e (Π (x : t_0) t_1) t_P)
+   (Π (x : t_0) (method-type n D Ξ (e x) t_1 t_P))])
 
 
 (define-judgment-form tt-typingL
@@ -503,7 +575,7 @@
   #:contract (type-check Δ Γ e t)
 
   [(type-infer Δ Γ e t_0)
-   (type-infer Δ Γ t U)
    (subtype Δ Γ t_0 t)
+   (type-infer Δ Γ t U)
    ----------------- "Conv"
    (type-check Δ Γ e t)])
