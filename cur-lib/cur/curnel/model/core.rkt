@@ -9,8 +9,9 @@
 (provide
   (all-defined-out))
 
-(set-cache-size! 10000)
+;(set-cache-size! 10000)
 (check-redundancy #t)
+;(current-traced-metafunctions '(wf type-infer type-check valid subtype))
 
 #| References:
  |  http://www3.di.uminho.pt/~mjf/pub/SFV-CIC-2up.pdf
@@ -83,7 +84,7 @@
   #:pre (Δ-in-dom Δ_0 D_0)
   [(Δ-ref-type Δ D)
    t
-   (where (D : _ t _ ...) (snoc-env-ref Δ D))])
+   (where (D : _ t _) (snoc-env-ref Δ D))])
 
 ;; Make D : t ∈ Δ a little easier to use, prettier to render
 (define-judgment-form ttL
@@ -99,7 +100,7 @@
 (define-metafunction ttL
   Δ-key-by-constructor : Δ_0 c_0 -> D
   #:pre (Δ-in-constructor-dom Δ_0 c_0)
-  [(Δ-key-by-constructor (Δ (D : _ ... Γc)) c)
+  [(Δ-key-by-constructor (Δ (D : _ _ Γc)) c)
    D
    (side-condition (term (snoc-env-in-dom Γc c)))]
   [(Δ-key-by-constructor (Δ _) c)
@@ -155,13 +156,6 @@
    n
    (where (D : n _ _) (snoc-env-ref Δ D))])
 
-(define-metafunction ttL
-  Δ-constructor-ref-parameter-count : Δ_0 c_0 -> n
-  #:pre (Δ-in-constructor-dom Δ_0 c_0)
-  [(Δ-constructor-ref-parameter-count Δ c)
-   n
-   (where (D : n _ _) (Δ-ref-by-constructor Δ c))])
-
 ;;; ------------------------------------------------------------------------
 ;;; Operations that involve contexts.
 
@@ -177,12 +171,6 @@
   Ξ-apply : Ξ any -> any
   [(Ξ-apply hole any) any]
   [(Ξ-apply (Π (x : t) Ξ) any) (Ξ-apply Ξ (any x))])
-
-(define-metafunction tt-ctxtL
-  list->Θ : (e ...) -> Θ
-  [(list->Θ ()) hole]
-  [(list->Θ (e e_r ...))
-   (in-hole (list->Θ (e_r ...)) (hole e))])
 
 (define-metafunction tt-ctxtL
   Θ-flatten : Θ -> (e ...)
@@ -212,19 +200,6 @@
    hole]
   [(Θ-take (in-hole Θ (hole e)) n)
    (in-hole (Θ-take Θ ,(sub1 (term n))) (hole e))])
-
-(define-metafunction tt-ctxtL
-  apply : e e ... -> e
-  [(apply e_f e ...)
-   (in-hole (list->Θ (e ...)) e_f)])
-
-;; Instantiate a Π type
-(define-metafunction tt-ctxtL
-  instantiate : any Θ -> any
-  [(instantiate any hole)
-   any]
-  [(instantiate (Π (x : t) any) (in-hole Θ (hole e)))
-   (instantiate (substitute any x e) Θ)])
 
 (define-metafunction tt-ctxtL
   take-parameters : Δ_0 D_0 Θ -> Θ
@@ -340,10 +315,50 @@
 ;; CBV, plus under Π
 (define (tt-->cbv D) (context-closure (tt--> D) tt-cbvL E))
 
-(define-metafunction tt-redL
+#;(define-metafunction tt-redL
   reduce : Δ e -> e
   [(reduce Δ e)
    ,(car (apply-reduction-relation* (tt-->cbv (term Δ)) (term e) #:cache-all? #t))])
+(require
+ (for-syntax racket/base)
+ racket/match)
+
+(define deconstruct-apply-ctxt
+  (term-match/single tt-ctxtL [(in-hole Θ c) (list (term Θ) (term c))]))
+
+(define destructable?
+  (redex-match? tt-ctxtL (in-hole Θ c)))
+
+(define ((constructor? Δ) c)
+  (term (Δ-in-constructor-dom ,Δ ,c)))
+
+(define-match-expander apply-ctxt
+  (lambda (syn)
+    (syntax-case syn ()
+      [(_ Δ Θ c)
+       #'(? destructable? (app deconstruct-apply-ctxt (list Θ (? (constructor? Δ) c))))])))
+
+(define (cbv-eval Δ e)
+  (let eval ([e e])
+    (match e
+      [`(elim ,D ,(app eval motive) ,(list (app eval ms) ...) ,(app eval (apply-ctxt Δ Θ c)))
+       (term-let ([e_mi (cdr (assq (term ,c) (map cons (term (Δ-ref-constructors ,Δ ,D)) (term ,ms))))]
+                  [Θ_ih (term (Δ-inductive-elim ,Δ ,D (elim ,D ,motive ,ms hole) ,Θ))]
+                  [Θ_mi (term (in-hole Θ_ih (take-indices ,Δ ,D ,Θ)))])
+                 (eval (term (in-hole Θ_mi e_mi))))]
+      [`(,(app eval `(λ (,x : ,t) ,body)) ,(app eval v))
+       (eval (term (substitute ,body ,x ,v)))]
+      [`(,(app eval c) ,(app eval v))
+       (term (,c ,v))]
+      [`(Π (,x : ,(app eval t)) ,(app eval e))
+       (term (Π (,x : ,t) ,e))]
+      [`(λ (,x : ,t) ,(app eval e))
+       (term (λ (,x : ,t) ,e))]
+      [_ e])))
+
+(define-metafunction tt-redL
+  [(reduce Δ e)
+   ,(cbv-eval (term Δ) (term e))])
 
 ;;; ------------------------------------------------------------------------
 ;;; Type checking and synthesis
@@ -480,8 +495,8 @@
    ----------------- "WF-Empty"
    (wf Δ ∅)]
 
-  [(type-infer Δ Γ t t_0)
-   (wf Δ Γ)
+  [(wf Δ Γ)
+   (type-infer Δ Γ t t_0)
    ----------------- "WF-Var"
    (wf Δ (Γ x : t))])
 
@@ -493,7 +508,7 @@
   #:mode (type-infer I I I O)
   #:contract (type-infer Δ Γ e t)
 
-  [(wf Δ Γ) (unv-type U_0 U_1)
+  [(unv-type U_0 U_1) (wf Δ Γ)
    ----------------- "Unv"
    (type-infer Δ Γ U_0 U_1)]
 
@@ -536,13 +551,15 @@
    (where (c ...) (Δ-ref-constructors Δ D))
    (type-infer-normal Δ Γ (in-hole Θ_p c) t_c) ...
    (where n (Δ-ref-parameter-count Δ D))
-   (type-check Δ Γ e_m (method-type n D hole (in-hole Θ_p c) t_c e_P)) ...
+   (where (t_m ...) ((reduce Δ (method-type n D hole (in-hole Θ_p c) t_c e_P)) ...))
+   (side-condition ,(displayln (term (t_m ...))))
+   (type-check Δ Γ e_m t_m) ...
    ----------------- "Elim_D"
    (type-infer Δ Γ (elim D e_P (e_m ...) e_c) ((in-hole Θ_i e_P) e_c))])
 
 ;; Based on CIC spec "allowed elimination sorts"; except without the Set/Prop rules
 ;; NB: CIC notation is: [D:t_D|t_B]
-(define-judgment-form tt-typingL
+(define-judgment-form ttL
   #:mode (check-motive I I I)
   #:contract (check-motive e t t)
 
@@ -578,7 +595,6 @@
   ;; non-recursive argument; keep on going.
   [(method-type n D Ξ e (Π (x : t_0) t_1) t_P)
    (Π (x : t_0) (method-type n D Ξ (e x) t_1 t_P))])
-
 
 (define-judgment-form tt-typingL
   #:mode (type-infer-normal I I I O)
