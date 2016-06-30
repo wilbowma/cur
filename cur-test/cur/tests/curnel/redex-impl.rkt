@@ -89,13 +89,6 @@
 (define-syntax-rule (check-telescope-not-equiv? e1 e2)
   (check (compose not telescope-equiv) e1 e2))
 
-(check-telescope-equiv?
- (term (Δ-ref-index-Ξ ,Δ nat))
- (term hole))
-(check-telescope-equiv?
- (term (Δ-ref-index-Ξ ,Δ4 and))
- (term (Π (A : Type) (Π (B : Type) hole))))
-
 (check-true (x? (term false)))
 (check-true (Ξ? (term hole)))
 (check-true (t? (term (λ (y : false) (Π (x : Type) x)))))
@@ -320,8 +313,6 @@
 
 (check-holds
  (check-motive truth (Unv 0) (Π (x : truth) (Unv 2))))
-
-(check-holds (type-check ,Δtruth ∅ (Unv 0) ,(car (term (Δ-method-types ,Δtruth truth (λ (x : truth) (Unv 1)))))))
 
 (check-holds (type-check ,Δtruth ∅ (λ (x : truth) (Unv 1)) (Π (x : truth) (Unv 2))))
 
@@ -625,9 +616,7 @@
   (in-hole (Θ_p (in-hole Θ_i x_ci)) Θ_m)
   (term (((((hole
              (λ (A1 : (Unv 0)) (λ (x1 : A1) zero))) bool) true) true) ((refl bool) true)))))
-(check-telescope-equiv?
- (term (Δ-ref-index-Ξ ,Δ= ==))
- (term (Π (A : Type) (Π (a : A) (Π (b : A) hole)))))
+
 (check-equal?
  (term (reduce ,Δ= ,refl-elim))
  (term zero))

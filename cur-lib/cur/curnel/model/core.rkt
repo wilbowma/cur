@@ -33,8 +33,8 @@
   ;; (elim inductive-type motive (methods ...) discriminant)
   (t e ::= U (λ (x : e) e) x (Π (x : e) e) (e e) (elim D e (e ...) e))
   #:binding-forms
-  (λ (x : t) e #:refers-to x)
-  (Π (x : t) e #:refers-to x))
+  (λ (x : any) any_0 #:refers-to x)
+  (Π (x : any) any_0 #:refers-to x))
 
 ;;; ------------------------------------------------------------------------
 ;;; Universe typing
@@ -172,94 +172,6 @@
   apply : e e ... -> e
   [(apply e_f e ...)
    (in-hole (list->Θ (e ...)) e_f)])
-
-;;; ------------------------------------------------------------------------
-;;; Computing the types of eliminators
-
-;; Return the indices of D as a telescope Ξ
-(define-metafunction tt-ctxtL
-  Δ-ref-index-Ξ : Δ_0 D_0 -> Ξ
-  #:pre (Δ-in-dom Δ_0 D_0)
-  [(Δ-ref-index-Ξ any_Δ any_D)
-   Ξ
-   (where (in-hole Ξ U) (Δ-ref-type any_Δ any_D))])
-
-;; Returns the telescope of the arguments for the constructor c_i of the inductively defined type D
-(define-metafunction tt-ctxtL
-  Δ-constructor-telescope : Δ_0 c_0 -> Ξ
-  #:pre (Δ-in-constructor-dom Δ_0 c_0)
-  [(Δ-constructor-telescope Δ c)
-   Ξ
-   (where D (Δ-key-by-constructor Δ c))
-   (where (in-hole Ξ (in-hole Θ D))
-     (Δ-ref-constructor-type Δ c))])
-
-;; Returns the index arguments as an apply context of the constructor c_i of the inductively
-;; defined type D
-(define-metafunction tt-ctxtL
-  Δ-constructor-indices : Δ_0 c_0 -> Θ
-  #:pre (Δ-in-constructor-dom Δ_0 c_0)
-  [(Δ-constructor-indices Δ c)
-   Θ
-   (where D (Δ-key-by-constructor Δ c))
-   (where (in-hole Ξ (in-hole Θ D))
-     (Δ-ref-constructor-type Δ c))])
-
-;; Fold over the telescope Φ building a new telescope with only arguments of type D
-;; NB: Depends on clause order
-(define-metafunction tt-ctxtL
-  inductive-loop : D Φ -> Φ
-  [(inductive-loop D hole) hole]
-  [(inductive-loop D (Π (x : (in-hole Φ (in-hole Θ D))) Φ_1))
-   (Π (x : (in-hole Φ (in-hole Θ D))) (inductive-loop D Φ_1))]
-  [(inductive-loop D (Π (x : t) Φ_1))
-   (inductive-loop D Φ_1)])
-
-;; Returns the inductive arguments to the constructor c_i
-(define-metafunction tt-ctxtL
-  Δ-constructor-inductive-telescope : Δ_0 c_0 -> Ξ
-  #:pre (Δ-in-constructor-dom Δ_0 c_0)
-  [(Δ-constructor-inductive-telescope Δ c)
-   (inductive-loop D (Δ-constructor-telescope Δ c))
-   (where D (Δ-key-by-constructor Δ c))])
-
-;; Fold over the telescope Φ computing a new telescope with all
-;; inductive arguments of type D modified to an inductive hypotheses
-;; computed from the motive t.
-(define-metafunction tt-ctxtL
-  hypotheses-loop : D t Φ -> Φ
-  [(hypotheses-loop D t_P hole) hole]
-  [(hypotheses-loop D t_P (name any_0 (Π (x : (in-hole Φ (in-hole Θ D))) Φ_1)))
-   (Π (x_h : (in-hole Φ ((in-hole Θ t_P) (Ξ-apply Φ x))))
-      (hypotheses-loop D t_P Φ_1))
-   (where x_h ,(variable-not-in (term (D t_P any_0)) 'x-ih))])
-
-;; Returns the inductive hypotheses required for the elimination method of constructor c_i for
-;; inductive type D, when eliminating with motive t_P.
-(define-metafunction tt-ctxtL
-  Δ-constructor-inductive-hypotheses : Δ_0 c_0 t -> Ξ
-  #:pre (Δ-in-constructor-dom Δ_0 c_0)
-  [(Δ-constructor-inductive-hypotheses Δ c_i t_P)
-   (hypotheses-loop D t_P (Δ-constructor-inductive-telescope Δ c_i))
-   (where D (Δ-key-by-constructor Δ c_i))])
-
-;; Returns the type of the method corresponding to c_i
-(define-metafunction tt-ctxtL
-  Δ-constructor-method-type : Δ_0 c_0 t -> t
-  #:pre (Δ-in-constructor-dom Δ_0 c_0)
-  [(Δ-constructor-method-type Δ c_i t_P)
-   (in-hole Ξ_a (in-hole Ξ_h ((in-hole Θ_p t_P) (Ξ-apply Ξ_a c_i))))
-   (where Θ_p (Δ-constructor-indices Δ c_i))
-   (where Ξ_a (Δ-constructor-telescope Δ c_i))
-   (where Ξ_h (Δ-constructor-inductive-hypotheses Δ c_i t_P))])
-
-;; Return the types of the methods required to eliminate D with motive e
-(define-metafunction tt-ctxtL
-  Δ-method-types : Δ_0 D_0 e -> (t ...)
-  #:pre (Δ-in-dom Δ_0 D_0)
-  [(Δ-method-types Δ D e)
-   ((Δ-constructor-method-type Δ c e) ...)
-   (where (c ...) (Δ-ref-constructors Δ D))])
 
 ;;; ------------------------------------------------------------------------
 ;;; Dynamic semantics
@@ -529,16 +441,18 @@
    (type-infer-normal Δ Γ e_P t_B)
    (type-infer Δ Γ D t_D)
    ;; TODO: When parameter added, will be (in-hole Θ_p D) instead of D
-   ;; NB: CIC notation is : [D:t_D|t_B]
    (check-motive D t_D t_B)
 
-   (where (t_m ...) (Δ-method-types Δ D e_P))
-   (type-check Δ Γ e_m t_m) ...
+   (where ((c : t_c) ...) (Δ-ref-constructor-map Δ D))
+   ;; TODO: When parameters added, will need to change to
+   ;; (type-infer-normal Δ Γ (in-hole Θ_p c) t_c) ...
+   ;; (type-check Δ Γ e_m (method-type D hole (in-hole Θ_p c) t_c)) ...
+   (type-check Δ Γ e_m (method-type D hole c t_c e_P)) ...
    ----------------- "Elim_D"
    (type-infer Δ Γ (elim D e_P (e_m ...) e_c) ((in-hole Θ_i e_P) e_c))])
 
-;; Based on CIC spec "allowed elimination sorts"; except without the Set/Prop rules, and adjusted to
-;; handle recursion
+;; Based on CIC spec "allowed elimination sorts"; except without the Set/Prop rules
+;; NB: CIC notation is: [D:t_D|t_B]
 (define-judgment-form tt-typingL
   #:mode (check-motive I I I)
   #:contract (check-motive e t t)
@@ -549,6 +463,32 @@
   [(check-motive (e x) (substitute t_1 x_0 x) t_1^*)
    --------------------------------------------------------- "Prod"
    (check-motive e (Π (x_0 : t_0) t_1) (Π (x : t_0) t_1^*))])
+
+;; Based on CIC "type of branches", adjusted to handle recursion for folds
+;; NB: CIC notation is: {c:C}ᴾ
+(define-metafunction tt-ctxtL
+  method-type : D Ξ e_c e_C t_p -> t
+  [(method-type D Ξ e (in-hole Θ D) t_P)
+   (in-hole Ξ ((in-hole Θ t_P) e))]
+  ;; recursive argument; collect an additional inductive hypothesis
+  [(method-type D Ξ e (name any (Π (x : (name t_0 (in-hole Φ (in-hole Θ D)))) t_1)) t_P)
+   (Π (x : t_0)
+      (method-type
+       D
+       ;; This is a dense line:
+       ;; Add a new inductive hypothesis, x_h, to the end of the IH telescope Ξ.
+       ;; This new inductive hypothesis has the type:
+       ;; x_φ : t_φ -> ... -> (t_P i ... (x x_φ ...))
+       ;; Where x_φ are arguments to the recursive instance of this inductive (implemented by Φ)
+       ;; t_P is the motive
+       ;; i ... are the indices (implemented by Θ)
+       (in-hole Ξ (Π (x_h : (in-hole Φ ((in-hole Θ t_P) (Ξ-apply Φ x)))) hole))
+       (e x) t_1 t_P))
+   (where x_h ,(variable-not-in (term (D Ξ e t_P any)) 'x-ih))]
+  ;; non-recursive argument; keep on going.
+  [(method-type D Ξ e (Π (x : t_0) t_1) t_P)
+   (Π (x : t_0) (method-type D Ξ (e x) t_1 t_P))])
+
 
 (define-judgment-form tt-typingL
   #:mode (type-infer-normal I I I O)
