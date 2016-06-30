@@ -46,8 +46,10 @@ Try it out: open up DrRacket and put the following in the definition area:
 #lang cur
 (require
  cur/stdlib/bool
- cur/stdlib/nat)
+ cur/stdlib/nat
+ cur/stdlib/sugar)
 
+;; Write dependently-typed code
 (if true
     false
     true)
@@ -55,6 +57,24 @@ Try it out: open up DrRacket and put the following in the definition area:
 (: + (-> Nat Nat Nat))
 (define + plus)
 (+ z (s z))
+
+;; Write some macros and Racket meta-programs over dependently-typed code
+(begin-for-syntax
+  (define (nat->unary n)
+    (if (zero? n)
+        #`z
+        #`(s #,(nat->unary (sub1 n))))))
+
+(define-syntax (define-numbers syn)
+  (syntax-case syn ()
+    [(_)
+     #`(begin
+         #,@(for/list ([i (in-range 10)])
+              #`(define #,(format-id syn "Nat-~a" i) #,(nat->unary i))))]))
+(define-numbers)
+
+Nat-0
+Nat-5
 ```
 
 Try entering the following in the interaction area:
