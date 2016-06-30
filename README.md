@@ -71,7 +71,22 @@ Try it out: open up DrRacket and put the following in the definition area:
      #`(begin
          #,@(for/list ([i (in-range 10)])
               #`(define #,(format-id syn "Nat-~a" i) #,(nat->unary i))))]))
+
 (define-numbers)
+;; (define-numbers) generates the following definitions at macro-expansion time:
+#|
+ |  (define Nat-0 z)
+ |  (define Nat-1 (s z))
+ |  (define Nat-2 (s (s z)))
+ |  (define Nat-3 (s (s (s z))))
+ |  (define Nat-4 (s (s (s (s z)))))
+ |  (define Nat-5 (s (s (s (s (s z))))))
+ |  (define Nat-6 (s (s (s (s (s (s z)))))))
+ |  (define Nat-7 (s (s (s (s (s (s (s z))))))))
+ |  (define Nat-8 (s (s (s (s (s (s (s (s z)))))))))
+ |  (define Nat-9 (s (s (s (s (s (s (s (s (s z))))))))))
+ |  (define Nat-10 (s (s (s (s (s (s (s (s (s (s z)))))))))))
+ |#
 
 Nat-0
 Nat-5
