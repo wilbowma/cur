@@ -136,7 +136,8 @@
     [(_ (~optional (~seq #:file file))
         (~optional (~seq #:exists flag))
         body:expr)
-     (parameterize ([current-output-port
+     (let ([coq (cur->coq #'body)])
+       (parameterize ([current-output-port
                      (if (attribute file)
                          (open-output-file
                           (syntax->datum #'file)
@@ -146,8 +147,9 @@
                               (eval (syntax->datum #'flag))
                               'error))
                          (current-output-port))])
-       (displayln (cur->coq #'body))
-       #'(begin))]))
+       (displayln coq))
+       #'(begin)
+       )]))
 
 ;; TODO: Should these display or return a string?
 (begin-for-syntax
@@ -254,7 +256,8 @@
         (~optional (~seq #:output-latex latex-file:str))
         (~var rule (inferrence-rule (attribute name) (attribute index))) ...)
      ;; TODO: support parameters
-      (let ([output #`(data name : 0 (-> index ... Type) rule.constr-decl ...)])
+     (let* ([output #`(data name : 0 (-> index ... Type) rule.constr-decl ...)]
+            [coq (cur->coq output)])
         (when (attribute latex-file)
           (with-output-to-file (syntax->datum #'latex-file)
             (thunk
@@ -264,7 +267,7 @@
             #:exists 'append))
         (when (attribute coq-file)
           (with-output-to-file (syntax->datum #'coq-file)
-            (thunk (displayln (cur->coq output)))
+            (thunk (displayln coq))
             #:exists 'append))
         output)]))
 
@@ -451,14 +454,15 @@
            (dict-set! (mv-map) (syntax-e x) #'Nat)))])
     (syntax-parse #'non-terminal-defs
       [(def:non-terminal-def ...)
-       (let ([output #`(begin def.def ...)])
+       (let* ([output #`(begin def.def ...)]
+             [coq (cur->coq output)])
          (when (attribute latex-file)
            (with-output-to-file (syntax-e #'latex-file)
              (thunk (typeset-bnf (attribute def.latex)))
              #:exists 'append))
          (when (attribute coq-file)
            (with-output-to-file (syntax-e #'coq-file)
-             (thunk (displayln (cur->coq output)))
+             (thunk (displayln coq))
              #:exists 'append))
          output)])))
 
