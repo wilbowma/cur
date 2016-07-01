@@ -1,14 +1,15 @@
 #lang cur
 (require "sugar.rkt")
-(provide define-theorem
-         (for-syntax qed
-                     interactive))
+(provide
+ define-theorem
+ (for-syntax
+  qed interactive))
 
 (define-syntax (define-theorem stx)
   (syntax-parse stx
     [(_ x:id ty . ps)
-     (syntax/loc stx
-       (begin (define x (expand-proof-during-stxtime ty ps))
+     (quasisyntax/loc stx
+       (begin (define x #,(expand-proof-during-stxtime #'ty #'ps))
               (:: x ty)))]))
 
 (begin-for-syntax
@@ -86,6 +87,7 @@
         (eval-proof-step ptz pstep-stx)))
     (display-ptz last-ptz)
     (qed last-ptz))
+
   (define (eval-proof-step ptz pstep-stx)
     (printf "\nProof Step: ~a\n" (syntax->datum pstep-stx))
     ;; XXX Error handling on eval
@@ -128,7 +130,7 @@
                         (λ (in)
                           (syntax-case in ()
                             [(_ . cmd)
-                             (esc #'cmd)]))])
+                             (esc (datum->syntax anchor (syntax->datum #'cmd)))]))])
           (read-eval-print-loop))))
     (define next-ptz
       (eval-proof-step ptz cmd-stx))
@@ -163,48 +165,53 @@
                 (λ (body-pf)
                   #`(λ (#,the-name : P) #,body-pf))))]))
 
-  ;; XXX Exact doesn't work
-  #;(define-syntax-rule (exact a)
-      (exact* #'a))
-  (define (exact a)
+  #;(define-syntax-rule (exact* a)
+    (exact #'a))
+  (define anchor #'a)
+  (define (exact qa)
     (λ (ctxt pt)
+      ;; NB: In principle, maybe exact should take syntax. But then the eval used to run the proof
+      ;; script doesn't know that the syntax should be Cur syntax; by delaying datum->syntax here, we
+      ;; can make it Cur syntax.
+      (define a (datum->syntax anchor qa))
       (match-define (*PT:Hole _ A) pt)
       (define env
         (for/list ([(k v) (in-hash ctxt)])
           (cons (datum->syntax #f k) v)))
       (unless (cur-type-check? a A #:local-env env)
+        (printf "~a ~a ~a~n" a A env)
         (error 'exact "~v does not have type ~v" a A))
       (PT:Exact A a)))
 
   (define (by-assumption ctxt pt)
     (match-define (*PT:Hole _ A) pt)
     (for/or ([(k v) (in-hash ctxt)]
+             ;; TODO: Probably need to add local-env to cur-equal?
              #:when (cur-equal? v A))
       (PT:Exact A k)))
 
   (define (nop ptz) ptz))
 
-(define-syntax (expand-proof-during-stxtime stx)
-  (syntax-case stx ()
-    [(_ ty ps)
-     (let ()
-       (define init-pt
-         (new-proof-tree #:of (cur-expand #'ty)))
-       (define final-pt
-         (eval-proof-script
-          #:err-stx #'ps
-          init-pt
-          (syntax->list #'ps)))
-       (define pf
-         (proof-tree->complete-term
-          #:err-stx #'ps
-          final-pt))
-       (printf "Term is: ~v\n" (syntax->datum pf))
-       pf)]))
+(define-for-syntax (expand-proof-during-stxtime ty ps)
+  (let ()
+    (define init-pt
+      (new-proof-tree #:of (cur-expand ty)))
+    (define final-pt
+      (eval-proof-script
+       #:err-stx ps
+       init-pt
+       (syntax->list ps)))
+    (define pf
+      (proof-tree->complete-term
+       #:err-stx ps
+       final-pt))
+    (printf "Term is: ~v\n" (syntax->datum pf))
+    pf))
 
 (module+ test
-  (require "prop.rkt"
-           "sugar.rkt")
+  (require
+   "prop.rkt"
+   "sugar.rkt")
 
   (define-theorem and-proj1
     (forall (A : Type) (B : Type) (c : (And A B)) Type)
@@ -214,10 +221,9 @@
     (fill (intro))
     (intros '(c))
     nop
-    ;; XXX doesn't work
-    #;
-    (fill
-     (exact #'c))
-    ;; XXX doesn't work
-    #;interactive
+    ;interactive ; try (fill (exact 'A))
+    ;; This works too
+    #;(fill
+     (exact 'A))
+    ;; And this
     (fill by-assumption)))
