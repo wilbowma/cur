@@ -49,7 +49,7 @@ files:
 ...
 > raco test cur-test
 ...
-All tests pass!
+355 tests passed
 ```
 
 Note: running the entire test suite will take ~10 minutes. You can run individual tests instead:
