@@ -217,9 +217,11 @@
   ;; But for now, this will do.
   ;; NB: This with-env might be better
   (define (local-env->gamma env)
-    (for/fold ([gamma (gamma)])
+    (for/fold ([g (gamma)])
               ([(x t) (in-dict env)])
-      (extend-Γ/syn (thunk gamma) x t)))
+      ;; Because dependency
+      (parameterize ([gamma g])
+        (extend-Γ/syn gamma x t))))
 
   (define (declare-data! name n type const-map)
     (extend-Δ/syn! delta name n type #`(#,@(map (lambda (x) #`(#,(car x) : #,(cdr x))) const-map))))
