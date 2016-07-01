@@ -29,17 +29,36 @@ cur-test depends on a feature that did not exist in a previous version).
 Getting started
 ===============
 
-Easy mode:
+## Easy mode:
 Install cur via `raco pkg install cur`.
 
-Advanced mode:
+## Advanced mode:
 Cur is actually distributed as several packages.
 `cur-lib` provides the implementation and all standard
 libraries.
 `cur-doc` provides the documentation.
 `cur-test` provides a test suite and examples.
 
+You can install the individual packages from the Racket package server, or from local copies of the
+files:
 
+```sh
+> pushd cur-lib; raco pkg install; popd
+...
+> pushd cur-doc; raco pkg install; popd
+...
+> raco test cur-test
+...
+All tests pass!
+```
+
+Note: running the entire test suite will take ~10 minutes. You can run individual tests instead:
+
+```sh
+> raco test cur-test/cur/tests/stdlib/nat.rkt
+```
+
+## Example code
 Try it out: open up DrRacket and put the following in the definition area:
 
 ```racket
