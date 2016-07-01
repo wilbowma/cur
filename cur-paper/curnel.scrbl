@@ -49,15 +49,14 @@ but we use @render-term[D] for the name of declared inductive types and
 We use application contexts @render-term[Θ] to represent nested application,
 and @render-term[Ξ] to represent nested product contexts (telescopes).
 
-The language is parameterized by a sequence of inductive-type
+The language is parameterized by a sequence of strictly-positive inductive-type
 declarations @render-term[Δ].
 The declaration @render-term[(Δ (D : n t Γc))] extends
 @render-term[Δ] with the inductive type @render-term[D] of type
 @render-term[t], with @render-term[n] parameters, whose constructors are
 declared by @render-term[Γc].
-Inductive types in Curnel do not support @emph{parameters}, indices to
-the inductive family that are invariant across the definition, and
-must satisfy the strict positivity condition.
+While users must explicitly apply constructors to their parameter arguments in the core language,
+the elimination principle guarantees that they are invariant across the definition.
 
 As an example of writing in Curnel, we can encode the natural numbers and write
 the addition function as follows.

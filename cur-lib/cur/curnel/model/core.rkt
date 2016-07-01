@@ -506,18 +506,12 @@
    ----------------- "App"
    (type-infer Δ Γ (e_0 e_1) (substitute t_1 x_0 e_1))]
 
-  [(type-infer-normal Δ Γ e_c (in-hole Θ D))
-   (where n (Δ-ref-parameter-count Δ D))
-   (where Θ_p (Θ-take Θ n))
-   (where Θ_i (Θ-drop Θ n))
+  [(type-infer-normal Δ Γ e_c (in-hole Θ D)) (type-infer-normal Δ Γ e_P t_B) (where/hidden n (Δ-ref-parameter-count Δ D)) (where/hidden Θ_p (Θ-take Θ n)) (where/hidden Θ_i (Θ-drop Θ n)) (type-infer Δ Γ (in-hole Θ_p D) t_D)
 
-   (type-infer-normal Δ Γ e_P t_B)
-   (type-infer Δ Γ (in-hole Θ_p D) t_D)
    (check-motive (in-hole Θ_p D) t_D t_B)
 
-   (where (c ...) (Δ-ref-constructors Δ D))
-   (type-infer-normal Δ Γ (in-hole Θ_p c) t_c) ...
-   (where (t_m ...) ((reduce Δ (method-type n D hole (in-hole Θ_p c) t_c e_P)) ...))
+   (where (c ...) (Δ-ref-constructors Δ D)) (type-infer-normal Δ Γ (in-hole Θ_p c) t_c) ...
+   (where (t_m ...) ((method-type n D hole (in-hole Θ_p c) t_c e_P) ...))
    (type-check Δ Γ e_m t_m) ...
    ----------------- "Elim_D"
    (type-infer Δ Γ (elim D e_P (e_m ...) e_c) ((in-hole Θ_i e_P) e_c))])
