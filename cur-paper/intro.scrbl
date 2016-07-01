@@ -21,7 +21,7 @@ like BNF grammars, but may also define new notation to convey new ideas.
 When working with models on papers, we may conveniently create arbitrarily
 sophisticated notation.
 We may define simple syntactic sugar by saying "we write @code{let x = e1 in
-e2} to mean @code{(λ x : t. e1) e2}".
+e2} to mean @code{(λ x : t. e2) e1}".
 Or we may define sophisticated extensions that require the reader to perform
 computation: "we omit the type annotation and instead write @code{λ x. e} when
 the type of @code{x} can be inferred".
