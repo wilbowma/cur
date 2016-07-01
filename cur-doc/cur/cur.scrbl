@@ -46,3 +46,4 @@ Everything else in @racketmodname[cur] is provided by untrusted user-land code--
 @include-section{scribblings/reflection.scrbl}
 @include-section{scribblings/stdlib.scrbl}
 @include-section{scribblings/olly.scrbl}
+@include-section{scribblings/ntac.scrbl}

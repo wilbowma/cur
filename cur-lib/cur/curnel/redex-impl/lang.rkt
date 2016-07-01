@@ -23,6 +23,9 @@
   rename-out
   prefix-out
   prefix-in
+  except-in
+  except-out
+  struct-out
   submod
   #%module-begin
   (rename-out

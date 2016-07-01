@@ -13,4 +13,3 @@ Cur has a small standard library, primary for demonstration purposes.
 @include-section{stdlib/maybe.scrbl}
 @include-section{stdlib/list.scrbl}
 @include-section{stdlib/typeclass.scrbl}
-@include-section{stdlib/tactics.scrbl}

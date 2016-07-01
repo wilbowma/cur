@@ -144,7 +144,7 @@ extension to enable deeply embedding.
 Open up `examples/proofs-for-free.rkt` to see an implementation of the
 translation defined in [Proofs for Free](http://staff.city.ac.uk/~ross/papers/proofs.html) as a meta-program.
 
-Open up `cur-lib/cur/stdlib/tactics` to see one way to implement tactics in Cur.
+Open up `cur-lib/cur/ntac` to see one way to implement tactics in Cur.
 
 Open up anything in `cur-lib/cur/stdlib/` to see some standard dependent-type
 formalisms.
