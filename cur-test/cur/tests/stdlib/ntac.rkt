@@ -14,13 +14,13 @@
   (forall (A : Type) (B : Type) (c : (And A B)) Type)
   nop
   ;; XXX The use of fill is ugly. Perhaps could be infered
-  (intro A)
-  (intro)
-  (intros c)
+  (by-intro A)
+  by-intro
+  (by-intros c)
   nop
-  ;interactive ; try (fill (exact 'A))
+  ;interactive ; try (fill (by-exact A))
   ;; This works too
-  (exact A)
+  (by-exact A)
   ;; And this
   #;(fill by-assumption))
 
@@ -31,11 +31,11 @@
 (check-equal?
  ((ntac-prove
    (forall (A : Type) (a : A) A)
-   (intros A a)
-   (fill by-assumption))
+   (by-intros A a)
+   by-assumption)
   Nat z)
  z)
 
 (check-equal?
- ((ntac-prove (forall (A : Type) Type) obvious) Nat)
+ ((ntac-prove (forall (A : Type) Type) by-obvious) Nat)
  Nat)

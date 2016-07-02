@@ -27,6 +27,7 @@
 
    ;; proof tree zipper
    (struct-out nttz)
+   display-nttz
    make-nttz nttz-up nttz-down-context nttz-down-apply nttz-done?
    next 
 
@@ -80,7 +81,7 @@
          (loop k)])))
 
     ;; NTac proof Tree Zipper
-  (struct nttz (context focus parent-tree) #:constructor-name _nttz)
+  (struct nttz (context focus tree) #:constructor-name _nttz)
 
   (define (make-nttz pt)
     (_nttz (hasheq) pt
@@ -88,7 +89,7 @@
            (make-nttz (make-ntt-done last-pt)))))
 
   (define (nttz-up nttz)
-    ((nttz-parent-tree nttz) (nttz-focus nttz)))
+    ((nttz-tree nttz) (nttz-focus nttz)))
 
   (define (nttz-down-context tz)
     (match-define (nttz context foc up) tz)

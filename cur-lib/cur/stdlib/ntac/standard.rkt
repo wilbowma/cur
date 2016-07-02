@@ -11,6 +11,7 @@
 (define-for-syntax (nop ptz) ptz)
 
 (define-for-syntax (interactive ptz)
+  (display-nttz ptz)
   (define cmd-stx
     (let/ec esc
       (parameterize ([current-eval
@@ -32,7 +33,7 @@
    (struct-copy nttz ptz [focus new-foc])))
 
 ;; define-tactical
-(define-for-syntax ((_intro [name #f]) ctxt pt)
+(define-for-syntax ((intro [name #f]) ctxt pt)
   ;; TODO: ntt-match(-define) to hide this extra argument. Maybe also add ntt- to constructors in pattern?
   (match-define (ntt-hole _ goal) pt)
   (cur-match goal
@@ -52,27 +53,27 @@
 ;; A pattern emerges:
 ;; tacticals must take additional arguments as ntac-syntax
 ;; define-tactical should generate a phase 2 definition like the one below, and a functional version
-;; of the tactical (perhaps tactical-name-f)
+;; of the tactical (perhaps by-tactical-name)
 (begin-for-syntax
-  (define-syntax (intro syn)
+  (define-syntax (by-intro syn)
     (syntax-case syn ()
-      [(_)
-       #`(fill (_intro))]
+      [_
+       #`(fill (intro))]
       [(_ syn)
-       #`(fill (_intro (ntac-syntax #'syn)))])))
+       #`(fill (intro (ntac-syntax #'syn)))])))
 
-(define-for-syntax (_intros names)
+(define-for-syntax (intros names)
   (for/fold ([t nop])
             ([n (in-list names)])
-    (compose (fill (_intro n)) t)))
+    (compose (fill (intro n)) t)))
 (begin-for-syntax
-  (define-syntax (intros syn)
+  (define-syntax (by-intros syn)
     (syntax-case syn ()
       [(_ id ...)
-       #`(_intros (list (ntac-syntax #'id) ...))])))
+       #`(intros (list (ntac-syntax #'id) ...))])))
 
 ;; define-tactical
-(define-for-syntax ((_exact a) ctxt pt)
+(define-for-syntax ((exact a) ctxt pt)
   (match-define (ntt-hole _ goal) pt)
   (define env
     (for/list ([(k v) (in-hash ctxt)])
@@ -82,13 +83,13 @@
   (make-ntt-exact goal a))
 
 (begin-for-syntax
-  (define-syntax (exact syn)
+  (define-syntax (by-exact syn)
     (syntax-case syn ()
       [(_ syn)
-       #`(fill (_exact (ntac-syntax #'syn)))])))
+       #`(fill (exact (ntac-syntax #'syn)))])))
 
 ;;define-tactical 
-(define-for-syntax (by-assumption ctxt pt)
+(define-for-syntax (assumption ctxt pt)
   (match-define (ntt-hole _ goal) pt)
   (define env
     (for/list ([(k v) (in-hash ctxt)])
@@ -99,16 +100,22 @@
            #:when (cur-equal? v goal #:local-env env))
     (make-ntt-exact goal k)))
 
-(define-for-syntax (obvious-step ctxt pt)
+(begin-for-syntax
+  (define-syntax (by-assumption syn)
+    (syntax-case syn ()
+      [_
+       #`(fill assumption)])))
+
+(define-for-syntax (obvious ctxt pt)
  (match-define (ntt-hole _ goal) pt)
   (cur-match goal
     [(forall (a : P) body)
-     ((_intro) ctxt pt)]
+     ((intro) ctxt pt)]
     [a:id
-     (by-assumption ctxt pt)]))
+     (assumption ctxt pt)]))
 
-(define-for-syntax (obvious ptz)
-  (define nptz ((fill obvious-step) ptz))
+(define-for-syntax (by-obvious ptz)
+  (define nptz ((fill obvious) ptz))
   (if (nttz-done? nptz)
       nptz
-      (obvious nptz)))
+      (by-obvious nptz)))
