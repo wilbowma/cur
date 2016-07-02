@@ -6,7 +6,7 @@
 
 (provide
  define-theorem
- ntac-prove)
+ ntac)
 
 (begin-for-syntax
   (provide
@@ -35,7 +35,7 @@
    proof-tree->complete-term
    eval-proof-script
    eval-proof-step
-   ntac-prove-proc)
+   ntac-proc)
 
   ;; NTac proof Tree
   (struct ntt (contains-hole? goal) #:transparent)
@@ -106,7 +106,7 @@
   (define (nttz-done? tz)
     (ntt-done? (nttz-focus tz)))
 
-  (define (ntac-prove-proc ty ps)
+  (define (ntac-proc ty ps)
     (let ()
       (define init-pt
         (new-proof-tree (cur-expand ty)))
@@ -168,10 +168,10 @@
   (syntax-parse stx
     [(_ x:id ty ps ...)
      (quasisyntax/loc stx
-       (begin (define x (ntac-prove ty ps ...))
+       (begin (define x (ntac ty ps ...))
               (:: x ty)))]))
 
 ;; For inline ntac
-(define-syntax (ntac-prove stx)
+(define-syntax (ntac stx)
   (syntax-case stx ()
-    [(_ ty . pf) (ntac-prove-proc #'ty #'pf)]))
+    [(_ ty . pf) (ntac-proc #'ty #'pf)]))

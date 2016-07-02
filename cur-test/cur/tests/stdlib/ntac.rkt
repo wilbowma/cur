@@ -29,7 +29,7 @@
  Nat)
 
 (check-equal?
- ((ntac-prove
+ ((ntac
    (forall (A : Type) (a : A) A)
    (by-intros A a)
    by-assumption)
@@ -37,5 +37,5 @@
  z)
 
 (check-equal?
- ((ntac-prove (forall (A : Type) Type) by-obvious) Nat)
+ ((ntac (forall (A : Type) Type) by-obvious) Nat)
  Nat)

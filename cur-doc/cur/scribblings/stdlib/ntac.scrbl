@@ -46,12 +46,12 @@ These macros follow the naming convention @racket[by-_tactical].
 
 @subsection{Usage}
 
-@defform[(ntac-prove type tactic ...)]{
+@defform[(ntac type tactic ...)]{
 Run the ntac @racket[tactic ...] to produce a term inhabiting @racket[type].
 }
 
 @defform[(define-theorem name ty ps ...)]{
-Short hand for @racket[(define name (ntac-prove ty ps ...))]
+Short hand for @racket[(define name (ntac ty ps ...))]
 }
 
 @subsection{Base Tactics}
@@ -173,8 +173,8 @@ Evaluate the tactic script represented by @racket[psteps] on the proof tree
 @racket[pt] and producing an error otherwise, using @racket[err-stx] for error location.
 }
 
-@defproc[(ntac-prove-proc [goal syntax?] [ps (listof syntax?)]) syntax?]{
-A procedure version of @racket[ntac-prove].
+@defproc[(ntac-proc [goal syntax?] [ps (listof syntax?)]) syntax?]{
+A procedure version of @racket[ntac].
 Runs the proof script represented by @racket[ps] to produce a Cur term of type
 represented by @racket[goal].
 }
@@ -234,6 +234,6 @@ Try to solve all the holes by doing the obvious thing.
 In Cur, interactivity is just a user-defined tactic.
 
 @defthing[interactive tactic?]{
-Starts a REPL that prints the proof state, reads a tactic (as @racket[ntac-prove] would), evaluates the
+Starts a REPL that prints the proof state, reads a tactic (as @racket[ntac] would), evaluates the
 tactic, and repeats. Exits when the proof is finished.
 }
