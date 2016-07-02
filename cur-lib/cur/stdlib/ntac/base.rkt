@@ -49,7 +49,7 @@
   (define (make-ntt-exact goal term)
     (_ntt-exact #f goal term))
 
-  (struct ntt-context ntt (env-transformer parent) #:transparent #:constructor-name _ntt-context)
+  (struct ntt-context ntt (env-transformer subtree) #:transparent #:constructor-name _ntt-context)
   (define (make-ntt-context f k)
     (_ntt-context (ntt-contains-hole? k) (ntt-goal k) f k))
 
@@ -57,11 +57,11 @@
   (define (make-ntt-apply goal subterms tactic)
     (_ntt-apply (ormap ntt-contains-hole? subterms) goal subterms tactic))
 
-  (struct ntt-done ntt (parent) #:transparent #:constructor-name _ntt-done)
-  (define (make-ntt-done parent)
-    (when (ntt-contains-hole? parent)
-      (error 'ntt-done "Cannot construct done if hole present: ~v" parent))
-    (_ntt-done #f (ntt-goal parent) parent))
+  (struct ntt-done ntt (subtree) #:transparent #:constructor-name _ntt-done)
+  (define (make-ntt-done subtree)
+    (when (ntt-contains-hole? subtree)
+      (error 'ntt-done "Cannot construct done if hole present: ~v" subtree))
+    (_ntt-done #f (ntt-goal subtree) subtree))
 
   (define (new-proof-tree goal)
     (make-ntt-hole goal))
