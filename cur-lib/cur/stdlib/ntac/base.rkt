@@ -12,7 +12,8 @@
   (provide
    ntac-syntax
 
-   qed
+   qed next
+
    (struct-out ntt)
    (struct-out ntt-hole)
    make-ntt-hole
@@ -27,16 +28,14 @@
 
    ;; proof tree zipper
    (struct-out nttz)
-   display-nttz
    make-nttz nttz-up nttz-down-context nttz-down-apply nttz-done?
-   next 
 
    ;; In case someone wants to redefine define-theorem
    new-proof-tree
-   proof-tree->complete-term 
-   eval-proof-script 
+   proof-tree->complete-term
+   eval-proof-script
    eval-proof-step
-   fntac-prove)
+   ntac-prove-proc)
 
   ;; NTac proof Tree
   (struct ntt (contains-hole? goal) #:transparent)
@@ -81,7 +80,7 @@
          (loop k)])))
 
     ;; NTac proof Tree Zipper
-  (struct nttz (context focus tree) #:constructor-name _nttz)
+  (struct nttz (context focus prev) #:constructor-name _nttz)
 
   (define (make-nttz pt)
     (_nttz (hasheq) pt
@@ -89,7 +88,7 @@
            (make-nttz (make-ntt-done last-pt)))))
 
   (define (nttz-up nttz)
-    ((nttz-tree nttz) (nttz-focus nttz)))
+    ((nttz-prev nttz) (nttz-focus nttz)))
 
   (define (nttz-down-context tz)
     (match-define (nttz context foc up) tz)
@@ -107,7 +106,7 @@
   (define (nttz-done? tz)
     (ntt-done? (nttz-focus tz)))
 
-  (define (fntac-prove ty ps)
+  (define (ntac-prove-proc ty ps)
     (let ()
       (define init-pt
         (new-proof-tree (cur-expand ty)))
@@ -135,19 +134,6 @@
     (define pstep (eval pstep-stx))
     ;; XXX Error handling on what pstep is and what it returns
     (pstep nttz))
-
-  (define (display-nttz tz)
-    (match (nttz-focus tz)
-      [(ntt-hole _ goal)
-       (for ([(k v) (in-hash (nttz-context tz))])
-         (printf "~a : ~a\n" k (syntax->datum v)))
-       (printf "--------------------------------\n")
-       (printf "~a\n" (syntax->datum goal))]
-      [(ntt-done _ _ _)
-       (printf "Proof complete.\n")]
-      [_
-       ;; XXX
-       (printf "Not at hole.\n")]))
 
   (define (next tz)
     (match (nttz-focus tz)
@@ -188,6 +174,4 @@
 ;; For inline ntac
 (define-syntax (ntac-prove stx)
   (syntax-case stx ()
-    [(_ ty . pf) (fntac-prove #'ty #'pf)])) 
-
-
+    [(_ ty . pf) (ntac-prove-proc #'ty #'pf)]))

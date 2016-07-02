@@ -10,6 +10,20 @@
 ;; define-nttz-cmd ?
 (define-for-syntax (nop ptz) ptz)
 
+;; display tactic
+(define-for-syntax (display-nttz tz)
+    (match (nttz-focus tz)
+      [(ntt-hole _ goal)
+       (for ([(k v) (in-hash (nttz-context tz))])
+         (printf "~a : ~a\n" k (syntax->datum v)))
+       (printf "--------------------------------\n")
+       (printf "~a\n" (syntax->datum goal))]
+      [(ntt-done _ _ _)
+       (printf "Proof complete.\n")]
+      [_
+       ;; XXX
+       (printf "Not at hole.\n")]))
+
 (define-for-syntax (interactive ptz)
   (display-nttz ptz)
   (define cmd-stx

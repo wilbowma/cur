@@ -2,13 +2,13 @@
 
 @(require
   "../defs.rkt"
+  racket/contract
   scribble/eval)
 
 @title{ntac--The New Tactic System}
-@defmodule[cur/stdlib/ntac/base]
 
-@author[@author+email["William J. Bowman" "wjb@williamjbowman.com"]]
 @author["Jay McCarthy"]
+@author[@author+email["William J. Bowman" "wjb@williamjbowman.com"]]
 
 As Coq has shown, tactics have proven useful for doing complex proofs.
 In Cur, tactics are not built-in or provided by the language.
@@ -18,104 +18,64 @@ Cur originally shipped with a proof-of-concept tactic system, but the system did
 So Jay designed and prototyped a new one over a weekend in 200 lines of code.
 Now it's the default system.
 
-Ntac tactics are Racket functions defined to manipulate proof trees representing Cur terms with holes.
-Ntac supports using tactic scripts inline, in any context that a user might
-write a term, or at the top-level for defining and proving theorems.
-First we present how to use ntac for those who merely want to do tactic based proving.
-Then we discuss the design of the ntac system for those who want to develop tactics and solvers.
-@(define curnel-eval (curnel-sandbox "(require cur/stdlib/ntac/base cur/stdlib/ntac/standard cur/stdlib/bool cur/stdlib/nat)"))
-
-@section{Using ntac}
+@section{The ntac system}
 @defmodule[cur/stdlib/ntac/base]
 
-@defform[(ntac-prove type tactics ...)]{
-Run the ntac @racket[tactics ...] to produce a term inhabiting @racket[type].
+A @tech{tactic} is used at the top-level of a proof script.
+A @deftech{tactic} is a Racket function that satisfies the contact @racket[(-> nttz? nttz?)]
+Tactics easily compose, may navigate the proof tree, resolve multiple holes, and
+be called recursively.
+
+A @tech{tactical} is used to manipulate the focus of proof tree, such as to
+resolve a single hole.
+A @deftech{tactical} satisfies the contract @racket[(-> dict? ntt?)]
+We will conflate tacticals with functions that produce tacticals from addition
+arguments.
+I.e. we also call functions that satisfy @racket[(-> syntax? ... (-> dict? ntt?))] tacticals.
+Tacticals receive additional arguments as Cur syntax; for technical reasons
+these need to be processed by @racket[ntac-syntax] before being used in a
+tactical.
+Tacticals are usually used by the @racket[fill] tactic, which simply applies a
+tactical to the current focus of the proof tree zipper.
+We usually provide macros for the surface syntax of tacticals so that users
+need not deal with syntax objects directly, or explicitly use the @racket[fill]
+tactic.
+These macros follow the naming convention @racket[by-_tactical].
+
+@(define curnel-eval (curnel-sandbox "(require cur/stdlib/ntac/base cur/stdlib/ntac/standard cur/stdlib/bool cur/stdlib/nat)"))
+
+@subsection{Usage}
+
+@defform[(ntac-prove type tactic ...)]{
+Run the ntac @racket[tactic ...] to produce a term inhabiting @racket[type].
 }
 
 @defform[(define-theorem name ty ps ...)]{
 Short hand for @racket[(define name (ntac-prove ty ps ...))]
 }
 
-@subsection{Standard Tactics and Tacticals}
-In ntac, a @deftech{tactic} is a function on proof tree zippers, while a
-@deftech{tactical} is a function on proof trees.
-Both are Racket functions defined at phase 1.
+@subsection{Base Tactics}
+These tactics are used in the tactic system API, while other other tactics are defined outside the base system.
 
-Tactics are used at the top-level of a proof script.
-They may navigate the proof tree, resolves multiple holes, and be called
-recursively.
-
-Tacticals are used to manipulate a proof tree in a given context in a simple
-way, such as to resolve a single hole.
-Tacticals can be called by tactics, but cannot call tactics, solve multiple
-holes, or easily manipulate a proof tree recursively.
-Tacticals are usually used by the @racket[fill] tactic, which simply applies a
-tactical to the current focus of the proof tree zipper
-Since tacticals are functions, they receive references to Cur terms as syntax.
-We usually provide macros for the surface syntax of tacticals so that users
-need not deal with syntax objects directly, or explicitly use the @racket[fill]
-tactic.
-These macros follow the naming convention @racket[by-_tactical].
-
-@defmodule[cur/stdlib/ntac/standard]
-
-@todo{Create deftactic and deftactical?}
-@defthing[#:kind "tactic" nop tactic?]{
-The no-op tactic; does nothing.
+@defthing[qed tactic?]{
+Checks that the proof is complete, raising an error if not.
 }
 
-@defproc[#:kind "tactic" (fill [t tactical?]) tactic?]{
-Runs the tactical @racket[t] on the focus of the proof tree.
+@defthing[next tactic?]{
+Move the focus to the next hole.
 }
 
-@defproc[#:kind "tactical" (intro [name identifier? #f]) tactical?]{
-Matches when the current goal has the form @racket[(forall (id : type-expr)
-body-expr)], introducing the assumption @racket[name : type-expr] into the
-local environment, using @racket[id] if no @racket[name] is provided.
-}
+@subsection{Proof Trees}
 
-@defform*[((by-intro id)
-           by-intro)]{
-Short hand for @racket[(fill (intro #'id))] and @racket[(fill (intro))].
-}
+The ntac proof tree datatype @racket[ntt] represents a Cur term with holes.
+Specifically, the proof tree contains nodes for a hole, an exact term,
+a combination of subterms, and a context manipulation.
 
-@defthing[#:kind "tactical" assumption tactical?]{
-Solves the goal by looking for a matching assumption in the local environment.
-}
-
-@defform[#:id by-assumption by-assumption]{
-Short hand for @racket[(fill (assumption))]
-}
-
-@defthing[#:kind "tactical" obvious tactical?]{
-Attempts to solve a goal by doing the obvious thing.
-}
-
-@todo{Maybe just define the macro @racket[by] that expands to @racket[(fill (tactical rest ...))]}
-@defform[#:id by-obvious by-obvious]{
-Short hand for @racket[(fill (obvious))]
-}
-
-@subsection{Interactive Tactic}
-In Cur, interactivity is just a user-defined tactic.
-
-@defthing[#:kind "tactic" interactive tactic?]{
-Starts a REPL that prints the proof state, reads a tactic (as @racket[ntac-prove] would), evaluates the
-tactic, and repeats. Exits when the proof is finished.
-}
-
-@section{Proof Tree}
-@defmodule[cur/stdlib/ntac/base]
-
-ntac tactics manipulate proofs tree. The ntac proof tree datatype represents a
-proof tree with nodes for hole, exact term, applications of tactic, and context
-manipulation.
-
-@defstruct[ntt ([contains-hole? boolean?] [goal syntax?]) #:transparent]{
+@defstruct*[ntt ([contains-hole? boolean?] [goal syntax?]) #:transparent]{
 An ntac proof tree. Records the current @racket[goal], as syntax representing a Cur type, and whether or not there is a hole.
 }
 
-@defstruct[(ntt-hole ntt) ([contains-hole? boolean?] [goal syntax?]) #:transparent]{
+@defstruct*[(ntt-hole ntt) ([contains-hole? boolean?] [goal syntax?]) #:transparent]{
 A node in an ntac proof tree representing a hole to be filled.
 }
 
@@ -124,7 +84,7 @@ Create a new @racket[ntt-hole?] node whose hole is @racket[goal?].
 The resulting @racket[ntt?] does @racket[contains-hole?].
 }
 
-@defstruct[(ntt-exact ntt) ([contains-hole? boolean?] [goal syntax?] [term syntax?]) #:transparent]{
+@defstruct*[(ntt-exact ntt) ([contains-hole? boolean?] [goal syntax?] [term syntax?]) #:transparent]{
 A node in an ntac proof tree holding a Cur @racket[term], as @racket[syntax?], satisfying @racket[goal].
 }
 
@@ -134,7 +94,7 @@ term @racket[term].
 The resulting @racket[ntt?] does not @racket[contains-hole?].
 }
 
-@defstruct[(ntt-context ntt) ([contains-hole? boolean?] [goal syntax?] [env-transformer (-> dict? dict?)] [subtree ntt?]) #:transparent]{
+@defstruct*[(ntt-context ntt) ([contains-hole? boolean?] [goal syntax?] [env-transformer (-> dict? dict?)] [subtree ntt?]) #:transparent]{
 A node in an ntac proof tree that records information about the local environment, by manipulating the context of the @racket[subtree] using @racket[env-transformer].
 }
 
@@ -145,7 +105,7 @@ The resulting @racket[ntt?] inherits the @racket[goal] from @racket[subtree] and
 only @racket[contains-hole?] if @racket[subtree] does.
 }
 
-@defstruct[(ntt-apply ntt) ([contains-hole? boolean?] [goal syntax?] [subtrees (listof? ntt?)] [f (-> syntax? ... syntax?)]) #:transparent]{
+@defstruct*[(ntt-apply ntt) ([contains-hole? boolean?] [goal syntax?] [subtrees (listof? ntt?)] [f (-> syntax? ... syntax?)]) #:transparent]{
 A node in an ntac proof tree that proves @racket[goal] by using @racket[f] to combine the terms that result from @racket[subtrees] into a single Cur term.
 }
 
@@ -154,7 +114,7 @@ Create a new @racket[ntt-apply?] node that uses @racket[f] to build a proof tree
 The resulting @racket[ntt?] @racket[contains-hole?] if any @racket[subtrees] do.
 }
 
-@defstruct[(ntt-done ntt) ([contains-hole? boolean?] [goal syntax?] [subtree ntt?]) #:transparent]{
+@defstruct*[(ntt-done ntt) ([contains-hole? boolean?] [goal syntax?] [subtree ntt?]) #:transparent]{
 A node in an ntac proof tree that asserts that the @racket[subtree] is complete.
 }
 
@@ -163,14 +123,117 @@ Create a new @racket[ntt-done?] node with @racket[subtree].
 Results in an error if @racket[subtree] @racket[contains-hole?].
 }
 
+@subsection{Proof Tree Zipper}
+To navigate the proof tree, we define a proof tree zipper.
+
+@todo{Actually, these dicts need to be ordered-dicts or envs. Also, right now they're hashes}
+@todo{Should we hide the details of this struct?}
+@defstruct*[nttz ([context dict?] [focus ntt?] [prev (-> ntt? nttz?)])]{
+A zipper for navigating a proof tree.
+Contains the local environment for the focus of the proof tree,
+@racket[context], the subtree being focused on @racket[focus], and a function
+that navigates up the tree once the focused subtree is complete @racket[prev].
+}
+
+@defproc[(nttz-up [nttz nttz?]) nttz?]{
+Navigate up the proof tree.
+}
+
+@defproc[(nttz-down-context [nttz nttz?]) nttz?]{
+Navigate down when the proof tree when the focus is a context node.
+}
+
+@defproc[(nttz-down-apply [nttz nttz?]) nttz?]{
+Navigate down when the proof tree when the focus is an apply node.
+}
+
+@defproc[(nttz-done? [nttz nttz?]) boolean?]{
+Returns @racket[#t] when the focus is complete, and @racket[#f] otherwise.
+}
+
+@subsection{Tactic System API}
 @defproc[(new-proof-tree [goal syntax?]) ntt?]{
 Create a new proof tree with @racket[goal].
 }
 
-@section{Proof Tree Zipper}
+@defproc[(proof-tree->complete-term [pt ntt?] [err-stx syntax? #f]) syntax?]{
+Run a the proof tree @racket[pt] to produce a Cur term, as syntax. Raise an
+error if the proof tree @racket[contains-hole?], using @racket[err-stx] for
+error location.
+}
 
-To navigate the proof tree, we define a proof tree zipper.
-@todo{Document zipper}
+@defproc[(eval-proof-step [ptz nttz?] [pstep syntax?]) nttz?]{
+Evaluate the tactic represented by @racket[pstep] on @racket[ptz],
+performing error handling.
+}
 
+@defproc[(eval-proof-script [pt ntt?] [psteps (listof syntax?)] [err-stx syntax? #f]) ntt?]{
+Evaluate the tactic script represented by @racket[psteps] on the proof tree
+@racket[pt], checking that the resulting proof is valid for the goal of
+@racket[pt] and producing an error otherwise, using @racket[err-stx] for error location.
+}
 
-@todo{tactic system commands}
+@defproc[(ntac-prove-proc [goal syntax?] [ps (listof syntax?)]) syntax?]{
+A procedure version of @racket[ntac-prove].
+Runs the proof script represented by @racket[ps] to produce a Cur term of type
+represented by @racket[goal].
+}
+
+@defproc[(ntac-syntax [stx syntax?]) syntax?]{
+For technical reasons, top-level syntax objects representing Cur terms need to
+be processed before being used in a tactical.
+This function performs that processing.
+Usually, this function is used in a macro that provides surface syntax for a tactical.
+}
+
+@section{Standard Tactics and Tacticals}
+@defmodule[cur/stdlib/ntac/standard]
+
+@todo{Create deftactic and deftactical?}
+@defthing[nop tactic?]{
+The no-op tactic; does nothing.
+}
+
+@defthing[display-nttz tactic?]{
+Print the focus of the proof tree, and its local environment.
+}
+
+@defproc[(fill [t tactical?]) tactic?]{
+Runs the tactical @racket[t] on the focus of the proof tree.
+}
+
+@defproc[(intro [name identifier? #f]) tactical?]{
+Matches when the current goal has the form @racket[(forall (id : type-expr)
+body-expr)], introducing the assumption @racket[name : type-expr] into the
+local environment, using @racket[id] if no @racket[name] is provided.
+}
+
+@defform*[((by-intro id)
+           by-intro)]{
+Short hand for @racket[(fill (intro #'id))] and @racket[(fill (intro))].
+}
+
+@defthing[assumption tactical?]{
+Solves the goal by looking for a matching assumption in the local environment.
+}
+
+@todo{Maybe just define the macro @racket[by] that expands to @racket[(fill (tactical rest ...))]}
+@defform[#:id by-assumption by-assumption]{
+Short hand for @racket[(fill (assumption))]
+}
+
+@defthing[obvious tactical?]{
+Attempts to solve a goal by doing the obvious thing.
+}
+
+@defthing[by-obvious tactic?]{
+Try to solve all the holes by doing the obvious thing.
+}
+
+@subsection{Interactive Tactic}
+In Cur, interactivity is just a user-defined tactic.
+
+@defthing[interactive tactic?]{
+Starts a REPL that prints the proof state, reads a tactic (as @racket[ntac-prove] would), evaluates the
+tactic, and repeats. Exits when the proof is finished.
+}
