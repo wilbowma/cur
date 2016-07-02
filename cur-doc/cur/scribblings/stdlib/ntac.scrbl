@@ -8,7 +8,7 @@
 @defmodule[cur/stdlib/ntac/base]
 
 @author[@author+email["William J. Bowman" "wjb@williamjbowman.com"]]
-@author[@author["Jay McCarthy"]]
+@author["Jay McCarthy"]
 
 As Coq has shown, tactics have proven useful for doing complex proofs.
 In Cur, tactics are not built-in or provided by the language.
@@ -74,16 +74,16 @@ body-expr)], introducing the assumption @racket[name : type-expr] into the
 local environment, using @racket[id] if no @racket[name] is provided.
 }
 
-@defform*[(by-intro
-           (by-intro id))]{
-Short hand for @racket[(fill (intro))] and @racket[(fill (intro #'id))].
+@defform*[((by-intro id)
+           by-intro)]{
+Short hand for @racket[(fill (intro #'id))] and @racket[(fill (intro))].
 }
 
 @defthing[#:kind "tactical" assumption tactical?]{
 Solves the goal by looking for a matching assumption in the local environment.
 }
 
-@defform[by-assumption]{
+@defform[#:id by-assumption by-assumption]{
 Short hand for @racket[(fill (assumption))]
 }
 
@@ -92,7 +92,7 @@ Attempts to solve a goal by doing the obvious thing.
 }
 
 @todo{Maybe just define the macro @racket[by] that expands to @racket[(fill (tactical rest ...))]}
-@defform[by-obvious]{
+@defform[#:id by-obvious by-obvious]{
 Short hand for @racket[(fill (obvious))]
 }
 
