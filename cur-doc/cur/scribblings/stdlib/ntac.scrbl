@@ -3,6 +3,7 @@
 @(require
   "../defs.rkt"
   racket/contract
+  (for-label racket)
   scribble/eval)
 
 @title{ntac--The New Tactic System}
@@ -42,24 +43,41 @@ need not deal with syntax objects directly, or explicitly use the @racket[fill]
 tactic.
 These macros follow the naming convention @racket[by-_tactical].
 
-@(define curnel-eval (curnel-sandbox "(require cur/stdlib/ntac/base cur/stdlib/ntac/standard cur/stdlib/bool cur/stdlib/nat)"))
+@(define curnel-eval (curnel-sandbox "(require cur/stdlib/ntac/base cur/stdlib/ntac/standard cur/stdlib/sugar cur/stdlib/nat)"))
 
 @subsection{Usage}
 
 @defform[(ntac type tactic ...)]{
 Run the ntac @racket[tactic ...] to produce a term inhabiting @racket[type].
+
+@examples[#:eval curnel-eval
+((ntac (forall (x : Nat) Nat)
+  by-intro by-assumption)
+ z)
+
+(eval:alts
+ ((ntac (forall (x : Nat) Nat)
+  interactive)
+ z)
+ ((ntac (forall (x : Nat) Nat)
+  by-obvious)
+ z))
+]
 }
 
 @defform[(define-theorem name ty ps ...)]{
 Short hand for @racket[(define name (ntac ty ps ...))]
+@todo{define-theorem isn't working on the sandbox}
+@examples[#:eval curnel-eval
+(eval:alts
+(define-theorem nat-id (forall (x : Nat) Nat)
+  by-intro by-assumption)
+(void))
+]
 }
 
 @subsection{Base Tactics}
 These tactics are used in the tactic system API, while other other tactics are defined outside the base system.
-
-@defthing[qed tactic?]{
-Checks that the proof is complete, raising an error if not.
-}
 
 @defthing[next tactic?]{
 Move the focus to the next hole.
@@ -196,38 +214,91 @@ The no-op tactic; does nothing.
 
 @defthing[display-nttz tactic?]{
 Print the focus of the proof tree, and its local environment.
+
+@examples[#:eval curnel-eval
+((ntac (forall (x : Nat) Nat)
+  display-nttz by-intro display-nttz by-assumption)
+ z)
+]
 }
 
 @defproc[(fill [t tactical?]) tactic?]{
 Runs the tactical @racket[t] on the focus of the proof tree.
+
+@examples[#:eval curnel-eval
+((ntac (forall (x : Nat) Nat)
+  (fill (intro)) by-assumption)
+ z)
+]
 }
 
 @defproc[(intro [name identifier? #f]) tactical?]{
 Matches when the current goal has the form @racket[(forall (id : type-expr)
 body-expr)], introducing the assumption @racket[name : type-expr] into the
 local environment, using @racket[id] if no @racket[name] is provided.
+
+@examples[#:eval curnel-eval
+((ntac (forall (x : Nat) Nat)
+  (fill (intro)) by-assumption)
+ z)
+
+((ntac (forall (x : Nat) Nat)
+  (fill (intro (ntac-syntax #'x))) by-assumption)
+ z)
+]
 }
 
 @defform*[((by-intro id)
            by-intro)]{
 Short hand for @racket[(fill (intro #'id))] and @racket[(fill (intro))].
+
+@examples[#:eval curnel-eval
+((ntac (forall (x : Nat) Nat)
+  by-intro by-assumption)
+ z)
+]
 }
 
 @defthing[assumption tactical?]{
 Solves the goal by looking for a matching assumption in the local environment.
+
+@examples[#:eval curnel-eval
+((ntac (forall (x : Nat) Nat)
+  by-intro (fill assumption))
+ z)
+]
 }
 
 @todo{Maybe just define the macro @racket[by] that expands to @racket[(fill (tactical rest ...))]}
 @defform[#:id by-assumption by-assumption]{
 Short hand for @racket[(fill (assumption))]
+
+@examples[#:eval curnel-eval
+((ntac (forall (x : Nat) Nat)
+  by-intro by-assumption)
+ z)
+]
 }
 
 @defthing[obvious tactical?]{
 Attempts to solve a goal by doing the obvious thing.
+
+@examples[#:eval curnel-eval
+((ntac (forall (x : Nat) Nat)
+  (fill obvious) (fill obvious))
+ z)
+]
 }
 
+@todo{This breaks the naming convention; probably should have obvious-step and obvious}
 @defthing[by-obvious tactic?]{
 Try to solve all the holes by doing the obvious thing.
+
+@examples[#:eval curnel-eval
+((ntac (forall (x : Nat) Nat)
+  by-obvious)
+ z)
+]
 }
 
 @subsection{Interactive Tactic}
@@ -236,4 +307,14 @@ In Cur, interactivity is just a user-defined tactic.
 @defthing[interactive tactic?]{
 Starts a REPL that prints the proof state, reads a tactic (as @racket[ntac] would), evaluates the
 tactic, and repeats. Exits when the proof is finished.
+
+@examples[#:eval curnel-eval
+(eval:alts
+((ntac (forall (x : Nat) Nat)
+  interactive)
+ z)
+ ((ntac (forall (x : Nat) Nat)
+  by-obvious)
+ z))
+]
 }
