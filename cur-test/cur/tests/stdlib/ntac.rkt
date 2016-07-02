@@ -35,3 +35,7 @@
    (fill by-assumption))
   Nat z)
  z)
+
+(check-equal?
+ ((ntac-prove (forall (A : Type) Type) obvious) Nat)
+ Nat)

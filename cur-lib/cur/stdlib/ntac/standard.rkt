@@ -33,6 +33,7 @@
 
 ;; define-tactical
 (define-for-syntax ((_intro [name #f]) ctxt pt)
+  ;; TODO: ntt-match(-define) to hide this extra argument. Maybe also add ntt- to constructors in pattern?
   (match-define (ntt-hole _ goal) pt)
   (cur-match goal
    [(forall (x:id : P:expr) body:expr)
@@ -95,8 +96,19 @@
   ;; TODO: Actually, need to collect (k v) as we search for a matching assumption, otherwise we might
   ;; break dependency. Hopefully we have some invariants that prevent that from actually happening.
   (for/or ([(k v) (in-hash ctxt)]
-           ;; TODO: Probably need to add local-env to cur-equal?
            #:when (cur-equal? v goal #:local-env env))
     (make-ntt-exact goal k)))
 
+(define-for-syntax (obvious-step ctxt pt)
+ (match-define (ntt-hole _ goal) pt)
+  (cur-match goal
+    [(forall (a : P) body)
+     ((_intro) ctxt pt)]
+    [a:id
+     (by-assumption ctxt pt)]))
 
+(define-for-syntax (obvious ptz)
+  (define nptz ((fill obvious-step) ptz))
+  (if (nttz-done? nptz)
+      nptz
+      (obvious nptz)))
