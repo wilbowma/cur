@@ -179,14 +179,14 @@
 ;; Syntax
 (define-syntax (define-theorem stx)
   (syntax-parse stx
-    [(_ x:id ty . ps)
+    [(_ x:id ty ps ...)
      (quasisyntax/loc stx
-       (begin (define x (ntac-prove ty ps))
+       (begin (define x (ntac-prove ty ps ...))
               (:: x ty)))]))
 
 ;; For inline ntac
 (define-syntax (ntac-prove stx)
   (syntax-case stx ()
-    [(_ ty pf) (fntac-prove #'ty #'pf)])) 
+    [(_ ty . pf) (fntac-prove #'ty #'pf)])) 
 
 
