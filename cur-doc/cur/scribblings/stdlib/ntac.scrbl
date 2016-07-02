@@ -85,7 +85,7 @@ Move the focus to the next hole.
 
 @subsection{Proof Trees}
 
-The ntac proof tree datatype @racket[ntt] represents a Cur term with holes.
+The @emph{nt}ac proof @emph{t}ree datatype @racket[ntt] represents a Cur term with holes.
 Specifically, the proof tree contains nodes for a hole, an exact term,
 a combination of subterms, and a context manipulation.
 
@@ -142,12 +142,12 @@ Results in an error if @racket[subtree] @racket[contains-hole?].
 }
 
 @subsection{Proof Tree Zipper}
-To navigate the proof tree, we define a proof tree zipper.
+To navigate the proof tree, we define the @emph{nt}ac @emph{t}ree @emph{z}ipper.
 
 @todo{Actually, these dicts need to be ordered-dicts or envs. Also, right now they're hashes}
 @todo{Should we hide the details of this struct?}
 @defstruct*[nttz ([context dict?] [focus ntt?] [prev (-> ntt? nttz?)])]{
-A zipper for navigating a proof tree.
+An ntac tree zipper.
 Contains the local environment for the focus of the proof tree,
 @racket[context], the subtree being focused on @racket[focus], and a function
 that navigates up the tree once the focused subtree is complete @racket[prev].
