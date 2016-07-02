@@ -11,14 +11,13 @@
 (define-for-syntax (nop ptz) ptz)
 
 ;; display tactic
-(define-for-syntax (display-nttz tz)
+(define-for-syntax (display-focus tz)
   (match (nttz-focus tz)
     [(ntt-hole _ goal)
-     (newline)
      (for ([(k v) (in-hash (nttz-context tz))])
        (printf "~a : ~a\n" k (syntax->datum v)))
      (printf "--------------------------------\n")
-     (printf "~a\n" (syntax->datum goal))]
+     (printf "~a\n\n" (syntax->datum goal))]
     [(ntt-done _ _ _)
      (printf "Proof complete.\n")]
     [_
@@ -27,7 +26,7 @@
   tz)
 
 (define-for-syntax (interactive ptz)
-  (display-nttz ptz)
+  (display-focus ptz)
   (define cmd-stx
     (let/ec esc
       (parameterize ([current-eval

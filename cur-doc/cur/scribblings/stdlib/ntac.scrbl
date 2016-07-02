@@ -212,12 +212,12 @@ Usually, this function is used in a macro that provides surface syntax for a tac
 The no-op tactic; does nothing.
 }
 
-@defthing[display-nttz tactic?]{
+@defthing[display-focus tactic?]{
 Print the focus of the proof tree, and its local environment.
 
 @examples[#:eval curnel-eval
 ((ntac (forall (x : Nat) Nat)
-  display-nttz by-intro display-nttz by-assumption)
+  display-focus by-intro display-focus by-assumption)
  z)
 ]
 }
