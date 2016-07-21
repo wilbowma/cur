@@ -16,6 +16,18 @@ This library defines the datatype @racket[Nat] and several functions on them.
 The natural number datatype.
 }
 
+@defproc[(nat->unary [n syntax?]) syntax?]{
+A phase 1 function that converts a natural number in decimal notation, as a syntax object, into a unary notation of the same natural number, as a syntax object. 
+}
+
+@defform[(#%datum syn)]{
+A handler for natural number literals. Allows writing natural numbers in decimal notation.
+
+@examples[#:eval curnel-eval
+          0
+	  10]
+}
+
 @defproc[(add1 [n Nat]) Nat]{
 A more lispy name for @racket[s].
 
