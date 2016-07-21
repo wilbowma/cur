@@ -30,3 +30,7 @@
 (check-equal? (odd? (s z)) true)
 (check-equal? (odd? (s (s z))) false)
 (check-equal? (odd? (s (s (s z)))) true)
+
+(check-equal? 0 z)
+(check-equal? 1 (s z))
+(check-equal? 2 (s (s z)))
