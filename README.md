@@ -30,7 +30,8 @@ Getting started
 ===============
 
 ## Easy mode:
-Install cur via `raco pkg install cur`.
+Install cur via `raco pkg install cur`. See the docs: `raco docs cur`. Come ask questions in IRC,
+`#cur` on Freenode.
 
 ## Advanced mode:
 Cur is actually distributed as several packages.
@@ -132,8 +133,6 @@ define + plus
 
 {z + s(z)}
 ```
-
-See the docs: `raco docs cur`.
 
 Going further
 =============
