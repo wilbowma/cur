@@ -158,8 +158,7 @@ optional argument.
 This macro expands to an application of the @racket[fill] tactic to the @racket[intro] tactical.
 We define @racket[by-intro] as a macro so the user can enter a name for the
 assumption as a raw symbol, like @racket[(by-intro A)], rather than as a syntax
-object like @racket[(by-intro #'A)]; the macro uses @racket[#'] to quote the
-raw symbol automatically.
+object like @racket[(by-intro #'A)].
 
 Since tactics are arbitrary metalanguage functions, we can define tactics in
 terms of other tactics, define recursive tactics, and even call to external
