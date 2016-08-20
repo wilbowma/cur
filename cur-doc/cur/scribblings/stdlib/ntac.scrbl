@@ -207,6 +207,22 @@ Usually, this function is used in a macro that provides surface syntax for a tac
 @section{Standard Tactics and Tacticals}
 @defmodule[cur/stdlib/ntac/standard]
 
+@defstruct*[(exn:fail:ntac exn:fail) ()]{
+A phase 1 value; an exception representing an ntac failure.
+}
+
+@defstruct*[(exn:fail:ntac:goal exn:fail:ntac) ()]{
+A phase 1 value; an exception representing an failure for an ntac tactic or tactical to match against the current goal.
+}
+
+@defproc[(raise-ntac-goal-exception [msgf string?] [arg string?] ...) any]{
+A phase 1 procedure; raises @racket[exn:fail:ntac:goal], using the format string @racket[msgf] with arguments @racket[arg]s to format the error message.
+}
+
+@defform[(ntac-match goal [pattern branch] ...)]{
+A phase 0 form; like @racket[cur-match], but implicitly raises @racket[exn:fail:ntac:goal] if none of the @racket[pattern]s match.
+}
+
 @todo{Create deftactic and deftactical?}
 @defthing[nop tactic?]{
 The no-op tactic; does nothing.
@@ -218,6 +234,19 @@ Print the focus of the proof tree, and its local environment.
 @examples[#:eval curnel-eval
 ((ntac (forall (x : Nat) Nat)
   display-focus by-intro display-focus by-assumption)
+ z)
+]
+}
+
+@defproc[(try [t tactic?]) tactic?]{
+Runs the tactic @racket[t] on the proof tree, but ignore any @racket[exn:fail:ntac:goal]s and return the proof tree unchanged if such an exception is raised.
+
+@examples[#:eval curnel-eval
+((ntac (forall (x : Nat) Nat)
+  by-assumption)
+ z)
+((ntac (forall (x : Nat) Nat)
+  (try by-assumption))
  z)
 ]
 }
@@ -236,6 +265,7 @@ Runs the tactical @racket[t] on the focus of the proof tree.
 Matches when the current goal has the form @racket[(forall (id : type-expr)
 body-expr)], introducing the assumption @racket[name : type-expr] into the
 local environment, using @racket[id] if no @racket[name] is provided.
+Raises @racket[exn:fail:ntac:goal] if the goal does not have the this form.
 
 @examples[#:eval curnel-eval
 ((ntac (forall (x : Nat) Nat)
@@ -261,6 +291,7 @@ Short hand for @racket[(fill (intro #'id))] and @racket[(fill (intro))].
 
 @defthing[assumption tactical?]{
 Solves the goal by looking for a matching assumption in the local environment.
+Raises @racket[exn:fail:ntac:goal] if not assumption matches the goal.
 
 @examples[#:eval curnel-eval
 ((ntac (forall (x : Nat) Nat)
@@ -307,6 +338,7 @@ In Cur, interactivity is just a user-defined tactic.
 @defthing[interactive tactic?]{
 Starts a REPL that prints the proof state, reads a tactic (as @racket[ntac] would), evaluates the
 tactic, and repeats. Exits when the proof is finished.
+Handles @racket[exn:fail:ntac:goal] by printing the message and continuing the REPL.
 
 @examples[#:eval curnel-eval
 (eval:alts
