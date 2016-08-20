@@ -12,6 +12,7 @@
 ;; Not quite and-proj1; need elim for that.
 (define-theorem and-proj1
   (forall (A : Type) (B : Type) (c : (And A B)) Type)
+  (try by-assumption)
   nop
   ;; XXX The use of fill is ugly. Perhaps could be infered
   (by-intro A)
@@ -31,6 +32,7 @@
 (check-equal?
  ((ntac
    (forall (A : Type) (a : A) A)
+   (try by-assumption)
    (by-intros A a)
    by-assumption)
   Nat z)

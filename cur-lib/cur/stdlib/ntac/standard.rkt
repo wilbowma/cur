@@ -4,11 +4,29 @@
  "base.rkt")
 
 (begin-for-syntax
+  (require racket/exn)
   (provide
    (all-defined-out)))
 
 ;; define-nttz-cmd ?
 (define-for-syntax (nop ptz) ptz)
+
+;; exceptions for tactics
+(begin-for-syntax
+  ;; ntac exceptions
+  (struct exn:fail:ntac exn:fail ())
+
+  ;; ntac exception for when the goal is not as expected.
+  (struct exn:fail:ntac:goal exn:fail:ntac ())
+  (define (raise-ntac-goal-exception msgf . rest)
+    (raise (exn:fail:ntac:goal (apply format msgf rest) (current-continuation-marks))))
+
+  (define-syntax-rule (ntac-match goal [pattern branch] ...)
+    (cur-match goal
+      [pattern branch]
+      ...
+      [_ (raise-ntac-goal-exception
+          "Goal ~a did not match; you can use the `try` meta tactic to ignore this.")])))
 
 ;; display tactic
 (define-for-syntax (display-focus tz)
@@ -36,7 +54,11 @@
                            (esc (ntac-syntax #'cmd))]))])
         (read-eval-print-loop))))
   (define next-ptz
-    (eval-proof-step ptz cmd-stx))
+    (with-handlers ([exn:fail:ntac:goal?
+                     (lambda (e)
+                       (displayln (exn->string e))
+                       ptz)])
+      (eval-proof-step ptz cmd-stx)))
   (if (nttz-done? next-ptz)
       next-ptz
       (interactive next-ptz)))
@@ -47,11 +69,16 @@
   (next
    (struct-copy nttz ptz [focus new-foc])))
 
+;; meta tactic; not a tactic (which take tacticals); takes a tactic.
+(define-for-syntax ((try t) ptz)
+  (with-handlers ([exn:fail:ntac:goal? (lambda (e) ptz)])
+    (t ptz)))
+
 ;; define-tactical
 (define-for-syntax ((intro [name #f]) ctxt pt)
   ;; TODO: ntt-match(-define) to hide this extra argument. Maybe also add ntt- to constructors in pattern?
   (match-define (ntt-hole _ goal) pt)
-  (cur-match goal
+  (ntac-match goal
    [(forall (x:id : P:expr) body:expr)
     (let ()
       ;; NB: syntax is not hashable.
@@ -94,7 +121,7 @@
     (for/list ([(k v) (in-hash ctxt)])
       (cons (datum->syntax #f k) v)))
   (unless (cur-type-check? a goal #:local-env env)
-    (error 'exact "~v does not have type ~v" a goal))
+    (raise-ntac-goal-exception "~v does not have type ~v" a goal))
   (make-ntt-exact goal a))
 
 (begin-for-syntax
@@ -111,9 +138,13 @@
       (cons (datum->syntax #f k) v)))
   ;; TODO: Actually, need to collect (k v) as we search for a matching assumption, otherwise we might
   ;; break dependency. Hopefully we have some invariants that prevent that from actually happening.
-  (for/or ([(k v) (in-hash ctxt)]
+  (define ntt
+    (for/or ([(k v) (in-hash ctxt)]
            #:when (cur-equal? v goal #:local-env env))
-    (make-ntt-exact goal k)))
+      (make-ntt-exact goal k)))
+  (unless ntt
+    (raise-ntac-goal-exception "could not find matching assumption for goal ~a" goal))
+  ntt)
 
 (begin-for-syntax
   (define-syntax (by-assumption syn)
@@ -123,7 +154,7 @@
 
 (define-for-syntax (obvious ctxt pt)
  (match-define (ntt-hole _ goal) pt)
-  (cur-match goal
+  (ntac-match goal
     [(forall (a : P) body)
      ((intro) ctxt pt)]
     [a:id
