@@ -26,5 +26,5 @@ proof assistant based on language extension.
 We evaluate this design by building a proof assistant that features a small
 dependent type theory as the core language and implementing the following
 extensions in small user-defined libraries: pattern matching for inductive
-types, dependently typed staged meta-programming, a tactic-based proof
-language, and BNF and inference-rule notation for inductive type definitions.
+types, dependently typed staged meta-programming, a tactic language, and BNF
+and inference-rule notation for inductive type definitions.
