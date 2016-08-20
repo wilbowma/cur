@@ -6,29 +6,21 @@
   "bib.rkt")
 
 @title*{Tactics}
-In this section we describe a proof-of-concept tactic system implemented in
+In this section we describe a tactic system called @emph{ntac} implemented in
 Cur.
 We begin with an example of using the tactic system to prove a trivial theorem:
 @racketblock[
-define-theorem id0 $ forall (A : Type) (a : A) A
-proof
-  intro A
-  intro b
-  (by-assumption)
-
-define-theorem id1 $ forall (A : Type) (a : A) A
-proof (obvious)
+ntac $ forall (A : Type) (a : A) A
+  by-intro A
+  by-intro b
+  by-assumption
 ]
-This example shows the type of the polymorphic identity function written as a
-theorem.
-In this tactic system, theorems are Cur types and must be defined using the
-@racket[define-theorem] form.
-After a @racket[define-theorem] form, we can use the @racket[proof] form to
-begin a tactic script and use tactics to write a term that inhabits the type
-declared in the preceding @racket[define-theorem].
-The tactic script is a sequence of tactics applied to their arguments.
-
-In this example, we use the @racket[intro] tactic, which takes a single argument
+This example shows the type of the polymorphic identity function written using tactics.
+In the first example, we use @racket[ntac], a form that builds an expression
+given an initial goal followed by a tactic script.
+This is similar to @code{Goal} in Coq, which introduces an anonymous goal and
+can be followed by an Ltac script.
+In this example, we use the @racket[by-intro] tactic, which takes a single optional argument
 representing the name to bind as an assumption in the local proof environment,
 to introduce the assumptions under arbitrary names.
 Then, we conclude the proof with @racket[by-assumption], which takes no
@@ -36,46 +28,37 @@ arguments and searches the local environment for a term that matches the
 current goal.
 Since all goals are complete at this point, we end the proof.
 
-We could alternatively have used the @racket[obvious] tactic, which solves
-certain trivial theorems.
-
-We begin implementing this by implementing the @racket[define-theorem] and
-@racket[proof] forms:
-@RACKETBLOCK[
-define-syntax (define-theorem syn)
-  syntax-case syn ()
-    [(_ name prop)
-     (begin
-       (set-current-theorem #'prop)
-       (set-current-theorem-name #'name)
-       #'(void))]
-
-define-syntax (proof syn)
-  syntax-case syn ()
-    [(_ (f args ...) ...)
-     #`(define #,(get-current-theorem-name)
-         #,(run-tactic-script
-             (get-current-theorem)
-             syntax->list #'((f args ...) ...)))]
+@racketblock[
+define-theorem id $ forall (A : Type) (a : A) A
+  by-obvious
 ]
-The @racket[define-theorem] form uses the functions
-@racket[set-current-theorem] and @racket[set-current-theorem-name] to store the
-theorem and name that will be used by the @racket[proof] form.
-The @racket[proof] form generates a definition by using the stored theorem
-name and running the tactic script using the metalanguage function
-@racket[run-tactic-script], which takes the theorem as a goal and the take
-script to run.
+We can also use @racket[define-theorem] to define a new identifier using an ntac script.
+This form is simple syntax sugar for @racket[(define id (ntac (forall (A :
+Type) (a : A) A) (by-obvious)))].
+In this example, we use the @racket[by-obvious] tactic which solves certain
+trivial theorems.
 
-We choose this imperative design intentionally to demonstrate accumulating
-state across multiple forms, and to model Coq's theorem/proof syntax.
-A better design would allow using tactic scripts in arbitrary expression
-contexts rather than only after a @racket[define-theorem].
-We could easily support this by, for instance, changing the @racket[proof] form
-to take a goal as an argument.
-@todo{Perhaps implement this version for the next version of the paper}
 
-In this tactic system, we represent tactics as metalanguage functions that take
-a proof state and an arbitrary number of other arguments.
+We begin implementing this by implementing the @racket[ntac] form:
+@RACKETBLOCK[
+define-syntax (ntac stx)
+  syntax-case stx ()
+    [(_ goal . script) (ntac-interp #'goal #'script)]
+]
+The @racket[ntac] form runs, at compile-time, the Racket function @racket[ntac-interp] to generate a Cur term.
+The function @racket[ntac-interp] takes syntax representing a Cur type,
+@racket[#'goal] and syntax representing a sequence of tactics,
+@racket[#'script], and interprets the script.
+
+In ntac, Cur partial terms with multiple holes and contextual information such
+as assumptions are represented by the ntac proof tree @racket[ntt], while
+tactic navigate the tree to focus on a particular goal using the ntac proof
+tree zipper @racket[nttz].
+We represent tactics as metalanguage functions that take a zipper over a proof
+tree, an @racket[nttz], and returns a modified @racket[nttz].
+We will not discuss this design or these data structures in more details here;
+the design is described in the Cur documentation.
+
 Since tactics are just metalanguage functions, we can create syntactic sugar
 for defining tactics as follows:
 @racketblock[
