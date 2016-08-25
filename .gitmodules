@@ -1,0 +1,3 @@
+[submodule "hope-2016/mttex"]
+	path = hope-2016/mttex
+	url = https://github.com/wilbowma/mttex

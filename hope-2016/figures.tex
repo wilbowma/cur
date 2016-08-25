@@ -1,0 +1,33 @@
+\documentclass{article}
+
+\usepackage{mttex}
+
+\newlanguage{}{}{}{s}
+{x,e}
+{t/\tau}
+{fun,pair,unit}
+{fun,app,pair,prj,unit}
+
+\begin{document}
+\begin{figure}
+  \begin{mathpar}
+  \begin{array}{rcl}
+    \st & \bnfdef & \sunitty \bnfalt \spairty{\stone}{\sttwo} \bnfalt \sfunty{\stpr}{\st} \\
+    \se & \bnfdef & \sunite \bnfalt \spaire{\seone}{\setwo} \bnfalt \sprje{i}{\se} \bnfalt
+    \sfune{\sx}{\st}{\se} \bnfalt \sappe{\se}{\sepr}
+  \end{array}
+  \end{mathpar}
+\end{figure}
+
+
+\begin{figure}
+  \begin{mathpar}
+  \begin{array}{rcl}
+    \st & \bnfdef & \sunitty \bnfalt \spairty{\stone}{\sttwo} \bnfalt \sfunty{\stpr}{\st} \\
+    \se & \bnfdef & \sunite \bnfalt \spaire{\seone}{\setwo} \bnfalt \sprje{i}{\se} \\&\bnfalt&
+    \sfune{\sx}{\st}{\se} \bnfalt \sappe{\se}{\sepr}
+  \end{array}
+  \end{mathpar}
+\end{figure}
+
+\end{document}
