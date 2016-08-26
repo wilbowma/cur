@@ -3,10 +3,10 @@
 \usepackage{mttex}
 
 \newlanguage{}{}{}{s}
-{x,e}
+{x,e,v}
 {t/\tau}
 {fun,pair,unit}
-{fun,app,pair,prj,unit}
+{fun,app,pair,prj,unit,let}
 
 \begin{document}
 \begin{figure}
@@ -18,6 +18,12 @@
   \end{array}
   \end{mathpar}
 \end{figure}
+
+We write $\slete{\sx}{\seone}{\setwo}$ to be syntax sugar for $\sappe{(\sfune{\sx}{\st}{\setwo})}{\setwo}$.
+
+\begin{theorem}[Type Soundness]
+  If $\judg{\Gamma}{\se}{\st}$ then $\se \step^* \sv$
+\end{theorem}
 
 
 \begin{figure}
