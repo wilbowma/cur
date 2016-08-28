@@ -4,7 +4,8 @@
   "bib.rkt"
   scribble/manual
   scriblib/footnote
-  scriblib/figure)
+  scriblib/figure
+  scribble-latex-utils/utils)
 
 @title*{Olly - Ott-Like LibrarY}
 All the previous extensions are features of existing proof assistants.
@@ -165,7 +166,8 @@ begin-for-syntax
     for/fold ([d (make-immutable-hash)])
              ([(k v) (in-dict d)])
       dict-set d k #`(s #,v)
-)]
+)
+]
 
 @subsubsub*section*{Inference-rule Notation}
 @Figure-ref{fig:has-type} presents an example of using the inference rule
@@ -184,6 +186,7 @@ represented by an arbitrary number of hyphens, a name for the rule that will
 become the name of the constructor, and a conclusion that must be the relation
 applied to its arguments.
 @figure["fig:has-type" "STLC Type System Model (excerpt)"
+@exact{\vspace{4ex}}
 @#reader scribble/comment-reader
 (racketblock0
 define-relation
