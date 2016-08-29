@@ -38,7 +38,7 @@
 (default-style 'roman)
 (literal-style 'roman)
 (paren-style 'roman)
-(grammar-style 'roman)
+(grammar-style (cons 'italic 'roman))
 
 (mathpar-judgment-negspace "-1em")
 
@@ -49,6 +49,8 @@
  (cons 'large-script (non-terminal-subscript-style)))
 
 (define-rw-context with-curnel-rws
+  #:atomic
+  (['Γc "Γ"])
   #:compound
   (['type-infer type-infer-rw]
    ['type-infer-normal
@@ -102,7 +104,7 @@
     (rw-lambda
      [`(Γ ,x : ,t) =>
       `(""
-        ,(just-before (text "Γ" (upgreek-style) (default-font-size)) x)
+        ,(just-before (text "Γ" (grammar-style) (default-font-size)) x)
         ","
         ,x
         ":"
@@ -112,7 +114,7 @@
     (rw-lambda
      [`(∅ (,D : ,n ,t ,Γc)) =>
       `(""
-        ,(just-before (text "∅" (upgreek-style) (default-font-size)) D)
+        ,(just-before (text "∅" (literal-style) (default-font-size)) D)
         ","
         ,D
         ":"
@@ -123,7 +125,7 @@
         "")]
      [`(∅ (,x : ,t)) =>
       `(""
-        ,(just-before (text "∅" (upgreek-style) (default-font-size)) x)
+        ,(just-before (text "∅" (literal-style) (default-font-size)) x)
         ","
         ,x
         ":"
@@ -133,7 +135,7 @@
     (rw-lambda
      [`(Δ (,D : ,n ,t ,Γc)) =>
       `(""
-        ,(just-before (text "Δ" (upgreek-style) (default-font-size)) D)
+        ,(just-before (text "Δ" (grammar-style) (default-font-size)) D)
         ","
         ,D
         ":"
@@ -228,8 +230,8 @@
 (define-syntax-rule (render-judgment-form e)
   (with-curnel (render-judgment-form-cache e)))
 
-(define-syntax-rule (render-language e)
-  (with-curnel (render-language-cache e)))
+(define-syntax-rule (render-language e ...)
+  (with-curnel (render-language-cache e ...)))
 
 (define-syntax-rule (render-reduction-relation e ...)
   (with-curnel (render-reduction-relation-cache e ...)))

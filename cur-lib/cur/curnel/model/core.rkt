@@ -29,6 +29,7 @@
   (n i j k  ::= natural)
   (U ::= (Unv i))
   (D x c ::= variable-not-otherwise-mentioned)
+  (Γ  ::= ∅ (Γ x : t))
   (Γc  ::= ∅ (Γc (c : t)))
   (Δ   ::= ∅ (Δ (D : n t Γc)))
   ;; (elim inductive-type motive (methods ...) discriminant)
@@ -277,16 +278,16 @@
     (reduction-relation tt-redL
       (--> ((λ (x : t_0) t_1) t_2) (substitute t_1 x t_2)
            "β")
-      (--> (elim D e_motive (e_m ...) (in-hole Θ_c c)) (in-hole Θ_mi e_mi)
+      (--> (elim D e_motive (e_0 ...) (in-hole Θ_c c_i)) (in-hole Θ_i e_i)
            (side-condition/hidden (term (Δ-in-constructor-dom Δ c)))
            ;; Find the method for constructor c_i, relying on the order of the arguments.
-           (where/hidden (c_i ...) (Δ-ref-constructors Δ D))
-           (where/hidden (_ ... (c e_mi) _ ...) ((c_i e_m) ...))
+           (where/hidden (c_0 ...) (Δ-ref-constructors Δ D))
+           (where/hidden (_ ... (c_i e_i) _ ...) ((c_0 e_0) ...))
            ;; Generate the inductive recursion
-           (where/hidden Θ_ih (Δ-inductive-elim Δ D (elim D e_motive (e_m ...) hole) Θ_c))
+           (where/hidden Θ_ih (Δ-inductive-elim Δ D (elim D e_motive (e_0 ...) hole) Θ_c))
            ;; Generate the method arguments, which are the constructor's arguments and the inductive arguments
            ;; Drop the parameters
-           (where/hidden Θ_mi (in-hole Θ_ih (take-indices Δ D Θ_c)))
+           (where/hidden Θ_i (in-hole Θ_ih (take-indices Δ D Θ_c)))
            "ι"))))
 
 (define-extended-language tt-cbvL tt-redL

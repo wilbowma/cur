@@ -31,7 +31,7 @@ Curnel is implemented in Redex@~citea["matthews2004visual"
 the Redex implementation, so some notation may be slightly non-standard.
 @figure["fig:curnel-syntax" "Curnel Syntax and Dynamic Semantics"
 @verbatim|{
-|@(render-language ttL)
+|@(render-language ttL #:nts '(n i U Γ Δ t e))
 |@(render-language tt-ctxtL)
 |@(render-reduction-relation (tt--> (term ·)) #:style table-reduction-style)
 }|
