@@ -24,3 +24,30 @@ define-theorem Type-Soundness
 (lambda bla bla bla)
 ;; causes the computation, at compile-time:
 (transform-lambda #'(lambda bla bla bla))
+
+(define (+ (n1 : Nat) (n2 : Nat))
+  (elim Nat (lambda (x : Nat) Nat)
+    (n2
+     (lambda (x : Nat) (ih : Nat) (s ih)))
+    n1))
+
+(define (+ (n1 : Nat) (n2 : Nat))
+  (match n1
+    [z n2]
+    [(s x) (s (+ x n2))]))
+
+(define-syntax (match obj)
+  (syntax-case obj ()
+    [(_ e clause* ...)
+     (let* ([clauses (parse-clauses #'(clause* ...))]
+            [R (infer-result clauses)]
+            [D (cur-type-infer #'e)]
+            [motive #`(lambda (x : #,D) #,R)])
+       #`(elim #,D #,motive
+               #,(map (clause->method D motive) clauses)
+               e))]))
+
+(define (+ (n1 : Nat) (n2 : Nat))
+  (match n1
+    [z n2]
+    [(s x) (s (+ x n2))]))
