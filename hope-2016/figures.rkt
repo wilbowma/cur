@@ -105,3 +105,11 @@ define-theorem Type-Soundness
        (λ (old-env)
          (hash-set old-env the-name #'P))
        (make-ntt-hole #'body))))]))
+
+define-language stlc
+  #:vars (x)
+  #:output-coq "stlc.v"
+  #:output-latex "stlc.tex"
+  type (A B) ::= unitty (* A A) (-> A B)
+  term (e)   ::= x unit (cons e e) (fst e) (snd e)
+                 (lambda (#:bind x : A) e) (app e e)
