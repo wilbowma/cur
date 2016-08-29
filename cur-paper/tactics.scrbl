@@ -112,8 +112,9 @@ We define a tactic @racket[fill] to take a tactical and apply it at the focus of
 With a notion of tacticals, we can easily define the tactical @racket[intro] as follows:
 @RACKETBLOCK[
 define-tactical ((intro [name #f]) env pt)
-  ntac-match $ ntt-goal pt
-   [(forall (x:id : P:expr) body:expr)
+  define $ ntt-goal pt
+  ntac-match goal
+   [(forall (x : P) body)
     define the-name (syntax->datum (or name #'x))
     make-ntt-apply
      goal
