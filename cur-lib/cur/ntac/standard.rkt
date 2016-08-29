@@ -26,7 +26,8 @@
       [pattern branch]
       ...
       [_ (raise-ntac-goal-exception
-          "Goal ~a did not match; you can use the `try` meta tactic to ignore this.")])))
+          "Goal ~a did not match; you can use the `try` meta tactic to ignore this."
+          goal)])))
 
 ;; display tactic
 (define-for-syntax (display-focus tz)
