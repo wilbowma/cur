@@ -258,8 +258,7 @@ define-syntax (match syn)
      let* ([clauses (map clause-parse (syntax->list #'(clause* ...)))]
            [R (infer-result clauses)]
            [D (cur-type-infer #'e)]
-           [motive #`(lambda (x : #,D) #,R)]
-           [U (cur-type-infer R)])
+           [motive #`(lambda (x : #,D) #,R)])
        #`(elim #,D #,motive
             #,(map (curry clause->method D motive) clauses)
             e)
