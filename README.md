@@ -137,6 +137,8 @@ define + plus
 Going further
 =============
 
+See https://williamjbowman.com/papers#cur for a draft of a paper on Cur.
+
 Open up `cur-tests/cur/tests/stlc.rkt` to see an example of the
 simply-typed lambda-calculus modeled in Cur, with a parser and syntax
 extension to enable deeply embedding.
