@@ -21,9 +21,9 @@ define-theorem Type-Soundness
 (define-syntax lambda transform-lambda)
 
 
-(lambda bla bla bla)
+(lambda (x : Nat) z)
 ;; causes the computation, at compile-time:
-(transform-lambda #'(lambda bla bla bla))
+(transform-lambda #'(lambda (x : Nat) z))
 
 (define (+ (n1 : Nat) (n2 : Nat))
   (elim Nat (lambda (x : Nat) Nat)
