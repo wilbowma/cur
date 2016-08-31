@@ -14,16 +14,48 @@ define-theorem Type-Soundness
   ;; A function in the meta language
   (define (transform-lambda obj)
     (syntax-case obj (:)
-      [(_ (x : t) e)
+      [(lambda (x : t) e)
        #'(λ (x : t) e)])))
 
 ;; A syntactic hook in the object language
 (define-syntax lambda transform-lambda)
 
-
 (lambda (x : Nat) z)
 ;; causes the computation, at compile-time:
 (transform-lambda #'(lambda (x : Nat) z))
+
+cur-expand : SyntaxObject -> SyntaxObject
+
+(begin-for-syntax
+  (define (solver type)
+    (syntax-case (cur-expand type) ()
+      [(Unv i) ....]
+      [(Π (x : t) e) ....]
+      [(e₁ e₂) ....]
+      [x ....])))
+
+cur-type-infer : SyntaxObject -> SyntaxObject
+
+(define-syntax (let obj)
+  (syntax-case obj (= in)
+    [(let (x = e₁) in e₂)
+     #`((λ (x : #,(cur-type-infer #'e₁)) e₂) e₁)]))
+
+cur-type-check? : SyntaxObject -> SyntaxObject -> boolean?
+
+(define-syntax (:: obj)
+  (syntax-case obj ()
+    [(:: e t)
+     (if (not (cur-type-check #'e #'t))
+         (raise-type-error
+          "~a does not have type expected type ~a"
+          #'e #'t))]))
+
+cur-normalize : SyntaxObject -> SyntaxObject
+
+(define-syntax run cur-normalize)
+(define (add2 (n : Nat)) (run (+ (s (s z)) n)))
+
 
 (define (+ (n1 : Nat) (n2 : Nat))
   (elim Nat (lambda (x : Nat) Nat)
