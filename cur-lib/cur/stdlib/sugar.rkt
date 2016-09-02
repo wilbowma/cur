@@ -76,7 +76,13 @@
     (pattern
      e:parameter-declaration
      #:attr name #'e.name
-     #:attr type #'e.type)))
+     #:attr type #'e.type))
+
+  (define current-function-arg-ids
+    (make-parameter #f #;(raise-syntax-error "Not currently in a function definition")))
+  (define current-function-arg-types
+    (make-parameter #f #;(raise-syntax-error "Not currently in a function definition"))))
+
 (define-syntax (lambda syn)
   (syntax-parse syn
     [(_ d:argument-declaration ...+ body:expr)
@@ -143,6 +149,15 @@
      (dict-set! annotation-dict (syntax->datum #'name) (annotation->types #'type))
      #'(void)]))
 
+;; TODO: These parameters should be syntax-parameters, but trying to use them resulted in
+;; strange error
+(begin-for-syntax
+  (define current-definition-id (make-parameter #f))
+  (define current-definition-param-decl (make-parameter #f))
+
+  )
+;(define-syntax-parameter current-definition-id #f)
+
 ;; TODO: Allow inferring types as in above TODOs for lambda, forall
 (define-syntax (define syn)
   (syntax-parse syn
@@ -152,20 +167,26 @@
        [(dict-ref annotation-dict (syntax->datum #'name)) =>
         (lambda (anns)
           (quasisyntax/loc syn
-            (real-define name (lambda #,@(for/list ([x (syntax->list #'(x ...))]
-                                                    [type anns])
-                                           #`(#,x : #,type)) body))))]
+            (define (name #,@(for/list ([x (syntax->list #'(x ...))]
+                                        [type anns])
+                               #`(#,x : #,type)))
+              body)))]
        [else
         (raise-syntax-error
          'define
          "Cannot omit type annotations unless you have declared them with (: name type) form first."
          syn)])]
     [(define (name (x : t) ...) body)
+     (current-definition-param-decl (syntax->list #`((x : t) ...)))
      (quasisyntax/loc syn
-       (real-define name (lambda (x : t) ... body)))]
+       (define name (lambda (x : t) ... body)))]
     [(define id body)
+     ;; TODO: without syntax-parameterize, or similar, this information will become stale and may
+     ;; result in incorrect expansion
+     (current-definition-id #'id)
      (quasisyntax/loc syn
        (real-define id body))]))
+
 
 #|
 (begin-for-syntax
@@ -239,6 +260,7 @@
      #:attr args
      (list #'e))
 
+    ;; TODO BUG: will not match when a is not expanded yet
     (pattern
      ((~literal real-app) a:curried-application e:expr)
      #:attr name #'a.name
@@ -372,16 +394,35 @@
          (with-handlers ([values (lambda _ #f)])
            (cur-type-infer #:local-env (attribute p.local-env) #'b)))))
 
+  (define (replace-recursive-call body)
+    (syntax-parse (cur-expand body)
+      #:literals (real-lambda real-Π real-app elim)
+      [(real-lambda (x : t) e)
+       #`(real-lambda (x : #,(replace-recursive-call #'t)) #,(replace-recursive-call #'e))]
+      [(real-Π (x : t) e)
+       #`(real-Π (x : #,(replace-recursive-call #'t)) #,(replace-recursive-call #'e))]
+      [(real-app e:id a:expr)
+       ;; TODO: Need proper identifiers to do the right thing
+       #:when (and (current-definition-id) (eq? (syntax-e #'e) (syntax-e (current-definition-id))))
+;       #:when (bound-identifier=? #'e (syntax-parameter-value #'current-definition-id))
+       #`(lambda #,@(cdr (current-definition-param-decl)) (recur #,(replace-recursive-call #'a)))]
+      [(real-app e:expr e2:expr)
+       #`(#,(replace-recursive-call #'e) #,(replace-recursive-call #'e2))]
+      [(elim e:expr ...)
+       #`(elim #,@(map replace-recursive-call (attribute e)))]
+      [x:id #'x]))
+
   (define-syntax-class (match-clause D motive)
     (pattern
      ((~var p (match-pattern D motive))
       ;; TODO: nothing more advanced?
       b:expr)
      #:attr method
-     (quasisyntax/loc #'p
-       #,(if (null? (attribute p.decls))
-         #'b
-         #`(lambda #,@(attribute p.decls) b))))))
+     (let ([b (replace-recursive-call #'b)])
+       (quasisyntax/loc #'p
+         #,(if (null? (attribute p.decls))
+               b
+               #`(lambda #,@(attribute p.decls) #,b)))))))
 
 (define-syntax (recur syn)
   (syntax-case syn ()
