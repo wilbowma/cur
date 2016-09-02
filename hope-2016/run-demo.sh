@@ -1,3 +1,3 @@
 #!/bin/sh
 
-mplayer demo.mk -idle -fixed-vo
+mplayer demo.mkv -idle -fixed-vo
