@@ -394,6 +394,8 @@
          (with-handlers ([values (lambda _ #f)])
            (cur-type-infer #:local-env (attribute p.local-env) #'b)))))
 
+  ;; TODO: Perhaps this should be part of the application macro. That could simply test the operator
+  ;; against the current-definition-id, rather than walk over the syntax tree.
   (define (replace-recursive-call body)
     (syntax-parse (cur-expand body)
       #:literals (real-lambda real-Π real-app elim)
