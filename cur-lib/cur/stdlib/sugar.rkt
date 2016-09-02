@@ -329,18 +329,30 @@
             #,return)
           #,@(attribute names))))))
 
-  ;; todo: Support just names, inferring types
+  (define-syntax-class telescope
+    (pattern ((~literal real-Π) (x:id (~datum :) t:expr) e:telescope)
+             #:attr decls (cons #'(x : t) (attribute e.decls))
+             #:attr names (cons #'x (attribute e.names))
+             #:attr types (cons #'t (attribute e.types)))
+
+    (pattern e:expr
+             #:attr decls '()
+             #:attr names '()
+             #:attr types '()))
+
   (define-syntax-class match-declaration
     (pattern
-     ;; TODO: Use parameter-declaration defined earlier
-     (name:id (~datum :) type:expr)
-     #:attr decl
-     #'(name : type)))
+     name:id
+     #:attr type #f)
 
-  (define-syntax-class match-prepattern
+    (pattern
+     (name:id (~datum :) type:expr)))
+
+  (define-syntax-class (match-prepattern name)
     ;; TODO: Check that x is a valid constructor for the inductive type
     (pattern
      x:id
+     #:when (ormap (curry free-identifier=? #'x) (cur-constructors-for name))
      #:attr local-env
      '()
      #:attr decls
@@ -352,21 +364,33 @@
 
     (pattern
      (x:id d:match-declaration ...+)
+     #:when (ormap (curry free-identifier=? #'x) (cur-constructors-for name))
+     #:attr types
+     (syntax-parse (cur-type-infer #'x)
+       [t:telescope (attribute t.types)])
      #:attr local-env
      (for/fold ([d (make-immutable-hash)])
                ([name (attribute d.name)]
-                [type (attribute d.type)])
-       (dict-set d name type))
+                [type (attribute d.type)]
+                [itype (attribute types)])
+       (when type
+         (unless (cur-equal? type itype)
+           (raise-syntax-error 'match
+                               (format
+                                "Type annotation ~a did not match inferred type ~a"
+                                (syntax-e #'type)
+                                (syntax-e #'itype))
+                               #'x
+                               #'type)))
+       (dict-set d name itype))
      #:attr decls
-     (attribute d.decl)
+     (map (lambda (x y) #`(#,x : #,y)) (attribute d.name) (attribute types))
      #:attr names
-     (attribute d.name)
-     #:attr types
-     (attribute d.type)))
+     (attribute d.name)))
 
-  (define-syntax-class (match-pattern D motive)
+  (define-syntax-class (match-pattern D name motive)
     (pattern
-     d:match-prepattern
+     (~var d (match-prepattern name))
      #:attr decls
      ;; Infer the inductive hypotheses, add them to the pattern decls
      ;; and update the dictionarty for the recur form
@@ -384,9 +408,9 @@
          (dict-set! ih-dict (syntax->datum name-syn) ih-name)
          (append decls (list #`(#,ih-name : #,ih-type)))))))
 
-  (define-syntax-class (match-preclause maybe-return-type)
+  (define-syntax-class (match-preclause inductive-name maybe-return-type)
     (pattern
-     (p:match-prepattern b:expr)
+     ((~var p (match-prepattern inductive-name)) b:expr)
      #:attr return-type
      ;; TODO: Check that the infered type matches maybe-return-type, if it is provied
      (or maybe-return-type
@@ -414,9 +438,9 @@
        #`(elim #,@(map replace-recursive-call (attribute e)))]
       [x:id #'x]))
 
-  (define-syntax-class (match-clause D motive)
+  (define-syntax-class (match-clause D name motive)
     (pattern
-     ((~var p (match-pattern D motive))
+     ((~var p (match-pattern D name motive))
       ;; TODO: nothing more advanced?
       b:expr)
      #:attr method
@@ -454,10 +478,10 @@
                   'match
                   "Could not infer discrimnant's type. Try using #:in to declare it."
                   syn))]))
-        (~optional (~seq #:return ~! maybe-return-type))
-        (~peek (~seq (~var prec (match-preclause (attribute maybe-return-type))) ...))
-        ~!
         (~parse D:inductive-type-declaration (cur-expand (attribute t)))
+        (~optional (~seq #:return ~! maybe-return-type))
+        (~peek (~seq (~var prec (match-preclause (attribute D.inductive-name) (attribute maybe-return-type))) ...))
+        ~!
         (~bind (return-type (ormap values (attribute prec.return-type))))
         (~do (unless (attribute return-type)
                (raise-syntax-error
@@ -469,7 +493,7 @@
         (~bind (motive (quasisyntax/loc syn
                          (lambda #,@(attribute D.decls)
                            #,((attribute D.abstract-indices) (attribute return-type))))))
-        (~var c (match-clause (attribute D) (attribute motive))) ...)
+        (~var c (match-clause (attribute D) (attribute D.inductive-name) (attribute motive))) ...)
      ;; TODO: Make all syntax extensions type check, report good error, rather than fail at Curnel
      (quasisyntax/loc syn
        (elim

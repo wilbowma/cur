@@ -31,24 +31,24 @@
 (define (sub1 (n : Nat))
   (match n
     [z z]
-    [(s (x : Nat)) x]))
+    [(s x) x]))
 
 (define (plus (n1 : Nat) (n2 : Nat))
   (match n1
     [z n2]
-    [(s (x : Nat))
+    [(s x)
      (s (plus x n2))]))
 
 (define (mult (m : Nat) (n : Nat))
   (match m
     [z z]
-    [(s (x : Nat))
+    [(s x)
      (plus n (mult x n))]))
 
 (define (exp (m : Nat) (e : Nat))
   (match m
     [z (s z)]
-    [(s (x : Nat))
+    [(s x)
      (mult e (exp x e))]))
 
 (define square (run (exp (s (s z)))))
@@ -56,23 +56,23 @@
 (define (zero? (n : Nat))
   (match n
     [z true]
-    [(s (n : Nat))
+    [(s n)
      false]))
 
 (define (nat-equal? (n : Nat))
   (match n
     [z zero?]
-    [(s (n-1 : Nat))
+    [(s n-1)
      (lambda (m : Nat)
        (match m #:in Nat
          [z false]
-         [(s (m-1 : Nat))
+         [(s m-1)
           (nat-equal? n-1 m-1)]))]))
 
 (define (even? (n : Nat))
   (match n
     [z true]
-    [(s (n : Nat))
+    [(s n)
      (not (even? n))]))
 
 (define (odd? (n : Nat))
