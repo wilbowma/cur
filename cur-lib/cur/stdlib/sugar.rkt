@@ -518,7 +518,12 @@
        ;; NB: Casting identifiers to symbols is a bad plan
        (define constrs (map syntax-e (cur-constructors-for name)))
        (define mconstrs (map syntax-e mconstrs-stx))
-
+       (unless (eq? (length mconstrs) (length constrs))
+         (raise-syntax-error
+          'match
+          (format "Missing match clause for the following constructor(s): ~a"
+                  (remf* (lambda (x) (memq x mconstrs)) constrs))
+          syn))
        ;; TODO: This seems like a generally useful function
        (define constr-index (build-list (length constrs) values))
        (define sorted
@@ -528,7 +533,7 @@
                  (dict-ref
                   (map cons constrs constr-index)
                   (car x)))))
-
+       
        (map cdr sorted))
 
      (quasisyntax/loc syn
