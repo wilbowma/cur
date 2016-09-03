@@ -348,11 +348,20 @@
     (pattern
      (name:id (~datum :) type:expr)))
 
+  (define (is-constructor-for x name)
+    (ormap (curry free-identifier=? x) (cur-constructors-for name)))
+
   (define-syntax-class (match-prepattern name)
-    ;; TODO: Check that x is a valid constructor for the inductive type
     (pattern
      x:id
-     #:when (ormap (curry free-identifier=? #'x) (cur-constructors-for name))
+     #:fail-unless (is-constructor-for #'x name)
+     (raise-syntax-error
+      'match
+      (format "The constructor ~a in match clause is not a constructor for the type being eliminated ~a"
+              (syntax-e #'x)
+              (syntax-e name))
+      #'x)
+     #:attr constr #'x
      #:attr local-env
      '()
      #:attr decls
@@ -364,7 +373,16 @@
 
     (pattern
      (x:id d:match-declaration ...+)
-     #:when (ormap (curry free-identifier=? #'x) (cur-constructors-for name))
+     ;; TODO: Copy-pasta from above
+     #:fail-unless (is-constructor-for #'x name)
+     (raise-syntax-error
+      'match
+      (format "The constructor ~a in match clause is not a constructor for the type being eliminated ~a"
+              (syntax-e #'x)
+              (syntax-e name))
+      #'x)
+
+     #:attr constr #'x
      #:attr types
      (syntax-parse (cur-type-infer #'x)
        [t:telescope (attribute t.types)])
