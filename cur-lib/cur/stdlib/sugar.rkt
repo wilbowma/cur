@@ -409,6 +409,7 @@
   (define-syntax-class (match-pattern D name motive)
     (pattern
      (~var d (match-prepattern name))
+     #:attr constr (attribute d.constr)
      #:attr decls
      ;; Infer the inductive hypotheses, add them to the pattern decls
      ;; and update the dictionarty for the recur form
@@ -459,8 +460,8 @@
   (define-syntax-class (match-clause D name motive)
     (pattern
      ((~var p (match-pattern D name motive))
-      ;; TODO: nothing more advanced?
       b:expr)
+     #:attr constr (attribute p.constr)
      #:attr method
      (let ([b (replace-recursive-call #'b)])
        (quasisyntax/loc #'p
@@ -513,11 +514,28 @@
                            #,((attribute D.abstract-indices) (attribute return-type))))))
         (~var c (match-clause (attribute D) (attribute D.inductive-name) (attribute motive))) ...)
      ;; TODO: Make all syntax extensions type check, report good error, rather than fail at Curnel
+     (define (sort-methods name mconstrs-stx methods)
+       ;; NB: Casting identifiers to symbols is a bad plan
+       (define constrs (map syntax-e (cur-constructors-for name)))
+       (define mconstrs (map syntax-e mconstrs-stx))
+
+       ;; TODO: This seems like a generally useful function
+       (define constr-index (build-list (length constrs) values))
+       (define sorted
+         (sort (map cons mconstrs methods) <
+               #:key
+               (lambda (x)
+                 (dict-ref
+                  (map cons constrs constr-index)
+                  (car x)))))
+
+       (map cdr sorted))
+
      (quasisyntax/loc syn
        (elim
         D.inductive-name
         motive
-        (c.method ...)
+        #,(sort-methods (attribute D.inductive-name) (attribute c.constr) (attribute c.method))
         d))]))
 
 (begin-for-syntax
