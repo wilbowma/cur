@@ -101,6 +101,21 @@ cur-normalize : SyntaxObject -> SyntaxObject
                           [current-function-args #'(args ...)])
             #'body))]))
 
+#'define  define-transformer
+#'match   match-transformer
+current-fn-name   #'+
+
+#'(define (+ (n1 : Nat) (n2 : Nat))
+    (match n1
+      [z n2]
+      [(s x) (s (+ x n2))]))
+
+#'(base-define (+ (n1 : Nat) (n2 : Nat))
+    (match n1
+      [z n2]
+      [(s x) (s (+ x n2))]))
+
+
 (ntac (forall (A : Type) (a : A) A)
   (by-intro A)
   (by-intro b)
