@@ -11,7 +11,7 @@ define-theorem Type-Soundness
 
 
 (begin-for-syntax
-  ;; A function in the meta language
+  ;; A "transformer"; function in the meta language
   (define (transform-lambda obj)
     (syntax-case obj (:)
       [(lambda (x : t) e)
@@ -23,6 +23,12 @@ define-theorem Type-Soundness
 (lambda (x : Nat) z)
 ;; causes the computation, at compile-time:
 (transform-lambda #'(lambda (x : Nat) z))
+
+#'lambda    transform-lambda
+
+#'(lambda (x : Nat) z)
+
+#'(λ (x : Nat) z)
 
 cur-expand : SyntaxObject -> SyntaxObject
 
