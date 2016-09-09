@@ -140,20 +140,20 @@ If @racket[#:return] is not specified, attempts to infer the return type of the 
             (not (recur n))])]
 
 @examples[#:eval curnel-eval
-          (define (+ (n : Nat) (m : Nat)))
+          (define (+ (n : Nat) (m : Nat))
             (match n
               [z m]
-              [(s n) (s (+ n m))])]
+              [(s n) (s (+ n m))]))]
 
 @examples[#:eval curnel-eval
           ((match (nil Bool)
-            [(nil (A : Type))
+            [nil
 	     (lambda (n : Nat)
 	       (none A))]
-            [(cons (A : Type) (a : A) (rest : (List A)))
+            [(cons (a : Bool) (rest : (List Bool)))
 	     (lambda (n : Nat)
 	       (match n
-	         [z (some A a)]
+	         [z (some Bool a)]
 		 [(s (n-1 : Nat))
 		  ((recur rest) n-1)]))])
 	   z)]
