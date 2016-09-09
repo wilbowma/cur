@@ -76,7 +76,13 @@
     (pattern
      e:parameter-declaration
      #:attr name #'e.name
-     #:attr type #'e.type)))
+     #:attr type #'e.type))
+
+  (define current-function-arg-ids
+    (make-parameter #f #;(raise-syntax-error "Not currently in a function definition")))
+  (define current-function-arg-types
+    (make-parameter #f #;(raise-syntax-error "Not currently in a function definition"))))
+
 (define-syntax (lambda syn)
   (syntax-parse syn
     [(_ d:argument-declaration ...+ body:expr)
@@ -143,6 +149,15 @@
      (dict-set! annotation-dict (syntax->datum #'name) (annotation->types #'type))
      #'(void)]))
 
+;; TODO: These parameters should be syntax-parameters, but trying to use them resulted in
+;; strange error
+(begin-for-syntax
+  (define current-definition-id (make-parameter #f))
+  (define current-definition-param-decl (make-parameter #f))
+
+  )
+;(define-syntax-parameter current-definition-id #f)
+
 ;; TODO: Allow inferring types as in above TODOs for lambda, forall
 (define-syntax (define syn)
   (syntax-parse syn
@@ -152,20 +167,26 @@
        [(dict-ref annotation-dict (syntax->datum #'name)) =>
         (lambda (anns)
           (quasisyntax/loc syn
-            (real-define name (lambda #,@(for/list ([x (syntax->list #'(x ...))]
-                                                    [type anns])
-                                           #`(#,x : #,type)) body))))]
+            (define (name #,@(for/list ([x (syntax->list #'(x ...))]
+                                        [type anns])
+                               #`(#,x : #,type)))
+              body)))]
        [else
         (raise-syntax-error
          'define
          "Cannot omit type annotations unless you have declared them with (: name type) form first."
          syn)])]
     [(define (name (x : t) ...) body)
+     (current-definition-param-decl (syntax->list #`((x : t) ...)))
      (quasisyntax/loc syn
-       (real-define name (lambda (x : t) ... body)))]
+       (define name (lambda (x : t) ... body)))]
     [(define id body)
+     ;; TODO: without syntax-parameterize, or similar, this information will become stale and may
+     ;; result in incorrect expansion
+     (current-definition-id #'id)
      (quasisyntax/loc syn
        (real-define id body))]))
+
 
 #|
 (begin-for-syntax
@@ -239,6 +260,7 @@
      #:attr args
      (list #'e))
 
+    ;; TODO BUG: will not match when a is not expanded yet
     (pattern
      ((~literal real-app) a:curried-application e:expr)
      #:attr name #'a.name
@@ -253,6 +275,8 @@
      x:id
      #:attr inductive-name
      #'x
+     #:attr params
+     '()
      #:attr indices
      '()
      #:attr decls
@@ -307,18 +331,67 @@
             #,return)
           #,@(attribute names))))))
 
-  ;; todo: Support just names, inferring types
+  (define-syntax-class telescope
+    (pattern ((~literal real-Π) (x:id (~datum :) t:expr) e:telescope)
+             #:attr decls (cons #'(x : t) (attribute e.decls))
+             #:attr names (cons #'x (attribute e.names))
+             #:attr types (cons #'t (attribute e.types)))
+
+    (pattern e:expr
+             #:attr decls '()
+             #:attr names '()
+             #:attr types '()))
+
+  ;; TODO: Error checking
+  (define (rename t ls)
+    (define type (cur-expand t))
+    (syntax-parse type
+      #:literals (real-Π)
+      #:datum-literals (:)
+      [(real-Π (x:id : t:expr) e:expr)
+       #`(real-Π (#,(car ls) : t)
+                 #,(with-env
+                     `((,(car ls) . ,#'t))
+                     (cur-normalize
+                      #`((lambda (x : t) #,(rename #'e (cdr ls))) #,(car ls)))))]
+      [e #'e]))
+
+  (define (instantiate t ls)
+    (define type (cur-expand t))
+    (syntax-parse type
+      #:literals (real-Π)
+      #:datum-literals (:)
+      [(real-Π (x:id : t:expr) e:expr)
+       (if (not (null? ls))
+           (cur-normalize #`((λ (x : t) #,(instantiate #'e (cdr ls))) #,(car ls)))
+           type)]
+      [e #'e]))
+
   (define-syntax-class match-declaration
     (pattern
-     ;; TODO: Use parameter-declaration defined earlier
-     (name:id (~datum :) type:expr)
-     #:attr decl
-     #'(name : type)))
+     name:id
+     #:attr type #f)
 
-  (define-syntax-class match-prepattern
-    ;; TODO: Check that x is a valid constructor for the inductive type
+    (pattern
+     (name:id (~datum :) type:expr)))
+
+  (define (is-constructor-for x name)
+    (ormap (curry free-identifier=? x) (cur-constructors-for name)))
+
+  (define-syntax-class (match-prepattern D-expr)
     (pattern
      x:id
+     #:with D D-expr
+     #:declare D inductive-type-declaration
+     #:attr name (attribute D.inductive-name)
+     #:fail-unless (is-constructor-for #'x (attribute name))
+     (raise-syntax-error
+      'match
+      (format "The constructor ~a in match clause is not a constructor for the type being eliminated ~a"
+              (syntax-e #'x)
+              (syntax-e (attribute name)))
+      #'x)
+     #:attr constr #'x
      #:attr local-env
      '()
      #:attr decls
@@ -330,21 +403,47 @@
 
     (pattern
      (x:id d:match-declaration ...+)
+     ;; TODO: Copy-pasta from above
+     #:with D:inductive-type-declaration D-expr
+     #:attr name (attribute D.inductive-name)
+     #:fail-unless (is-constructor-for #'x (attribute name))
+     (raise-syntax-error
+      'match
+      (format "The constructor ~a in match clause is not a constructor for the type being eliminated ~a"
+              (syntax-e #'x)
+              (syntax-e (attribute name)))
+      #'x)
+
+     #:attr constr #'x
+     #:attr types
+     (syntax-parse (rename (instantiate (cur-type-infer #'x) (attribute D.params))
+                           (attribute d.name))
+       [t:telescope (attribute t.types)])
      #:attr local-env
      (for/fold ([d (make-immutable-hash)])
                ([name (attribute d.name)]
-                [type (attribute d.type)])
-       (dict-set d name type))
+                [type (attribute d.type)]
+                [itype (attribute types)])
+       (when type
+         (unless (cur-equal? type itype)
+           (raise-syntax-error 'match
+                               (format
+                                "Type annotation ~a did not match inferred type ~a"
+                                (syntax->datum type)
+                                (syntax->datum itype))
+                               #'x
+                               type)))
+       (dict-set d name itype))
      #:attr decls
-     (attribute d.decl)
+     (map (lambda (x y) #`(#,x : #,y)) (attribute d.name) (attribute types))
      #:attr names
-     (attribute d.name)
-     #:attr types
-     (attribute d.type)))
+     (attribute d.name)))
 
   (define-syntax-class (match-pattern D motive)
     (pattern
-     d:match-prepattern
+     (~var d (match-prepattern D))
+     #:with D:inductive-type-declaration D
+     #:attr constr (attribute d.constr)
      #:attr decls
      ;; Infer the inductive hypotheses, add them to the pattern decls
      ;; and update the dictionarty for the recur form
@@ -353,18 +452,27 @@
                 [name-syn (attribute d.names)]
                 [src (attribute d.decls)]
                 ;; NB: Non-hygenic
-                ;; BUG TODO: This fails when D is an inductive applied to arguments...
-                #:when (cur-equal? type-syn D))
-       (define/syntax-parse type:inductive-type-declaration (cur-expand type-syn))
-       (let ([ih-name (quasisyntax/loc src #,(format-id name-syn "ih-~a" name-syn))]
-             ;; Normalize at compile-time, for efficiency at run-time
-             [ih-type (cur-normalize #`(#,motive #,@(attribute type.indices) #,name-syn))])
-         (dict-set! ih-dict (syntax->datum name-syn) ih-name)
-         (append decls (list #`(#,ih-name : #,ih-type)))))))
+                )
+       ;; TODO: Need decls->env
+       (with-env (map (lambda (x) (syntax-parse x
+                                    #:datum-literals (:)
+                                    [(x : t)
+                                     `(,#'x . ,#'t)]))
+                      decls)
+         (begin
+           (define/syntax-parse type:inductive-type-declaration (cur-expand type-syn))
+           (if (cur-equal? (attribute type.inductive-name) (attribute D.inductive-name))
+               (let ([ih-name (quasisyntax/loc src #,(format-id name-syn "ih-~a" name-syn))]
+                     ;; Normalize at compile-time, for efficiency at run-time
+                     [ih-type (cur-normalize #`(#,motive #,@(attribute type.indices) #,name-syn))])
+                 (dict-set! ih-dict (syntax->datum name-syn) ih-name)
+                 (append decls (list #`(#,ih-name : #,ih-type))))
+               decls)))
+       )))
 
-  (define-syntax-class (match-preclause maybe-return-type)
+  (define-syntax-class (match-preclause D maybe-return-type)
     (pattern
-     (p:match-prepattern b:expr)
+     ((~var p (match-prepattern D)) b:expr)
      #:attr return-type
      ;; TODO: Check that the infered type matches maybe-return-type, if it is provied
      (or maybe-return-type
@@ -372,17 +480,44 @@
          (with-handlers ([values (lambda _ #f)])
            (cur-type-infer #:local-env (attribute p.local-env) #'b)))))
 
+  ;; TODO: Perhaps this should be part of the application macro. That could simply test the operator
+  ;; against the current-definition-id, rather than walk over the syntax tree.
+  (define (replace-recursive-call body)
+    (syntax-parse (cur-expand body)
+      #:literals (real-lambda real-Π real-app elim)
+      #:datum-literals (:)
+      [(real-lambda (x : t) e)
+       #`(real-lambda (x : #,(replace-recursive-call #'t)) #,(replace-recursive-call #'e))]
+      [(real-Π (x : t) e)
+       #`(real-Π (x : #,(replace-recursive-call #'t)) #,(replace-recursive-call #'e))]
+      [(real-app e:id a:expr)
+       ;; TODO: Need proper identifiers to do the right thing
+       #:when (and (current-definition-id) (eq? (syntax-e #'e) (syntax-e (current-definition-id))))
+;       #:when (bound-identifier=? #'e (syntax-parameter-value #'current-definition-id))
+       #`(lambda #,@(cdr (current-definition-param-decl)) (recur #,(replace-recursive-call #'a)))]
+      [(real-app e:expr e2:expr)
+       #`(#,(replace-recursive-call #'e) #,(replace-recursive-call #'e2))]
+      [(elim e:expr ...)
+       #`(elim #,@(map replace-recursive-call (attribute e)))]
+      [x:id #'x]))
+
   (define-syntax-class (match-clause D motive)
     (pattern
      ((~var p (match-pattern D motive))
-      ;; TODO: nothing more advanced?
       b:expr)
+     #:attr constr (attribute p.constr)
      #:attr method
-     (quasisyntax/loc #'p
-       #,(if (null? (attribute p.decls))
-         #'b
-         #`(lambda #,@(attribute p.decls) b))))))
-
+     (let ([b (with-env
+                (map (lambda (x)
+                       (syntax-parse x
+                         #:datum-literals (:)
+                         [(x : t) `(,#'x . ,#'t)]))
+                     (attribute p.decls))
+                (replace-recursive-call #'b))])
+       (quasisyntax/loc #'p
+         #,(if (null? (attribute p.decls))
+               b
+               #`(lambda #,@(attribute p.decls) #,b)))))))
 (define-syntax (recur syn)
   (syntax-case syn ()
     [(_ id)
@@ -411,10 +546,10 @@
                   'match
                   "Could not infer discrimnant's type. Try using #:in to declare it."
                   syn))]))
-        (~optional (~seq #:return ~! maybe-return-type))
-        (~peek (~seq (~var prec (match-preclause (attribute maybe-return-type))) ...))
-        ~!
         (~parse D:inductive-type-declaration (cur-expand (attribute t)))
+        (~optional (~seq #:return ~! maybe-return-type))
+        (~peek (~seq (~var prec (match-preclause (attribute D) (attribute maybe-return-type))) ...))
+        ~!
         (~bind (return-type (ormap values (attribute prec.return-type))))
         (~do (unless (attribute return-type)
                (raise-syntax-error
@@ -428,11 +563,33 @@
                            #,((attribute D.abstract-indices) (attribute return-type))))))
         (~var c (match-clause (attribute D) (attribute motive))) ...)
      ;; TODO: Make all syntax extensions type check, report good error, rather than fail at Curnel
+     (define (sort-methods name mconstrs-stx methods)
+       ;; NB: Casting identifiers to symbols is a bad plan
+       (define constrs (map syntax-e (cur-constructors-for name)))
+       (define mconstrs (map syntax-e mconstrs-stx))
+       (unless (eq? (length mconstrs) (length constrs))
+         (raise-syntax-error
+          'match
+          (format "Missing match clause for the following constructor(s): ~a"
+                  (remf* (lambda (x) (memq x mconstrs)) constrs))
+          syn))
+       ;; TODO: This seems like a generally useful function
+       (define constr-index (build-list (length constrs) values))
+       (define sorted
+         (sort (map cons mconstrs methods) <
+               #:key
+               (lambda (x)
+                 (dict-ref
+                  (map cons constrs constr-index)
+                  (car x)))))
+       
+       (map cdr sorted))
+
      (quasisyntax/loc syn
        (elim
         D.inductive-name
         motive
-        (c.method ...)
+        #,(sort-methods (attribute D.inductive-name) (attribute c.constr) (attribute c.method))
         d))]))
 
 (begin-for-syntax

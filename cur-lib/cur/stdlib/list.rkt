@@ -21,6 +21,7 @@
     [(cons (a : A) (rest : (List A)))
      (lambda (n : Nat)
        (match n
+         #:in Nat
          [z (some A a)]
          [(s (n-1 : Nat))
           ((recur rest) n-1)]))]))

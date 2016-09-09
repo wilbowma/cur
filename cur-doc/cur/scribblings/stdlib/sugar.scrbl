@@ -76,6 +76,7 @@ Like the @racket[define] provided by @racketmodname[cur], but supports
 defining curried functions via @racket[lambda].
 The second form, @racket[(define (name x ...) body)], can only be used when
 a @racket[(: name type)] form appears earlier in the module.
+Also record @racket[name] in the transformer environment.
 
 @examples[#:eval curnel-eval
           (: id (forall (A : Type) (a : A) A))
@@ -95,11 +96,20 @@ Like @racket[define], but uses @racket[forall] instead of @racket[lambda].
 	    (code:line #:return type))
 	  (pattern
             constructor
+            (code:line (constructor x ...))
             (code:line (constructor (x : t) ...)))]]{
-A pattern-matcher-like syntax for inductive elimination.
-Does not actually do pattern matching; instead, relies on the
-constructors patterns being specified in the same order as when the
-inductive type was defined.
+A pattern-matcher for inductive types.
+Match clauses must begin with the constructor name, and be followed by all
+indices and constructor arguments as pattern variable.
+Match clauses can be given in any order.
+
+Pattern variables do not need to be annotated, as the `match` form can infer their types.
+If pattern variables are annotated, then the `match` form will ensure the
+annotation matches the expected type before elaborating.
+
+If `match` is used under a `define`, `match` can be used to define simple
+primitive recursive functions, defined by induction on their first argument.
+
 Inside the @racket[body], @racket[recur] can be used to refer to the
 inductive hypotheses for an inductive argument.
 Generates a call to the inductive eliminator for @racket[e].
@@ -116,12 +126,24 @@ If @racket[#:return] is not specified, attempts to infer the return type of the 
              false])]
 
 @examples[#:eval curnel-eval
+          (match z
+            [(s n)
+             false]
+             [z true])]
+
+@examples[#:eval curnel-eval
           (match (s z)
 	    #:in Nat
 	    #:return Bool
             [z true]
-            [(s (n : Nat))
-	    (not (recur n))])]
+            [(s n)
+            (not (recur n))])]
+
+@examples[#:eval curnel-eval
+          (define (+ (n : Nat) (m : Nat)))
+            (match n
+              [z m]
+              [(s n) (s (+ n m))])]
 
 @examples[#:eval curnel-eval
           ((match (nil Bool)

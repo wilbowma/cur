@@ -3,5 +3,5 @@
 (define deps '("base" ("redex-lib" #:version "1.11")))
 (define build-deps '())
 (define pkg-desc "implementation (no documentation, tests) part of \"cur\".")
-(define version "0.11")
+(define version "0.12")
 (define pkg-authors '(wilbowma))
