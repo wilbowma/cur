@@ -54,24 +54,25 @@
     (displayln (maybe-syntax->datum e))
     e)
 
+  (define (merge-type-props syn t)
+    ;; TODO: Check that list is consistent and report error if not
+    (if (pair? t)
+        (car t)
+        t))
+
   (define (get-type e #:ctx [ctx #'()])
     (syntax-parse ctx
       #:datum-literals (:)
-      ;; Including lambda in this literals list prevents the #:with clause from matching, causing
-      ;; terrible terrible error messages.
-      ;; TODO: File bug report
       #:literals (let-values)
       [(y:id ... [x:id t] ...)
        #:with (st ...) (map set-type (attribute y) (attribute t))
        #:with (_ (z ...) (let-values () (let-values () e2)))
-       ;; If cur-local-expand uses #f instead of '() for the stop list, then this @:with
-       ;; pattern won't match, and a an absolutely terrible error message results.
-       ;; TODO: File bug report
        (cur-local-expand
+        ;; TODO: Can't use lambda in the literals list here, not sure why
         #`(lambda (y ...)
             (let-syntax ([x (syntax-id-rules () [_ st])] ...)
               #,e)))
-       #`(z ... e2 : #,(syntax-property (attribute e2) 'type))]))
+       #`(z ... e2 : #,(merge-type-props e (syntax-property (attribute e2) 'type)))]))
 
   (define (free-maybe-identifier=? x1 x2)
     (and (identifier? x1) (identifier? x2) (free-identifier=? x1 x2)))
@@ -80,19 +81,49 @@
     (map free-maybe-identifier=? (syntax-e s1) (syntax-e s2)))
 
   (define (type-equal? t1 t2)
-    (or (free-maybe-identifier=? t1 t2)
-        (lift-id-equal? t1 t2)
-        (error "type equality not yet implemented")))
+    (displayln (syntax->datum #`(#,(cur-local-expand t1) #,(cur-local-expand t2))))
+    (displayln (cur-local-expand t1))
+    (syntax-parse (cur-local-expand t1)
+      #:literals (Type #%app #%plain-app)
+      [(Type i)
+       (displayln #'i)]
+      [(#%app Type i)
+       (displayln #'i)]
+      [(e i)
+       (printf "~a ~a~n" #'e #'i)]
+      [(#%app e i)
+       (printf "App ~a ~a~n" #'e #'i)]
+      [(#%plain-app e i)
+       (printf "Plain app ~a ~a~n" (attribute e) #'i)]
+      [(e ... i)
+       (printf "I dunno ~a ~a~n" (attribute e) #'i)]
+      [_ (displayln "Nope")])
+    (syntax-parse #`(#,(cur-local-expand t1) #,(cur-local-expand t2))
+      #:literals (Type #%app)
+      [(x:id y:id)
+       (free-identifier=? t1 t2)]
+      [((Type i) (Type j))
+       (printf "Types: ~a, ~a~n" #'i #'j)
+       (<= (eval #'i) (eval #'j))]
+      ;; TODO: implement the rest of it.
+      [_ #f]))
 
   ;; TODO: Substitution doesn't seem to work. Maybe need to use lambda to bind
-  (trace-define (subst v x e)
-    (syntax-parse e
-      [y:id
-       #:when (bound-identifier=? e x)
-       v]
-      [(e ...)
-       #`(#,@(map (lambda (e) (subst v x e)) (attribute e)))]
-      [_ e]))
+  ;; Takes a type that binds (must expand to something with a Racket lambda as it's final form) and a
+  ;; thing to substitute
+  (define (subst binds v)
+    (define (_subst v x e)
+      (syntax-parse e
+        [y:id
+         #:when (bound-identifier=? e x)
+         v]
+        [(e ...)
+         #`(#,@(map (lambda (e) (subst v x e)) (attribute e)))]
+        [_ e]))
+    (syntax-parse (cur-local-expand binds)
+      #:literals (let-values)
+      [(_ (x) (let-values () (let-values () e)))
+       (_subst v #'x #'e)]))
 
   (trace-define (substs vs xs e)
     (foldr subst e vs xs))
@@ -113,8 +144,11 @@
   (syntax-parse syn
     #:datum-literals (:)
     [(_ name:id body:expr)
+     #:with y (fresh)
      #:with (e : t) (get-type (attribute body))
-     #`(define #,(set-type #'name #'t) e)]))
+     #`(begin
+         (define-syntax name (make-rename-transformer (set-type #'y #'t)))
+         (define y e))]))
 
 #;(define-syntax cur-module-begin)
 
@@ -132,7 +166,7 @@
   (syntax-parse syn
     [(_ i:cur-type-level-annotation)
      ;; NB: This #%app is necessary; otherwise, the syntax-property 'type seems to get duplicated
-     (set-type (quasisyntax/loc syn (#%app Type i)) #`(cur-type #,(add1 (eval #'i))))]))
+     (set-type (quasisyntax/loc syn (Type i)) #`(cur-type #,(add1 (eval #'i))))]))
 
 #;(define-syntax (cur-var syn)
   (syntax-parse syn
@@ -153,7 +187,7 @@
                          (attribute e))
      (set-type
       (quasisyntax/loc syn (Π t1 (lambda (z) e2)))
-      (quasisyntax/loc syn (attribute t2)))]))
+      (quasisyntax/loc syn t2))]))
 
 (define-syntax (cur-λ syn)
   (syntax-parse syn
@@ -173,8 +207,9 @@
   (syntax-parse syn
     #:datum-literals (:)
     #:literals (let-values)
-    [(_ e1:cur-expr e2:expr)
-     #:with (_  : (cur-Π (x : t1) t2)) (get-type #'e1)
+    [(_ e1:expr e2:expr)
+     #:with (_  : f-type) (and-print (get-type #'e1))
+     #:with (cur-Π (x : t1) t2) #'f-type
      #:with (_ : maybe-t1) (get-type #'e2)
      #:fail-unless (type-equal? #'t1 #'maybe-t1)
      (raise-syntax-error
@@ -185,7 +220,7 @@
               (attribute e2)
               (attribute maybe-t1))
       syn)
-     #:with t2^ (subst #'e2 #'x #'t2)
+     #:with t2^ (subst #'f-type #'e2)
      (set-type
       (quasisyntax/loc syn (#%app #,(erase-type #'e1) #,(erase-type #'e2)))
       (quasisyntax/loc syn t2^))]))
