@@ -57,7 +57,7 @@
 
   ;; Helpers; based on Types as Macros
   (define (set-type e t)
-    (syntax-property e 'type t))
+    (syntax-property e 'type (syntax-local-introduce t)))
 
   (define (erase-type e)
     (cur-local-expand e))
@@ -88,7 +88,7 @@
         #`(lambda (yt ...)
             (let-syntax ([x (make-rename-transformer (set-type #'yt #'t))] ...)
               #,(merge-type-props e (syntax-property (attribute e2) 'type)))))
-       #:with t2 (merge-type-props e (syntax-property (attribute e2) 'type))
+       #:with t2 (syntax-local-introduce (merge-type-props e (syntax-property (attribute e2) 'type)))
        #`((zv ...) (zv ...) (e2 : t2))]))
 
   (define (free-maybe-identifier=? x1 x2)
@@ -111,27 +111,14 @@
       ;; TODO: implement the rest of it.
       [_ (error 'type-equal? (format "not implemented for ~a ~a" t1 t2))]))
 
-  ;; TODO: Substitution doesn't seem to work. Maybe need to use lambda to bind
-  ;; Takes a type that binds (must expand to something with a Racket lambda as it's final form) and a
-  ;; thing to substitute
-  (define (subst v x e);(subst binds v)
-    (define (_subst v x e)
-      (syntax-parse e
-        [y:id
-         ;; TODO: Stephen's code says this should be bound-identifier=?, but that doesn't work. While this does.
-         ;; And this makes more sense... x and y *are* free; they've been taken out of the scope of
-         ;; their lambda... unless e is supposed to be a lambda expression, and x is it's argument?
-         ;; That could make sense.
-         #:when (free-identifier=? e x)
-         v]
-        [(e ...)
-         #`(#,@(map (lambda (e) (_subst v x e)) (attribute e)))]
-        [_ e]))
-    (_subst v x e)
-    #;(syntax-parse binds
-      #:literals (#%plain-lambda)
-      [(cur-Π (x : t1) e2)
-       (_subst v #'x #'e2)]))
+  (define (subst v x e)
+    (syntax-parse e
+      [y:id
+       #:when (bound-identifier=? e x)
+       v]
+      [(e ...)
+       #`(#,@(map (lambda (e) (subst v x e)) (attribute e)))]
+      [_ e]))
 
   ;; syntax classes
   #;(define-syntax-class cur-syntax
@@ -238,8 +225,7 @@
     #:literals (#%plain-app)
     [(_ e1:expr e2:expr)
      #:with (_ _ (e1^ : f-type)) (get-type #'e1)
-     ;; TODO: Wish this could be (cur-Π (x : t1) e)
-     ;#:with (#%plain-app Π t1 f) #'f-type
+     ;; TODO: More error checking. Maybe hide error checkings and stuff in syntax-classes? Maybe mimic turnstyle.
      #:with (cur-Π (x : t1) e) #'f-type
      #:with (_ _ (e2^ : maybe-t1)) (get-type #'e2)
      #:fail-unless (type-equal? #'t1 #'maybe-t1)
@@ -251,10 +237,7 @@
               (attribute e2)
               (attribute maybe-t1))
       syn)
-;     #:with t2^ (subst #'f-type #'e2)
      #:with t2^ (subst #'e2 #'x #'e)
-     ;; TODO: See thoughts about this on definition of subst
-;     #:with (#%plain-lambda _ t2^)(subst #'e2 #'x #'(#%plain-lambda (x) e))
      (set-type
       (quasisyntax/loc syn (#%app e1^ e2^))
       (quasisyntax/loc syn t2^))]))
