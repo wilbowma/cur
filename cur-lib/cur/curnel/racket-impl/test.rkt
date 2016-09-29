@@ -21,3 +21,12 @@ x
          z)))
   (Type 2))
  (Type 1))
+
+(axiom Nat : (Type 0))
+(axiom z : Nat)
+(axiom meow : (Π (x : (Type 1)) (Type 0)))
+
+;(z (Type 0))
+z
+(meow (Type 0))
+meow

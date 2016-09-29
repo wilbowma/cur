@@ -7,6 +7,8 @@
  | 4. Test
  | 5. Ensure backwards compatibility
  | 6. Have Stephen review code/maybe rewrite using his library.
+ | 7. Get rid of boilerplatey stuff; superseded by using library.
+ | 8. Abstract errors/make consistent
  |#
 (require
  (for-syntax
@@ -20,6 +22,7 @@
   [cur-λ λ]
   [cur-Π Π]
   [cur-app #%app]
+  [cur-axiom axiom]
   #;[cur-var #%variable-reference])
  #%top
  #%datum
@@ -139,7 +142,14 @@
     (pattern e:expr #;cur-syntax
              #:fail-unless (get-type (attribute e))
              (raise-syntax-error 'core-type-error "Could not infer any type for term"
-                                 (attribute e)))))
+                                 (attribute e))))
+
+  (define-syntax-class telescope
+    (pattern (cur-Π (x : t1) t2:telescope)
+             #:attr xs (cons #'x (attribute t2.xs)))
+
+    (pattern e:expr
+             #:attr xs '())))
 
 (define-syntax (cur-define syn)
   (syntax-parse syn
@@ -152,6 +162,21 @@
          (define y e))]))
 
 #;(define-syntax cur-module-begin)
+
+(require racket/function)
+(define-syntax (cur-axiom syn)
+  (syntax-parse syn
+    #:datum-literals (:)
+    [(_ name:id : type:telescope)
+     #:with (_ _ (_ : U)) (get-type #'type)
+     #:fail-unless (attribute U)
+     (error 'core-type-error (format "Axiom ~a has declared type ~a, which is not valid" #'name #'type))
+     #:with axiom (fresh #'axiom)
+     #:with make-axiom (fresh #'make-axiom)
+     #`(begin
+         (struct axiom (#,@(attribute type.xs)) #:transparent #:reflection-name 'name #:constructor-name make-axiom)
+         (define-syntax name (make-rename-transformer (set-type #'y #'type)))
+         (define y ((curryr make-axiom))))]))
 
 #;(define-syntax (cur-data syn)
   (syntax-parse syn
