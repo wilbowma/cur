@@ -114,7 +114,7 @@
   ;; TODO: Substitution doesn't seem to work. Maybe need to use lambda to bind
   ;; Takes a type that binds (must expand to something with a Racket lambda as it's final form) and a
   ;; thing to substitute
-  (define (subst binds v)
+  (define (subst v x e);(subst binds v)
     (define (_subst v x e)
       (syntax-parse e
         [y:id
@@ -127,7 +127,8 @@
         [(e ...)
          #`(#,@(map (lambda (e) (_subst v x e)) (attribute e)))]
         [_ e]))
-    (syntax-parse binds
+    (_subst v x e)
+    #;(syntax-parse binds
       #:literals (#%plain-lambda)
       [(cur-Π (x : t1) e2)
        (_subst v #'x #'e2)]))
@@ -250,9 +251,10 @@
               (attribute e2)
               (attribute maybe-t1))
       syn)
-     #:with t2^ (subst #'f-type #'e2)
+;     #:with t2^ (subst #'f-type #'e2)
+     #:with t2^ (subst #'e2 #'x #'e)
      ;; TODO: See thoughts about this on definition of subst
-;     #:with t2^ (subst #'(#%plain-lambda (x) e) #'e2)
+;     #:with (#%plain-lambda _ t2^)(subst #'e2 #'x #'(#%plain-lambda (x) e))
      (set-type
       (quasisyntax/loc syn (#%app e1^ e2^))
       (quasisyntax/loc syn t2^))]))
