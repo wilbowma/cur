@@ -26,6 +26,8 @@
   [cur-app #%app]
   [cur-axiom axiom]
   #;[cur-var #%variable-reference])
+ require
+ provide
  #%top
  #%datum
  ;(struct-out Type)
@@ -84,12 +86,29 @@
         #`(lambda (yv ...)
             (let-syntax ([x (make-rename-transformer (set-type #'yv #'t))] ...)
               #,e)))
+       ;; TODO: Not sure if this is sensible; testing seemed to indicate "no"
        ;#:with (yt ...) (map fresh (attribute x))
        ;#:with (#%plain-lambda (zt ...) (let-values () (let-values () t2)))
        #;(cur-local-expand
         #`(lambda (yt ...)
             (let-syntax ([x (make-rename-transformer (set-type #'yt #'t))] ...)
               #,(merge-type-props e (syntax-property (attribute e2) 'type)))))
+       ;; TODO: if t2 is ever #f, an error should be raised. However, this error should be a last resort;
+       ;; typed macros should be able to provide their own error message.
+       ;; 1. could use exceptions
+       ;;    + always get a type error
+       ;;    + simplified interface
+       ;;    - exceptions feel weird to me
+       ;;    - have to remember to handle them in macros
+       ;; 2. could pass in an error message
+       ;;    + statically enforced that you give a more specific error message
+       ;;    + always get a type error
+       ;;    - adds some burden to use
+       ;;    - may not cover all use cases
+       ;; 3. could put in error monad
+       ;;    + flexible
+       ;;    - may get random, unrelated error if you forget to handle
+       ;; look into how types as macros does this
        #:with t2 (syntax-local-introduce (merge-type-props e (syntax-property (attribute e2) 'type)))
        #`((zv ...) (zv ...) (e2 : t2))]))
 
@@ -231,10 +250,18 @@
     #:datum-literals (:)
     #:literals (#%plain-app)
     [(_ e1:expr e2:expr)
-     #:with (_ _ (e1^ : f-type)) (get-type #'e1)
+     #:with (_ _ (e1^ : f-type)) (and-print (get-type #'e1))
      ;; TODO: More error checking. Maybe hide error checkings and stuff in syntax-classes? Maybe mimic turnstyle.
      #:with (cur-Π (x : t1) e) #'f-type
      #:with (_ _ (e2^ : maybe-t1)) (get-type #'e2)
+     #:fail-unless (attribute maybe-t1)
+     (raise-syntax-error
+      'core-type-error
+      (format "Could not infer the type of argument ~a to function ~a; expected argument of type ~a"
+              (attribute e2)
+              (attribute e1)
+              (attribute t1))
+      syn)
      #:fail-unless (type-equal? #'t1 #'maybe-t1)
      (raise-syntax-error
       'core-type-error
@@ -250,4 +277,3 @@
       (quasisyntax/loc syn t2^))]))
 
 #;(define-syntax cur-elim)
-
