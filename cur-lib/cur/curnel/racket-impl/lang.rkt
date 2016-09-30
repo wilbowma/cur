@@ -5,6 +5,8 @@
  | 3. be consistent about using #' vs attribute. (I seem to think attribute do more than #' even when
  |    referring to pattern variables, but I'm not sure that's true)
  | 4. Test
+ |    - a. things that should work
+ |    - b. things that shouldn't
  | 5. Ensure backwards compatibility
  | 6. Have Stephen review code/maybe rewrite using his library.
  | 7. Get rid of boilerplatey stuff; superseded by using library.
@@ -91,23 +93,34 @@
        #:with t2 (syntax-local-introduce (merge-type-props e (syntax-property (attribute e2) 'type)))
        #`((zv ...) (zv ...) (e2 : t2))]))
 
-  (define (free-maybe-identifier=? x1 x2)
-    (and (identifier? x1) (identifier? x2) (free-identifier=? x1 x2)))
+  (define-syntax-class universe
+    #:literals (#%plain-app quote)
+    (pattern (#%plain-app constr:id (quote i:nat))
+             #:when (free-identifier=? #'Type (syntax-property #'constr 'constructor-for))
+             #:attr level (eval #'i)))
 
-  ;; TODO: Remove dead code
-  (define (lift-id-equal? s1 s2)
-    (map free-maybe-identifier=? (syntax-e s1) (syntax-e s2)))
+  (define (cur-normalize e)
+    ;; TODO:
+    ;; Beta reduce until no more betas
+    ;; Eta expand while non-lambda term that is of function type.
+    ;; Reify the runtime syntax into the surface syntax.
+    (cur-local-expand e)
+    #;(reify (eta-expand (beta-reduce (cur-local-expand e)))))
 
-  (define-syntax-class Type-constr
-    (pattern x:id #:when (free-identifier=? #'Type (syntax-property #'x 'constructor-for))))
-
+  ;; TODO: This is more like "types compatible" or something. Look at implementation of subtyping to
+  ;; see how to do conversion probably.
   (define (type-equal? t1 t2)
-    (syntax-parse #`(#,(cur-local-expand t1) #,(cur-local-expand t2))
+    (syntax-parse #`(#,(cur-normalize t1) #,(cur-normalize t2))
       #:literals (Type #%plain-app quote)
+      #:datum-literals (:)
       [(x:id y:id)
        (free-identifier=? t1 t2)]
-      [((#%plain-app _:Type-constr (quote i:nat)) (#%plain-app _:Type-constr (quote j:nat)))
-       (<= (eval #'i) (eval #'j))]
+      [(A:universe B:universe)
+       (<= (attribute A.level) (attribute B.level))]
+      ;; TODO: Can we compile surface patterns into the expanded representation? Do we need to? Maybe
+      ;; reify does that work
+      #;[((cur-Π (x:id : A₁) B₁)
+        (cur-Π (y:id : A₂) B₂))]
       ;; TODO: implement the rest of it.
       [_ (error 'type-equal? (format "not implemented for ~a ~a" t1 t2))]))
 
@@ -120,12 +133,7 @@
        #`(#,@(map (lambda (e) (subst v x e)) (attribute e)))]
       [_ e]))
 
-  ;; syntax classes
-  #;(define-syntax-class cur-syntax
-    )
-  (define-syntax-class cur-type-level-annotation
-    (pattern i:nat))
-
+  ;; TODO: Remove dead code
   (define-syntax-class cur-expr
     (pattern e:expr #;cur-syntax
              #:fail-unless (get-type (attribute e))
@@ -178,8 +186,7 @@
 
 (define-syntax (cur-type syn)
   (syntax-parse syn
-    [(_ i:cur-type-level-annotation)
-     ;; NB: This #%app is necessary; otherwise, the syntax-property 'type seems to get duplicated
+    [(_ i:nat)
      (set-type (quasisyntax/loc syn (Type i)) #`(cur-type #,(add1 (eval #'i))))]))
 
 #;(define-syntax (cur-var syn)
