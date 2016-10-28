@@ -16,7 +16,6 @@
  (for-syntax
   racket/base
   syntax/parse))
-
 (provide
  (rename-out
   [cur-type Type]
@@ -36,6 +35,8 @@
   #%datum))
 
 (begin-for-syntax
+  (module+ test
+    (require chk))
   (define (maybe-syntax->datum x)
     (if (syntax? x)
         (syntax->datum x)
@@ -109,39 +110,41 @@
        ;;    + flexible
        ;;    - may get random, unrelated error if you forget to handle
        ;; look into how types as macros does this
-       #:with t2 (syntax-local-introduce (merge-type-props e (syntax-property (attribute e2) 'type)))
+       #:attr maybe-t2 (syntax-property (attribute e2) 'type)
+       #:fail-unless (attribute maybe-t2)
+       (raise-syntax-error
+        'core-type-error
+        "Expected a well-typed Curnel term, but found something else"
+        (attribute e2))
+       #:with t2 (syntax-local-introduce (merge-type-props e (attribute maybe-t2)))
        #`((zv ...) (zv ...) (e2 : t2))]))
+
+  ;; TODO: Abstract this and pi-constructor
+  (define-syntax-class type-constructor
+    (pattern x:id
+             #:attr constr (syntax-property #'x 'constructor-for)
+             #:when (and (attribute constr) (free-identifier=? #'Type #'constr))))
 
   (define-syntax-class universe
     #:literals (#%plain-app quote)
-    (pattern (#%plain-app constr:id (quote i:nat))
-             #:when (free-identifier=? #'Type (syntax-property #'constr 'constructor-for))
+    (pattern (#%plain-app constr:type-constructor ~! (quote i:nat))
              #:attr level (eval #'i)))
 
-  (define (cur-normalize e)
-    ;; TODO:
-    ;; Beta reduce until no more betas
-    ;; Eta expand while non-lambda term that is of function type.
-    ;; Reify the runtime syntax into the surface syntax.
-    (cur-local-expand e)
-    #;(reify (eta-expand (beta-reduce (cur-local-expand e)))))
+  ;; TODO: Remove dead code
+  (define-syntax-class cur-expr
+    (pattern e:expr #;cur-syntax
+             #:fail-unless (get-type (attribute e))
+             (raise-syntax-error 'core-type-error "Could not infer any type for term"
+                                 (attribute e))))
 
-  ;; TODO: This is more like "types compatible" or something. Look at implementation of subtyping to
-  ;; see how to do conversion probably.
-  (define (type-equal? t1 t2)
-    (syntax-parse #`(#,(cur-normalize t1) #,(cur-normalize t2))
-      #:literals (Type #%plain-app quote)
-      #:datum-literals (:)
-      [(x:id y:id)
-       (free-identifier=? t1 t2)]
-      [(A:universe B:universe)
-       (<= (attribute A.level) (attribute B.level))]
-      ;; TODO: Can we compile surface patterns into the expanded representation? Do we need to? Maybe
-      ;; reify does that work
-      #;[((cur-Π (x:id : A₁) B₁)
-        (cur-Π (y:id : A₂) B₂))]
-      ;; TODO: implement the rest of it.
-      [_ (error 'type-equal? (format "not implemented for ~a ~a" t1 t2))]))
+  (define-syntax-class pi-constructor
+    (pattern x:id
+             #:attr constr (and-print (syntax-property #'x 'constructor-for))
+             #:when (and (and-print (attribute constr)) (free-identifier=? #'Π #'constr))))
+
+  (define-syntax-class pi-type
+    #:literals (#%plain-app #%plain-lambda)
+    (pattern (#%plain-app constr:pi-constructor ~! arg (_ (name) body))))
 
   (define (subst v x e)
     (syntax-parse e
@@ -151,13 +154,57 @@
       [(e ...)
        #`(#,@(map (lambda (e) (subst v x e)) (attribute e)))]
       [_ e]))
+  (module+ test
+    (define syn-eq? (lambda (x y) (equal? (syntax->datum x) (syntax->datum y))))
+    (chk
+     #:eq bound-identifier=? (subst #'z #'x #'x) #'z
+     #:eq bound-identifier=? (subst #'z #'x #'y) #'y
+; TODO Not sure how to capture this test; x isn't getting the "right" binding...
+;     #:eq syn-eq? (subst #'z #'x (expand-syntax-once #'(#%plain-lambda (y) x))) #'(#%plain-lambda (y) z)
+     #:eq syn-eq? (subst #'z #'x (expand-syntax-once #'(#%plain-lambda (x) x))) #'(#%plain-lambda (x) x)))
 
-  ;; TODO: Remove dead code
-  (define-syntax-class cur-expr
-    (pattern e:expr #;cur-syntax
-             #:fail-unless (get-type (attribute e))
-             (raise-syntax-error 'core-type-error "Could not infer any type for term"
-                                 (attribute e))))
+  (define (cur-eval-cbv e)
+    (syntax-parse e
+      #:literals (#%plain-app #%plain-lambda)
+      [A:universe e]
+      [x:id e]
+      [(#%plain-app e1 e2)
+       #:with (#%plain-lambda (x) body) (cur-eval-cbv #'e1)
+       #:with a (cur-eval-cbv #'e2)
+       (cur-eval-cbv (subst #'a #'x #'body))]
+      [(#%plain-lambda (x) body) e]
+      [(Π t l) e]))
+
+  (define (cur-normalize e)
+    ;; TODO:
+    ;; Beta reduce until no more betas
+    ;; Eta expand while non-lambda term that is of function type.
+    ;; Reify the runtime syntax into the surface syntax.
+    (cur-eval-cbv (cur-local-expand e))
+    #;(reify (eta-expand (beta-reduce (cur-local-expand e)))))
+
+  ;; TODO: This is more like "types compatible" or something. Look at implementation of subtyping to
+  ;; see how to do conversion probably.
+  (trace-define (type-equal? t1 t2)
+    (syntax-parse #`(#,(cur-normalize t1) #,(cur-normalize t2))
+      #:literals (#%plain-app #%plain-lambda)
+      #:datum-literals (:)
+      [(x:id y:id)
+       (free-identifier=? t1 t2)]
+      [(A:universe B:universe)
+       (<= (attribute A.level) (attribute B.level))]
+      ;; TODO: Can we compile surface patterns into the expanded representation? Do we need to? Maybe
+      ;; reify does that work
+      #;[((cur-Π (x:id : A₁) B₁)
+        (cur-Π (y:id : A₂) B₂))]
+      [(e1:pi-type ~! e2:pi-type)
+       (and (type-equal? #'e1.arg #'e2.arg)
+            (type-equal? #'e1.body (subst #'e1.name #'e2.name #'e2.body)))]
+      [((#%plain-app (~and e1 (~not x:pi-constructor)) ~! e2)
+        (#%plain-app (~and e1^ (~not x:pi-constructor)) ~! e2^))
+       (and (type-equal? #'e1 #'e1^) (type-equal? #'e2 #'e2^))]
+      ;; TODO: implement the rest of it.
+      [_ (error 'type-equal? (format "not implemented for ~a ~a" t1 t2))]))
 
   (define-syntax-class telescope
     (pattern (cur-Π (x : t1) t2:telescope)
@@ -190,7 +237,7 @@
      #:with make-axiom (fresh #'make-axiom)
      #`(begin
          (struct axiom (#,@(attribute type.xs)) #:transparent #:reflection-name 'name #:constructor-name make-axiom)
-         (define-syntax name (make-rename-transformer (set-type #'y #'type)))
+         (define-syntax name (make-rename-transformer (set-type #'y (cur-local-expand #'type))))
          (define y ((curryr make-axiom))))]))
 
 #;(define-syntax (cur-data syn)
@@ -243,16 +290,27 @@
                          (attribute e))
      (set-type
       (quasisyntax/loc syn (lambda (zv) #,(erase-type #'e2)))
-      (quasisyntax/loc syn (cur-Π (zt : t1^) t2)))]))
+      (quasisyntax/loc syn #,(cur-local-expand #'(cur-Π (zt : t1^) t2))))]))
 
-(define-syntax (cur-app syn)
+(trace-define-syntax (cur-app syn)
   (syntax-parse syn
     #:datum-literals (:)
     #:literals (#%plain-app)
     [(_ e1:expr e2:expr)
-     #:with (_ _ (e1^ : f-type)) (and-print (get-type #'e1))
+     #:with (_ _ (e1^ : f-type)) (get-type #'e1)
      ;; TODO: More error checking. Maybe hide error checkings and stuff in syntax-classes? Maybe mimic turnstyle.
-     #:with (cur-Π (x : t1) e) #'f-type
+     #:fail-unless (syntax-parse #'f-type [e:pi-type #t] [_ #f])
+     (raise-syntax-error
+      'core-type-error
+      (format "Expected function but found something ~a of type ~a"
+              ;; TODO Should probably be using 'origin  in more error messages. Maybe need principled
+              ;; way to do that.
+              (syntax-property (attribute e1) 'origin)
+              (syntax-property (attribute f-type) 'origin))
+      syn)
+;     #:with (cur-Π (x : t1) e) #'f-type
+     #:with f-type-again:pi-type #'f-type
+     #:attr t1 (attribute f-type-again.arg)
      #:with (_ _ (e2^ : maybe-t1)) (get-type #'e2)
      #:fail-unless (attribute maybe-t1)
      (raise-syntax-error
@@ -271,6 +329,8 @@
               (attribute e2)
               (attribute maybe-t1))
       syn)
+     #:with x (attribute f-type-again.name)
+     #:with e (attribute f-type-again.body)
      #:with t2^ (subst #'e2 #'x #'e)
      (set-type
       (quasisyntax/loc syn (#%app e1^ e2^))
