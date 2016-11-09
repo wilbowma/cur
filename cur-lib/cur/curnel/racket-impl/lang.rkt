@@ -8,7 +8,8 @@
  |    - a. things that should work
  |    - b. things that shouldn't
  | 5. Ensure backwards compatibility
- | 6. Have Stephen review code/maybe rewrite using his library.
+ | ~6. Have Stephen review code/maybe rewrite using his library.~--Library requires term/type/kind
+ |     distinction, and has a lot of dependenices. Would complicate core too much.
  | 7. Get rid of boilerplatey stuff; superseded by using library.
  | 8. Abstract errors/make consistent
  |#
@@ -168,12 +169,15 @@
       #:literals (#%plain-app #%plain-lambda)
       [A:universe e]
       [x:id e]
+      [_:pi-type e]
       [(#%plain-app e1 e2)
-       #:with (#%plain-lambda (x) body) (cur-eval-cbv #'e1)
        #:with a (cur-eval-cbv #'e2)
-       (cur-eval-cbv (subst #'a #'x #'body))]
-      [(#%plain-lambda (x) body) e]
-      [(Π t l) e]))
+       (syntax-parse (cur-eval-cbv #'e1)
+         [(#%plain-lambda (x) body)
+          (cur-eval-cbv (subst #'a #'x #'body))]
+         [e1-
+          #`(#%plain-app e1- a)])]
+      [(#%plain-lambda (x) body) e]))
 
   (define (cur-normalize e)
     ;; TODO:
@@ -197,14 +201,15 @@
       ;; reify does that work
       #;[((cur-Π (x:id : A₁) B₁)
         (cur-Π (y:id : A₂) B₂))]
-      [(e1:pi-type ~! e2:pi-type)
+      [(e1:pi-type e2:pi-type)
        (and (type-equal? #'e1.arg #'e2.arg)
             (type-equal? #'e1.body (subst #'e1.name #'e2.name #'e2.body)))]
-      [((#%plain-app (~and e1 (~not x:pi-constructor)) ~! e2)
-        (#%plain-app (~and e1^ (~not x:pi-constructor)) ~! e2^))
+      [((#%plain-app e1 e2) (#%plain-app e1^ e2^))
        (and (type-equal? #'e1 #'e1^) (type-equal? #'e2 #'e2^))]
-      ;; TODO: implement the rest of it.
-      [_ (error 'type-equal? (format "not implemented for ~a ~a" t1 t2))]))
+      [((#%plain-lambda (x1) e1) (#%plain-lambda (x2) e2))
+       (type-equal? #'e1 (subst #'x1 #'x2 #'e2))]
+      ;; TODO: Is this complete?
+      [_ #f #;(error 'type-equal? (format "not implemented for ~a ~a" t1 t2))]))
 
   (define-syntax-class telescope
     (pattern (cur-Π (x : t1) t2:telescope)

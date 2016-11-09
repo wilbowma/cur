@@ -46,7 +46,8 @@ z
 ;
 (define test1 (λ (a : (Π (x : Nat) Nat)) (a z)))
 s
-(test1 z)
+; should fail; does, with good error
+;(test1 z)
 (test1 s)
 
 ; TODO this is bad:
