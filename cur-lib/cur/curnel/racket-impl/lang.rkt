@@ -40,6 +40,59 @@
  (for-syntax
   #%datum))
 
+;;; Reflected (compile-time) and reified (run-time) representations of Curnel terms
+;;; ------------------------------------------------------------------------
+
+;; The run-time representation of univeres. (Type i), where i is a Nat.
+(struct Type (level) #:transparent)
+
+;; The run-time representation of Π types. (Π t f), where is a type and f is a procedure that computes
+;; the body type given an argument.
+(struct Π (t f))
+
+;; The run-time representation of an application is a Racket plain application: (#%plain-app e1 e2),
+;; where e1 is a procedure and e2 is its argument.
+
+;; The run-time representation of a function is a Racket plain procedure: (#%plain-lambda (f) e)
+(begin-for-syntax
+  ;; A syntax class for detecting the constructor of a struct
+  (define-syntax-class (constructor constr-syn)
+    (pattern x:id
+             #:attr constr (syntax-property #'x 'constructor-for)
+             #:when (and (attribute constr) (free-identifier=? constr-syn #'constr))))
+
+  (define-syntax-class reified-universe
+    #:literals (#%plain-app quote Type)
+    (pattern (#%plain-app (~var constr (constructor #'Type)) ~! (quote i:nat))
+             #:attr level (eval #'i)))
+
+  ;; TODO: Maybe "arg" should be "ann", as in annotation
+  (define-syntax-class reified-pi
+    #:literals (#%plain-app #%plain-lambda Π)
+    (pattern (#%plain-app (~var constr (constructor #'Π)) ~! arg (#%plain-lambda (name) body))))
+
+  (define-syntax-class reified-app
+    #:literals (#%plain-app)
+    (pattern (#%plain-app operator operand)))
+
+  (define-syntax-class reified-lambda
+    #:literals (#%plain-lambda)
+    (pattern (#%plain-lambda (name) body)
+             #:with (_ _ (_ : arg)) (get-type #'name)))
+
+  (define (cur-reflect e)
+    (syntax-parse e
+      #:literals (#%plain-app #%plain-lambda)
+      [x:id e]
+      [e:reified-universe
+       #`(cur-Type e.level)]
+      [e:reified-pi
+       #`(cur-Π (e.name : #,(cur-reflect #'e.arg)) #,(cur-reflect #'e.body))]
+      [e:reified-app
+       #`(cur-app #,(cur-reflect #'e.operator) #,(cur-reflect #'e.operand))]
+      [e:reified-lambda
+       #`(cur-λ (e.name : #,(cur-reflect #'e.arg)) #,(cur-reflect #'e.body))])))
+
 (begin-for-syntax
   (module+ test
     (require chk))
@@ -126,33 +179,6 @@
        #:with t2 (syntax-local-introduce (merge-type-props e (attribute maybe-t2)))
        (and-print #`((zv ...) (zv ...) (e2 : t2)))]))
 
-  ;; TODO: Abstract this and pi-constructor
-  (define-syntax-class type-constructor
-    (pattern x:id
-             #:attr constr (syntax-property #'x 'constructor-for)
-             #:when (and (attribute constr) (free-identifier=? #'Type #'constr))))
-
-  (define-syntax-class universe
-    #:literals (#%plain-app quote)
-    (pattern (#%plain-app constr:type-constructor ~! (quote i:nat))
-             #:attr level (eval #'i)))
-
-  ;; TODO: Remove dead code
-  (define-syntax-class cur-expr
-    (pattern e:expr #;cur-syntax
-             #:fail-unless (get-type (attribute e))
-             (raise-syntax-error 'core-type-error "Could not infer any type for term"
-                                 (attribute e))))
-
-  (define-syntax-class pi-constructor
-    (pattern x:id
-             #:attr constr (syntax-property #'x 'constructor-for)
-             #:when (and (attribute constr) (free-identifier=? #'Π #'constr))))
-
-  (define-syntax-class pi-type
-    #:literals (#%plain-app #%plain-lambda)
-    (pattern (#%plain-app constr:pi-constructor ~! arg (_ (name) body))))
-
   (define (subst v x e)
     (syntax-parse e
       [y:id
@@ -173,9 +199,9 @@
   (define (cur-eval-cbv e)
     (syntax-parse e
       #:literals (#%plain-app #%plain-lambda)
-      [A:universe e]
+      [A:reified-universe e]
       [x:id e]
-      [_:pi-type e]
+      [_:reified-pi e]
       [(#%plain-app e1 e2)
        #:with a (cur-eval-cbv #'e2)
        (syntax-parse (cur-eval-cbv #'e1)
@@ -201,13 +227,13 @@
       #:datum-literals (:)
       [(x:id y:id)
        (free-identifier=? t1 t2)]
-      [(A:universe B:universe)
+      [(A:reified-universe B:reified-universe)
        (<= (attribute A.level) (attribute B.level))]
       ;; TODO: Can we compile surface patterns into the expanded representation? Do we need to? Maybe
       ;; reify does that work
       #;[((cur-Π (x:id : A₁) B₁)
         (cur-Π (y:id : A₂) B₂))]
-      [(e1:pi-type e2:pi-type)
+      [(e1:reified-pi e2:reified-pi)
        (and (type-equal? #'e1.arg #'e2.arg)
             (type-equal? #'e1.body (subst #'e1.name #'e2.name #'e2.body)))]
       [((#%plain-app e1 e2) (#%plain-app e1^ e2^))
@@ -315,7 +341,7 @@
      #:with (_ _ (e^ : t)) (get-type #'e)
      #:with (_ _ (t^ : U)) (get-type #'t)
      #:fail-unless (syntax-parse #'U
-                     [_:universe #t]
+                     [_:reified-universe #t]
                      [_ #f])
      (raise-syntax-error 'core-type-error
                          (format "Can only eliminate a fully applied inductive type. The type of the
@@ -336,7 +362,7 @@ discriminant ~a is ~a, which accepts more arguments"
                          (syntax-property (attribute t) 'origin))
                          syn)
      #:with (_ _ (motive^ : mt)) (get-type #'motive)
-     #:fail-unless (syntax-parse #'mt [e:pi-type #t] [_ #f])
+     #:fail-unless (syntax-parse #'mt [e:reified-pi #t] [_ #f])
      (raise-syntax-error
       'core-type-error
       (format "Expected motive to be a function, but found ~a of type ~a"
@@ -369,7 +395,6 @@ discriminant ~a is ~a, which accepts more arguments"
      #:with ((_ _ (methods^ : _)) ...) (map get-type (syntax->list #'methods))
      #`(elim-name e^ methods^ ...)]))
 
-(struct Type (level) #:transparent)
 
 (define-syntax (cur-type syn)
   (syntax-parse syn
@@ -382,7 +407,6 @@ discriminant ~a is ~a, which accepts more arguments"
      #:with (e : t) (get-type #'x)
      #`(#%variable-reference . e)]))
 
-(struct Π (t f))
 
 (require racket/trace)
 (define-syntax (cur-Π syn)
@@ -420,7 +444,7 @@ discriminant ~a is ~a, which accepts more arguments"
     [(_ e1:expr e2:expr)
      #:with (_ _ (e1^ : f-type)) (get-type #'e1)
      ;; TODO: More error checking. Maybe hide error checkings and stuff in syntax-classes? Maybe mimic turnstyle.
-     #:fail-unless (syntax-parse #'f-type [e:pi-type #t] [_ #f])
+     #:fail-unless (syntax-parse #'f-type [e:reified-pi #t] [_ #f])
      (raise-syntax-error
       'core-type-error
       (format "Expected function but found something ~a of type ~a"
@@ -430,7 +454,7 @@ discriminant ~a is ~a, which accepts more arguments"
               (syntax-property (attribute f-type) 'origin))
       syn)
 ;     #:with (cur-Π (x : t1) e) #'f-type
-     #:with f-type-again:pi-type #'f-type
+     #:with f-type-again:reified-pi #'f-type
      #:attr t1 (attribute f-type-again.arg)
      #:with (_ _ (e2^ : maybe-t1)) (get-type #'e2)
      #:fail-unless (attribute maybe-t1)
