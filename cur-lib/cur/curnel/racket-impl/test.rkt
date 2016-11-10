@@ -56,3 +56,19 @@ s
 ; forms are redefined
 ;(require racket/base)
 ;(meow (list 1))
+
+;; Should fail with good error, does
+#;(data Nat : 0 (Type 0)
+      (z : Nat)
+      (s : (Π (x : Nat) Nat)))
+
+#;(data Nat2 : 0 (Type 0)
+      (z : Nat2)
+      (s : (Π (x : Nat) Nat)))
+
+(data Nat2 : 0 (Type 0)
+      (z2 : Nat2)
+      (s2 : (Π (x : Nat2) Nat2))
+      )
+
+z2

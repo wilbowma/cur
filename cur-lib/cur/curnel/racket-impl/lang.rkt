@@ -25,6 +25,8 @@
   [cur-Π Π]
   [cur-app #%app]
   [cur-axiom axiom]
+  [cur-data data]
+  [cur-elim elim]
   #;[cur-var #%variable-reference])
  require
  provide
@@ -213,9 +215,10 @@
 
   (define-syntax-class telescope
     (pattern (cur-Π (x : t1) t2:telescope)
+             #:attr hole #'t2.hole
              #:attr xs (cons #'x (attribute t2.xs)))
 
-    (pattern e:expr
+    (pattern hole:expr
              #:attr xs '())))
 
 (define-syntax (cur-define syn)
@@ -245,13 +248,60 @@
          (define-syntax name (make-rename-transformer (set-type #'y (cur-local-expand #'type))))
          (define y ((curryr make-axiom))))]))
 
-#;(define-syntax (cur-data syn)
+;; TODO: Strict positivity checking
+(define-syntax (cur-data syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(data name:id : params:nat type:cur-expr
-           (c:id : c-type:cur-expr)
+    [(data name:id : params:nat type
+           (c:id : c-type)
            ...)
-     ]))
+     #:with (cs ...) (map (λ (x) (syntax-property (syntax-property x 'constant #t) 'params (eval #'params)))
+                          (syntax->list #'(c ...)))
+     #:with (m ...) (map fresh (syntax->list #'(c ...)))
+     #`(begin
+         (cur-axiom #,(syntax-property (syntax-property (syntax-property #'name 'inductive #t)
+                                                        'constructors (length (syntax->list #'(c ...)))) 'params (eval #'params)) : type)
+         (cur-axiom cs : c-type) ...
+         (define #,(format-id "~a-elim" #'name)
+           (lambda (e m ...)
+             (match e
+               [#s(c . ,rest)
+                (apply m rest)]
+               ...))))]))
+
+(define-syntax (cur-elim syn)
+  (syntax-parse syn
+    #:datum-literals (:)
+    [(_ e motive methods)
+     #:with (_ _ (e^ : t)) (get-type #'e)
+     #:with (_ _ (t^ : U)) (get-type #'t)
+     #:fail-unless (syntax-parse #'U
+                     [_:universe #t]
+                     [_ #f])
+     (raise-syntax-error 'core-type-error
+                         "Can only eliminate a fully applied inductive type. The type of the
+discriminant ~a is ~a, which accepts more arguments"
+                         (attribute e)
+                         (attrbute t))
+     #:fail-unless (syntax-parse #'t^
+                     #:literals (#%plain-app)
+                     [(#%plain-app x:id . r)
+                      (syntax-property #'x 'inductive)]
+                     [_ #f])
+     (raise-syntax-error 'core-type-error
+                         "Can only eliminate an inductive type, but ~a is of type ~a, which is not
+an inductive."
+                         (attribute e)
+                         (attrbute t))
+     #:with (#%plain-app D:id . r) #'t^
+     #:fail-unless (= (syntax-property #'D 'constructors) (length (syntax->list methods)))
+     (raise-syntax-error 'core-type-error
+                         "Need one method for each constructor; found ~a constructors and ~a branches"
+                         (syntax-property #'D 'constructors)
+                         (length (syntax->list methods))
+                         (attribute syn))
+     #:with ((_ _ (methods^ : _)) ...) (map get-type (syntax->list #'methods))
+     #`((format-id "~a-elim" #'name) e^ methods^ ...)]))
 
 (struct Type (level) #:transparent)
 
