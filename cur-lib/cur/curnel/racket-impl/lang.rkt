@@ -136,7 +136,6 @@
     (if (pair? t) (car t) t))
 
   (define (get-type e #:ctx [ctx #'()])
-    (displayln e)
     (syntax-parse ctx
       #:datum-literals (:)
       #:literals (#%plain-lambda let-values)
@@ -177,7 +176,7 @@
         "Expected a well-typed Curnel term, but found something else"
         (attribute e2))
        #:with t2 (syntax-local-introduce (merge-type-props e (attribute maybe-t2)))
-       (and-print #`((zv ...) (zv ...) (e2 : t2)))]))
+       #`((zv ...) (zv ...) (e2 : t2))]))
 
   (define (subst v x e)
     (syntax-parse e

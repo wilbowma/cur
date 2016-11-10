@@ -1,26 +1,26 @@
 #lang s-exp "lang.rkt"
 
-;(Type 1)
-;;
-;(define x (Type 1))
-;;
-;x
-;
-;(Π (x : (Type 1)) (Type 1))
-;(define id (λ (x : (Type 2)) x))
-;((λ (x : (Type 2)) x) (Type 1))
-;
-;(id (Type 1))
-;
-;(define id2 (λ (A : (Type 3)) (λ (a : A) a)))
-;((id2 (Type 2)) (Type 1))
-;
-;(((λ (Nat : (Type 3))
-;     (λ (z : Nat)
-;       (λ (s : (Π (n : Nat) Nat))
-;         z)))
-;  (Type 2))
-; (Type 1))
+(Type 1)
+
+(define x (Type 1))
+
+x
+
+(Π (x : (Type 1)) (Type 1))
+(define id (λ (x : (Type 2)) x))
+((λ (x : (Type 2)) x) (Type 1))
+
+(id (Type 1))
+
+(define id2 (λ (A : (Type 3)) (λ (a : A) a)))
+((id2 (Type 2)) (Type 1))
+
+(((λ (Nat : (Type 3))
+     (λ (z : Nat)
+       (λ (s : (Π (n : Nat) Nat))
+         z)))
+  (Type 2))
+ (Type 1))
 
 (axiom Nat : (Type 0))
 (axiom z : Nat)
@@ -33,7 +33,7 @@ z
 (meow (Type 0))
 ; Should fail with good error, does
 ;(meow 1)
-;meow
+meow
 
 (axiom Vec : (Π (A : (Type 0)) (Π (n : Nat) (Type 0))))
 (axiom nil : (Π (A : (Type 0)) ((Vec A) z)))
@@ -93,5 +93,6 @@ z2
 
 ((λ (f : (Π (A : (Type 0)) (Type 0))) z) Maybe)
 
+;; Should type check, doesn't
 #;(elim (none Nat) (λ (x : (Maybe Nat)) Nat)
       (z (λ (A : (Type 0)) (a : A)) a))
