@@ -43,17 +43,20 @@
 ;;; Reflected (compile-time) and reified (run-time) representations of Curnel terms
 ;;; ------------------------------------------------------------------------
 
-;; The run-time representation of univeres. (Type i), where i is a Nat.
+;; Reified
+;; ----------------------------------------------------------------
+; The run-time representation of univeres. (Type i), where i is a Nat.
 (struct Type (level) #:transparent)
 
-;; The run-time representation of Π types. (Π t f), where is a type and f is a procedure that computes
-;; the body type given an argument.
+; The run-time representation of Π types. (Π t f), where is a type and f is a procedure that computes
+; the body type given an argument.
 (struct Π (t f))
 
-;; The run-time representation of an application is a Racket plain application: (#%plain-app e1 e2),
-;; where e1 is a procedure and e2 is its argument.
+; The run-time representation of an application is a Racket plain application.
+; (#%plain-app e1 e2)
 
-;; The run-time representation of a function is a Racket plain procedure: (#%plain-lambda (f) e)
+; The run-time representation of a function is a Racket plain procedure.
+; (#%plain-lambda (f) e)
 (begin-for-syntax
   ;; A syntax class for detecting the constructor of a struct
   (define-syntax-class (constructor constr-syn)
@@ -71,21 +74,52 @@
     #:literals (#%plain-app #%plain-lambda Π)
     (pattern (#%plain-app (~var constr (constructor #'Π)) ~! arg (#%plain-lambda (name) body))))
 
+  (define-syntax-class reified-lambda
+    #:literals (#%plain-lambda)
+    (pattern (~and e (#%plain-lambda (name) body))
+             #:with (_ _ (_ : t)) (get-type #'e)
+             #:declare t reified-pi
+             #:attr arg (attribute t.arg)))
+
   (define-syntax-class reified-app
     #:literals (#%plain-app)
     (pattern (#%plain-app operator operand)))
 
-  (define-syntax-class reified-lambda
-    #:literals (#%plain-lambda)
-    (pattern (#%plain-lambda (name) body)
-             #:with (_ _ (_ : arg)) (get-type #'name)))
 
+  ;; Reification: turn a compile-time term into a run-time term.
+  ;; This is done implicitly via macro expansion; each of the surface macros define the
+  ;; transformation.
+  ;; We define one helper for when we need to control reification.
+  (define (cur-local-expand e)
+    (local-expand e 'expression null)))
+
+;; Reflected
+;; ----------------------------------------------------------------
+(begin-for-syntax
+  (define-syntax-class reflected-universe
+    #:literals (cur-type)
+    (pattern (cur-type i:nat)))
+
+  (define-syntax-class reflected-pi
+    #:literals (cur-Π)
+    (pattern (cur-Π (name : arg) body)))
+
+  (define-syntax-class reflected-lambda
+    #:literals (cur-λ)
+    (pattern (cur-λ (name : arg) body)))
+
+  (define-syntax-class reflected-app
+    #:literals (cur-app)
+    (pattern (cur-app operator operand)))
+
+  ;; Reflection: turn a run-time term back into a compile-time term.
+  ;; This is done explicitly when we need to pattern match.
   (define (cur-reflect e)
     (syntax-parse e
       #:literals (#%plain-app #%plain-lambda)
       [x:id e]
       [e:reified-universe
-       #`(cur-Type e.level)]
+       #`(cur-type e.level)]
       [e:reified-pi
        #`(cur-Π (e.name : #,(cur-reflect #'e.arg)) #,(cur-reflect #'e.body))]
       [e:reified-app
@@ -116,11 +150,8 @@
   (define (fresh [x #f])
     (datum->syntax x (gensym (if x (syntax->datum x) 'x))))
 
-  (define (cur-local-expand e)
-    (local-expand e 'expression null))
-
   ;; Helpers; based on Types as Macros
-  (trace-define (set-type e t)
+  (define (set-type e t)
     (syntax-property e 'type (syntax-local-introduce t)))
 
   (define (erase-type e)
@@ -325,7 +356,7 @@
                #,@(map (λ (f m) (f #'e m)) (attribute branch-templates) (syntax->list #'(m ...)))))))]))
 
 (begin-for-syntax
-  (trace-define (check-motive mt D)
+  (define (check-motive mt D)
     (syntax-parse (get-type D)
       [(_ _ (_ : t))
        #'t]
