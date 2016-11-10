@@ -93,5 +93,5 @@ z2
 
 ((λ (f : (Π (A : (Type 0)) (Type 0))) z) Maybe)
 
-(elim (none Nat) (λ (x : (Maybe Nat)) Nat)
+#;(elim (none Nat) (λ (x : (Maybe Nat)) Nat)
       (z (λ (A : (Type 0)) (a : A)) a))

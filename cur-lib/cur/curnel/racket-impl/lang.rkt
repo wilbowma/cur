@@ -371,12 +371,12 @@ discriminant ~a is ~a, which accepts more arguments"
       syn
       #'motive)
      #:with name
-     (last (syntax-property (syntax-parse #'t^
+     (syntax-parse #'t^
        #:literals (#%plain-app)
        [(#%plain-app x:id . r)
         #'x]
        [x:id
-        #'x]) 'origin))
+        #'x])
      #:with elim-name
      (syntax-property #'name 'elim-name)
 ;     #:do [(check-motive #'mt #'name)]
