@@ -249,6 +249,7 @@
          (define y ((curryr make-axiom))))]))
 
 ;; TODO: Strict positivity checking
+;; TODO: Recursion
 (define-syntax (cur-data syn)
   (syntax-parse syn
     #:datum-literals (:)
@@ -264,9 +265,9 @@
          (cur-axiom cs : c-type) ...
          (define #,(format-id "~a-elim" #'name)
            (lambda (e m ...)
-             (match e
-               [#s(c . ,rest)
-                (apply m rest)]
+             (cond
+               [(c? e)
+                (apply m (stuct->list e))]
                ...))))]))
 
 (define-syntax (cur-elim syn)
