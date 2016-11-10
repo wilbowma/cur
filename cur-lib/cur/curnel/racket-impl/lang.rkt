@@ -4,6 +4,7 @@
  | 2. ensure all error messages are reported with surface expression and source information
  | 3. be consistent about using #' vs attribute. (I seem to think attribute do more than #' even when
  |    referring to pattern variables, but I'm not sure that's true)
+ |    (attribute ) should only be used when referring to non-syntax valued attributes.
  | 4. Test
  |    - a. things that should work
  |    - b. things that shouldn't
@@ -33,7 +34,9 @@
   #;[cur-var #%variable-reference])
  require
  provide
- #%top
+ ;; TODO: Who needs top?
+; #%top
+ ;; TODO: Need to not export datum
  #%datum
  ;(struct-out Type)
  #%module-begin
@@ -69,22 +72,20 @@
     (pattern (#%plain-app (~var constr (constructor #'Type)) ~! (quote i:nat))
              #:attr level (eval #'i)))
 
-  ;; TODO: Maybe "arg" should be "ann", as in annotation
   (define-syntax-class reified-pi
     #:literals (#%plain-app #%plain-lambda Π)
-    (pattern (#%plain-app (~var constr (constructor #'Π)) ~! arg (#%plain-lambda (name) body))))
+    (pattern (#%plain-app (~var constr (constructor #'Π)) ~! type-ann (#%plain-lambda (name) body))))
 
   (define-syntax-class reified-lambda
     #:literals (#%plain-lambda)
-    (pattern (~and e (#%plain-lambda (name) body))
-             #:with (_ _ (_ : t)) (get-type #'e)
+    (pattern (#%plain-lambda (name) body)
+             #:with (_ _ (_ : t)) (get-type this-syntax)
              #:declare t reified-pi
-             #:attr arg (attribute t.arg)))
+             #:attr type-ann #'t.type-ann))
 
   (define-syntax-class reified-app
     #:literals (#%plain-app)
     (pattern (#%plain-app operator operand)))
-
 
   ;; Reification: turn a compile-time term into a run-time term.
   ;; This is done implicitly via macro expansion; each of the surface macros define the
@@ -92,6 +93,10 @@
   ;; We define one helper for when we need to control reification.
   (define (cur-local-expand e)
     (local-expand e 'expression null)))
+
+;; TODO: Should this be specified last? Probably should work on reified form in curnel, and let users
+;; use reflected forms. But see later TODO about problems with types of types, which Types as Macros
+;; current approach doesn't support well...
 
 ;; Reflected
 ;; ----------------------------------------------------------------
@@ -102,11 +107,11 @@
 
   (define-syntax-class reflected-pi
     #:literals (cur-Π)
-    (pattern (cur-Π (name : arg) body)))
+    (pattern (cur-Π (name : type-ann) body)))
 
   (define-syntax-class reflected-lambda
     #:literals (cur-λ)
-    (pattern (cur-λ (name : arg) body)))
+    (pattern (cur-λ (name : type-ann) body)))
 
   (define-syntax-class reflected-app
     #:literals (cur-app)
@@ -121,11 +126,77 @@
       [e:reified-universe
        #`(cur-type e.level)]
       [e:reified-pi
-       #`(cur-Π (e.name : #,(cur-reflect #'e.arg)) #,(cur-reflect #'e.body))]
+       #`(cur-Π (e.name : #,(cur-reflect #'e.type-ann)) #,(cur-reflect #'e.body))]
       [e:reified-app
        #`(cur-app #,(cur-reflect #'e.operator) #,(cur-reflect #'e.operand))]
       [e:reified-lambda
-       #`(cur-λ (e.name : #,(cur-reflect #'e.arg)) #,(cur-reflect #'e.body))])))
+       #`(cur-λ (e.name : #,(cur-reflect #'e.type-ann)) #,(cur-reflect #'e.body))])))
+
+;;; Intensional equality
+;;; ------------------------------------------------------------------------
+(begin-for-syntax
+  (define (subst v x e)
+    (syntax-parse e
+      [y:id
+       #:when (bound-identifier=? e x)
+       v]
+      [(e ...)
+       #`(#,@(map (lambda (e) (subst v x e)) (attribute e)))]
+      [_ e]))
+  (module+ test
+    (define syn-eq? (lambda (x y) (equal? (syntax->datum x) (syntax->datum y))))
+    (chk
+     #:eq bound-identifier=? (subst #'z #'x #'x) #'z
+     #:eq bound-identifier=? (subst #'z #'x #'y) #'y
+     ; TODO Not sure how to capture this test; x isn't getting the "right" binding...
+     ;     #:eq syn-eq? (subst #'z #'x (expand-syntax-once #'(#%plain-lambda (y) x))) #'(#%plain-lambda (y) z)
+     #:eq syn-eq? (subst #'z #'x (expand-syntax-once #'(#%plain-lambda (x) x))) #'(#%plain-lambda (x) x)))
+
+  ;; TODO: Should not do call-by-value; need to reduce to full-beta/eta normal form.
+  (define (cur-eval-cbv e)
+    (syntax-parse e
+      #:literals (#%plain-app #%plain-lambda)
+      [_:reified-universe e]
+      [_:id e]
+      [_:reified-pi e]
+      [e:reified-app
+       #:with a (cur-eval-cbv #'e.operand)
+       (syntax-parse (cur-eval-cbv #'e.operator)
+         [f:reified-lambda
+          (cur-eval-cbv (subst #'a #'f.name #'f.body))]
+         [e1-
+          #`(#%plain-app e1- a)])]
+      [_:reified-lambda e]))
+
+  (define (cur-normalize e)
+    ;; TODO:
+    ;; Beta reduce until no more betas
+    ;; Eta expand while non-lambda term that is of function type.
+    ;; Reify the runtime syntax into the surface syntax.
+    (cur-eval-cbv (cur-local-expand e))
+    #;(reify (eta-expand (beta-reduce (cur-local-expand e)))))
+
+  ;; When are two Cur terms intensionally equal? When they normalize the α-equivalent reified syntax.
+  (define (cur-equal? t1 t2)
+    (syntax-parse #`(#,(cur-normalize t1) #,(cur-normalize t2))
+      [(x:id y:id)
+       (free-identifier=? t1 t2)]
+      [(A:reified-universe B:reified-universe)
+       (= (attribute A.level) (attribute B.level))]
+      ;; TODO: Can we compile surface patterns into the expanded representation? Do we need to? Maybe
+      ;; reify does that work
+      #;[((cur-Π (x:id : A₁) B₁)
+          (cur-Π (y:id : A₂) B₂))]
+      [(e1:reified-pi e2:reified-pi)
+       (and (cur-equal? #'e1.type-ann #'e2.type-ann)
+            (cur-equal? #'e1.body (subst #'e1.name #'e2.name #'e2.body)))]
+      [(e1:reified-app e2:reified-app)
+       (and (cur-equal? #'e1.operator #'e2.operator)
+            (cur-equal? #'e1.operand #'e2.operand))]
+      [(e1:reified-lambda e2:reified-lambda)
+       (and (cur-equal? #'e1.type-ann #'e2.type-ann)
+            (cur-equal? #'e1.body (subst #'e1.name #'e2.name #'e2.body)))]
+      [_ #f])))
 
 (begin-for-syntax
   (module+ test
@@ -209,69 +280,7 @@
        #:with t2 (syntax-local-introduce (merge-type-props e (attribute maybe-t2)))
        #`((zv ...) (zv ...) (e2 : t2))]))
 
-  (define (subst v x e)
-    (syntax-parse e
-      [y:id
-       #:when (bound-identifier=? e x)
-       v]
-      [(e ...)
-       #`(#,@(map (lambda (e) (subst v x e)) (attribute e)))]
-      [_ e]))
-  (module+ test
-    (define syn-eq? (lambda (x y) (equal? (syntax->datum x) (syntax->datum y))))
-    (chk
-     #:eq bound-identifier=? (subst #'z #'x #'x) #'z
-     #:eq bound-identifier=? (subst #'z #'x #'y) #'y
-; TODO Not sure how to capture this test; x isn't getting the "right" binding...
-;     #:eq syn-eq? (subst #'z #'x (expand-syntax-once #'(#%plain-lambda (y) x))) #'(#%plain-lambda (y) z)
-     #:eq syn-eq? (subst #'z #'x (expand-syntax-once #'(#%plain-lambda (x) x))) #'(#%plain-lambda (x) x)))
-
-  (define (cur-eval-cbv e)
-    (syntax-parse e
-      #:literals (#%plain-app #%plain-lambda)
-      [A:reified-universe e]
-      [x:id e]
-      [_:reified-pi e]
-      [(#%plain-app e1 e2)
-       #:with a (cur-eval-cbv #'e2)
-       (syntax-parse (cur-eval-cbv #'e1)
-         [(#%plain-lambda (x) body)
-          (cur-eval-cbv (subst #'a #'x #'body))]
-         [e1-
-          #`(#%plain-app e1- a)])]
-      [(#%plain-lambda (x) body) e]))
-
-  (define (cur-normalize e)
-    ;; TODO:
-    ;; Beta reduce until no more betas
-    ;; Eta expand while non-lambda term that is of function type.
-    ;; Reify the runtime syntax into the surface syntax.
-    (cur-eval-cbv (cur-local-expand e))
-    #;(reify (eta-expand (beta-reduce (cur-local-expand e)))))
-
-  ;; TODO: This is more like "types compatible" or something. Look at implementation of subtyping to
-  ;; see how to do conversion probably.
-  (define (type-equal? t1 t2)
-    (syntax-parse #`(#,(cur-normalize t1) #,(cur-normalize t2))
-      #:literals (#%plain-app #%plain-lambda)
-      #:datum-literals (:)
-      [(x:id y:id)
-       (free-identifier=? t1 t2)]
-      [(A:reified-universe B:reified-universe)
-       (<= (attribute A.level) (attribute B.level))]
-      ;; TODO: Can we compile surface patterns into the expanded representation? Do we need to? Maybe
-      ;; reify does that work
-      #;[((cur-Π (x:id : A₁) B₁)
-        (cur-Π (y:id : A₂) B₂))]
-      [(e1:reified-pi e2:reified-pi)
-       (and (type-equal? #'e1.arg #'e2.arg)
-            (type-equal? #'e1.body (subst #'e1.name #'e2.name #'e2.body)))]
-      [((#%plain-app e1 e2) (#%plain-app e1^ e2^))
-       (and (type-equal? #'e1 #'e1^) (type-equal? #'e2 #'e2^))]
-      [((#%plain-lambda (x1) e1) (#%plain-lambda (x2) e2))
-       (type-equal? #'e1 (subst #'x1 #'x2 #'e2))]
-      ;; TODO: Is this complete?
-      [_ #f #;(error 'type-equal? (format "not implemented for ~a ~a" t1 t2))]))
+  
 
   (define-syntax-class telescope
     (pattern (cur-Π (x : t1) t2:telescope)
@@ -485,7 +494,7 @@ discriminant ~a is ~a, which accepts more arguments"
       syn)
 ;     #:with (cur-Π (x : t1) e) #'f-type
      #:with f-type-again:reified-pi #'f-type
-     #:attr t1 (attribute f-type-again.arg)
+     #:attr t1 (attribute f-type-again.type-ann)
      #:with (_ _ (e2^ : maybe-t1)) (get-type #'e2)
      #:fail-unless (attribute maybe-t1)
      (raise-syntax-error
@@ -495,7 +504,7 @@ discriminant ~a is ~a, which accepts more arguments"
               (attribute e1)
               (attribute t1))
       syn)
-     #:fail-unless (type-equal? #'t1 #'maybe-t1)
+     #:fail-unless (cur-equal? #'t1 #'maybe-t1)
      (raise-syntax-error
       'core-type-error
       (format "Function ~a expected argument of type ~a but received argument ~a of type ~a"
