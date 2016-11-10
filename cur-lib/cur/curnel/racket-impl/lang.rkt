@@ -67,7 +67,7 @@
     (local-expand e 'expression null))
 
   ;; Helpers; based on Types as Macros
-  (define (set-type e t)
+  (trace-define (set-type e t)
     (syntax-property e 'type (syntax-local-introduce t)))
 
   (define (erase-type e)
@@ -83,6 +83,7 @@
     (if (pair? t) (car t) t))
 
   (define (get-type e #:ctx [ctx #'()])
+    (displayln e)
     (syntax-parse ctx
       #:datum-literals (:)
       #:literals (#%plain-lambda let-values)
@@ -123,7 +124,7 @@
         "Expected a well-typed Curnel term, but found something else"
         (attribute e2))
        #:with t2 (syntax-local-introduce (merge-type-props e (attribute maybe-t2)))
-       #`((zv ...) (zv ...) (e2 : t2))]))
+       (and-print #`((zv ...) (zv ...) (e2 : t2)))]))
 
   ;; TODO: Abstract this and pi-constructor
   (define-syntax-class type-constructor
@@ -298,6 +299,15 @@
              (cond
                #,@(map (λ (f m) (f #'e m)) (attribute branch-templates) (syntax->list #'(m ...)))))))]))
 
+(begin-for-syntax
+  (trace-define (check-motive mt D)
+    (syntax-parse (get-type D)
+      [(_ _ (_ : t))
+       #'t]
+      [_ (error "meow")])))
+
+;; TODO: Type check motive, methods.
+;; TODO: Return type
 (define-syntax (cur-elim syn)
   (syntax-parse syn
     #:datum-literals (:)
@@ -325,15 +335,25 @@ discriminant ~a is ~a, which accepts more arguments"
                          (attribute e)
                          (syntax-property (attribute t) 'origin))
                          syn)
+     #:with (_ _ (motive^ : mt)) (get-type #'motive)
+     #:fail-unless (syntax-parse #'mt [e:pi-type #t] [_ #f])
+     (raise-syntax-error
+      'core-type-error
+      (format "Expected motive to be a function, but found ~a of type ~a"
+              #'motive
+              (last (syntax-property #'mt 'origin)))
+      syn
+      #'motive)
+     #:with name
+     (last (syntax-property (syntax-parse #'t^
+       #:literals (#%plain-app)
+       [(#%plain-app x:id . r)
+        #'x]
+       [x:id
+        #'x]) 'origin))
      #:with elim-name
-     (syntax-property
-      (syntax-parse #'t^
-        #:literals (#%plain-app)
-        [(#%plain-app x:id . r)
-         #'x]
-        [x:id
-         #'x])
-      'elim-name)
+     (syntax-property #'name 'elim-name)
+;     #:do [(check-motive #'mt #'name)]
      #:attr constructors (syntax-parse #'t^
                           #:literals (#%plain-app)
                           [(#%plain-app x:id . r)
@@ -432,6 +452,10 @@ discriminant ~a is ~a, which accepts more arguments"
       syn)
      #:with x (attribute f-type-again.name)
      #:with e (attribute f-type-again.body)
+     ;; TODO: This computation seems to be over erased terms, hence t2^ has no type.
+     ;; Need to reify t2^ back into the core macros, so it's type will be computed if necessary.
+     ;; This may be part of a large problem/solution: need to reify terms after evaluation, so we can
+     ;; pattern match on the core syntax and not the runtime representation.
      #:with t2^ (subst #'e2 #'x #'e)
      (set-type
       (quasisyntax/loc syn (#%app e1^ e2^))
