@@ -14,8 +14,11 @@
  | 8. Abstract errors/make consistent
  |#
 (require
+ (only-in racket/struct struct->list)
+ (only-in racket/function curryr)
  (for-syntax
   racket/base
+  (only-in racket/syntax format-id)
   syntax/parse))
 (provide
  (rename-out
@@ -142,8 +145,8 @@
 
   (define-syntax-class pi-constructor
     (pattern x:id
-             #:attr constr (and-print (syntax-property #'x 'constructor-for))
-             #:when (and (and-print (attribute constr)) (free-identifier=? #'Π #'constr))))
+             #:attr constr (syntax-property #'x 'constructor-for)
+             #:when (and (attribute constr) (free-identifier=? #'Π #'constr))))
 
   (define-syntax-class pi-type
     #:literals (#%plain-app #%plain-lambda)
@@ -191,7 +194,7 @@
 
   ;; TODO: This is more like "types compatible" or something. Look at implementation of subtyping to
   ;; see how to do conversion probably.
-  (trace-define (type-equal? t1 t2)
+  (define (type-equal? t1 t2)
     (syntax-parse #`(#,(cur-normalize t1) #,(cur-normalize t2))
       #:literals (#%plain-app #%plain-lambda)
       #:datum-literals (:)
@@ -233,7 +236,23 @@
 
 #;(define-syntax cur-module-begin)
 
-(require racket/function)
+
+;; Returns the definitions for the axiom, the constructor (as an identifier) and the predicate (as an identifier).
+(define-for-syntax (make-axiom n t)
+  (syntax-parse (list n t)
+    [(name:id type:telescope)
+     #:with axiom (fresh n)
+     #:do (printf "Props: ~a~n" (syntax-property-symbol-keys n))
+     #:with make-axiom (format-id n "make-~a" (syntax->datum #'axiom) #:props n)
+     (values
+      #`(begin
+          (struct axiom (#,@(attribute type.xs)) #:transparent #:reflection-name 'name)
+          (define-syntax name (make-rename-transformer (set-type #'make-axiom (cur-local-expand #'type))))
+          (define make-axiom ((curryr axiom))))
+      #'make-axiom
+      (format-id n "~a?" (syntax->datum #'axiom)))]
+    [_ (error 'make-axiom "Something terrible has happened")]))
+
 (define-syntax (cur-axiom syn)
   (syntax-parse syn
     #:datum-literals (:)
@@ -241,15 +260,12 @@
      #:with (_ _ (_ : U)) (get-type #'type)
      #:fail-unless (attribute U)
      (error 'core-type-error (format "Axiom ~a has declared type ~a, which is not valid" #'name #'type))
-     #:with axiom (fresh #'axiom)
-     #:with make-axiom (fresh #'make-axiom)
-     #`(begin
-         (struct axiom (#,@(attribute type.xs)) #:transparent #:reflection-name 'name #:constructor-name make-axiom)
-         (define-syntax name (make-rename-transformer (set-type #'y (cur-local-expand #'type))))
-         (define y ((curryr make-axiom))))]))
+     (let-values ([(defs _1 _2) (make-axiom #'name #'type)])
+       defs)]))
 
 ;; TODO: Strict positivity checking
 ;; TODO: Recursion
+;; TODO: Rewrite and abstract this code omg
 (define-syntax (cur-data syn)
   (syntax-parse syn
     #:datum-literals (:)
@@ -259,16 +275,28 @@
      #:with (cs ...) (map (λ (x) (syntax-property (syntax-property x 'constant #t) 'params (eval #'params)))
                           (syntax->list #'(c ...)))
      #:with (m ...) (map fresh (syntax->list #'(c ...)))
+     #:attr ls (for/list ([c (syntax->list #'(cs ...))]
+                          [t (syntax->list #'(c-type ...))])
+                 (let-values ([(defs _ pred?) (make-axiom c t)])
+                   (cons defs (λ (e m)
+                                #`[(#,pred? #,e)
+                                   (if (null? (struct->list #,e))
+                                       #,m
+                                       (apply #,m (struct->list #,e)))]))))
+     #:attr c-defs (map car (attribute ls))
+     #:attr branch-templates (map cdr (attribute ls))
+     #:attr elim-name (format-id syn "~a-elim" (syntax->datum #'name))
      #`(begin
-         (cur-axiom #,(syntax-property (syntax-property (syntax-property #'name 'inductive #t)
-                                                        'constructors (length (syntax->list #'(c ...)))) 'params (eval #'params)) : type)
-         (cur-axiom cs : c-type) ...
-         (define #,(format-id "~a-elim" #'name)
+         (cur-axiom #,(syntax-property (syntax-property (syntax-property (syntax-property #'name 'inductive #t)
+                                                        'constructors (length (syntax->list #'(c
+                                                                                               ...))))
+                                                        'params (eval #'params)) 'elim-name (attribute
+                                                                                             elim-name)) : type)
+         #,@(attribute c-defs)
+         (define #,(attribute elim-name)
            (lambda (e m ...)
              (cond
-               [(c? e)
-                (apply m (stuct->list e))]
-               ...))))]))
+               #,@(map (λ (f m) (f #'e m)) (attribute branch-templates) (syntax->list #'(m ...)))))))]))
 
 (define-syntax (cur-elim syn)
   (syntax-parse syn
@@ -280,29 +308,46 @@
                      [_:universe #t]
                      [_ #f])
      (raise-syntax-error 'core-type-error
-                         "Can only eliminate a fully applied inductive type. The type of the
+                         (format "Can only eliminate a fully applied inductive type. The type of the
 discriminant ~a is ~a, which accepts more arguments"
                          (attribute e)
-                         (attrbute t))
+                         (attribute t))
+                         syn)
      #:fail-unless (syntax-parse #'t^
                      #:literals (#%plain-app)
                      [(#%plain-app x:id . r)
                       (syntax-property #'x 'inductive)]
+                     [x:id
+                      (syntax-property #'x 'inductive)]
                      [_ #f])
      (raise-syntax-error 'core-type-error
-                         "Can only eliminate an inductive type, but ~a is of type ~a, which is not
-an inductive."
+                         (format "Can only eliminate an inductive type, but ~a is of type ~a, which is not an inductive."
                          (attribute e)
-                         (attrbute t))
-     #:with (#%plain-app D:id . r) #'t^
-     #:fail-unless (= (syntax-property #'D 'constructors) (length (syntax->list methods)))
+                         (syntax-property (attribute t) 'origin))
+                         syn)
+     #:with elim-name
+     (syntax-property
+      (syntax-parse #'t^
+        #:literals (#%plain-app)
+        [(#%plain-app x:id . r)
+         #'x]
+        [x:id
+         #'x])
+      'elim-name)
+     #:attr constructors (syntax-parse #'t^
+                          #:literals (#%plain-app)
+                          [(#%plain-app x:id . r)
+                           (syntax-property #'x 'constructors)]
+                          [x:id
+                           (syntax-property #'x 'constructors)])
+     #:fail-unless (= (attribute constructors) (length (syntax->list #'methods)))
      (raise-syntax-error 'core-type-error
                          "Need one method for each constructor; found ~a constructors and ~a branches"
                          (syntax-property #'D 'constructors)
-                         (length (syntax->list methods))
-                         (attribute syn))
+                         (length (syntax->list #'methods))
+                         syn)
      #:with ((_ _ (methods^ : _)) ...) (map get-type (syntax->list #'methods))
-     #`((format-id "~a-elim" #'name) e^ methods^ ...)]))
+     #`(elim-name e^ methods^ ...)]))
 
 (struct Type (level) #:transparent)
 
@@ -348,7 +393,7 @@ an inductive."
       (quasisyntax/loc syn (lambda (zv) #,(erase-type #'e2)))
       (quasisyntax/loc syn #,(cur-local-expand #'(cur-Π (zt : t1^) t2))))]))
 
-(trace-define-syntax (cur-app syn)
+(define-syntax (cur-app syn)
   (syntax-parse syn
     #:datum-literals (:)
     #:literals (#%plain-app)

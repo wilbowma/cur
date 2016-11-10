@@ -72,3 +72,13 @@ s
       )
 
 z2
+
+;; should fail with good error, does
+#;(elim z (λ (x : Nat) Nat)
+      (z (λ (n : Nat) n)))
+
+(elim z2 (λ (x : Nat2) Nat2)
+      (z2 (λ (n : Nat2) n)))
+
+(elim (s2 z2) (λ (x : Nat2) Nat2)
+      (z2 (λ (n : Nat2) n)))
