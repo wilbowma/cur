@@ -86,6 +86,7 @@
 ; The run-time representation of Π types. (Π t f), where is a type and f is a procedure that computes
 ; the body type given an argument.
 (struct Π (t f))
+;; TODO: Should unierses and Π types have a run-time representation?
 
 ; The run-time representation of an application is a Racket plain application.
 ; (#%plain-app e1 e2)
@@ -191,7 +192,9 @@
      #:eq bound-identifier=? (subst #'z #'x #'x) #'z
      #:eq bound-identifier=? (subst #'z #'x #'y) #'y
      ; TODO Not sure how to capture this test; x isn't getting the "right" binding...
-     ;     #:eq syn-eq? (subst #'z #'x (expand-syntax-once #'(#%plain-lambda (y) x))) #'(#%plain-lambda (y) z)
+     ; but syntax-local-introduce only works in the macro expander ...
+     ; maybe should do subst by applying?
+     ;; #:eq syn-eq? (subst #'z #'x (expand-syntax-once #'(#%plain-lambda (y) x))) #'(#%plain-lambda (y) z)
      #:eq syn-eq? (subst #'z #'x (expand-syntax-once #'(#%plain-lambda (x) x))) #'(#%plain-lambda (x) x)))
 
   ;; TODO: Should not do call-by-value; need to reduce to full-beta/eta normal form.
@@ -214,6 +217,7 @@
     ;; TODO:
     ;; Beta reduce until no more betas
     ;; Eta expand while non-lambda term that is of function type.
+    ;; alternative: do equality up-to eta expansion. might be
     ;; Reify the runtime syntax into the surface syntax.
     (cur-eval-cbv (cur-local-expand e))
     #;(reify (eta-expand (beta-reduce (cur-local-expand e)))))
