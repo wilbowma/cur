@@ -197,21 +197,24 @@
      ;; #:eq syn-eq? (subst #'z #'x (expand-syntax-once #'(#%plain-lambda (y) x))) #'(#%plain-lambda (y) z)
      #:eq syn-eq? (subst #'z #'x (expand-syntax-once #'(#%plain-lambda (x) x))) #'(#%plain-lambda (x) x)))
 
-  ;; TODO: Should not do call-by-value; need to reduce to full-beta/eta normal form.
-  (define (cur-eval-cbv e)
+  ;; TODO: Should this be parameterizable, to allow for different eval strategies if user wants?
+  (define (cur-eval e)
     (syntax-parse e
       #:literals (#%plain-app #%plain-lambda)
       [_:reified-universe e]
       [_:id e]
-      [_:reified-pi e]
+      [e:reified-pi
+       (cur-local-expand
+        #`(cur-Π (e.name : #,(cur-eval #'e.type-ann)) #,(cur-eval #'e.body)))]
       [e:reified-app
-       #:with a (cur-eval-cbv #'e.operand)
-       (syntax-parse (cur-eval-cbv #'e.operator)
+       #:with a (cur-eval #'e.operand)
+       (syntax-parse (cur-eval #'e.operator)
          [f:reified-lambda
-          (cur-eval-cbv (subst #'a #'f.name #'f.body))]
+          (cur-eval (subst #'a #'f.name #'f.body))]
          [e1-
           #`(#%plain-app e1- a)])]
-      [_:reified-lambda e]))
+      [e:reified-lambda
+       #`(cur-λ (e.name : #,(cur-eval #'e.type-ann)) #,(cur-eval #'e.body))]))
 
   (define (cur-normalize e)
     ;; TODO:
@@ -219,7 +222,7 @@
     ;; Eta expand while non-lambda term that is of function type.
     ;; alternative: do equality up-to eta expansion. might be
     ;; Reify the runtime syntax into the surface syntax.
-    (cur-eval-cbv (cur-local-expand e))
+    (cur-eval (cur-local-expand e))
     #;(reify (eta-expand (beta-reduce (cur-local-expand e)))))
 
   ;; When are two Cur terms intensionally equal? When they normalize the α-equivalent reified syntax.
