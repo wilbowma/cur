@@ -102,8 +102,8 @@
 
   (define-syntax-class reified-universe
     #:literals (#%plain-app quote Type)
-    (pattern (#%plain-app (~var constr (constructor #'Type)) ~! (quote i:nat))
-             #:attr level (eval #'i)))
+    (pattern (#%plain-app (~var constr (constructor #'Type)) ~! (quote level-syn:nat))
+             #:attr level (eval #'level-syn)))
 
   (define-syntax-class reified-pi
     #:literals (#%plain-app #%plain-lambda Π)
@@ -167,7 +167,7 @@
       #:literals (#%plain-app #%plain-lambda)
       [x:id e]
       [e:reified-universe
-       #`(cur-type e.level)]
+       #`(cur-type e.level-syn)]
       [e:reified-pi
        #`(cur-Π (e.name : #,(cur-reflect #'e.type-ann)) #,(cur-reflect #'e.body))]
       [e:reified-app
@@ -306,10 +306,8 @@
         'core-type-error
         "Expected a well-typed Curnel term, but found something else"
         (attribute e2))
-       #:with t2 (syntax-local-introduce (merge-type-props e (attribute maybe-t2)))
-       #`((zv ...) (zv ...) (e2 : t2))]))
-
-  
+       #:with t2 (cur-local-expand (syntax-local-introduce (merge-type-props e (attribute maybe-t2))))
+       #`((zv ...) (zv ...) (e2 : t2))])))
 
 ;;; Typing
 ;;;------------------------------------------------------------------------
@@ -485,7 +483,7 @@ discriminant ~a is ~a, which accepts more arguments"
                          (attribute e))
      (set-type
       (quasisyntax/loc syn (lambda (zv) #,(erase-type #'e2)))
-      (quasisyntax/loc syn #,(cur-local-expand #'(cur-Π (zt : t1^) t2))))]))
+      (quasisyntax/loc syn (cur-Π (zt : t1^) t2)))]))
 
 (define-syntax (cur-app syn)
   (syntax-parse syn
@@ -530,9 +528,13 @@ discriminant ~a is ~a, which accepts more arguments"
      ;; Need to reify t2^ back into the core macros, so it's type will be computed if necessary.
      ;; This may be part of a large problem/solution: need to reify terms after evaluation, so we can
      ;; pattern match on the core syntax and not the runtime representation.
-     #:with t2^ (subst #'e2 #'x #'e)
+     ;; HMM.. this is not always true.. sometimes it's un-erased?
+     ;; NB: Okay, always using reflected syntax as type works so far, but always need to expand syntax in
+     ;; get-type... why? .. because all macros exected reified syntax... why not just redesign them to
+     ;; expect reflected syntax?
+     #:with t2^ (subst #'e2^ #'x #'e)
      (set-type
       (quasisyntax/loc syn (#%app e1^ e2^))
-      (quasisyntax/loc syn t2^))]))
+      (quasisyntax/loc syn #,(cur-reflect #'t2^)))]))
 
 #;(define-syntax cur-elim)

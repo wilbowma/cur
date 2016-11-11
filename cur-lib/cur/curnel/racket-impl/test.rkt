@@ -2,7 +2,14 @@
 
 (Type 1)
 
+;; Should fail with good error, does
+;(Type z)
+
 (define x (Type 1))
+
+;; Should fail with good error, do
+; (define x Type)
+; (define x (Type 1) (Type 1))
 
 x
 
@@ -93,6 +100,5 @@ z2
 
 ((λ (f : (Π (A : (Type 0)) (Type 0))) z) Maybe)
 
-;; Should type check, doesn't
-#;(elim (none Nat) (λ (x : (Maybe Nat)) Nat)
-      (z (λ (A : (Type 0)) (a : A)) a))
+(elim (none Nat) (λ (x : (Maybe Nat)) Nat)
+      (z (λ (A : (Type 0)) (λ (a : A) a))))
