@@ -43,6 +43,38 @@
  (for-syntax
   #%datum))
 
+
+;;; Testing
+;;; ------------------------------------------------------------------------
+(begin-for-syntax
+  (module+ test
+    (require chk)))
+
+;;; Debugging
+;;; ------------------------------------------------------------------------
+(require racket/trace)
+(begin-for-syntax
+  (define (maybe-syntax->datum x)
+    (if (syntax? x)
+        (syntax->datum x)
+        x))
+
+  (require racket/trace)
+
+  (current-trace-print-args
+   (let ([ctpa (current-trace-print-args)])
+     (lambda (s l kw l2 n)
+       (ctpa s (map maybe-syntax->datum l) kw l2 n))))
+  (current-trace-print-results
+   (let ([ctpr (current-trace-print-results)])
+     (lambda (s l n)
+       (ctpr s (map maybe-syntax->datum l) n))))
+
+  (require racket/list)
+  (define (and-print . e)
+    (map (compose displayln maybe-syntax->datum) e)
+    (last e)))
+
 ;;; Reflected (compile-time) and reified (run-time) representations of Curnel terms
 ;;; ------------------------------------------------------------------------
 
@@ -116,6 +148,16 @@
   (define-syntax-class reflected-app
     #:literals (cur-app)
     (pattern (cur-app operator operand)))
+
+  ;; TODO: Part of reflected syntax, but needed in type system.
+  ;; Should it be reflected-telescope? cur-telescope?
+  (define-syntax-class telescope
+    (pattern (cur-Π (x : t1) t2:telescope)
+             #:attr hole #'t2.hole
+             #:attr xs (cons #'x (attribute t2.xs)))
+
+    (pattern hole:expr
+             #:attr xs '()))
 
   ;; Reflection: turn a run-time term back into a compile-time term.
   ;; This is done explicitly when we need to pattern match.
@@ -198,25 +240,10 @@
             (cur-equal? #'e1.body (subst #'e1.name #'e2.name #'e2.body)))]
       [_ #f])))
 
-(begin-for-syntax
-  (module+ test
-    (require chk))
-  (define (maybe-syntax->datum x)
-    (if (syntax? x)
-        (syntax->datum x)
-        x))
+;;; TODO: subtyping
 
-  (require racket/trace)
-
-  (current-trace-print-args
-   (let ([ctpa (current-trace-print-args)])
-     (lambda (s l kw l2 n)
-       (ctpa s (map maybe-syntax->datum l) kw l2 n))))
-  (current-trace-print-results
-   (let ([ctpr (current-trace-print-results)])
-     (lambda (s l n)
-       (ctpr s (map maybe-syntax->datum l) n)))))
-
+;;; Types as Macros; type system helpers.
+;;; ------------------------------------------------------------------------
 (begin-for-syntax
   (define (fresh [x #f])
     (datum->syntax x (gensym (if x (syntax->datum x) 'x))))
@@ -227,11 +254,6 @@
 
   (define (erase-type e)
     (cur-local-expand e))
-
-  (require racket/list)
-  (define (and-print . e)
-    (map (compose displayln maybe-syntax->datum) e)
-    (last e))
 
   (define (merge-type-props syn t)
     ;; TODO: Check that list is consistent and report error if not
@@ -282,13 +304,28 @@
 
   
 
-  (define-syntax-class telescope
-    (pattern (cur-Π (x : t1) t2:telescope)
-             #:attr hole #'t2.hole
-             #:attr xs (cons #'x (attribute t2.xs)))
+;;; Typing
+;;;------------------------------------------------------------------------
+(define-syntax (cur-type syn)
+  (syntax-parse syn
+    [(_ i:nat)
+     (set-type
+      (quasisyntax/loc syn (Type i))
+      (quasisyntax/loc syn (cur-type #,(add1 (eval #'i)))))]))
 
-    (pattern hole:expr
-             #:attr xs '())))
+(define-syntax (cur-Π syn)
+  (syntax-parse syn
+    #:datum-literals (:)
+    [(_ (x:id : t1:expr) ~! e:expr)
+     #:with (_ _ (t1^ : _)) (get-type #'t1)
+     #:with ((zv) (zt) (e2 : U)) (get-type (attribute e) #:ctx #`([#,(attribute x) t1^]))
+     #:fail-unless (attribute U)
+     (raise-syntax-error 'core-type-error
+                         "Could not infer type of Π"
+                         (attribute e))
+     (set-type
+      (quasisyntax/loc syn (Π t1^ (lambda (zv) #,(erase-type (attribute e2)))))
+      (quasisyntax/loc syn U))]))
 
 (define-syntax (cur-define syn)
   (syntax-parse syn
@@ -299,9 +336,6 @@
      #`(begin
          (define-syntax name (make-rename-transformer (set-type #'y #'t)))
          (define y e))]))
-
-#;(define-syntax cur-module-begin)
-
 
 ;; Returns the definitions for the axiom, the constructor (as an identifier) and the predicate (as an identifier).
 (define-for-syntax (make-axiom n t)
@@ -419,48 +453,18 @@ discriminant ~a is ~a, which accepts more arguments"
      #:with elim-name
      (syntax-property #'name 'elim-name)
 ;     #:do [(check-motive #'mt #'name)]
-     #:attr constructors (syntax-parse #'t^
-                          #:literals (#%plain-app)
-                          [(#%plain-app x:id . r)
-                           (syntax-property #'x 'constructors)]
-                          [x:id
-                           (syntax-property #'x 'constructors)])
+     #:attr constructors (syntax-property #'name 'constructors)
      #:fail-unless (= (attribute constructors) (length (syntax->list #'methods)))
      (raise-syntax-error 'core-type-error
-                         "Need one method for each constructor; found ~a constructors and ~a branches"
-                         (syntax-property #'D 'constructors)
-                         (length (syntax->list #'methods))
+                         (format "Need one method for each constructor; found ~a constructors and ~a branches"
+                                 (attribute constructors)
+                                 (length (syntax->list #'methods)))
                          syn)
      #:with ((_ _ (methods^ : _)) ...) (map get-type (syntax->list #'methods))
      #`(elim-name e^ methods^ ...)]))
 
 
-(define-syntax (cur-type syn)
-  (syntax-parse syn
-    [(_ i:nat)
-     (set-type (quasisyntax/loc syn (Type i)) #`(cur-type #,(add1 (eval #'i))))]))
 
-#;(define-syntax (cur-var syn)
-  (syntax-parse syn
-    [(_ . x:id)
-     #:with (e : t) (get-type #'x)
-     #`(#%variable-reference . e)]))
-
-
-(require racket/trace)
-(define-syntax (cur-Π syn)
-  (syntax-parse syn
-    #:datum-literals (:)
-    [(_ (x:id : t1:expr) ~! e:expr)
-     #:with (_ _ (t1^ : _)) (get-type #'t1)
-     #:with ((zv) (zt) (e2 : U)) (get-type (attribute e) #:ctx #`([#,(attribute x) t1^]))
-     #:fail-unless (attribute U)
-     (raise-syntax-error 'core-type-error
-                         "Could not infer type of Π"
-                         (attribute e))
-     (set-type
-      (quasisyntax/loc syn (Π t1^ (lambda (zv) #,(erase-type (attribute e2)))))
-      (quasisyntax/loc syn U))]))
 
 (define-syntax (cur-λ syn)
   (syntax-parse syn
