@@ -112,8 +112,7 @@
   (define-syntax-class reified-lambda
     #:literals (#%plain-lambda)
     (pattern (#%plain-lambda (name) body)
-;             #:with (_ _ (_ : t)) (get-type this-syntax)
-;             #:declare t reified-pi
+             ;; NB: Require type anotations on variables in erased syntax.
              #:attr type-ann (syntax-property #'name 'type)))
 
   (define-syntax-class reified-app
@@ -130,22 +129,31 @@
     (pattern (#%plain-app e:reified-constant es ...)
              #:attr args (append (attribute e.args) (attribute es))
              #:attr constr #'e.constr
-             #:attr constructor-index (syntax-property #'constr 'constructor))
+             #:attr constructor-index (syntax-property #'constr 'constructor-index))
 
     (pattern constr:id
              #:attr args '()
-             ;; TODO: syntax-property constructor should be constructor-index
-             #:attr constructor-index (syntax-property #'constr 'constructor)
-             ;; TODO: Probably inducitves should also have 'constant
-             #:when (or (syntax-property #'constr 'constant)
-                        (syntax-property #'constr 'inductive))))
+             #:attr constructor-index (syntax-property #'constr 'constructor-index)
+             #:when (syntax-property #'constr 'constant)))
 
   ;; Reification: turn a compile-time term into a run-time term.
   ;; This is done implicitly via macro expansion; each of the surface macros define the
   ;; transformation.
   ;; We define one helper for when we need to control reification.
   (define (cur-local-expand e)
-    (local-expand e 'expression null)))
+    (local-expand e 'expression null))
+
+  ;; For restricting top-level identifiers, such as define.
+  (define-syntax-class top-level-id
+    (pattern x:id
+             #:fail-unless (case (syntax-local-context)
+                             [(module top-level module-begin) #t]
+                             [else #f])
+             (raise-syntax-error
+              (syntax->datum #'x)
+              (format "Can only use ~a at the top-level."
+                      (syntax->datum #'x))
+              this-syntax))))
 
 ;; TODO: Should this be specified last? Probably should work on reified form in curnel, and let users
 ;; use reflected forms. But see later TODO about problems with types of types, which Types as Macros
@@ -380,7 +388,7 @@
        #:fail-unless (attribute maybe-t2)
        (raise-syntax-error
         'core-type-error
-        "Expected a well-typed Curnel term, but found something else"
+        "Expected a well-typed Curnel term, but found something else."
         (attribute e2))
        #:with t2 (cur-local-expand (syntax-local-introduce (merge-type-props e (attribute maybe-t2))))
        #`((zv ...) (zv ...) (e2 : t2))]))
@@ -531,15 +539,7 @@
 (define-syntax (cur-define syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(e name:id body:cur-typed-expr)
-     #:fail-unless (case (syntax-local-context)
-                     [(module top-level module-begin) #t]
-                     [else #f])
-     (raise-syntax-error
-      (syntax->datum #'e)
-      (format "Can only use ~a at the top-level."
-              (syntax->datum #'e))
-      syn)
+    [(_:top-level-id name:id body:cur-typed-expr)
      (define-typed-identifier #'name #'body.type #'body.erased)]))
 
 ;; Returns the definitions for the axiom, the constructor (as an identifier) and the predicate (as an identifier).
@@ -559,17 +559,14 @@
 (define-syntax (cur-axiom syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(e name:id : type:cur-kind)
-     #:fail-unless (case (syntax-local-context)
-                     [(module top-level module-begin) #t]
-                     [else #f])
-     (raise-syntax-error
-      (syntax->datum #'e)
-      (format "Can only use ~a at the top-level."
-              (syntax->datum #'e))
-      syn)
+    [(_:top-level-id name:id : type:cur-kind)
      (let-values ([(defs _1 _2) (make-axiom #'name #'type)])
        defs)]))
+
+(define-for-syntax (syntax-properties e als)
+  (for/fold ([e e])
+            ([pair als])
+    (syntax-property e (car pair) (cdr pair))))
 
 ;; TODO: Strict positivity checking
 ;; TODO: Recursion
@@ -577,13 +574,16 @@
 (define-syntax (cur-data syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(data name:id : params:nat type
+    [(_:top-level-id name:id : params:nat type
            (c:id : c-type)
            ...)
      #:attr numbers (build-list (length (syntax->list #'(c ...))) values)
      #:with (cs ...) (map (λ (x n)
-                            (syntax-property (syntax-property (syntax-property x 'constant #t) 'params
-                                                              (syntax->datum #'params)) 'constructor n))
+                            (syntax-properties x
+                             `((constant . #t)
+                               ;; TODO: Not sure params is needed on constructor
+                               (params . ,(syntax->datum #'params))
+                               (constructor-index . ,n))))
                           (syntax->list #'(c ...))
                           (attribute numbers))
      #:with (m ...) (map fresh (syntax->list #'(c ...)))
@@ -599,11 +599,13 @@
      #:attr branch-templates (map cdr (attribute ls))
      #:attr elim-name (syntax-property (format-id syn "~a-elim" (syntax->datum #'name)) 'elim #t)
      #`(begin
-         (cur-axiom #,(syntax-property (syntax-property (syntax-property (syntax-property #'name 'inductive #t)
-                                                        'constructors (length (syntax->list #'(c
-                                                                                               ...))))
-                                                        'params (syntax->datum #'params)) 'elim-name (attribute
-                                                                                             elim-name)) : type)
+         (cur-axiom #,(syntax-properties
+                       #'name
+                       `((inductive . #t)
+                         (constant . #t)
+                         (constructors . ,(length (attribute c)))
+                         (params . ,(syntax->datum #'params))
+                         (elim-name . ,(attribute elim-name)))) : type)
          #,@(attribute c-defs)
          (define #,(attribute elim-name)
            ;; NB: _ is the motive; necessary in the application of elim for compile-time evaluation,
@@ -632,7 +634,7 @@
      (cur-type-error
       syn
       "discriminant to be a fully applied inductive type"
-      "but found discriminant ~a"
+      "found discriminant ~a"
       "~a, which accepts more arguments"
       (syntax->datum #'e)
       (syntax->datum #'e.type))
