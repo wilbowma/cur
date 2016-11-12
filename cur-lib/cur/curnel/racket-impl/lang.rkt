@@ -469,7 +469,7 @@
     #:datum-literals (:)
     [(_ (x:id : t1:cur-kind) (~var e (cur-typed-expr/ctx #`([x t1.erased]))))
      #:declare e.type cur-kind
-     (⊢ (Π t1.erased (lambda (e.value-name) e.erased)) : e.type)]))
+     (⊢ (Π t1.erased (#%plain-lambda (e.value-name) e.erased)) : e.type)]))
 
 (define-syntax (cur-λ syn)
   (syntax-parse syn
@@ -491,7 +491,10 @@
      ;; NB: Okay, always using reflected syntax as type works so far, but always need to expand syntax in
      ;; get-type... why? .. because all macros exected reified syntax... why not just redesign them to
      ;; expect reflected syntax?
-     (⊢ (#%app e1.erased e2.erased) : #,(cur-reflect (subst #'e2.erased #'e1.type-name #'e1.result-type)))]))
+     ;; TODO: could use #%app here, and lambda in the cur-λ, but those do get expanded... this might
+     ;; speed up macro expansion... hm. sketchy argument.... also ensures in the normal form i expect?
+     ;; not really...
+     (⊢ (#%plain-app e1.erased e2.erased) : #,(cur-reflect (subst #'e2.erased #'e1.type-name #'e1.result-type)))]))
 
 (begin-for-syntax
   (define (define-typed-identifier name type erased-term (y (fresh name)))
