@@ -39,9 +39,7 @@
  ;; TODO: Need to not export datum
  #%datum
  ;(struct-out Type)
- #%module-begin
- (for-syntax
-  #%datum))
+ #%module-begin)
 
 
 ;;; Testing
@@ -103,7 +101,7 @@
   (define-syntax-class reified-universe
     #:literals (#%plain-app quote Type)
     (pattern (#%plain-app (~var constr (constructor #'Type)) ~! (quote level-syn:nat))
-             #:attr level (eval #'level-syn)))
+             #:attr level (syntax->datum #'level-syn)))
 
   (define-syntax-class reified-pi
     #:literals (#%plain-app #%plain-lambda Π)
@@ -310,10 +308,14 @@
        #`((zv ...) (zv ...) (e2 : t2))]))
 
 
+  ;; TODO: Am I misusing syntax classes to do error checking and not just (or really, any) parsing?
+
   ;; Make typing easier
   ;; TODO: Should check that type is well-typed? shouldn't be necessary, I think, since get-type
   ;; always expands it's type. Should maybe check that it's not #f
   ;; OTOH, eagarly expanding type might be bad... could send typing universes into an infinite loop.
+
+  ;; Expect *some* well-typed expression.
   (define-syntax-class cur-typed-expr
     (pattern e:expr
              #:with (_ _ (erased : type)) (get-type #'e))
@@ -323,10 +325,25 @@
                                            "Expected well-typed expression"
                                            #'this-syntax)]))
 
+  ;; Expect *some* well-typed expression, in an extended context.
   (define-syntax-class (cur-typed-expr/ctx ctx)
     (pattern e:expr
              #:with ((value-name) (type-name) (erased : type)) (get-type #'e #:ctx ctx)))
 
+  ;; Expected a well-typed expression of a particular type.
+  (define-syntax-class (cur-expr-of-type type)
+    (pattern e:cur-typed-expr
+             ;; TODO: Subtyping?
+             #:fail-unless (cur-equal? #'e.type type)
+             (raise-syntax-error
+              'core-type-error
+              (format "Expected term of type ~a, but found ~a of type ~a"
+                      (syntax->datum type)
+                      (syntax->datum #'e)
+                      (syntax->datum #'e.type)))
+             #:attr erased #'e.erased))
+
+  ;; Expect a well-typed function.
   (define-syntax-class cur-procedure
     (pattern e:cur-typed-expr
              #:attr erased #'e.erased
@@ -334,15 +351,43 @@
              #:fail-unless (syntax-parse #'e.type [_:reified-pi #t] [ _ #f])
              (raise-syntax-error
               'core-type-error
-              (format "Expected function but found ~a of type ~a"
+              (format "Expected function, but found ~a of type ~a"
                       ;; TODO Should probably be using 'origin  in more error messages. Maybe need principled
                       ;; way to do that.
                       (syntax->datum #'e)
+                      ;; TODO: Not always clear how to resugar; probably need some function for this:
+                      ;; 1. Sometimes, origin is the best resugaring.
+                      ;; 2. Sometimes, just syntax->datum is.
+                      ;; 3. Sometimes, it seems none are, because the type was generated in the macro
+                      ;; (e.g. the types of univeres) and origin gives a very very bad
+                      ;; resugaring.. Maybe a Racket bug? Bug seems likely, happens only with Type and
+                      ;; Pi, which go through struct. Other types seem fine.
                       ;(syntax->datum (last (syntax-property (attribute e) 'origin)))
                       ;(syntax->datum #'e.type)
                       #;(third (syntax-property #'f-type 'origin))
                       (syntax->datum (last (syntax-property #'e.type 'origin))))
-              #'e))))
+              #'e)
+             #:with tmp #'e.type
+             #:declare tmp reified-pi
+             #:attr arg-type #'tmp.type-ann
+             ;; TODO: Bad varible naming; why "type-name"? is it clear that that is the name used in
+             ;; the result type to refer to the argument? I think not.
+             #:attr type-name #'tmp.name
+             #:attr result-type #'tmp.body))
+
+  ;; Expect a well-typed expression whose type is a universe (kind)
+  (define-syntax-class cur-kind
+    (pattern e:cur-typed-expr
+             ;; TODO There's got to be a better way
+             #:fail-unless (syntax-parse #'e.type [_:reified-universe #t] [_ #f])
+             (raise-syntax-error
+              'core-type-error
+              (format "Expected a kind (a type whose type is a universe), but found ~a of type ~a"
+                      (syntax->datum #'e)
+                      (syntax->datum (last (syntax-property #'e.type 'origin))))
+              #'e)
+             #:attr erased #'e.erased
+             #:attr type #'e.type)))
 
 ;;; Typing
 ;;;------------------------------------------------------------------------
@@ -362,14 +407,36 @@
 (define-syntax (cur-type syn)
   (syntax-parse syn
     [(_ i:nat)
-     (⊢ (Type i) : (cur-type #,(add1 (eval #'i))))]))
+     (⊢ (Type i) : (cur-type #,(add1 (syntax->datum #'i))))]))
 
 (define-syntax (cur-Π syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_ (x:id : t1:cur-typed-expr) ~! (~var e (cur-typed-expr/ctx #`([x t1.erased]))))
-     #:declare e.type cur-typed-expr
+    [(_ (x:id : t1:cur-kind) (~var e (cur-typed-expr/ctx #`([x t1.erased]))))
+     #:declare e.type cur-kind
      (⊢ (Π t1.erased (lambda (e.value-name) e.erased)) : e.type)]))
+
+(define-syntax (cur-λ syn)
+  (syntax-parse syn
+    #:datum-literals (:)
+    [(_ (x:id : t1:cur-kind) (~var e (cur-typed-expr/ctx #`([x t1.erased]))))
+     #:declare e.type cur-kind
+     ;; TODO: Wish to use t1 instead of t1.erased, to keep types in reflected syntax. But only the
+     ;; erased syntax has the right bindings due to how get-type handles bindings/renamings
+     (⊢ (lambda (e.value-name) e.erased) : (cur-Π (e.type-name : t1.erased) e.type))]))
+
+(define-syntax (cur-app syn)
+  (syntax-parse syn
+    [(_ e1:cur-procedure (~var e2 (cur-expr-of-type #'e1.arg-type)))
+     ;; TODO: This computation seems to be over erased terms, hence t2^ has no type.
+     ;; Need to reify t2^ back into the core macros, so it's type will be computed if necessary.
+     ;; This may be part of a large problem/solution: need to reify terms after evaluation, so we can
+     ;; pattern match on the core syntax and not the runtime representation.
+     ;; HMM.. this is not always true.. sometimes it's un-erased?
+     ;; NB: Okay, always using reflected syntax as type works so far, but always need to expand syntax in
+     ;; get-type... why? .. because all macros exected reified syntax... why not just redesign them to
+     ;; expect reflected syntax?
+     (⊢ (#%app e1.erased e2.erased) : #,(cur-reflect (subst #'e2.erased #'e1.type-name #'e1.result-type)))]))
 
 (begin-for-syntax
   (define (define-typed-identifier name type erased-term (y (fresh name)))
@@ -403,7 +470,7 @@
 (define-syntax (cur-axiom syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_ name:id : (~and type:cur-typed-expr _:telescope))
+    [(_ name:id : type:cur-kind)
      (let-values ([(defs _1 _2) (make-axiom #'name #'type)])
        defs)]))
 
@@ -416,7 +483,7 @@
     [(data name:id : params:nat type
            (c:id : c-type)
            ...)
-     #:with (cs ...) (map (λ (x) (syntax-property (syntax-property x 'constant #t) 'params (eval #'params)))
+     #:with (cs ...) (map (λ (x) (syntax-property (syntax-property x 'constant #t) 'params (syntax->datum #'params)))
                           (syntax->list #'(c ...)))
      #:with (m ...) (map fresh (syntax->list #'(c ...)))
      #:attr ls (for/list ([c (syntax->list #'(cs ...))]
@@ -434,7 +501,7 @@
          (cur-axiom #,(syntax-property (syntax-property (syntax-property (syntax-property #'name 'inductive #t)
                                                         'constructors (length (syntax->list #'(c
                                                                                                ...))))
-                                                        'params (eval #'params)) 'elim-name (attribute
+                                                        'params (syntax->datum #'params)) 'elim-name (attribute
                                                                                              elim-name)) : type)
          #,@(attribute c-defs)
          (define #,(attribute elim-name)
@@ -506,58 +573,3 @@ discriminant ~a is ~a, which accepts more arguments"
                          syn)
      #:with ((_ _ (methods^ : _)) ...) (map get-type (syntax->list #'methods))
      #`(elim-name e^ methods^ ...)]))
-
-(define-syntax (cur-λ syn)
-  (syntax-parse syn
-    #:datum-literals (:)
-    [(_ (x:id : t1:expr) e:expr #;cur-syntax )
-     #:with (_ _ (t1^ : _)) (get-type #'t1)
-     #:with ((zv) (zt) (e2 : t2)) (get-type #'e #:ctx #`([#,(attribute x) t1^]))
-     #:fail-unless (attribute t2)
-     (raise-syntax-error 'core-type-error
-                         "Could not infer type of body of function"
-                         (attribute e))
-     (set-type
-      (quasisyntax/loc syn (lambda (zv) #,(erase-type #'e2)))
-      (quasisyntax/loc syn (cur-Π (zt : t1^) t2)))]))
-
-(require (for-syntax racket/function))
-(define-syntax (cur-app syn)
-  (syntax-parse syn
-    #:datum-literals (:)
-    #:literals (#%plain-app)
-    [(_ e1:cur-procedure e2:expr)
-     #:with e1^ #'e1.erased
-     #:with f-type #'e1.type
-     #:declare f-type reified-pi
-     #:attr t1 #'f-type.type-ann
-     #:with (_ _ (e2^ : maybe-t1)) (get-type #'e2)
-     #:fail-unless (attribute maybe-t1)
-     (raise-syntax-error
-      'core-type-error
-      (format "Could not infer the type of argument ~a to function ~a; expected argument of type ~a"
-              (attribute e2)
-              (attribute e1)
-              (attribute t1))
-      syn)
-     #:fail-unless (cur-equal? #'t1 #'maybe-t1)
-     (raise-syntax-error
-      'core-type-error
-      (format "Function ~a expected argument of type ~a but received argument ~a of type ~a"
-              (attribute e1)
-              (attribute t1)
-              (attribute e2)
-              (attribute maybe-t1))
-      syn)
-     #:with x #'f-type.name
-     #:with e #'f-type.body
-     ;; TODO: This computation seems to be over erased terms, hence t2^ has no type.
-     ;; Need to reify t2^ back into the core macros, so it's type will be computed if necessary.
-     ;; This may be part of a large problem/solution: need to reify terms after evaluation, so we can
-     ;; pattern match on the core syntax and not the runtime representation.
-     ;; HMM.. this is not always true.. sometimes it's un-erased?
-     ;; NB: Okay, always using reflected syntax as type works so far, but always need to expand syntax in
-     ;; get-type... why? .. because all macros exected reified syntax... why not just redesign them to
-     ;; expect reflected syntax?
-     #:with t2^ (subst #'e2^ #'x #'e)
-     (⊢ (#%app e1^ e2^) : #,(cur-reflect #'t2^))]))

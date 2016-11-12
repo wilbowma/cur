@@ -23,6 +23,7 @@ x
 ;(Π (x : (x (Type 1))) (Type 1))
 ;(Π (x : (Type 1)) (x (Type 1)))
 ;(Π (y : (Type 1)) (x (Type 1)))
+;(Π (y : (λ (x : (Type 0)) x)) (x (Type 1)))
 
 (define id (λ (x : (Type 2)) x))
 ((λ (x : (Type 2)) x) (Type 1))
@@ -53,6 +54,9 @@ x
 
 ;; should fail with good error, does
 ;(axiom meow2 : ((Type 1) (Type 2)))
+
+;; should fail, does
+;(axiom meow3 : (λ (x : (Type 0)) x))
 
 z
 ; should fail with good error, does
