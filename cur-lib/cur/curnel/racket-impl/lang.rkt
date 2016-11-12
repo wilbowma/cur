@@ -281,9 +281,9 @@
        ;#:with (yt ...) (map fresh (attribute x))
        ;#:with (#%plain-lambda (zt ...) (let-values () (let-values () t2)))
        #;(cur-local-expand
-        #`(lambda (yt ...)
-            (let-syntax ([x (make-rename-transformer (set-type #'yt #'t))] ...)
-              #,(merge-type-props e (syntax-property (attribute e2) 'type)))))
+          #`(lambda (yt ...)
+              (let-syntax ([x (make-rename-transformer (set-type #'yt #'t))] ...)
+                #,(merge-type-props e (syntax-property (attribute e2) 'type)))))
        ;; TODO: if t2 is ever #f, an error should be raised. However, this error should be a last resort;
        ;; typed macros should be able to provide their own error message.
        ;; 1. could use exceptions
@@ -509,9 +509,6 @@ discriminant ~a is ~a, which accepts more arguments"
                          syn)
      #:with ((_ _ (methods^ : _)) ...) (map get-type (syntax->list #'methods))
      #`(elim-name e^ methods^ ...)]))
-
-
-
 
 (define-syntax (cur-λ syn)
   (syntax-parse syn
