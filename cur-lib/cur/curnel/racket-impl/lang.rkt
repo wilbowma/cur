@@ -350,11 +350,17 @@
     ;; TODO: Check that list is consistent and report error if not
     (if (pair? t) (car t) t))
 
+  ;; NB: Get type returns
+  ;; #`((zv ...) e : t)
+  ;; where zv ... are the alpha-renamed bindings from ctx in e and t
+  ;;       e is the well-typed compiled Cur term
+  ;;       t is a type that has not be checked for validity (since doing so eagerly may result in an
+  ;;       infinite loop, e.g., with universes).
   (define (get-type e #:ctx [ctx #'()])
     (syntax-parse ctx
       #:datum-literals (:)
       #:literals (#%plain-lambda let-values)
-      [([x:id t] ...)
+      [([x:id t:cur-typed-expr] ...)
        #:with (yv ...) (map fresh (attribute x))
        #:with (#%plain-lambda (zv ...) (let-values () (let-values () e2)))
        (cur-local-expand
@@ -384,37 +390,30 @@
        ;;    + flexible
        ;;    - may get random, unrelated error if you forget to handle
        ;; look into how types as macros does this
-       #:attr maybe-t2 (syntax-property (attribute e2) 'type)
-       #:fail-unless (attribute maybe-t2)
+       #:do [(define maybe-t2 (syntax-property (attribute e2) 'type))]
+       #:fail-unless maybe-t2
        (raise-syntax-error
         'core-type-error
         "Expected a well-typed Curnel term, but found something else."
         (attribute e2))
-       #:with t2 (cur-local-expand (syntax-local-introduce (merge-type-props e (attribute maybe-t2))))
-       #`((zv ...) (zv ...) (e2 : t2))]))
+       #:with t2 (cur-local-expand (syntax-local-introduce (merge-type-props e maybe-t2)))
+       #`((zv ...) (e2 : t2))]))
 
 
   ;; TODO: Am I misusing syntax classes to do error checking and not just (or really, any) parsing?
 
   ;; Make typing easier
-  ;; TODO: Should check that type is well-typed? shouldn't be necessary, I think, since get-type
-  ;; always expands it's type. Should maybe check that it's not #f
-  ;; OTOH, eagarly expanding type might be bad... could send typing universes into an infinite loop.
 
   ;; Expect *some* well-typed expression.
+  ;; NB: Cannot check that type is well-formed eagerly, otherwise infinite loop.
   (define-syntax-class cur-typed-expr
     (pattern e:expr
-             #:with (_ _ (erased : type)) (get-type #'e))
-
-    ;; Shouldn't be necessary, since the term e should have it's own error message if it's not well-typed
-    #;(pattern _ #:do [(raise-syntax-error 'core-type-error
-                                           "Expected well-typed expression"
-                                           #'this-syntax)]))
+             #:with (_ (erased : type)) (get-type #'e)))
 
   ;; Expect *some* well-typed expression, in an extended context.
   (define-syntax-class (cur-typed-expr/ctx ctx)
     (pattern e:expr
-             #:with ((value-name) (type-name) (erased : type)) (get-type #'e #:ctx ctx)))
+             #:with ((name ...) (erased : type)) (get-type #'e #:ctx ctx)))
 
   ;; Expected a well-typed expression of a particular type.
   (define-syntax-class (cur-expr-of-type type)
@@ -500,7 +499,7 @@
     #:datum-literals (:)
     [(_ (x:id : t1:cur-kind) (~var e (cur-typed-expr/ctx #`([x t1.erased]))))
      #:declare e.type cur-kind
-     (⊢ (Π t1.erased (#%plain-lambda (e.value-name) e.erased)) : e.type)]))
+     (⊢ (Π t1.erased (#%plain-lambda (#,(car (attribute e.name))) e.erased)) : e.type)]))
 
 (define-syntax (cur-λ syn)
   (syntax-parse syn
@@ -509,7 +508,7 @@
      #:declare e.type cur-kind
      ;; TODO: Wish to use t1 instead of t1.erased, to keep types in reflected syntax. But only the
      ;; erased syntax has the right bindings due to how get-type handles bindings/renamings
-     (⊢ (#%plain-lambda (e.value-name) e.erased) : (cur-Π (e.type-name : t1.erased) e.type))]))
+     (⊢ (#%plain-lambda (#,(car (attribute e.name))) e.erased) : (cur-Π (#,(car (attribute e.name)) : t1.erased) e.type))]))
 
 (define-syntax (cur-app syn)
   (syntax-parse syn
@@ -547,12 +546,12 @@
   (syntax-parse (list n t)
     [(name:id type:telescope)
      #:with axiom (fresh n)
-     #:with make-axiom (format-id n "make-~a" (syntax->datum #'axiom) #:props n)
+     #:with make-axiom (format-id n "make-~a" #'axiom #:props n)
      (values
       #`(begin
           (struct axiom (#,@(attribute type.xs)) #:transparent #:reflection-name 'name)
           #,(define-typed-identifier #'name #'type #'((curryr axiom)) #'make-axiom))
-      (format-id n "~a?" (syntax->datum #'axiom)))]
+      (format-id n "~a?" #'axiom))]
     [_ (error 'make-axiom "Something terrible has happened")]))
 
 (define-syntax (cur-axiom syn)
@@ -568,8 +567,6 @@
     (syntax-property e (car pair) (cdr pair))))
 
 ;; TODO: Strict positivity checking
-;; TODO: Recursion
-;; TODO: Rewrite and abstract this code omg
 (define-syntax (cur-data syn)
   (syntax-parse syn
     #:datum-literals (:)
@@ -577,7 +574,6 @@
     [(_:top-level-id name:id : p:nat (~and type:cur-kind _:telescope)
                      ;; TODO: Must type with name in context
                      (c:id : (~and #;c-type:cur-typed-expr c-type:telescope)) ...)
-     ;; TODO: Attribute in other syntax-parse uses should sometimes be definitions
      ;; TODO: Can we generate this in 1 pass over the constructor list? I spy 7 loops.
      ;; Later, perhaps. O(7n) = O(n), but maybe unnecessary constant factor.
      #:do [(define number-of-constructors (length (attribute c)))
@@ -607,7 +603,6 @@
                     (if (null? (struct->list #,e))
                         #,m
                         (apply #,m (struct->list #,e)))])))
-           ;; TODO: No need to use syntax->datum in format-id
            (define elim-name (syntax-property (format-id #'name "~a-elim" #'name) 'elim #t))]
      #:with (m ...) method-names
      #`(begin
@@ -633,10 +628,13 @@
       [_ (error "meow")])))
 
 ;; TODO: Type check motive, methods.
+;; TODO: Recursion
+;; TODO: Rewrite and abstract this code omg
 (define-syntax (cur-elim syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_ e:cur-typed-expr motive:cur-procedure methods)
+    [(_ e:cur-typed-expr motive:cur-procedure (method:cur-typed-expr ...))
+     ;; TODO: Some attributes should be definitions
      #:with e-type #'e.type
      #:declare e-type cur-typed-expr
      #:fail-unless (syntax-parse #'e-type.type
@@ -668,12 +666,11 @@
      (syntax-property #'name 'elim-name)
 ;     #:do [(check-motive #'motive.type #'name)]
      #:attr constructors (syntax-property #'name 'constructors)
-     #:fail-unless (= (attribute constructors) (length (syntax->list #'methods)))
+     #:fail-unless (= (attribute constructors) (length (attribute method)))
      (raise-syntax-error 'core-type-error
                          (format "Expected one method for each constructor, but found ~a constructors and ~a branches."
                                  (attribute constructors)
-                                 (length (syntax->list #'methods)))
+                                 (length (attribute method)))
                          syn)
-     #:with ((_ _ (methods^ : _)) ...) (map get-type (syntax->list #'methods))
      ;; TODO: Need indices too
-     (⊢ (elim-name e.erased motive.erased methods^ ...) : #,(cur-normalize #`(cur-app motive e)))]))
+     (⊢ (elim-name e.erased motive.erased method.erased ...) : #,(cur-normalize #`(cur-app motive e)))]))
