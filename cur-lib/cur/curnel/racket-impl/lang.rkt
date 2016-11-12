@@ -118,6 +118,11 @@
     #:literals (#%plain-app)
     (pattern (#%plain-app operator operand)))
 
+  (define-syntax-class reified-elim
+    #:literals (#%plain-app)
+    (pattern (#%plain-app x:id motive methods ...)
+             #:when (syntax-property #'x 'elim)))
+
   ;; Reification: turn a compile-time term into a run-time term.
   ;; This is done implicitly via macro expansion; each of the surface macros define the
   ;; transformation.
@@ -210,9 +215,14 @@
          [f:reified-lambda
           (cur-eval (subst #'a #'f.name #'f.body))]
          [e1-
-          #`(#%plain-app e1- a)])]
+          (cur-local-expand
+           #`(cur-app e1- a))])]
+      [e:reified-elim
+       (error "Sorry, can't handle this yet.")]
       [e:reified-lambda
-       #`(cur-λ (e.name : #,(cur-eval #'e.type-ann)) #,(cur-eval #'e.body))]))
+       (cur-local-expand
+        #`(cur-λ (e.name : #,(cur-eval #'e.type-ann)) #,(cur-eval #'e.body)))]
+      [_ (error 'cur-beta-iota-short "Something has gone horribly wrong: ~a" e)]))
 
   (define (cur-normalize e)
     ;; TODO:
@@ -423,7 +433,7 @@
      #:declare e.type cur-kind
      ;; TODO: Wish to use t1 instead of t1.erased, to keep types in reflected syntax. But only the
      ;; erased syntax has the right bindings due to how get-type handles bindings/renamings
-     (⊢ (lambda (e.value-name) e.erased) : (cur-Π (e.type-name : t1.erased) e.type))]))
+     (⊢ (#%plain-lambda (e.value-name) e.erased) : (cur-Π (e.type-name : t1.erased) e.type))]))
 
 (define-syntax (cur-app syn)
   (syntax-parse syn
@@ -496,7 +506,7 @@
                                        (apply #,m (struct->list #,e)))]))))
      #:attr c-defs (map car (attribute ls))
      #:attr branch-templates (map cdr (attribute ls))
-     #:attr elim-name (format-id syn "~a-elim" (syntax->datum #'name))
+     #:attr elim-name (syntax-property (format-id syn "~a-elim" (syntax->datum #'name)) 'elim #t)
      #`(begin
          (cur-axiom #,(syntax-property (syntax-property (syntax-property (syntax-property #'name 'inductive #t)
                                                         'constructors (length (syntax->list #'(c
@@ -517,7 +527,6 @@
       [_ (error "meow")])))
 
 ;; TODO: Type check motive, methods.
-;; TODO: Return type
 (define-syntax (cur-elim syn)
   (syntax-parse syn
     #:datum-literals (:)
@@ -572,4 +581,5 @@ discriminant ~a is ~a, which accepts more arguments"
                                  (length (syntax->list #'methods)))
                          syn)
      #:with ((_ _ (methods^ : _)) ...) (map get-type (syntax->list #'methods))
-     #`(elim-name e^ methods^ ...)]))
+     ;; TODO: Need indices too
+     (⊢ (elim-name e^ methods^ ...) : #,(cur-normalize #`(cur-app motive e)))]))

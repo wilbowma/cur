@@ -127,3 +127,7 @@ z2
 ;; TODO Causes runtime error because parameters not supported, and method typing not yet implemented.
 (elim (none Nat) (λ (x : (Maybe Nat)) Nat)
       (z (λ (A : (Type 0)) (λ (a : A) a))))
+
+;; TODO Should work, doesn't
+((λ (x : (elim z2 (λ (x : Nat2) (Type 1))
+              (Nat (λ (x : Nat2) Nat)))) x) z)
