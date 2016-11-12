@@ -89,10 +89,13 @@ s
 (test1 s)
 
 ; TODO this is bad:
+; (require racket/base)
 ; looks like #%app gets redefined by racket/base...
 ; but this behavior is consistent with typed/racket... redefine require to emit warnings when base
 ; forms are redefined
-;(require racket/base)
+
+;; should fail with good error, does
+;(require (only-in racket/base list))
 ;(meow (list 1))
 
 ;; Should fail with good error, does
@@ -123,6 +126,10 @@ z2
 ;; should fail with good error, does
 #;(elim (s2 z2) Nat2
       (z2 (λ (n : Nat2) n)))
+
+;; should fail with good error, does
+#;(elim (s2 z2) (λ (x : Nat2) Nat2)
+      (z2))
 
 (data Maybe : 1 (Π (A : (Type 0)) (Type 0))
       (none : (Π (A : (Type 0)) (Maybe A)))

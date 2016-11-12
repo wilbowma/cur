@@ -32,7 +32,8 @@
   [cur-data data]
   [cur-elim elim]
   #;[cur-var #%variable-reference])
- require
+ ;; TODO: export all subforms?
+ require only-in
  provide
  ;; TODO: Who needs top?
 ; #%top
@@ -123,6 +124,18 @@
     #:literals (#%plain-app)
     (pattern (#%plain-app x:id discriminant motive methods ...)
              #:when (syntax-property #'x 'elim)))
+
+  (define-syntax-class reified-constant
+    #:literals (#%plain-app)
+    (pattern (#%plain-app e:reified-constant es ...)
+             #:attr args (append (attribute e.args) (attribute es))
+             #:attr constr #'e.constr)
+
+    (pattern constr:id
+             #:attr args '()
+             ;; TODO: Probably inducitves should also have 'constant
+             #:when (or (syntax-property #'constr 'constant)
+                        (syntax-property #'constr 'inductive))))
 
   ;; Reification: turn a compile-time term into a run-time term.
   ;; This is done implicitly via macro expansion; each of the surface macros define the
@@ -590,39 +603,35 @@
      #:fail-unless (syntax-parse #'e-type.type
                      [_:reified-universe #t]
                      [_ #f])
-     (raise-syntax-error 'core-type-error
-                         (format "Expected a fully applied inductive type, found discriminant ~a of
-type ~a, which accepts more arguments"
-                         (attribute e)
-                         (attribute e.type))
-                         syn)
+     (cur-type-error
+      syn
+      "discriminant to be a fully applied inductive type"
+      "but found discriminant ~a"
+      "~a, which accepts more arguments"
+      (syntax->datum #'e)
+      (syntax->datum #'e.type))
      ;; TODO: Need reified constant.. but reflected constant .. is the same?
      #:fail-unless (syntax-parse #'e-type.erased
-                     #:literals (#%plain-app)
-                     [(#%plain-app x:id . r)
-                      (syntax-property #'x 'inductive)]
-                     [x:id
-                      (syntax-property #'x 'inductive)]
+                     [e:reified-constant
+                      (syntax-property #'e.constr 'inductive)]
                      [_ #f])
-     (raise-syntax-error 'core-type-error
-                         (format "Can only eliminate an inductive type, but ~a is of type ~a, which is not an inductive."
-                         (attribute e)
-                         (syntax-property (attribute e.type) 'origin))
-                         syn)
+     (cur-type-error
+      syn
+      ;; TODO: Maybe check if axiom and report that? Might be easy to confuse axiom and inductive.
+      "discriminant to inhabit an inductive type"
+      (syntax->datum #'e)
+      (syntax->datum (car (syntax-property (attribute e.type) 'origin))))
      #:with name
      (syntax-parse #'e-type.erased
-       #:literals (#%plain-app)
-       [(#%plain-app x:id . r)
-        #'x]
-       [x:id
-        #'x])
+       [e:reified-constant
+        #'e.constr])
      #:with elim-name
      (syntax-property #'name 'elim-name)
 ;     #:do [(check-motive #'motive.type #'name)]
      #:attr constructors (syntax-property #'name 'constructors)
      #:fail-unless (= (attribute constructors) (length (syntax->list #'methods)))
      (raise-syntax-error 'core-type-error
-                         (format "Expected one method for each constructor; found ~a constructors and ~a branches"
+                         (format "Expected one method for each constructor, but found ~a constructors and ~a branches."
                                  (attribute constructors)
                                  (length (syntax->list #'methods)))
                          syn)
