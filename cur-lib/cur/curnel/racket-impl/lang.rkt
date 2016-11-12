@@ -120,7 +120,7 @@
 
   (define-syntax-class reified-elim
     #:literals (#%plain-app)
-    (pattern (#%plain-app x:id motive methods ...)
+    (pattern (#%plain-app x:id discriminant motive methods ...)
              #:when (syntax-property #'x 'elim)))
 
   ;; Reification: turn a compile-time term into a run-time term.
@@ -218,7 +218,11 @@
           (cur-local-expand
            #`(cur-app e1- a))])]
       [e:reified-elim
-       (error "Sorry, can't handle this yet.")]
+       (error "Sorry, can't handle this yet." (syntax->datum #'e))
+       #;(cur-eval
+        #`(#%plain-app #,(list-ref (attribute e.methods) (attribute e.discriminant.constructor))
+                       e.discriminant))
+       ]
       [e:reified-lambda
        (cur-local-expand
         #`(cur-λ (e.name : #,(cur-eval #'e.type-ann)) #,(cur-eval #'e.body)))]
@@ -493,8 +497,12 @@
     [(data name:id : params:nat type
            (c:id : c-type)
            ...)
-     #:with (cs ...) (map (λ (x) (syntax-property (syntax-property x 'constant #t) 'params (syntax->datum #'params)))
-                          (syntax->list #'(c ...)))
+     #:attr numbers (build-list (length (syntax->list #'(c ...))) values)
+     #:with (cs ...) (map (λ (x n)
+                            (syntax-property (syntax-property (syntax-property x 'constant #t) 'params
+                                                              (syntax->datum #'params)) 'constructor n))
+                          (syntax->list #'(c ...))
+                          (attribute numbers))
      #:with (m ...) (map fresh (syntax->list #'(c ...)))
      #:attr ls (for/list ([c (syntax->list #'(cs ...))]
                           [t (syntax->list #'(c-type ...))])
@@ -515,7 +523,9 @@
                                                                                              elim-name)) : type)
          #,@(attribute c-defs)
          (define #,(attribute elim-name)
-           (lambda (e m ...)
+           ;; NB: _ is the motive; necessary in the application of elim for compile-time evaluation,
+           ;; which may need to recover the type.
+           (lambda (e _ m ...)
              (cond
                #,@(map (λ (f m) (f #'e m)) (attribute branch-templates) (syntax->list #'(m ...)))))))]))
 
@@ -530,19 +540,20 @@
 (define-syntax (cur-elim syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_ e motive methods)
-     #:with (_ _ (e^ : t)) (get-type #'e)
-     #:with (_ _ (t^ : U)) (get-type #'t)
-     #:fail-unless (syntax-parse #'U
+    [(_ e:cur-typed-expr motive:cur-procedure methods)
+     #:with e-type #'e.type
+     #:declare e-type cur-typed-expr
+     #:fail-unless (syntax-parse #'e-type.type
                      [_:reified-universe #t]
                      [_ #f])
      (raise-syntax-error 'core-type-error
-                         (format "Can only eliminate a fully applied inductive type. The type of the
-discriminant ~a is ~a, which accepts more arguments"
+                         (format "Expected a fully applied inductive type, found discriminant ~a of
+type ~a, which accepts more arguments"
                          (attribute e)
-                         (attribute t))
+                         (attribute e.type))
                          syn)
-     #:fail-unless (syntax-parse #'t^
+     ;; TODO: Need reified constant.. but reflected constant .. is the same?
+     #:fail-unless (syntax-parse #'e-type.erased
                      #:literals (#%plain-app)
                      [(#%plain-app x:id . r)
                       (syntax-property #'x 'inductive)]
@@ -552,19 +563,10 @@ discriminant ~a is ~a, which accepts more arguments"
      (raise-syntax-error 'core-type-error
                          (format "Can only eliminate an inductive type, but ~a is of type ~a, which is not an inductive."
                          (attribute e)
-                         (syntax-property (attribute t) 'origin))
+                         (syntax-property (attribute e.type) 'origin))
                          syn)
-     #:with (_ _ (motive^ : mt)) (get-type #'motive)
-     #:fail-unless (syntax-parse #'mt [e:reified-pi #t] [_ #f])
-     (raise-syntax-error
-      'core-type-error
-      (format "Expected motive to be a function, but found ~a of type ~a"
-              #'motive
-              (last (syntax-property #'mt 'origin)))
-      syn
-      #'motive)
      #:with name
-     (syntax-parse #'t^
+     (syntax-parse #'e-type.erased
        #:literals (#%plain-app)
        [(#%plain-app x:id . r)
         #'x]
@@ -572,14 +574,14 @@ discriminant ~a is ~a, which accepts more arguments"
         #'x])
      #:with elim-name
      (syntax-property #'name 'elim-name)
-;     #:do [(check-motive #'mt #'name)]
+;     #:do [(check-motive #'motive.type #'name)]
      #:attr constructors (syntax-property #'name 'constructors)
      #:fail-unless (= (attribute constructors) (length (syntax->list #'methods)))
      (raise-syntax-error 'core-type-error
-                         (format "Need one method for each constructor; found ~a constructors and ~a branches"
+                         (format "Expected one method for each constructor; found ~a constructors and ~a branches"
                                  (attribute constructors)
                                  (length (syntax->list #'methods)))
                          syn)
      #:with ((_ _ (methods^ : _)) ...) (map get-type (syntax->list #'methods))
      ;; TODO: Need indices too
-     (⊢ (elim-name e^ methods^ ...) : #,(cur-normalize #`(cur-app motive e)))]))
+     (⊢ (elim-name e.erased motive.erased methods^ ...) : #,(cur-normalize #`(cur-app motive e)))]))

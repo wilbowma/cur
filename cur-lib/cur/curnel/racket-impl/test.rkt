@@ -99,8 +99,7 @@ s
 
 (data Nat2 : 0 (Type 0)
       (z2 : Nat2)
-      (s2 : (Π (x : Nat2) Nat2))
-      )
+      (s2 : (Π (x : Nat2) Nat2)))
 
 z2
 
@@ -130,4 +129,7 @@ z2
 
 ;; TODO Should work, doesn't
 ((λ (x : (elim z2 (λ (x : Nat2) (Type 1))
+              (Nat (λ (x : Nat2) Nat)))) x) z)
+
+((λ (x : (elim (s2 z2) (λ (x : Nat2) (Type 1))
               (Nat (λ (x : Nat2) Nat)))) x) z)
