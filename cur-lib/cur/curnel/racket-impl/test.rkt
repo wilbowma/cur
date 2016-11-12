@@ -36,6 +36,9 @@ x
 (define id2 (λ (A : (Type 3)) (λ (a : A) a)))
 ((id2 (Type 2)) (Type 1))
 
+; Should fail with good error, does
+;((id2 (Type 2)) (Type 2))
+
 (((λ (Nat : (Type 3))
      (λ (z : Nat)
        (λ (s : (Π (n : Nat) Nat))
@@ -47,6 +50,9 @@ x
 (axiom z : Nat)
 (axiom s : (Π (y : Nat) Nat))
 (axiom meow : (Π (x : (Type 1)) (Type 0)))
+
+;; should fail with good error, does
+;(axiom meow2 : ((Type 1) (Type 2)))
 
 z
 ; should fail with good error, does

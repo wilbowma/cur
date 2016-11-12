@@ -349,53 +349,53 @@
 
 (begin-for-syntax
   (require (for-syntax racket/base))
+
+  ;; Can only be used under a syntax-parse
   (define-syntax (⊢ syn)
     (syntax-case syn (:)
       [(_ e : t)
-       #`(set-type
+       (quasisyntax/loc syn
+         (set-type
           (quasisyntax/loc this-syntax e)
-          (quasisyntax/loc this-syntax t))])))
+          (quasisyntax/loc this-syntax t)))])))
 
 (define-syntax (cur-type syn)
   (syntax-parse syn
     [(_ i:nat)
-     (⊢ (Type i) : (cur-type #,(add1 (eval #'i))))
-     #;(set-type
-      (quasisyntax/loc syn (Type i))
-      (quasisyntax/loc syn (cur-type #,(add1 (eval #'i)))))]))
+     (⊢ (Type i) : (cur-type #,(add1 (eval #'i))))]))
 
 (define-syntax (cur-Π syn)
   (syntax-parse syn
     #:datum-literals (:)
     [(_ (x:id : t1:cur-typed-expr) ~! (~var e (cur-typed-expr/ctx #`([x t1.erased]))))
      #:declare e.type cur-typed-expr
-     (⊢ (Π t1.erased (lambda (e.value-name) e.erased)) : e.type)
-     #;(set-type
-      (quasisyntax/loc syn (Π t1.erased (lambda (e.value-name) e.erased)))
-      (quasisyntax/loc syn e.type))]))
+     (⊢ (Π t1.erased (lambda (e.value-name) e.erased)) : e.type)]))
+
+(begin-for-syntax
+  (define (define-typed-identifier name type erased-term (y (fresh name)))
+    #`(begin
+        (define-syntax #,name
+          (make-rename-transformer
+           (set-type (quasisyntax/loc #'#,name #,y)
+                     (quasisyntax/loc #'#,name #,type))))
+        (define #,y #,erased-term))))
 
 (define-syntax (cur-define syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_ name:id body:expr)
-     #:with y (fresh)
-     #:with (_ _ (e : t)) (get-type (attribute body))
-     #`(begin
-         (define-syntax name (make-rename-transformer (set-type #'y #'t)))
-         (define y e))]))
+    [(_ name:id body:cur-typed-expr)
+     (define-typed-identifier #'name #'body.type #'body.erased)]))
 
 ;; Returns the definitions for the axiom, the constructor (as an identifier) and the predicate (as an identifier).
 (define-for-syntax (make-axiom n t)
   (syntax-parse (list n t)
     [(name:id type:telescope)
      #:with axiom (fresh n)
-     #:do (printf "Props: ~a~n" (syntax-property-symbol-keys n))
      #:with make-axiom (format-id n "make-~a" (syntax->datum #'axiom) #:props n)
      (values
       #`(begin
           (struct axiom (#,@(attribute type.xs)) #:transparent #:reflection-name 'name)
-          (define-syntax name (make-rename-transformer (set-type #'make-axiom (cur-local-expand #'type))))
-          (define make-axiom ((curryr axiom))))
+          #,(define-typed-identifier #'name #'type #'((curryr axiom)) #'make-axiom))
       #'make-axiom
       (format-id n "~a?" (syntax->datum #'axiom)))]
     [_ (error 'make-axiom "Something terrible has happened")]))
@@ -403,10 +403,7 @@
 (define-syntax (cur-axiom syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_ name:id : type:telescope)
-     #:with (_ _ (_ : U)) (get-type #'type)
-     #:fail-unless (attribute U)
-     (error 'core-type-error (format "Axiom ~a has declared type ~a, which is not valid" #'name #'type))
+    [(_ name:id : (~and type:cur-typed-expr _:telescope))
      (let-values ([(defs _1 _2) (make-axiom #'name #'type)])
        defs)]))
 
@@ -563,8 +560,4 @@ discriminant ~a is ~a, which accepts more arguments"
      ;; get-type... why? .. because all macros exected reified syntax... why not just redesign them to
      ;; expect reflected syntax?
      #:with t2^ (subst #'e2^ #'x #'e)
-     (set-type
-      (quasisyntax/loc syn (#%app e1^ e2^))
-      (quasisyntax/loc syn #,(cur-reflect #'t2^)))]))
-
-#;(define-syntax cur-elim)
+     (⊢ (#%app e1^ e2^) : #,(cur-reflect #'t2^))]))
