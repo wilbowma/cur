@@ -307,7 +307,42 @@
         "Expected a well-typed Curnel term, but found something else"
         (attribute e2))
        #:with t2 (cur-local-expand (syntax-local-introduce (merge-type-props e (attribute maybe-t2))))
-       #`((zv ...) (zv ...) (e2 : t2))])))
+       #`((zv ...) (zv ...) (e2 : t2))]))
+
+
+  ;; Make typing easier
+  ;; TODO: Should check that type is well-typed? shouldn't be necessary, I think, since get-type
+  ;; always expands it's type. Should maybe check that it's not #f
+  ;; OTOH, eagarly expanding type might be bad... could send typing universes into an infinite loop.
+  (define-syntax-class cur-typed-expr
+    (pattern e:expr
+             #:with (_ _ (erased : type)) (get-type #'e))
+
+    ;; Shouldn't be necessary, since the term e should have it's own error message if it's not well-typed
+    #;(pattern _ #:do [(raise-syntax-error 'core-type-error
+                                           "Expected well-typed expression"
+                                           #'this-syntax)]))
+
+  (define-syntax-class (cur-typed-expr/ctx ctx)
+    (pattern e:expr
+             #:with ((value-name) (type-name) (erased : type)) (get-type #'e #:ctx ctx)))
+
+  (define-syntax-class cur-procedure
+    (pattern e:cur-typed-expr
+             #:attr erased #'e.erased
+             #:attr type #'e.type
+             #:fail-unless (syntax-parse #'e.type [_:reified-pi #t] [ _ #f])
+             (raise-syntax-error
+              'core-type-error
+              (format "Expected function but found ~a of type ~a"
+                      ;; TODO Should probably be using 'origin  in more error messages. Maybe need principled
+                      ;; way to do that.
+                      (syntax->datum #'e)
+                      ;(syntax->datum (last (syntax-property (attribute e) 'origin)))
+                      ;(syntax->datum #'e.type)
+                      #;(third (syntax-property #'f-type 'origin))
+                      (syntax->datum (last (syntax-property #'e.type 'origin))))
+              #'e))))
 
 ;;; Typing
 ;;;------------------------------------------------------------------------
@@ -321,16 +356,11 @@
 (define-syntax (cur-Π syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_ (x:id : t1:expr) ~! e:expr)
-     #:with (_ _ (t1^ : _)) (get-type #'t1)
-     #:with ((zv) (zt) (e2 : U)) (get-type (attribute e) #:ctx #`([#,(attribute x) t1^]))
-     #:fail-unless (attribute U)
-     (raise-syntax-error 'core-type-error
-                         "Could not infer type of Π"
-                         (attribute e))
+    [(_ (x:id : t1:cur-typed-expr) ~! (~var e (cur-typed-expr/ctx #`([x t1.erased]))))
+     #:declare e.type cur-typed-expr
      (set-type
-      (quasisyntax/loc syn (Π t1^ (lambda (zv) #,(erase-type (attribute e2)))))
-      (quasisyntax/loc syn U))]))
+      (quasisyntax/loc syn (Π t1.erased (lambda (e.value-name) e.erased)))
+      (quasisyntax/loc syn e.type))]))
 
 (define-syntax (cur-define syn)
   (syntax-parse syn
@@ -485,25 +515,16 @@ discriminant ~a is ~a, which accepts more arguments"
       (quasisyntax/loc syn (lambda (zv) #,(erase-type #'e2)))
       (quasisyntax/loc syn (cur-Π (zt : t1^) t2)))]))
 
+(require (for-syntax racket/function))
 (define-syntax (cur-app syn)
   (syntax-parse syn
     #:datum-literals (:)
     #:literals (#%plain-app)
-    [(_ e1:expr e2:expr)
-     #:with (_ _ (e1^ : f-type)) (get-type #'e1)
-     ;; TODO: More error checking. Maybe hide error checkings and stuff in syntax-classes? Maybe mimic turnstyle.
-     #:fail-unless (syntax-parse #'f-type [e:reified-pi #t] [_ #f])
-     (raise-syntax-error
-      'core-type-error
-      (format "Expected function but found something ~a of type ~a"
-              ;; TODO Should probably be using 'origin  in more error messages. Maybe need principled
-              ;; way to do that.
-              (syntax-property (attribute e1) 'origin)
-              (syntax-property (attribute f-type) 'origin))
-      syn)
-;     #:with (cur-Π (x : t1) e) #'f-type
-     #:with f-type-again:reified-pi #'f-type
-     #:attr t1 (attribute f-type-again.type-ann)
+    [(_ e1:cur-procedure e2:expr)
+     #:with e1^ #'e1.erased
+     #:with f-type #'e1.type
+     #:declare f-type reified-pi
+     #:attr t1 #'f-type.type-ann
      #:with (_ _ (e2^ : maybe-t1)) (get-type #'e2)
      #:fail-unless (attribute maybe-t1)
      (raise-syntax-error
@@ -522,8 +543,8 @@ discriminant ~a is ~a, which accepts more arguments"
               (attribute e2)
               (attribute maybe-t1))
       syn)
-     #:with x (attribute f-type-again.name)
-     #:with e (attribute f-type-again.body)
+     #:with x #'f-type.name
+     #:with e #'f-type.body
      ;; TODO: This computation seems to be over erased terms, hence t2^ has no type.
      ;; Need to reify t2^ back into the core macros, so it's type will be computed if necessary.
      ;; This may be part of a large problem/solution: need to reify terms after evaluation, so we can

@@ -7,6 +7,8 @@
 
 (define x (Type 1))
 
+(λ (y : x) x)
+
 ;; Should fail with good error, do
 ; (define x Type)
 ; (define x (Type 1) (Type 1))
@@ -14,8 +16,20 @@
 x
 
 (Π (x : (Type 1)) (Type 1))
+
+(Π (x : (Type 1)) (Type 2))
+
+;; Should fail with good error, do (TODO Ish. Error messages still need polish)
+;(Π (x : (x (Type 1))) (Type 1))
+;(Π (x : (Type 1)) (x (Type 1)))
+;(Π (y : (Type 1)) (x (Type 1)))
+
 (define id (λ (x : (Type 2)) x))
 ((λ (x : (Type 2)) x) (Type 1))
+
+;; Should fail with good error, do (ish; see above)
+;((λ (x : (Type 2)) x) (Type 2))
+;((Type 1) (Type 2))
 
 (id (Type 1))
 
@@ -100,5 +114,6 @@ z2
 
 ((λ (f : (Π (A : (Type 0)) (Type 0))) z) Maybe)
 
+;; TODO Causes runtime error because parameters not supported, and method typing not yet implemented.
 (elim (none Nat) (λ (x : (Maybe Nat)) Nat)
       (z (λ (A : (Type 0)) (λ (a : A) a))))
