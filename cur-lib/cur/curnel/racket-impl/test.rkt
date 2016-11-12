@@ -7,6 +7,10 @@
 
 (define x (Type 1))
 
+; Should fail with good error, does
+;(define y (define z (Type 1)) z)
+;(define y (define z (Type 1) x) z)
+
 (λ (y : x) x)
 
 ;; Should fail with good error, do
@@ -57,6 +61,9 @@ x
 
 ;; should fail, does
 ;(axiom meow3 : (λ (x : (Type 0)) x))
+
+; Should fail with good error, does
+;(define y (axiom Nat : (Type 0)))
 
 z
 ; should fail with good error, does

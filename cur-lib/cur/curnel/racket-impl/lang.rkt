@@ -50,14 +50,15 @@
 
 ;;; Debugging
 ;;; ------------------------------------------------------------------------
-(require racket/trace)
+(require
+ racket/trace
+ (for-syntax
+  racket/trace))
 (begin-for-syntax
   (define (maybe-syntax->datum x)
     (if (syntax? x)
         (syntax->datum x)
         x))
-
-  (require racket/trace)
 
   (current-trace-print-args
    (let ([ctpa (current-trace-print-args)])
@@ -261,6 +262,33 @@
 
 ;;; TODO: subtyping
 
+;;; Nothing before here should be able to error. Things after here might, since they are dealing with
+;;; terms before they are type-checked.
+
+;;; Errors
+;;; ------------------------------------------------------------------------
+(begin-for-syntax
+  ;; TODO: Should be catchable; maybe should have hierarchy. See current Curnel
+
+  ;; syn: the source syntax of the error
+  ;; expected: a format string describing the expected type or term.
+  ;; term: a datum or format string describing the term that did not match the expected property. If a
+  ;;       format string, remaining args must be given as rest.
+  ;; type: a datum or format string describing the type that did not match the expected property. If a
+  ;;       format string, remaining args must be given as rest.
+  ;; rest: more datums
+  (define (cur-type-error syn expected term type . rest)
+    (raise-syntax-error
+     'core-type-error
+     (apply
+      format
+      (format "Expected ~a, but found ~a of type ~a."
+              expected
+              term
+              type)
+      rest)
+     syn)))
+
 ;;; Types as Macros; type system helpers.
 ;;; ------------------------------------------------------------------------
 (begin-for-syntax
@@ -349,12 +377,12 @@
     (pattern e:cur-typed-expr
              ;; TODO: Subtyping?
              #:fail-unless (cur-equal? #'e.type type)
-             (raise-syntax-error
-              'core-type-error
-              (format "Expected term of type ~a, but found ~a of type ~a"
-                      (syntax->datum type)
-                      (syntax->datum #'e)
-                      (syntax->datum #'e.type)))
+             (cur-type-error
+              this-syntax
+              "term of type ~a"
+              (syntax->datum #'e)
+              (syntax->datum #'e.type)
+              (syntax->datum type))
              #:attr erased #'e.erased))
 
   ;; Expect a well-typed function.
@@ -464,7 +492,15 @@
 (define-syntax (cur-define syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_ name:id body:cur-typed-expr)
+    [(e name:id body:cur-typed-expr)
+     #:fail-unless (case (syntax-local-context)
+                     [(module top-level module-begin) #t]
+                     [else #f])
+     (raise-syntax-error
+      (syntax->datum #'e)
+      (format "Can only use ~a at the top-level."
+              (syntax->datum #'e))
+      syn)
      (define-typed-identifier #'name #'body.type #'body.erased)]))
 
 ;; Returns the definitions for the axiom, the constructor (as an identifier) and the predicate (as an identifier).
@@ -484,7 +520,15 @@
 (define-syntax (cur-axiom syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_ name:id : type:cur-kind)
+    [(e name:id : type:cur-kind)
+     #:fail-unless (case (syntax-local-context)
+                     [(module top-level module-begin) #t]
+                     [else #f])
+     (raise-syntax-error
+      (syntax->datum #'e)
+      (format "Can only use ~a at the top-level."
+              (syntax->datum #'e))
+      syn)
      (let-values ([(defs _1 _2) (make-axiom #'name #'type)])
        defs)]))
 
