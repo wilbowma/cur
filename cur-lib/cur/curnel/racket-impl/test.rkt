@@ -107,6 +107,11 @@ s
       (z : Nat2)
       (s : (Π (x : Nat) Nat)))
 
+;; Should fail, does but with wrong error.
+#;(data Nat2 : 0 (id (Type 1))
+      (z2 : Nat2)
+      (s2 : (Π (x : Nat) Nat)))
+
 (data Nat2 : 0 (Type 0)
       (z2 : Nat2)
       (s2 : (Π (x : Nat2) Nat2)))

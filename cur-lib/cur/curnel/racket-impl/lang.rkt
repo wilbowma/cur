@@ -552,7 +552,6 @@
       #`(begin
           (struct axiom (#,@(attribute type.xs)) #:transparent #:reflection-name 'name)
           #,(define-typed-identifier #'name #'type #'((curryr axiom)) #'make-axiom))
-      #'make-axiom
       (format-id n "~a?" (syntax->datum #'axiom)))]
     [_ (error 'make-axiom "Something terrible has happened")]))
 
@@ -560,7 +559,7 @@
   (syntax-parse syn
     #:datum-literals (:)
     [(_:top-level-id name:id : type:cur-kind)
-     (let-values ([(defs _1 _2) (make-axiom #'name #'type)])
+     (let-values ([(defs _2) (make-axiom #'name #'type)])
        defs)]))
 
 (define-for-syntax (syntax-properties e als)
@@ -574,45 +573,57 @@
 (define-syntax (cur-data syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_:top-level-id name:id : params:nat type
-           (c:id : c-type)
-           ...)
-     #:attr numbers (build-list (length (syntax->list #'(c ...))) values)
-     #:with (cs ...) (map (λ (x n)
-                            (syntax-properties x
-                             `((constant . #t)
-                               ;; TODO: Not sure params is needed on constructor
-                               (params . ,(syntax->datum #'params))
-                               (constructor-index . ,n))))
-                          (syntax->list #'(c ...))
-                          (attribute numbers))
-     #:with (m ...) (map fresh (syntax->list #'(c ...)))
-     #:attr ls (for/list ([c (syntax->list #'(cs ...))]
-                          [t (syntax->list #'(c-type ...))])
-                 (let-values ([(defs _ pred?) (make-axiom c t)])
-                   (cons defs (λ (e m)
-                                #`[(#,pred? #,e)
-                                   (if (null? (struct->list #,e))
-                                       #,m
-                                       (apply #,m (struct->list #,e)))]))))
-     #:attr c-defs (map car (attribute ls))
-     #:attr branch-templates (map cdr (attribute ls))
-     #:attr elim-name (syntax-property (format-id syn "~a-elim" (syntax->datum #'name)) 'elim #t)
+    ;; TODO: more restrictions on type; e.g. hole of telescope must be ...
+    [(_:top-level-id name:id : p:nat (~and type:cur-kind _:telescope)
+                     ;; TODO: Must type with name in context
+                     (c:id : (~and #;c-type:cur-typed-expr c-type:telescope)) ...)
+     ;; TODO: Attribute in other syntax-parse uses should sometimes be definitions
+     ;; TODO: Can we generate this in 1 pass over the constructor list? I spy 7 loops.
+     ;; Later, perhaps. O(7n) = O(n), but maybe unnecessary constant factor.
+     #:do [(define number-of-constructors (length (attribute c)))
+           (define constructor-indices (build-list number-of-constructors values))
+           (define params (syntax->datum #'p))
+           (define annotated-constructors
+             (map (λ (constructor index)
+                    (syntax-properties
+                     constructor
+                     `((constant . #t)
+                       ;; TODO: Not sure params is needed on constructor
+                       (params . ,params)
+                       (constructor-index . ,index))))
+                  (attribute c)
+                  constructor-indices))
+           (define method-names (map fresh (attribute c)))
+           (define-values (constructor-defs constructor-predicates)
+             (let ([ls (for/list ([c annotated-constructors]
+                                  [t (attribute c-type)])
+                         (let-values ([(defs pred?) (make-axiom c t)])
+                           (cons defs pred?)))])
+               (values (map car ls) (map cdr ls))))
+           (define constructor-branches
+             (for/list ([pred? constructor-predicates])
+               (λ (e m)
+                 #`[(#,pred? #,e)
+                    (if (null? (struct->list #,e))
+                        #,m
+                        (apply #,m (struct->list #,e)))])))
+           ;; TODO: No need to use syntax->datum in format-id
+           (define elim-name (syntax-property (format-id #'name "~a-elim" #'name) 'elim #t))]
+     #:with (m ...) method-names
      #`(begin
          (cur-axiom #,(syntax-properties
                        #'name
                        `((inductive . #t)
                          (constant . #t)
-                         (constructors . ,(length (attribute c)))
-                         (params . ,(syntax->datum #'params))
-                         (elim-name . ,(attribute elim-name)))) : type)
-         #,@(attribute c-defs)
-         (define #,(attribute elim-name)
+                         (constructors . ,number-of-constructors)
+                         (params . ,params)
+                         (elim-name . ,elim-name))) : type)
+         #,@constructor-defs
+         (define #,elim-name
            ;; NB: _ is the motive; necessary in the application of elim for compile-time evaluation,
            ;; which may need to recover the type.
            (lambda (e _ m ...)
-             (cond
-               #,@(map (λ (f m) (f #'e m)) (attribute branch-templates) (syntax->list #'(m ...)))))))]))
+             (cond #,@(map (λ (f m) (f #'e m)) constructor-branches method-names)))))]))
 
 (begin-for-syntax
   (define (check-motive mt D)
