@@ -230,7 +230,6 @@
   ;; TODO: Should this be parameterizable, to allow for different eval strategies if user wants?
   (define (cur-eval e)
     (syntax-parse e
-      #:literals (#%plain-app #%plain-lambda)
       [_:reified-universe e]
       [_:id e]
       [e:reified-pi
@@ -333,6 +332,9 @@
   (define (set-type e t)
     (syntax-property e 'type (syntax-local-introduce t)))
 
+  ;; TODO: dead code.
+  ;; TODO: expansion is necessary, but "type erasure" isn't. In fact, we might need types, e.g., when
+  ;; doing compile-time eval and reflection.
   (define (erase-type e)
     (cur-local-expand e))
 
