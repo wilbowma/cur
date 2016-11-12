@@ -112,9 +112,9 @@
   (define-syntax-class reified-lambda
     #:literals (#%plain-lambda)
     (pattern (#%plain-lambda (name) body)
-             #:with (_ _ (_ : t)) (get-type this-syntax)
-             #:declare t reified-pi
-             #:attr type-ann #'t.type-ann))
+;             #:with (_ _ (_ : t)) (get-type this-syntax)
+;             #:declare t reified-pi
+             #:attr type-ann (syntax-property #'name 'type)))
 
   (define-syntax-class reified-app
     #:literals (#%plain-app)
@@ -129,10 +129,13 @@
     #:literals (#%plain-app)
     (pattern (#%plain-app e:reified-constant es ...)
              #:attr args (append (attribute e.args) (attribute es))
-             #:attr constr #'e.constr)
+             #:attr constr #'e.constr
+             #:attr constructor-index (syntax-property #'constr 'constructor))
 
     (pattern constr:id
              #:attr args '()
+             ;; TODO: syntax-property constructor should be constructor-index
+             #:attr constructor-index (syntax-property #'constr 'constructor)
              ;; TODO: Probably inducitves should also have 'constant
              #:when (or (syntax-property #'constr 'constant)
                         (syntax-property #'constr 'inductive))))
@@ -190,7 +193,10 @@
       [e:reified-app
        #`(cur-app #,(cur-reflect #'e.operator) #,(cur-reflect #'e.operand))]
       [e:reified-lambda
-       #`(cur-λ (e.name : #,(cur-reflect #'e.type-ann)) #,(cur-reflect #'e.body))])))
+       #`(cur-λ (e.name : #,(cur-reflect #'e.type-ann)) #,(cur-reflect #'e.body))]
+      [e:reified-elim
+       #`(cur-elim #,(cur-reflect #'e.discriminant) #,(cur-reflect #'e.motive)
+                   #,(map cur-reflect (attribute e.methods)))])))
 
 ;;; Intensional equality
 ;;; ------------------------------------------------------------------------
@@ -214,6 +220,13 @@
      ;; #:eq syn-eq? (subst #'z #'x (expand-syntax-once #'(#%plain-lambda (y) x))) #'(#%plain-lambda (y) z)
      #:eq syn-eq? (subst #'z #'x (expand-syntax-once #'(#%plain-lambda (x) x))) #'(#%plain-lambda (x) x)))
 
+  ;; TODO: eval should use reified forms, not typed forms. Otherwise we type-check forms that we can
+  ;; assume (know) are well-typed.
+  (define (cur-app* e args)
+    (if (null? args)
+        e
+        (cur-app* #`(cur-app #,e #,(car args)) (cdr args))))
+
   ;; TODO: Should this be parameterizable, to allow for different eval strategies if user wants?
   (define (cur-eval e)
     (syntax-parse e
@@ -232,11 +245,15 @@
           (cur-local-expand
            #`(cur-app e1- a))])]
       [e:reified-elim
-       (error "Sorry, can't handle this yet." (syntax->datum #'e))
-       #;(cur-eval
-        #`(#%plain-app #,(list-ref (attribute e.methods) (attribute e.discriminant.constructor))
-                       e.discriminant))
-       ]
+       #:with discriminant #'e.discriminant
+       #:declare discriminant reified-constant
+       ;; TODO: Recursion
+       ;; TODO: Why isn't this just normalize?
+       ;; TODO: Why am I using the top-level syntax?
+       (cur-eval
+        (cur-local-expand
+         (cur-app* (list-ref (attribute e.methods) (attribute discriminant.constructor-index))
+                  (attribute discriminant.args))))]
       [e:reified-lambda
        (cur-local-expand
         #`(cur-λ (e.name : #,(cur-eval #'e.type-ann)) #,(cur-eval #'e.body)))]
@@ -255,7 +272,7 @@
   (define (cur-equal? t1 t2)
     (syntax-parse #`(#,(cur-normalize t1) #,(cur-normalize t2))
       [(x:id y:id)
-       (free-identifier=? t1 t2)]
+       (free-identifier=? #'x #'y)]
       [(A:reified-universe B:reified-universe)
        (= (attribute A.level) (attribute B.level))]
       ;; TODO: Can we compile surface patterns into the expanded representation? Do we need to? Maybe
@@ -265,6 +282,10 @@
       [(e1:reified-pi e2:reified-pi)
        (and (cur-equal? #'e1.type-ann #'e2.type-ann)
             (cur-equal? #'e1.body (subst #'e1.name #'e2.name #'e2.body)))]
+      [(e1:reified-elim e2:reified-elim)
+       (and (cur-equal? #'e1.discriminant #'e2.discriminant)
+            (cur-equal? #'e1.motive #'e2.motive)
+            (map cur-equal? (attribute e1.methods) (attribute e2.methods)))]
       [(e1:reified-app e2:reified-app)
        (and (cur-equal? #'e1.operator #'e2.operator)
             (cur-equal? #'e1.operand #'e2.operand))]
@@ -327,7 +348,7 @@
        #:with (yv ...) (map fresh (attribute x))
        #:with (#%plain-lambda (zv ...) (let-values () (let-values () e2)))
        (cur-local-expand
-        #`(lambda (yv ...)
+        #`(lambda (#,@(map set-type (attribute yv) (attribute t)))
             (let-syntax ([x (make-rename-transformer (set-type #'yv #'t))] ...)
               #,e)))
        ;; TODO: Not sure if this is sensible; testing seemed to indicate "no"
