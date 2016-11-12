@@ -346,10 +346,21 @@
 
 ;;; Typing
 ;;;------------------------------------------------------------------------
+
+(begin-for-syntax
+  (require (for-syntax racket/base))
+  (define-syntax (⊢ syn)
+    (syntax-case syn (:)
+      [(_ e : t)
+       #`(set-type
+          (quasisyntax/loc this-syntax e)
+          (quasisyntax/loc this-syntax t))])))
+
 (define-syntax (cur-type syn)
   (syntax-parse syn
     [(_ i:nat)
-     (set-type
+     (⊢ (Type i) : (cur-type #,(add1 (eval #'i))))
+     #;(set-type
       (quasisyntax/loc syn (Type i))
       (quasisyntax/loc syn (cur-type #,(add1 (eval #'i)))))]))
 
@@ -358,7 +369,8 @@
     #:datum-literals (:)
     [(_ (x:id : t1:cur-typed-expr) ~! (~var e (cur-typed-expr/ctx #`([x t1.erased]))))
      #:declare e.type cur-typed-expr
-     (set-type
+     (⊢ (Π t1.erased (lambda (e.value-name) e.erased)) : e.type)
+     #;(set-type
       (quasisyntax/loc syn (Π t1.erased (lambda (e.value-name) e.erased)))
       (quasisyntax/loc syn e.type))]))
 
