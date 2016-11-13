@@ -20,7 +20,7 @@
  (only-in racket/list drop)
  (for-syntax
   racket/base
-  (only-in racket/syntax format-id)
+  (only-in racket/syntax format-id with-syntax*)
   syntax/parse))
 (provide
  (rename-out
@@ -125,17 +125,7 @@
     (pattern (#%plain-app x:id discriminant motive methods ...)
              #:when (syntax-property #'x 'elim)))
 
-  (define-syntax-class reified-constant
-    #:literals (#%plain-app)
-    (pattern (#%plain-app e:reified-constant es ...)
-             #:attr args (append (attribute e.args) (attribute es))
-             #:attr constr #'e.constr
-             #:attr constructor-index (syntax-property #'constr 'constructor-index))
 
-    (pattern constr:id
-             #:attr args '()
-             #:attr constructor-index (syntax-property #'constr 'constructor-index)
-             #:when (syntax-property #'constr 'constant)))
 
   ;; Reification: turn a compile-time term into a run-time term.
   ;; This is done implicitly via macro expansion; each of the surface macros define the
@@ -154,7 +144,67 @@
               (syntax->datum #'x)
               (format "Can only use ~a at the top-level."
                       (syntax->datum #'x))
-              this-syntax))))
+              this-syntax)))
+
+  ;;; Reified composite forms
+
+  ;; Constants are nested applications with a constructor or inductive type in head position:
+  ;; refieid-constant ::= Θ[c]
+  ;; Θ ::= hole (Θ e)
+  (define-syntax-class reified-constant
+    (pattern app:reified-app
+             #:with e #'app.operator
+             #:declare e reified-constant
+             ;; NB: Append
+             ;; TODO: This one should be eliminated; this is used a lot and could become a bottleneck.
+             ;; Maybe need a pre-reified-constant and then reverse the list once
+             #:attr args (append (attribute e.args) (list #'app.operand))
+             #:attr constr #'e.constr
+             #:attr constructor-index (attribute e.constructor-index))
+
+    (pattern constr:id
+             #:attr args '()
+             #:attr constructor-index (syntax-property #'constr 'constructor-index)
+             #:when (syntax-property #'constr 'constant)))
+
+  ;; Telescopes are nested Π types.
+  (define-syntax-class reified-telescope
+    (pattern e:reified-pi
+             #:with tmp #'e.body
+             #:declare tmp reified-telescope
+             ;; TODO: Body is a bad name for this
+             #:attr body #'tmp.body
+             #:attr args (cons #'e.name (attribute tmp.args))
+             #:attr anns (cons #'e.type-ann (attribute tmp.anns)))
+
+    (pattern (~and body (~not _:reified-pi))
+             #:attr args '()
+             #:attr anns '()))
+
+  ;; Axiom telescopes are nested Π types with a universe or constant as the final result
+  (define-syntax-class reified-axiom-telescope
+    (pattern e:reified-telescope
+             #:with (~and body (~or _:reified-universe _:reified-constant)) #'e.body
+             #:attr args (attribute e.args)
+             #:attr anns (attribute e.anns)))
+
+  ;; Inductive telescopes are nested Π types with a universe as the final result.
+  (define-syntax-class reified-inductive-telescope
+    (pattern e:reified-telescope
+             #:with body:reified-universe #'e.body
+             #:attr args (attribute e.args)
+             #:attr anns (attribute e.anns)))
+
+  ;; Constructor telescopes are nested Π types that return a constant with the inductive type type in
+  ;; head position.
+  (define-syntax-class (reified-constructor-telescope inductive)
+    (pattern e:reified-telescope
+             ;; TODO: Maybe use patterns in with instead of declare?
+             #:with body #'e.body
+             #:declare body reified-constant
+             #:when (bound-identifier=? #'body.constr inductive)
+             #:attr args (attribute e.args)
+             #:attr anns (attribute e.anns))))
 
 ;; TODO: Should this be specified last? Probably should work on reified form in curnel, and let users
 ;; use reflected forms. But see later TODO about problems with types of types, which Types as Macros
@@ -466,14 +516,42 @@
     (pattern e:cur-typed-expr
              ;; TODO There's got to be a better way
              #:fail-unless (syntax-parse #'e.type [_:reified-universe #t] [_ #f])
-             (raise-syntax-error
-              'core-type-error
-              (format "Expected a kind (a type whose type is a universe), but found ~a of type ~a"
-                      (syntax->datum #'e)
-                      (syntax->datum (last (syntax-property #'e.type 'origin))))
-              #'e)
+             (cur-type-error
+              #'e
+              "a kind (a type whose type is a universe)"
+              (syntax->datum #'e)
+              (syntax->datum (last (syntax-property #'e.type 'origin))))
              #:attr erased #'e.erased
-             #:attr type #'e.type)))
+             #:attr type #'e.type))
+
+  (define-syntax-class cur-typed-axiom-telescope
+    (pattern e:cur-typed-expr
+             #:fail-unless (syntax-parse #'e.erased [_:reified-axiom-telescope #t] [_ #f])
+             (cur-type-error
+              #'e
+              "an axiom telescope (a nested Π type whose final result is a universe or a constant)"
+              (syntax->datum #'e)
+              (syntax->datum (last (syntax-property #'e.type 'origin))))
+             #:with tmp #'e.erased
+             #:declare tmp reified-axiom-telescope
+             #:attr args (attribute tmp.args)
+             #:attr anns (attribute tmp.anns)))
+
+  ;; TODO: Lots of code duplication here... copy and past abstraction...
+  ;; investigate some way of auto inheriting attributes, lifting a reified class to a typed class?
+  (define-syntax-class cur-typed-inductive-telescope
+    (pattern e:cur-typed-expr
+             #:fail-unless (syntax-parse #'e.erased [_:reified-inductive-telescope #t] [_ #f])
+             (cur-type-error
+              #'e
+              "an inductive telescope (a nested Π type whose final result is a universe)"
+              (syntax->datum #'e)
+              (syntax->datum (last (syntax-property #'e.type 'origin))))
+             #:with tmp #'e.erased
+             #:declare tmp reified-axiom-telescope
+             #:attr args (attribute tmp.args)
+             #:attr anns (attribute tmp.anns)))
+  )
 
 ;;; Typing
 ;;;------------------------------------------------------------------------
@@ -543,23 +621,21 @@
      (define-typed-identifier #'name #'body.type #'body.erased)]))
 
 ;; Returns the definitions for the axiom, the constructor (as an identifier) and the predicate (as an identifier).
-(define-for-syntax (make-axiom n t)
-  (syntax-parse (list n t)
-    [(name:id type:telescope)
-     #:with axiom (fresh n)
-     #:with make-axiom (format-id n "make-~a" #'axiom #:props n)
-     (values
-      #`(begin
-          (struct axiom (#,@(attribute type.xs)) #:transparent #:reflection-name 'name)
-          #,(define-typed-identifier #'name #'type #'((curry axiom)) #'make-axiom))
-      (format-id n "~a?" #'axiom))]
-    [_ (error 'make-axiom "Something terrible has happened")]))
+(define-for-syntax (make-axiom name type args)
+  (with-syntax* ([axiom (fresh name)]
+                 [make-axiom (format-id name "make-~a" #'axiom #:props name)])
+    (values
+     #`(begin
+         (struct axiom #,args #:transparent #:reflection-name '#,name)
+         #,(define-typed-identifier name type #'((curry axiom)) #'make-axiom))
+     (format-id name "~a?" #'axiom))))
 
 (define-syntax (cur-axiom syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_:top-level-id name:id : type:cur-kind)
-     (let-values ([(defs _2) (make-axiom #'name #'type)])
+    [(_:top-level-id name:id : type:cur-typed-axiom-telescope)
+     ;; TODO: Hmmm no longer can use 'constant to mean constructor or inductive type.
+     (let-values ([(defs _2) (make-axiom (syntax-property #'name 'constant #t) #'type (attribute type.args))])
        defs)]))
 
 (define-for-syntax (syntax-properties e als)
@@ -571,10 +647,10 @@
 (define-syntax (cur-data syn)
   (syntax-parse syn
     #:datum-literals (:)
-    ;; TODO: more restrictions on type; e.g. hole of telescope must be ...
-    [(_:top-level-id name:id : p:nat (~and type:cur-kind _:telescope)
+    [(_:top-level-id name:id : p:nat type:cur-typed-inductive-telescope
                      ;; TODO: Must type with name in context
-                     (c:id : (~and #;c-type:cur-typed-expr c-type:telescope)) ...)
+                     ;; TODO: more restrictions on type; e.g. hole of telescope must be ...
+                     (c:id : c-type:telescope) ...)
      ;; TODO: Can we generate this in 1 pass over the constructor list? I spy 7 loops.
      ;; Later, perhaps. O(7n) = O(n), but maybe unnecessary constant factor.
      #:do [(define number-of-constructors (length (attribute c)))
@@ -593,8 +669,9 @@
            (define method-names (map fresh (attribute c)))
            (define-values (constructor-defs constructor-predicates)
              (let ([ls (for/list ([c annotated-constructors]
-                                  [t (attribute c-type)])
-                         (let-values ([(defs pred?) (make-axiom c t)])
+                                  [t (attribute c-type)]
+                                  [args (attribute c-type.xs)])
+                         (let-values ([(defs pred?) (make-axiom c t args)])
                            (cons defs pred?)))])
                (values (map car ls) (map cdr ls))))
            (define constructor-branches
@@ -662,7 +739,7 @@
       "discriminant to inhabit an inductive type"
       (syntax->datum #'e)
       (syntax->datum (car (syntax-property (attribute e.type) 'origin))))
-     #:with D #'e-type.erased 
+     #:with D #'e-type.erased
      #:declare D reified-constant
      #:do [(define name #'D.constr)
            (define indices (drop (attribute D.args) (syntax-property name 'params)))]
