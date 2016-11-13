@@ -16,7 +16,8 @@
  |#
 (require
  (only-in racket/struct struct->list)
- (only-in racket/function curryr)
+ (only-in racket/function curry)
+ (only-in racket/list drop)
  (for-syntax
   racket/base
   (only-in racket/syntax format-id)
@@ -550,7 +551,7 @@
      (values
       #`(begin
           (struct axiom (#,@(attribute type.xs)) #:transparent #:reflection-name 'name)
-          #,(define-typed-identifier #'name #'type #'((curryr axiom)) #'make-axiom))
+          #,(define-typed-identifier #'name #'type #'((curry axiom)) #'make-axiom))
       (format-id n "~a?" #'axiom))]
     [_ (error 'make-axiom "Something terrible has happened")]))
 
@@ -599,10 +600,13 @@
            (define constructor-branches
              (for/list ([pred? constructor-predicates])
                (λ (e m)
+                 ;; TODO: Wouldn't it be better to statically generate the dereferencing of each field
+                 ;; from the struct? This would also make it easy to place the recursive elimination.
                  #`[(#,pred? #,e)
-                    (if (null? (struct->list #,e))
-                        #,m
-                        (apply #,m (struct->list #,e)))])))
+                    (let ([args (drop (struct->list #,e) p)])
+                      (if (null? args)
+                          #,m
+                          (apply #,m args)))])))
            (define elim-name (syntax-property (format-id #'name "~a-elim" #'name) 'elim #t))]
      #:with (m ...) method-names
      #`(begin
@@ -658,19 +662,19 @@
       "discriminant to inhabit an inductive type"
       (syntax->datum #'e)
       (syntax->datum (car (syntax-property (attribute e.type) 'origin))))
-     #:with name
-     (syntax-parse #'e-type.erased
-       [e:reified-constant
-        #'e.constr])
-     #:with elim-name
-     (syntax-property #'name 'elim-name)
+     #:with D #'e-type.erased 
+     #:declare D reified-constant
+     #:do [(define name #'D.constr)
+           (define indices (drop (attribute D.args) (syntax-property name 'params)))]
+     #:with elim-name (syntax-property name 'elim-name)
 ;     #:do [(check-motive #'motive.type #'name)]
-     #:attr constructors (syntax-property #'name 'constructors)
+     #:attr constructors (syntax-property name 'constructors)
      #:fail-unless (= (attribute constructors) (length (attribute method)))
      (raise-syntax-error 'core-type-error
                          (format "Expected one method for each constructor, but found ~a constructors and ~a branches."
                                  (attribute constructors)
                                  (length (attribute method)))
                          syn)
-     ;; TODO: Need indices too
-     (⊢ (elim-name e.erased motive.erased method.erased ...) : #,(cur-normalize #`(cur-app motive e)))]))
+     ;; TODO: Normalize shouldn't be done here; should be done when checking the type.
+     (⊢ (elim-name e.erased motive.erased method.erased ...) :
+        #,(cur-normalize (cur-app* #'motive (append indices (list #'e)))))]))

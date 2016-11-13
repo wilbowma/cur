@@ -140,11 +140,14 @@ z2
       (none : (Π (A : (Type 0)) (Maybe A)))
       (just : (Π (A : (Type 0)) (Π (a : A) (Maybe A)))))
 
+((just Nat) z)
 ((λ (f : (Π (A : (Type 0)) (Type 0))) z) Maybe)
 
-;; TODO Causes runtime error because parameters not supported, and method typing not yet implemented.
 (elim (none Nat) (λ (x : (Maybe Nat)) Nat)
-      (z (λ (A : (Type 0)) (λ (a : A) a))))
+      (z (λ (a : Nat) a)))
+
+(elim ((just Nat) (s z)) (λ (x : (Maybe Nat)) Nat)
+      (z (λ (a : Nat) a)))
 
 ((λ (x : (elim z2 (λ (x : Nat2) (Type 1))
               (Nat (λ (x : Nat2) Nat)))) x) z)
