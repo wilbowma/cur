@@ -459,7 +459,9 @@
   ;; NB: Cannot check that type is well-formed eagerly, otherwise infinite loop.
   (define-syntax-class cur-typed-expr
     (pattern e:expr
-             #:with (_ (erased : type)) (get-type #'e)))
+             #:with (_ (erased : t)) (get-type #'e)
+             ;; TODO: Why normalize here instead of in get-type?
+             #:attr type (cur-normalize #'t)))
 
   ;; Expect *some* well-typed expression, in an extended context.
   (define-syntax-class (cur-typed-expr/ctx ctx)
@@ -603,7 +605,8 @@
      ;; TODO: could use #%app here, and lambda in the cur-λ, but those do get expanded... this might
      ;; speed up macro expansion... hm. sketchy argument.... also ensures in the normal form i expect?
      ;; not really...
-     (⊢ (#%plain-app e1.erased e2.erased) : #,(cur-reflect (subst #'e2.erased #'e1.type-name #'e1.result-type)))]))
+     (⊢ (#%plain-app e1.erased e2.erased) :
+        #,(cur-reflect (subst #'e2.erased #'e1.type-name #'e1.result-type)))]))
 
 (begin-for-syntax
   (define (define-typed-identifier name type erased-term (y (fresh name)))
@@ -752,6 +755,5 @@
                                  (attribute constructors)
                                  (length (attribute method)))
                          syn)
-     ;; TODO: Normalize shouldn't be done here; should be done when checking the type.
      (⊢ (elim-name e.erased motive.erased method.erased ...) :
-        #,(cur-normalize (cur-app* #'motive (append indices (list #'e)))))]))
+        #,(cur-app* #'motive (append indices (list #'e))))]))
