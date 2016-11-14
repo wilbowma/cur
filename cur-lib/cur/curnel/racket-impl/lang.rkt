@@ -35,7 +35,7 @@
   [cur-elim elim]
   #;[cur-var #%variable-reference])
  ;; TODO: export all subforms?
- require only-in
+ require only-in for-syntax
  provide
  ;; TODO: Who needs top?
 ; #%top
@@ -427,7 +427,8 @@
     (syntax-parse ctx
       #:datum-literals (:)
       #:literals (#%plain-lambda let-values)
-      [([x:id t:cur-typed-expr] ...)
+      ;; TODO: Does this need to be type-checked? I think not
+      [([x:id t] ...)
        #:with (yv ...) (map fresh (attribute x))
        #:with (#%plain-lambda (zv ...) (let-values () (let-values () e2)))
        (cur-local-expand
@@ -812,4 +813,6 @@
                                  (length (attribute method)))
                          syn)
      (⊢ (elim-name e.erased motive.erased method.erased ...) :
-        #,(cur-app* #'motive (append indices (list #'e))))]))
+        ;; TODO: have to use erased terms in types because the erased terms may have renamed
+        ;; variables, e.g., from the expansion that happens in get-type.
+        #,(cur-app* #'motive (append indices (list #'e.erased))))]))
