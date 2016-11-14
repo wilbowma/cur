@@ -14,6 +14,8 @@
  | 7. Get rid of boilerplatey stuff; superseded by using library.
  | 8. Abstract errors/make consistent
  |#
+;; NB: have to use erased terms in types because the erased terms may have renamed
+;; variables, e.g., from the expansion that happens in get-type.
 (require
  (only-in racket/struct struct->list)
  (only-in racket/function curry)
@@ -551,10 +553,9 @@
               "an axiom telescope (a nested Π type whose final result is a universe or a constant)"
               (syntax->datum #'e)
               (syntax->datum (last (syntax-property #'e.type 'origin))))
-             #:with tmp #'e.erased
-             #:declare tmp reified-axiom-telescope
-             #:attr args (attribute tmp.args)
-             #:attr anns (attribute tmp.anns)))
+             #:with erased:reified-axiom-telescope #'e.erased
+             #:attr args (attribute erased.args)
+             #:attr anns (attribute erased.anns)))
 
   ;; TODO: Lots of code duplication here... copy and past abstraction...
   ;; investigate some way of auto inheriting attributes, lifting a reified class to a typed class?
@@ -670,7 +671,7 @@
      #:with make-axiom (format-id name "make-~a" #'axiom #:props name)
      #`(begin
          (struct axiom #,(attribute type.args) #:transparent #:reflection-name '#,name)
-         #,(define-typed-identifier name #'type #'((curry axiom)) #'make-axiom)
+         #,(define-typed-identifier name #'type.erased #'((curry axiom)) #'make-axiom)
          ;; NB: Need a predicate with a known name to generate eliminators, but need a fresh
          ;; name for struct to handle typing.
          (define #,(format-id name "~a?" name) #,(format-id name "~a?" #'axiom)))]))
@@ -694,7 +695,7 @@
 
 (define-syntax (_cur-elim syn)
   (syntax-parse syn
-   ;; TODO: really, cosntructor telescopes. But do we need to that precision/checking for an internal macro?
+    ;; TODO: Efficiency: t's are getting checked twice. Can we pass argument info on the syntax-properties of c?
    [(_ elim-name D (c:id : (~var t (cur-typed-constructor-telescope (cur-local-expand #'D)))) ...)
     #:do [(define number-of-constructors (syntax-property (cur-local-expand #'D) 'constructors))
           ;; TODO: Could pass constructor-predicate as a syntax-property...
@@ -731,6 +732,7 @@
                                                (loop x))])
                         ;; NB: the method is curried, so ...
                         ;; TODO: Efficiency hack: attempt to uncurry elim methods?
+                        ;; TODO: Abstract this as "curried-apply?"
                         (for/fold ([app #,m])
                                   ([a (append args recursive-args)])
                             (app a)))])))))]))
@@ -769,7 +771,6 @@
       [_ (error "meow")])))
 
 ;; TODO: Type check motive, methods.
-;; TODO: Recursion
 ;; TODO: Rewrite and abstract this code omg
 (define-syntax (cur-elim syn)
   (syntax-parse syn
@@ -812,7 +813,7 @@
                                  (attribute constructors)
                                  (length (attribute method)))
                          syn)
+     ;; TODO: Maybe set-type should normalize, reflect, then set?
+     ;; NB: That seems to cause an infinite loop
      (⊢ (elim-name e.erased motive.erased method.erased ...) :
-        ;; TODO: have to use erased terms in types because the erased terms may have renamed
-        ;; variables, e.g., from the expansion that happens in get-type.
-        #,(cur-app* #'motive (append indices (list #'e.erased))))]))
+        #,(cur-reflect (cur-normalize (cur-app* #'motive.erased (append indices (list #'e.erased))))))]))
