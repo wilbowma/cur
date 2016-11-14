@@ -200,9 +200,11 @@
   (define-syntax-class (reified-constructor-telescope inductive)
     (pattern e:reified-telescope
              ;; TODO: Maybe use patterns in with instead of declare?
-             #:with body #'e.body
-             #:declare body reified-constant
-             #:when (bound-identifier=? #'body.constr inductive)
+             #:with body:reified-constant #'e.body
+             #:do [(displayln #'body.constr)
+                   (displayln inductive)
+                   (error "meow")]
+             ;#:when (bound-identifier=? #'body.constr inductive)
              #:attr args (attribute e.args)
              #:attr anns (attribute e.anns))))
 
@@ -229,14 +231,15 @@
     #:literals (cur-app)
     (pattern (cur-app operator operand)))
 
-  ;; TODO: Part of reflected syntax, but needed in type system.
-  ;; Should it be reflected-telescope? cur-telescope?
+  ;; TODO: This should go away; uses should be of reified-telescope
   (define-syntax-class telescope
     (pattern (cur-Π (x : t1) t2:telescope)
              #:attr hole #'t2.hole
+             #:attr ts (cons #'t1 (attribute t2.ts))
              #:attr xs (cons #'x (attribute t2.xs)))
 
     (pattern hole:expr
+             #:attr ts '()
              #:attr xs '()))
 
   ;; Reflection: turn a run-time term back into a compile-time term.
@@ -549,8 +552,27 @@
               "an inductive telescope (a nested Π type whose final result is a universe)"
               (syntax->datum #'e)
               (syntax->datum (last (syntax-property #'e.type 'origin))))
+             #:attr erased #'e.erased
              #:with tmp #'e.erased
-             #:declare tmp reified-axiom-telescope
+             #:declare tmp reified-inductive-telescope
+             #:attr args (attribute tmp.args)
+             #:attr anns (attribute tmp.anns)))
+
+  ;; The inductive type must be first in the ctx, which makes sense anyway
+  (define-syntax-class (cur-typed-constructor-telescope ctx)
+    (pattern (~var e (cur-typed-expr/ctx ctx))
+             ;; TODO Bad variable name
+             #:attr D (car (attribute e.name))
+             #:fail-unless (syntax-parse #'e.erased [(~var _ (reified-constructor-telescope #'D)) #t] [_ #f])
+             (cur-type-error
+              #'e
+              "a constructor telescope (a nested Π type whose final result is ~a applied to any indices)"
+              (syntax->datum #'e.erased)
+              (syntax->datum (last (syntax-property #'e.type 'origin)))
+              (syntax->datum #'D))
+             #:attr erased #'e.erased
+             #:with tmp #'e.erased
+             #:declare tmp (reified-constructor-telescope #'D)
              #:attr args (attribute tmp.args)
              #:attr anns (attribute tmp.anns)))
   )
@@ -653,7 +675,35 @@
     [(_:top-level-id name:id : p:nat type:cur-typed-inductive-telescope
                      ;; TODO: Must type with name in context
                      ;; TODO: more restrictions on type; e.g. hole of telescope must be ...
-                     (c:id : c-type:telescope) ...)
+                     (c-name:id : c-type) ...)
+     #:with annotated-name (syntax-properties
+                            #'name
+                            `((inductive . #t)
+                              (constant . #t)
+                              (constructors . ,number-of-constructors)
+                              (params . ,params)
+                              (elim-name . ,elim-name)))
+     ;; TODO: Crap, broken, bla. Too much α renaming going on. Really need to process each constructor
+     ;; one at a time, so we can assume all other constructor IDs are bound and well-typed when
+     ;; constructing the next.
+     #:with ((D c (~var ct (reified-constructor-telescope #'D))) ...)
+     (let-values ([(_ ls) (for/fold ([ctx #`([annotated-name type.erased])]
+                                     [ts '()])
+                                    ([c (attribute c-name)]
+                                     [t (attribute c-type)])
+                            (let ([c (syntax-properties
+                                      c
+                                      `((constant . #t)
+                                        ;; TODO: Not sure params is needed on constructor
+                                        (params . ,params)
+                                        (constructor-index . ,index)))])
+                              (syntax-parse t
+                                [(~var t (cur-typed-constructor-telescope ctx))
+                                 ;; TODO: ACK, appends. Can solve the last one easily enough but, this
+                                 ;; first one... might need to check constructors in reverse order
+                                 (values #`(#,@ctx [#,c t.erased])
+                                         (append ts (list #'(t.D t.erased))))])))])
+       ls)
      ;; TODO: Can we generate this in 1 pass over the constructor list? I spy 7 loops.
      ;; Later, perhaps. O(7n) = O(n), but maybe unnecessary constant factor.
      #:do [(define number-of-constructors (length (attribute c)))
@@ -661,42 +711,45 @@
            (define params (syntax->datum #'p))
            (define annotated-constructors
              (map (λ (constructor index)
-                    (syntax-properties
-                     constructor
-                     `((constant . #t)
-                       ;; TODO: Not sure params is needed on constructor
-                       (params . ,params)
-                       (constructor-index . ,index))))
+                    )
                   (attribute c)
                   constructor-indices))
            (define method-names (map fresh (attribute c)))
            (define-values (constructor-defs constructor-predicates)
              (let ([ls (for/list ([c annotated-constructors]
-                                  [t (attribute c-type)]
-                                  [args (attribute c-type.xs)])
+                                  [t (attribute ct)]
+                                  [args (attribute ct.args)])
                          (let-values ([(defs pred?) (make-axiom c t args)])
                            (cons defs pred?)))])
                (values (map car ls) (map cdr ls))))
+           #;(define recursive-arg-indices
+             (for/list ([ts (attribute c-type.ts)])
+               (for/fold ([indices '()])
+                         ([i (in-range (length ts))]
+                          [t ts])
+                 (if (syntax-parse (cur-normalize t)
+                       [_:reified-constant
+                        (bound-identifier=? )]
+                       [_ #f])
+                     ))))
            (define constructor-branches
-             (for/list ([pred? constructor-predicates])
+             (for/list ([pred? constructor-predicates]
+                        #;[args (attribute ct.args)])
                (λ (e m)
                  ;; TODO: Wouldn't it be better to statically generate the dereferencing of each field
                  ;; from the struct? This would also make it easy to place the recursive elimination.
                  #`[(#,pred? #,e)
-                    (let ([args (drop (struct->list #,e) p)])
+                    (let ([args (drop (struct->list #,e) p)]
+                          ;; TODO: Stub for recursive args
+                          [recursive-args '()])
                       (if (null? args)
                           #,m
-                          (apply #,m args)))])))
+                          ;; TODO append
+                          (apply #,m (append args recursive-args))))])))
            (define elim-name (syntax-property (format-id #'name "~a-elim" #'name) 'elim #t))]
      #:with (m ...) method-names
      #`(begin
-         (cur-axiom #,(syntax-properties
-                       #'name
-                       `((inductive . #t)
-                         (constant . #t)
-                         (constructors . ,number-of-constructors)
-                         (params . ,params)
-                         (elim-name . ,elim-name))) : type)
+         (cur-axiom annotate-name D : type)
          #,@constructor-defs
          (define #,elim-name
            ;; NB: _ is the motive; necessary in the application of elim for compile-time evaluation,
