@@ -127,11 +127,14 @@ z2
 #;(elim z (λ (x : Nat) Nat)
       (z (λ (n : Nat) n)))
 
+;; TODO: Should fail with type error, doesn't
 (elim z2 (λ (x : Nat2) Nat2)
       (z2 (λ (n : Nat2) n)))
 
+#;(require (only-in racket displayln [#%app unsafe-racket-apply]))
+#;(unsafe-racket-apply displayln "mark")
 (elim (s2 z2) (λ (x : Nat2) Nat2)
-      (z2 (λ (n : Nat2) n)))
+      ((s2 z2) (λ (n : Nat2) (λ (IH : Nat2) (s2 IH)))))
 
 ;; should fail with good error, does
 #;(elim (s2 z2) Nat2
@@ -146,6 +149,7 @@ z2
       (just : (Π (A : (Type 0)) (Π (a : A) (Maybe A)))))
 
 ((just Nat) z)
+
 ((λ (f : (Π (A : (Type 0)) (Type 0))) z) Maybe)
 
 (elim (none Nat) (λ (x : (Maybe Nat)) Nat)
@@ -157,5 +161,6 @@ z2
 ((λ (x : (elim z2 (λ (x : Nat2) (Type 1))
               (Nat (λ (x : Nat2) Nat)))) x) z)
 
-((λ (x : (elim (s2 z2) (λ (x : Nat2) (Type 1))
-              (Nat (λ (x : Nat2) Nat)))) x) z)
+;; TODO: Should work, but doesn't because compile-time eval doesn't handle recursion yet.
+#;((λ (x : (elim (s2 z2) (λ (x : Nat2) (Type 1))
+              (Nat (λ (x : Nat2) (λ (IH : (Type 1)) IH))))) x) z)

@@ -205,12 +205,21 @@
 ;             #:do [(displayln #'body.constr)
 ;                   (displayln inductive)
 ;                   (displayln (bound-identifier=? #'body.constr inductive))
-;                   (displayln (free-identifier=? #'body.constr inductive))
-;                   ]
-             ;; TODO shouldn't theseb e bound? Except, see above
+;                   (displayln (free-identifier=? #'body.constr inductive))]
+             ;; TODO shouldn't these be bound? Except, see above
              #:when (free-identifier=? #'body.constr inductive)
              #:attr args (attribute e.args)
-             #:attr anns (attribute e.anns))))
+             #:attr anns (attribute e.anns)
+             #:attr recursive-args
+             (for/list ([x (attribute args)]
+                        [t (attribute anns)]
+                        [i (in-naturals)]
+                        #:when (syntax-parse t
+                                 [e:reified-constant
+                                  (free-identifier=? #'e.constr inductive)]
+                                 [_ #f]))
+               ;; NB: Would like to return x, but can't rely on names due to alpha-conversion
+               i))))
 
 ;; TODO: Should this be specified last? Probably should work on reified form in curnel, and let users
 ;; use reflected forms. But see later TODO about problems with types of types, which Types as Macros
@@ -577,6 +586,7 @@
              #:with tmp #'e.erased
              #:declare tmp (reified-constructor-telescope D)
              #:attr args (attribute tmp.args)
+             #:attr recursive-args (attribute tmp.recursive-args)
              #:attr anns (attribute tmp.anns)))
   )
 
@@ -678,30 +688,13 @@
   (syntax-parse syn
    #:datum-literals (:)
    ;; TODO: Maybe that local expand should be elsewhere, e.g., cur-typed-constructor
-   ;; TODO: Could pass D, i, and p are syntax properties?
-   [(_ name (D i) : p (~var type (cur-typed-constructor-telescope (cur-local-expand #'D))))
-    #:do [(define params (syntax->datum #'p))
-          (define constructor-index (syntax->datum #'i))
-          ;; TODO: cur-local-expand
-          (define number-of-constructors (syntax-property (cur-local-expand #'D) 'constructors))]
-    ;; Unnecessary if _cur-constructor is private
-    #:fail-unless (<= constructor-index number-of-constructors)
-    (raise-syntax-error
-     'core-type-error
-     (format "Expected a constructor whose index is less than or equal to the declared number of constructors for the inductive type, but found constructor number ~a for a inductive with ~a constructors"
-             constructor-index
-             number-of-constructors)
-     syn)
-    #`(cur-axiom #,(syntax-properties
-                    #'name
-                    `((constant . #t)
-                      (params . ,params)
-                      (constructor-index . ,constructor-index))) : type)]))
+   [(_ name (D) : (~var type (cur-typed-constructor-telescope (cur-local-expand #'D))))
+    #`(cur-axiom name : type)]))
 
 (define-syntax (_cur-elim syn)
   (syntax-parse syn
    ;; TODO: really, cosntructor telescopes. But do we need to that precision/checking for an internal macro?
-   [(_ elim-name D (c:id : t:cur-typed-axiom-telescope) ...)
+   [(_ elim-name D (c:id : (~var t (cur-typed-constructor-telescope (cur-local-expand #'D)))) ...)
     #:do [(define number-of-constructors (syntax-property (cur-local-expand #'D) 'constructors))
           ;; TODO: Could pass constructor-predicate as a syntax-property...
           ;; TODO: Passing identifiers as syntax properties seems to lose some binding information?
@@ -714,20 +707,32 @@
         ;; NB: _ is the motive; necessary in the application of elim for compile-time evaluation,
         ;; which may need to recover the type.
         (lambda (e _ #,@method-names)
-          (cond
-            #,@(for/list ([pred? constructor-predicates]
-                          [m method-names]
-                          #;[args (attribute ct.args)])
-                 ;; TODO: Wouldn't it be better to statically generate the dereferencing of each field
-                 ;; from the struct? This would also make it easy to place the recursive elimination.
-                 #`[(#,pred? e)
-                    (let ([args (drop (struct->list e) 'p)]
-                          ;; TODO: Stub for recursive args
-                          [recursive-args '()])
-                      (if (null? args)
-                          #,m
-                          ;; TODO append
-                          (apply #,m (append args recursive-args))))]))))]))
+          (let loop ([e e])
+            (cond
+              #,@(for/list ([pred? constructor-predicates]
+                            [m method-names]
+                            [args (attribute t.args)]
+                            [rargs (attribute t.recursive-args)])
+                   ;; TODO: Wouldn't it be better to statically generate the dereferencing of each field
+                   ;; from the struct? This would also make it easy to place the recursive elimination.
+                   ;; Can't do that easily, due to alpha-conversion; won't know the name of the
+                   ;; field reference function
+                   #`[(#,pred? e)
+                      ;; TODO: Efficiency hack: use vector instead of list?
+                      (let* ([args (drop (struct->list e) 'p)]
+                             ;; TODO: Stub for recursive args
+                             ;; apply loop to each recursive arg
+                             ;; TODO: should these be lazy? tail recursive?
+                             [recursive-args (for/list ([x args]
+                                                        [i (in-naturals)]
+                                                        [j '#,rargs]
+                                                        #:when (eq? i j))
+                                               (loop x))])
+                        ;; NB: the method is curried, so ...
+                        ;; TODO: Efficiency hack: attempt to uncurry elim methods?
+                        (for/fold ([app #,m])
+                                  ([a (append args recursive-args)])
+                            (app a)))])))))]))
 
 (define-syntax (cur-data syn)
   (syntax-parse syn
@@ -735,17 +740,24 @@
     [(_:top-level-id name:id : p:nat type:cur-typed-inductive-telescope (c-name:id : c-type) ...)
      #:do [(define number-of-constructors (length (attribute c-name)))
            (define elim-name (syntax-property (format-id syn "~a-elim" #'name) 'elim #t))
-           (define params (syntax->datum #'p))]
-     #:with (i ...) (build-list number-of-constructors values)
+           (define params (syntax->datum #'p))
+           (define is (build-list number-of-constructors values))]
+     #:with (i ...) is
+     #:with (a-name ...) (map (λ (n i)
+                                (syntax-properties n
+                                 `((constant . #t)
+                                   (params . ,params)
+                                   (constructor-index . ,i))))
+                              (attribute c-name)
+                              is)
      #`(begin
-         (cur-axiom #,(syntax-properties
-                       #'name
+         (cur-axiom #,(syntax-properties #'name
                        `((inductive . #t)
                          (constant . #t)
                          (constructors . ,number-of-constructors)
                          (params . ,params)
                          (elim-name . ,elim-name))) : type)
-         (_cur-constructor c-name (name i) : p c-type) ...
+         (_cur-constructor a-name (name) : c-type) ...
          (_cur-elim #,elim-name name (c-name : c-type) ...))]))
 
 (begin-for-syntax
