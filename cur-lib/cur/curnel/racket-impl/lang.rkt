@@ -219,6 +219,8 @@
                         [t (attribute anns)]
                         [i (in-naturals)]
                         #:when (syntax-parse t
+                                 ;; TODO: Can e be a telescope whose body is a reified-constant? Model
+                                 ;; suggests yes; see method-type recursive case
                                  [e:reified-constant
                                   (free-identifier=? #'e.constr inductive)]
                                  [_ #f]))
@@ -301,7 +303,7 @@
 
   ;; TODO: eval should use reified forms, not typed forms. Otherwise we type-check forms that we can
   ;; assume (know) are well-typed.
-  (define (cur-app* e args)
+  (trace-define (cur-app* e args)
     (if (null? args)
         e
         (cur-app* #`(cur-app #,e #,(car args)) (cdr args))))
@@ -705,7 +707,7 @@
     ;; TODO: Efficiency: t's are getting checked twice. Can we pass argument info on the syntax-properties of c?
     ;; TODO cur-local-expand
     #:do [(define D- (cur-local-expand #'D))
-          (define number-of-constructors (syntax-property D- 'constructors))
+          (define number-of-constructors (syntax-property D- 'number-of-constructors))
           ;; TODO: Could pass constructor-predicate as a syntax-property...
           ;; TODO: Passing identifiers as syntax properties seems to lose some binding information?
           ;; couldn't do it with elim-name
@@ -765,7 +767,8 @@
          (cur-axiom #,(syntax-properties #'name
                        `((inductive . #t)
                          (constant . #t)
-                         (constructors . ,number-of-constructors)
+                         (constructors . ,(attribute a-name))
+                         (number-of-constructors . ,number-of-constructors)
                          (params . ,params)
                          (elim-name . ,elim-name))) : type)
          (_cur-constructor a-name (name) : c-type) ...
@@ -807,7 +810,64 @@
            syn)]
         [(e e1:reified-pi ~! e2:reified-pi)
          (loop #`(#%plain-app e e2.name) (subst #'e2.name #'e1.name #'e1.body) #'e2.body)]
-        [_ (error 'check-motive "Something terrible has happened")]))))
+        [_ (error 'check-motive "Something terrible has happened")])))
+
+  ;; TODO: Check recursive arguments; not sure if they can be Ξ[(D e ...)]; see brady2005
+  (trace-define (check-method syn name n params motive method constr)
+    (define/syntax-parse m:cur-typed-expr method)
+    (define/syntax-parse c:cur-typed-expr (cur-app* constr params))
+    (define/syntax-parse (~var c-tele (reified-constructor-telescope name)) #'c.type)
+    (define rargs (attribute c-tele.recursive-args))
+    (trace-let loop ([c-type #'c.type]
+           [m-type #'m.type]
+           [i 0]
+                     [target #'c.erased]
+                     [recursive '()])
+      (syntax-parse #`(#,c-type #,m-type)
+        [(e1:reified-constant ~! e:reified-telescope)
+         #:do [(define return-type (cur-normalize (cur-app* motive `(,@(drop (attribute e1.args) n) ,target))))]
+         #:do [(for ([t (attribute e.anns)]
+                     [r- recursive])
+                 ;; TODO: Recomputing some of the recurisve argument things...
+                 (syntax-parse (cdr r-)
+                   [e:reified-constant
+                    ;; TODO: append
+                    #:do [(define ih (cur-normalize (cur-app* motive (append (drop (attribute e.args) n)
+                                                                             (list (car r-))))))]
+                    #:fail-unless (cur-equal? t ih)
+                    (raise-syntax-error
+                     'core-type-error
+                     (format "Expected an inductive hypothesis equal to ~a, but found ~a."
+                             ih
+                             t)
+                     syn
+                     t)
+                    (void)]))]
+         #:fail-unless (cur-equal? #'e.body return-type)
+         (raise-syntax-error
+          'core-type-error
+          ;; TODO: Resugar
+          (format "Expected method to return type ~a, but found return type of ~a"
+                  return-type
+                  #'e)
+          syn)
+         (void)]
+        [(e1:reified-pi ~! e2:reified-pi)
+         ;; TODO: Subtypes? No, I think equal types, since argument.
+         #:fail-unless (cur-equal? #'e1.type-ann #'e2.type-ann)
+         (raise-syntax-error
+          'core-type-error
+          (format "Expected ~ath method argument to have type ~a, but found type ~a"
+                  i
+                  #'e1.type-ann
+                  #'e2.type-ann)
+          syn)
+         (loop #'e1.body (subst #'e1.name #'e2.name #'e2.body) (add1 i) #`(cur-app #,target e1.name)
+               (if (memq i rargs)
+                   (cons (cons #'e1.name #'e1.type-ann) recursive)
+                   recursive))])))
+
+  )
 
 ;; TODO: Type check methods.
 ;; TODO: Rewrite and abstract this code omg
@@ -828,7 +888,6 @@
       "~a, which accepts more arguments"
       (syntax->datum #'e)
       (syntax->datum #'e.type))
-     ;; TODO: Need reified constant.. but reflected constant .. is the same?
      #:fail-unless (syntax-parse #'e-type.erased
                      [e:reified-constant
                       (syntax-property #'e.constr 'inductive)]
@@ -842,15 +901,19 @@
      #:with D #'e-type.erased
      #:declare D reified-constant
      #:do [(define name #'D.constr)
-           (define indices (drop (attribute D.args) (syntax-property name 'params)))]
+           (define params (syntax-property name 'params))
+           (define indices (drop (attribute D.args) params))]
      #:with elim-name (syntax-property name 'elim-name)
      #:with n:cur-typed-expr name
-     #:do [(check-motive #'motive name (take (attribute D.args) (syntax-property name 'params)) #'n.type #'motive.type)]
-     #:attr constructors (syntax-property name 'constructors)
-     #:fail-unless (= (attribute constructors) (length (attribute method)))
+     #:do [(check-motive #'motive name (take (attribute D.args) params) #'n.type #'motive.type)]
+     #:do [(for ([m (attribute method.erased)]
+                 [c (syntax-property name 'constructors)])
+             (check-method syn name params (take (attribute D.args) params) #'motive.erased m c))]
+     #:attr number-of-constructors (syntax-property name 'number-of-constructors)
+     #:fail-unless (= (attribute number-of-constructors) (length (attribute method)))
      (raise-syntax-error 'core-type-error
                          (format "Expected one method for each constructor, but found ~a constructors and ~a branches."
-                                 (attribute constructors)
+                                 (attribute number-of-constructors)
                                  (length (attribute method)))
                          syn)
      ;; TODO: Maybe set-type should normalize, reflect, then set?

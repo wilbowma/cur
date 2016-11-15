@@ -152,8 +152,8 @@ z2
 #;(elim (s2 z2) (λ (x : Nat2) (λ (y : Nat) (Type 0)))
       (z2 (λ (x : Nat2) (λ (IH : Nat) IH))))
 
-;; TODO: Should fail, doesn't because methods aren't type checked
-(elim (s2 z2) (λ (x : Nat2) Nat)
+;; TODO: Should fail with good error, does ish
+#;(elim (s2 z2) (λ (x : Nat2) Nat)
       (z2 (λ (x : Nat2) (λ (IH : Nat) IH))))
 
 (data Maybe : 1 (Π (A : (Type 0)) (Type 0))
@@ -171,7 +171,7 @@ z2
       (z (λ (a : Nat) a)))
 
 ((λ (x : (elim z2 (λ (x : Nat2) (Type 1))
-              (Nat (λ (x : Nat2) Nat)))) x) z)
+               ((Type 0) (λ (x : Nat2) (Type 0))))) x) Nat)
 
 ;; TODO: Should work, but doesn't because compile-time eval doesn't handle recursion yet.
 #;((λ (x : (elim (s2 z2) (λ (x : Nat2) (Type 1))
