@@ -178,6 +178,8 @@
              ;; TODO: Body is a bad name for this
              #:attr body #'tmp.body
              #:attr args (cons #'e.name (attribute tmp.args))
+             ;; TODO: anns in all telescopes are unused.
+             ;; TODO: args in all telescopes should probably be number indicating number of args.
              #:attr anns (cons #'e.type-ann (attribute tmp.anns)))
 
     (pattern (~and body (~not _:reified-pi))
@@ -319,7 +321,7 @@
           (cur-eval (subst #'a #'f.name #'f.body))]
          [e1-
           (cur-local-expand
-           #`(cur-app e1- a))])]
+           (quasisyntax/loc #'e.operator (cur-app e1- a)))])]
       [e:reified-elim
        #:with discriminant #'e.discriminant
        #:declare discriminant reified-constant
@@ -670,6 +672,10 @@
      #:with axiom (fresh name)
      #:with make-axiom (format-id name "make-~a" #'axiom #:props name)
      #`(begin
+         ;; TODO: these .args names should either be in terms of the source, or arbirary. Right
+         ;; now, they are alpha-renamed source.
+         ;; Probably should be arbitrary since it shouldn't be possible to directly observe them, and
+         ;; then we wouldn't need to keep names around, just number of args.
          (struct axiom #,(attribute type.args) #:transparent #:reflection-name '#,name)
          #,(define-typed-identifier name #'type.erased #'((curry axiom)) #'make-axiom)
          ;; NB: Need a predicate with a known name to generate eliminators, but need a fresh
@@ -695,16 +701,18 @@
 
 (define-syntax (_cur-elim syn)
   (syntax-parse syn
+   [(_ elim-name D c:cur-typed-expr ...)
     ;; TODO: Efficiency: t's are getting checked twice. Can we pass argument info on the syntax-properties of c?
-   [(_ elim-name D (c:id : (~var t (cur-typed-constructor-telescope (cur-local-expand #'D)))) ...)
-    #:do [(define number-of-constructors (syntax-property (cur-local-expand #'D) 'constructors))
+    ;; TODO cur-local-expand
+    #:do [(define D- (cur-local-expand #'D))
+          (define number-of-constructors (syntax-property D- 'constructors))
           ;; TODO: Could pass constructor-predicate as a syntax-property...
           ;; TODO: Passing identifiers as syntax properties seems to lose some binding information?
           ;; couldn't do it with elim-name
           (define constructor-predicates (map (curry format-id #'D "~a?") (attribute c)))
           (define method-names (map fresh (attribute c)))]
-    ;; TODO cur-local-expand, code duplication
-    #:with p (syntax-property (cur-local-expand #'D) 'params)
+    #:with ((~var t (cur-typed-constructor-telescope D-)) ...) #'(c.type ...)
+    #:with p (syntax-property D- 'params)
     #`(define elim-name
         ;; NB: _ is the motive; necessary in the application of elim for compile-time evaluation,
         ;; which may need to recover the type.
@@ -761,16 +769,47 @@
                          (params . ,params)
                          (elim-name . ,elim-name))) : type)
          (_cur-constructor a-name (name) : c-type) ...
-         (_cur-elim #,elim-name name (c-name : c-type) ...))]))
+         (_cur-elim #,elim-name name c-name ...))]))
 
 (begin-for-syntax
-  (define (check-motive mt D)
-    (syntax-parse (get-type D)
-      [(_ _ (_ : t))
-       #'t]
-      [_ (error "meow")])))
+  ;; corresponds to check-motive judgment in model
+  (define (check-motive syn D params t_D t_motive)
+    ;; Apply D and t_D to params
+    (define-values (Dp t_Dp)
+      (for/fold ([Dp D]
+                 [t_Dp t_D])
+                ([p params])
+        (values
+         ;; TODO: Why not use cur-app* and normalize?
+         #`(#%plain-app #,Dp #,p)
+         (syntax-parse t_Dp
+           [e:reified-pi
+            (subst p #'e.name #'e.body)]))))
+    (let loop ([Dp Dp]
+               [t_Dp t_Dp]
+               [t_motive t_motive])
+      (syntax-parse #`(#,Dp #,t_Dp #,t_motive)
+        [(e e1:reified-universe ~! e2:reified-pi)
+         #:with body:cur-typed-expr #'e2.body
+         #:fail-unless (syntax-parse #'body [_:reified-universe #t] [_ #f])
+         (raise-syntax-error
+          'core-type-error
+          (format "Expected result of motive to be a kind, but found something of type ~a."
+                  ;; TODO: ad-hoc resugaring
+                  (syntax->datum (cur-reflect #'body)))
+          syn)
+         (unless (cur-equal? #'e #'e2.type-ann)
+           (raise-syntax-error
+            'core-type-error
+            (format "Expected final argument of motive to be the same type as the target, i.e. ~a, but found ~a."
+                    #'e
+                    #'e2.type-ann))
+           syn)]
+        [(e e1:reified-pi ~! e2:reified-pi)
+         (loop #`(#%plain-app e e2.name) (subst #'e2.name #'e1.name #'e1.body) #'e2.body)]
+        [_ (error 'check-motive "Something terrible has happened")]))))
 
-;; TODO: Type check motive, methods.
+;; TODO: Type check methods.
 ;; TODO: Rewrite and abstract this code omg
 (define-syntax (cur-elim syn)
   (syntax-parse syn
@@ -805,7 +844,8 @@
      #:do [(define name #'D.constr)
            (define indices (drop (attribute D.args) (syntax-property name 'params)))]
      #:with elim-name (syntax-property name 'elim-name)
-;     #:do [(check-motive #'motive.type #'name)]
+     #:with n:cur-typed-expr name
+     #:do [(check-motive #'motive name (take (attribute D.args) (syntax-property name 'params)) #'n.type #'motive.type)]
      #:attr constructors (syntax-property name 'constructors)
      #:fail-unless (= (attribute constructors) (length (attribute method)))
      (raise-syntax-error 'core-type-error
@@ -814,6 +854,6 @@
                                  (length (attribute method)))
                          syn)
      ;; TODO: Maybe set-type should normalize, reflect, then set?
-     ;; NB: That seems to cause an infinite loop
+     ;; TODO: That seems to cause an infinite loop
      (⊢ (elim-name e.erased motive.erased method.erased ...) :
         #,(cur-reflect (cur-normalize (cur-app* #'motive.erased (append indices (list #'e.erased))))))]))

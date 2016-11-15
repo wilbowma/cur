@@ -144,6 +144,18 @@ z2
 #;(elim (s2 z2) (λ (x : Nat2) Nat2)
       (z2))
 
+;; TODO: should fail with good error, doish. needs resugaring/syntax->datum
+#;(elim (s2 z2) (λ (x : Nat) Nat2)
+      (z2))
+
+;; should fail with good error, does
+#;(elim (s2 z2) (λ (x : Nat2) (λ (y : Nat) (Type 0)))
+      (z2 (λ (x : Nat2) (λ (IH : Nat) IH))))
+
+;; TODO: Should fail, doesn't because methods aren't type checked
+(elim (s2 z2) (λ (x : Nat2) Nat)
+      (z2 (λ (x : Nat2) (λ (IH : Nat) IH))))
+
 (data Maybe : 1 (Π (A : (Type 0)) (Type 0))
       (none : (Π (A : (Type 0)) (Maybe A)))
       (just : (Π (A : (Type 0)) (Π (a : A) (Maybe A)))))
