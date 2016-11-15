@@ -18,6 +18,7 @@
 ;; variables, e.g., from the expansion that happens in get-type.
 (require
  (only-in racket/struct struct->list)
+ ;; TODO: Don't use curry; results in bad source location for procedures
  (only-in racket/function curry)
  (only-in racket/list drop)
  (for-syntax
@@ -303,7 +304,7 @@
 
   ;; TODO: eval should use reified forms, not typed forms. Otherwise we type-check forms that we can
   ;; assume (know) are well-typed.
-  (trace-define (cur-app* e args)
+  (define (cur-app* e args)
     (if (null? args)
         e
         (cur-app* #`(cur-app #,e #,(car args)) (cdr args))))
@@ -327,13 +328,27 @@
       [e:reified-elim
        #:with discriminant #'e.discriminant
        #:declare discriminant reified-constant
+       ;; TODO: Maybe recursive args should be a syntax property on the constructor
+       ;; TODO: Should avoid using get-type, but can't use cur-typed-expr since it's defined later
+       #:with (_ (_ : t)) (get-type (attribute discriminant.constr))
+       #:with (~var tel (reified-constructor-telescope
+                         (cur-local-expand
+                          (syntax-property (attribute discriminant.constr) 'constructors-inductive)))) #'t
        ;; TODO: Recursion
        ;; TODO: Why isn't this just normalize?
-       ;; TODO: Why am I using the top-level syntax?
+       ;; TODO: Using reflected syntax is convenient, but causes redundant error checking. Don't do it.
        (cur-eval
         (cur-local-expand
+         ;; TODO: Performance hack: use unsafe version of list operators and such for internal matters
          (cur-app* (list-ref (attribute e.methods) (attribute discriminant.constructor-index))
-                  (attribute discriminant.args))))]
+                   (for/fold ([m-args (attribute discriminant.args)])
+                             ([arg (attribute discriminant.args)]
+                              [i (in-naturals)]
+                              [j (attribute tel.recursive-args)]
+                              ;; TODO: Change all these =s to eq?s
+                              #:when (= i j))
+                     ;; TODO: Badness 10000; append in a loop
+                     (append m-args (list #`(cur-elim #,arg e.motive (e.methods ...))))))))]
       [e:reified-lambda
        (cur-local-expand
         #`(cur-λ (e.name : #,(cur-eval #'e.type-ann)) #,(cur-eval #'e.body)))]
@@ -759,6 +774,7 @@
      #:with (a-name ...) (map (λ (n i)
                                 (syntax-properties n
                                  `((constant . #t)
+                                   (constructors-inductive . ,#'name)
                                    (params . ,params)
                                    (constructor-index . ,i))))
                               (attribute c-name)
@@ -813,16 +829,16 @@
         [_ (error 'check-motive "Something terrible has happened")])))
 
   ;; TODO: Check recursive arguments; not sure if they can be Ξ[(D e ...)]; see brady2005
-  (trace-define (check-method syn name n params motive method constr)
+  (define (check-method syn name n params motive method constr)
     (define/syntax-parse m:cur-typed-expr method)
     (define/syntax-parse c:cur-typed-expr (cur-app* constr params))
     (define/syntax-parse (~var c-tele (reified-constructor-telescope name)) #'c.type)
     (define rargs (attribute c-tele.recursive-args))
-    (trace-let loop ([c-type #'c.type]
-           [m-type #'m.type]
-           [i 0]
-                     [target #'c.erased]
-                     [recursive '()])
+    (let loop ([c-type #'c.type]
+               [m-type #'m.type]
+               [i 0]
+               [target #'c.erased]
+               [recursive '()])
       (syntax-parse #`(#,c-type #,m-type)
         [(e1:reified-constant ~! e:reified-telescope)
          #:do [(define return-type (cur-normalize (cur-app* motive `(,@(drop (attribute e1.args) n) ,target))))]

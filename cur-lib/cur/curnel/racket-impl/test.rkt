@@ -173,6 +173,5 @@ z2
 ((λ (x : (elim z2 (λ (x : Nat2) (Type 1))
                ((Type 0) (λ (x : Nat2) (Type 0))))) x) Nat)
 
-;; TODO: Should work, but doesn't because compile-time eval doesn't handle recursion yet.
-#;((λ (x : (elim (s2 z2) (λ (x : Nat2) (Type 1))
-              (Nat (λ (x : Nat2) (λ (IH : (Type 1)) IH))))) x) z)
+((λ (x : (elim (s2 z2) (λ (x : Nat2) (Type 1))
+               ((Type 0) (λ (x : Nat2) (λ (IH : (Type 1)) IH))))) x) Nat)
