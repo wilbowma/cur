@@ -157,7 +157,7 @@
 
   (define-syntax-class reified-elim
     #:literals (#%plain-app)
-    (pattern (#%plain-app x:id discriminant motive methods ...)
+    (pattern (#%plain-app x:id target motive methods ...)
              #:when (syntax-property #'x 'elim)))
 
   (define (reify-elim syn x d m methods)
@@ -190,8 +190,7 @@
   ;; Θ ::= hole (Θ e)
   (define-syntax-class reified-constant
     (pattern app:reified-app
-             #:with e #'app.operator
-             #:declare e reified-constant
+             #:with e:reified-constant #'app.operator
              ;; NB: Append
              ;; TODO: This one should be eliminated; this is used a lot and could become a bottleneck.
              ;; Maybe need a pre-reified-constant and then reverse the list once
@@ -299,7 +298,7 @@
       [e:reified-lambda
        #`(cur-λ (e.name : #,(cur-reflect #'e.type-ann)) #,(cur-reflect #'e.body))]
       [e:reified-elim
-       #`(cur-elim #,(cur-reflect #'e.discriminant) #,(cur-reflect #'e.motive)
+       #`(cur-elim #,(cur-reflect #'e.target) #,(cur-reflect #'e.motive)
                    #,(map cur-reflect (attribute e.methods)))])))
 
 ;;; Intensional equality
@@ -340,16 +339,15 @@
          [e1-
           (reify-app syn #'e1- #'a)])]
       [e:reified-elim
-       #:with discriminant #'e.discriminant
-       #:declare discriminant reified-constant
+       #:with target:reified-constant #'e.target
        ;; TODO: Maybe recursive args should be a syntax property on the constructor
        #:do [(define recursive-args
-               (syntax-property (attribute discriminant.constr) 'recursive-arg-positions))]
+               (syntax-property (attribute target.constr) 'recursive-arg-positions))]
        ;; TODO: Performance hack: use unsafe version of list operators and such for internal matters
        (cur-eval
-        (apply reify-app syn (list-ref (attribute e.methods) (attribute discriminant.constructor-index))
-               (for/fold ([m-args (attribute discriminant.args)])
-                         ([arg (attribute discriminant.args)]
+        (apply reify-app syn (list-ref (attribute e.methods) (attribute target.constructor-index))
+               (for/fold ([m-args (attribute target.args)])
+                         ([arg (attribute target.args)]
                           [i (in-naturals)]
                           [j recursive-args]
                           ;; TODO: Change all these =s to eq?s
@@ -384,7 +382,7 @@
        (and (cur-equal? #'e1.type-ann #'e2.type-ann)
             (cur-equal? #'e1.body (subst #'e1.name #'e2.name #'e2.body)))]
       [(e1:reified-elim e2:reified-elim)
-       (and (cur-equal? #'e1.discriminant #'e2.discriminant)
+       (and (cur-equal? #'e1.target #'e2.target)
             (cur-equal? #'e1.motive #'e2.motive)
             (map cur-equal? (attribute e1.methods) (attribute e2.methods)))]
       [(e1:reified-app e2:reified-app)
@@ -915,8 +913,8 @@
                      [_ #f])
      (cur-type-error
       syn
-      "discriminant to be a fully applied inductive type"
-      "found discriminant ~a"
+      "target to be a fully applied inductive type"
+      "found target ~a"
       "~a, which accepts more arguments"
       (syntax->datum #'e)
       (syntax->datum #'e.type))
@@ -927,7 +925,7 @@
      (cur-type-error
       syn
       ;; TODO: Maybe check if axiom and report that? Might be easy to confuse axiom and inductive.
-      "discriminant to inhabit an inductive type"
+      "target to inhabit an inductive type"
       (syntax->datum #'e)
       (syntax->datum (car (syntax-property (attribute e.type) 'origin))))
      #:with D #'e-type.erased
