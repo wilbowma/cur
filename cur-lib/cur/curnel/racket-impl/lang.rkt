@@ -855,31 +855,34 @@
                [recursive '()])
       (syntax-parse #`(#,c-type #,m-type)
         [(e1:reified-constant ~! e:reified-telescope)
-         #:do [(define return-type (cur-normalize (cur-app* motive `(,@(drop (attribute e1.args) n) ,target))))]
-         #:do [(for ([t (attribute e.anns)]
-                     [r- recursive])
-                 ;; TODO: Recomputing some of the recurisve argument things...
-                 (syntax-parse (cdr r-)
-                   [e:reified-constant
-                    ;; TODO: append
-                    #:do [(define ih (cur-normalize (cur-app* motive (append (drop (attribute e.args) n)
-                                                                             (list (car r-))))))]
-                    #:fail-unless (cur-equal? t ih)
-                    (raise-syntax-error
-                     'core-type-error
-                     (format "Expected an inductive hypothesis equal to ~a, but found ~a."
-                             ih
-                             t)
-                     syn
-                     t)
-                    (void)]))]
-         #:fail-unless (cur-equal? #'e.body return-type)
+         #:do [(define expected-return-type (cur-normalize (cur-app* motive `(,@(drop (attribute e1.args) n) ,target))))]
+         #:do [(define return-type
+                 (for/fold ([r #'e])
+                           ([t (attribute e.anns)]
+                            [rarg recursive])
+                   ;; TODO: Recomputing some of the recurisve argument things...
+                   (syntax-parse (cdr rarg)
+                     [e:reified-constant
+                      ;; TODO: append
+                      #:with r-:reified-pi r
+                      #:do [(define ih (cur-normalize (cur-app* motive (append (drop (attribute e.args) n)
+                                                                               (list (car rarg))))))]
+                      #:fail-unless (cur-equal? t ih)
+                      (raise-syntax-error
+                       'core-type-error
+                       (format "Expected an inductive hypothesis equal to ~a, but found ~a."
+                               ih
+                               t)
+                       syn
+                       t)
+                      #'r-.body])))]
+         #:fail-unless (cur-equal? return-type expected-return-type)
          (raise-syntax-error
           'core-type-error
           ;; TODO: Resugar
           (format "Expected method to return type ~a, but found return type of ~a"
-                  return-type
-                  #'e)
+                  (syntax->datum expected-return-type)
+                  (syntax->datum return-type))
           syn)
          (void)]
         [(e1:reified-pi ~! e2:reified-pi)
