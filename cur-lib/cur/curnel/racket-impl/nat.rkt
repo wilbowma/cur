@@ -62,7 +62,7 @@
 (define nat-equal?
   (λ (x : Nat)
     (elim x (λ (x : Nat) (Π (x : Nat) Bool))
-          ((base-λ (y : Nat)
+          ((λ (y : Nat)
              (elim y (λ (x : Nat) Bool)
                    (true (λ (x : Nat) (IH : Bool) false))))
            (λ (n-1 : Nat) (IH : (Π (x : Nat) Bool))
