@@ -125,13 +125,18 @@
 ; The run-time representation of a function is a Racket plain procedure.
 ; (#%plain-lambda (f) e)
 (begin-for-syntax
-  ;; A syntax class for detecting the constructor of a struct
-  (define-syntax-class (constructor constr-syn)
+  ;; Reified syntax classes match or fail, but do not report errors. That is left to higher levels of
+  ;; abstraction.
+
+  ; A syntax class for detecting the constructor of a struct
+  ;; TODO: Maybe want #:no-delimit-cut for some of these
+  ;; Hm, prevents use in ~not
+  (define-syntax-class (constructor constr-syn) #:attributes (constr)
     (pattern x:id
              #:attr constr (syntax-property #'x 'constructor-for)
              #:when (and (attribute constr) (free-identifier=? constr-syn #'constr))))
 
-  (define-syntax-class reified-universe
+  (define-syntax-class reified-universe #:attributes (level-syn level)
     #:literals (#%plain-app quote Type)
     (pattern (#%plain-app (~var _ (constructor #'Type)) ~! (quote level-syn:nat))
              #:attr level (syntax->datum #'level-syn)))
@@ -139,23 +144,23 @@
   (define (reify-universe syn i)
     (reified-copy-type (cur-reify (quasisyntax/loc syn (Type (quote i)))) syn))
 
-  (define-syntax-class reified-pi
+  (define-syntax-class reified-pi #:attributes (name ann result)
     #:literals (#%plain-app #%plain-lambda Π)
     (pattern (#%plain-app (~var _ (constructor #'Π)) ~! ann (#%plain-lambda (name) result))))
 
   (define (reify-pi syn x t e)
     (reified-copy-type (cur-reify (quasisyntax/loc syn (Π #,t (#%plain-lambda (#,x) #,e)))) syn))
 
-  (define-syntax-class reified-lambda
+  (define-syntax-class reified-lambda #:attributes (name ann body)
     #:literals (#%plain-lambda)
     (pattern (#%plain-lambda (name) body)
-             ;; NB: Require type anotations on variables in reified syntax.
+             ; NB: Require type anotations on variables in reified syntax.
              #:attr ann (reified-get-type #'name)))
 
   (define (reify-lambda syn x e)
     (reified-copy-type (quasisyntax/loc syn (#%plain-lambda (#,x) #,e)) syn))
 
-  (define-syntax-class reified-app
+  (define-syntax-class reified-app #:attributes (rator rand)
     #:literals (#%plain-app)
     (pattern (#%plain-app rator rand)))
 
@@ -166,7 +171,9 @@
        (quasisyntax/loc syn (#%plain-app #,app #,arg)))
      syn))
 
-  (define-syntax-class reified-elim
+  ;; TODO x is a bad name
+  ;; TODO: methods should be method-ls
+  (define-syntax-class reified-elim #:attributes (x target motive (methods 1))
     #:literals (#%plain-app)
     (pattern (#%plain-app x:id target motive methods ...)
              #:when (syntax-property #'x 'elim)))
@@ -182,7 +189,7 @@
     (local-expand e 'expression null))
 
   ;; For restricting top-level identifiers, such as define.
-  (define-syntax-class top-level-id
+  (define-syntax-class top-level-id #:attributes ()
     (pattern x:id
              #:fail-unless (case (syntax-local-context)
                              [(module top-level module-begin) #t]
@@ -198,60 +205,59 @@
   ;; Constants are nested applications with a constructor or inductive type in head position:
   ;; refieid-constant ::= Θ[c]
   ;; Θ ::= hole (Θ e)
-  (define-syntax-class reified-constant
+  (define-syntax-class reified-constant #:attributes (constr rand-ls constructor-index)
     (pattern app:reified-app
              #:with e:reified-constant #'app.rator
              ;; NB: Append
              ;; TODO: This one should be eliminated; this is used a lot and could become a bottleneck.
              ;; Maybe need a pre-reified-constant and then reverse the list once
-             #:attr rands (append (attribute e.rands) (list #'app.rand))
+             #:attr rand-ls (append (attribute e.rand-ls) (list #'app.rand))
              #:attr constr #'e.constr
              #:attr constructor-index (attribute e.constructor-index))
 
     (pattern constr:id
-             #:attr rands '()
+             #:attr rand-ls '()
              #:attr constructor-index (syntax-property #'constr 'constructor-index)
              #:when (syntax-property #'constr 'constant?)))
 
   ;; Telescopes are nested Π types.
-  (define-syntax-class reified-telescope
+  (define-syntax-class reified-telescope #:attributes (length ann-ls result)
     (pattern e:reified-pi
              #:with tmp:reified-telescope #'e.result
              #:attr result #'tmp.result
-             #:attr name-ls (cons #'e.name (attribute tmp.name-ls))
-             ;; TODO: args in all telescopes should probably be number indicating number of args.
+             #:attr length (add1 (attribute tmp.length))
              #:attr ann-ls (cons #'e.ann (attribute tmp.ann-ls)))
 
     (pattern (~and result (~not _:reified-pi))
-             #:attr name-ls '()
+             #:attr length 0
              #:attr ann-ls '()))
 
   ;; Axiom telescopes are nested Π types with a universe or constant as the final result
-  (define-syntax-class reified-axiom-telescope
+  (define-syntax-class reified-axiom-telescope #:attributes (length ann-ls result)
     (pattern e:reified-telescope
              #:with (~and result (~or _:reified-universe _:reified-constant)) #'e.result
-             #:attr name-ls (attribute e.name-ls)
+             #:attr length (attribute e.length)
              #:attr ann-ls (attribute e.ann-ls)))
 
   ;; Inductive telescopes are nested Π types with a universe as the final result.
-  (define-syntax-class reified-inductive-telescope
+  (define-syntax-class reified-inductive-telescope #:attributes (length ann-ls result)
     (pattern e:reified-telescope
              #:with result:reified-universe #'e.result
-             #:attr name-ls (attribute e.name-ls)
+             #:attr length (attribute e.length)
              #:attr ann-ls (attribute e.ann-ls)))
 
   ;; Constructor telescopes are nested Π types that return a constant with the inductive type type in
   ;; head position.
   (define-syntax-class (reified-constructor-telescope inductive)
+    #:attributes (length ann-ls recursive-index-ls result)
     (pattern e:reified-telescope
              #:with result:reified-constant #'e.result
              #:when (cur-equal? #'result.constr inductive)
-             #:attr name-ls (attribute e.name-ls)
+             #:attr length (attribute e.length)
              #:attr ann-ls (attribute e.ann-ls)
              #:attr recursive-index-ls
-             (for/list ([x (attribute name-ls)]
-                        [t (attribute ann-ls)]
-                        [i (in-naturals)]
+             (for/list ([t (attribute ann-ls)]
+                        [i (attribute length)]
                         #:when (syntax-parse t
                                  ;; TODO: Can e be a telescope whose result is a reified-constant? Model
                                  ;; suggests yes; see method-type recursive case
@@ -268,6 +274,8 @@
 ;; Reflected
 ;; ----------------------------------------------------------------
 (begin-for-syntax
+  ;; TODO: These reflected versions aren't used anywhere... probably shouldn't be. Should rely on
+  ;; above macros, I think.
   (define-syntax-class reflected-universe
     #:literals (cur-type)
     (pattern (cur-type i:nat)))
@@ -323,8 +331,9 @@
      ;; #:eq syn-eq? (subst #'z #'x (expand-syntax-once #'(#%plain-lambda (y) x))) #'(#%plain-lambda (y) z)
      #:eq syn-eq? (subst #'z #'x (expand-syntax-once #'(#%plain-lambda (x) x))) #'(#%plain-lambda (x) x)))
 
-
   ;; TODO: Should this be parameterizable, to allow for different eval strategies if user wants?
+  ;; TODO: Performance: Should the interpreter operate directly on syntax? Might be better to first
+  ;; parse into structs, turn back into syntax later?
   (define (cur-eval syn)
     (syntax-parse syn
       [_:reified-universe syn]
@@ -342,12 +351,12 @@
        #:with target:reified-constant #'e.target
        ;; TODO: Maybe recursive args should be a syntax property on the constructor
        #:do [(define recursive-index-ls
-               (syntax-property (attribute target.constr) 'recursive-arg-positions))]
+               (syntax-property (attribute target.constr) 'recursive-index-ls))]
        ;; TODO: Performance hack: use unsafe version of list operators and such for internal matters
        (cur-eval
         (apply reify-app syn (list-ref (attribute e.methods) (attribute target.constructor-index))
-               (for/fold ([m-args (attribute target.rands)])
-                         ([arg (attribute target.rands)]
+               (for/fold ([m-args (attribute target.rand-ls)])
+                         ([arg (attribute target.rand-ls)]
                           [i (in-naturals)]
                           [j recursive-index-ls]
                           ;; TODO: Change all these =s to eq?s
@@ -481,26 +490,24 @@
               #,syn)))
        #`((name ...) e)]))
 
-  ;; TODO: Am I misusing syntax classes to do error checking and not just (or really, any) parsing?
-
-  ;; Make typing easier
+  ;; Type checking via syntax classes
 
   ;; Expect *some* well-typed expression.
   ;; NB: Cannot check that type is well-formed eagerly, otherwise infinite loop.
-  (define-syntax-class cur-typed-expr
+  (define-syntax-class cur-expr #:attributes (reified type)
     (pattern e:expr
              #:attr reified (cur-reify #'e)
              #:attr type (get-type #'reified)))
 
   ;; Expect *some* well-typed expression, in an extended context.
-  (define-syntax-class (cur-typed-expr/ctx ctx)
+  (define-syntax-class (cur-expr/ctx ctx) #:attributes ((name 1) reified type)
     (pattern e:expr
              #:with ((name ...) reified) (cur-reify/ctx #'e ctx)
              #:attr type (get-type #'reified)))
 
   ;; Expected a well-typed expression of a particular type.
-  (define-syntax-class (cur-expr-of-type type)
-    (pattern e:cur-typed-expr
+  (define-syntax-class (cur-expr-of-type type) #:attributes (reified)
+    (pattern e:cur-expr
              ;; TODO: Subtyping?
              #:fail-unless (cur-equal? #'e.type type)
              (cur-type-error
@@ -512,11 +519,10 @@
              #:attr reified #'e.reified))
 
   ;; Expect a well-typed function.
-  (define-syntax-class cur-procedure
-    (pattern e:cur-typed-expr
-             #:attr reified #'e.reified
-             #:attr type #'e.type
-             #:fail-unless (syntax-parse #'e.type [_:reified-pi #t] [ _ #f])
+  (define-syntax-class cur-procedure #:attributes (reified type ann name result)
+    (pattern e:cur-expr
+             #:with (~or type:reified-pi) #'e.type
+             #:fail-unless (attribute type)
              (raise-syntax-error
               'core-type-error
               (format "Expected function, but found ~a of type ~a"
@@ -535,68 +541,63 @@
                       #;(third (syntax-property #'f-type 'origin))
                       (syntax->datum (last (syntax-property #'e.type 'origin))))
               #'e)
-             #:with tmp:reified-pi #'e.type
-             #:attr ann #'tmp.ann
-             #:attr name #'tmp.name
-             #:attr result #'tmp.result))
+             #:attr ann #'type.ann
+             #:attr name #'type.name
+             #:attr result #'type.result
+             #:attr reified #'e.reified))
 
   ;; Expect a well-typed expression whose type is a universe (kind)
-  (define-syntax-class cur-kind
-    (pattern (~and e:cur-typed-expr #;(~parse (~describe #:opaque "a kind (a type whose type is a universe)" _:reified-universe) #'e.type))
-             ;; TODO There's got to be a better way
-             #:fail-unless (syntax-parse #'e.type [_:reified-universe #t] [_ #f])
+  (define-syntax-class cur-kind #:attributes (reified type)
+    (pattern e:cur-expr
+             ;; TODO: A pattern
+             #:with (~or type:reified-universe) #'e.type
+             #:fail-unless (attribute type)
              (cur-type-error
               #'e
               "a kind (a type whose type is a universe)"
               (syntax->datum #'e)
               (syntax->datum (last (syntax-property #'e.type 'origin))))
-             #:attr reified #'e.reified
-             #:attr type #'e.type))
+             #:attr reified #'e.reified))
 
-  (define-syntax-class cur-typed-axiom-telescope
-    (pattern e:cur-typed-expr
-             #:fail-unless (syntax-parse #'e.reified [_:reified-axiom-telescope #t] [_ #f])
+  (define-syntax-class cur-axiom-telescope #:attributes (reified length ann-ls)
+    (pattern e:cur-expr
+             #:with (~or reified:reified-axiom-telescope) #'e.reified
+             #:fail-unless (attribute reified)
              (cur-type-error
               #'e
               "an axiom telescope (a nested Π type whose final result is a universe or a constant)"
               (syntax->datum #'e)
               (syntax->datum (last (syntax-property #'e.type 'origin))))
-             #:with reified:reified-axiom-telescope #'e.reified
-             #:attr name-ls (attribute reified.name-ls)
+             #:attr length (attribute reified.length)
              #:attr ann-ls (attribute reified.ann-ls)))
 
-  ;; TODO: Lots of code duplication here... copy and past abstraction...
-  ;; investigate some way of auto inheriting attributes, lifting a reified class to a typed class?
-  (define-syntax-class cur-typed-inductive-telescope
-    (pattern e:cur-typed-expr
-             #:fail-unless (syntax-parse #'e.reified [_:reified-inductive-telescope #t] [_ #f])
+  (define-syntax-class cur-inductive-telescope #:attributes (reified length ann-ls)
+    (pattern e:cur-expr
+             #:with (~or reified:reified-inductive-telescope) #'e.reified
+             #:fail-unless (attribute reified)
              (cur-type-error
               #'e
               "an inductive telescope (a nested Π type whose final result is a universe)"
               (syntax->datum #'e)
               (syntax->datum (last (syntax-property #'e.type 'origin))))
-             #:attr reified #'e.reified
-             #:with tmp:reified-inductive-telescope #'e.reified
-             #:attr name-ls (attribute tmp.name-ls)
-             #:attr ann-ls (attribute tmp.ann-ls)))
+             #:attr length (attribute reified.length)
+             #:attr ann-ls (attribute reified.ann-ls)))
 
   ;; The inductive type must be first in the ctx, which makes sense anyway
-  ;; TODO Bad variable name
-  (define-syntax-class (cur-typed-constructor-telescope D)
-    (pattern e:cur-typed-expr
-             #:fail-unless (syntax-parse #'e.reified [(~var _ (reified-constructor-telescope D)) #t] [_ #f])
+  (define-syntax-class (cur-constructor-telescope inductive)
+    #:attributes (reified length ann-ls recursive-index-ls)
+    (pattern e:cur-expr
+             #:with (~or (~var reified (reified-constructor-telescope inductive))) #'e.reified
+             #:fail-unless (attribute reified)
              (cur-type-error
               #'e
               "a constructor telescope (a nested Π type whose final result is ~a applied to any indices)"
               (syntax->datum #'e.reified)
               (syntax->datum (last (syntax-property #'e.type 'origin)))
-              (syntax->datum D))
-             #:attr reified #'e.reified
-             #:with (~var tmp (reified-constructor-telescope D)) #'e.reified
-             #:attr name-ls (attribute tmp.name-ls)
-             #:attr recursive-index-ls (attribute tmp.recursive-index-ls)
-             #:attr ann-ls (attribute tmp.ann-ls)))
-  )
+              (syntax->datum inductive))
+             #:attr length (attribute reified.length)
+             #:attr recursive-index-ls (attribute reified.recursive-index-ls)
+             #:attr ann-ls (attribute reified.ann-ls))))
 
 ;;; Typing
 ;;;------------------------------------------------------------------------
@@ -621,26 +622,25 @@
 (define-syntax (cur-Π syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_ (x:id : t1:cur-kind) (~var e (cur-typed-expr/ctx #`([x t1.reified]))))
+    [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx #`([x t1.reified]))))
      #:declare e.type cur-kind
      (⊢ (Π t1.reified (#%plain-lambda (#,(car (attribute e.name))) e.reified)) : e.type)]))
 
 (define-syntax (cur-λ syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_ (x:id : t1:cur-kind) (~var e (cur-typed-expr/ctx #`([x t1.reified]))))
+    [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx #`([x t1.reified]))))
      #:declare e.type cur-kind
-     ;; TODO: Wish to use t1 instead of t1.reified, to keep types in reflected syntax. But only the
-     ;; reified syntax has the right bindings due to how get-type handles bindings/renamings
-     (⊢ (#%plain-lambda (#,(car (attribute e.name))) e.reified) : (cur-Π (#,(car (attribute e.name)) : t1.reified) e.type))]))
+     (⊢ (#%plain-lambda (#,(car (attribute e.name))) e.reified) :
+        (cur-Π (#,(car (attribute e.name)) : t1.reified) e.type))]))
 
 (begin-for-syntax
   ;; TODO: Maybe mulit-artiy functions would be a good thing. Always currying probably incurs a
   ;; performance hit.
   (define (cur-app* e args)
-    (if (null? args)
-        e
-        (cur-app* #`(cur-app #,e #,(car args)) (cdr args)))))
+    (for/fold ([e e])
+              ([arg args])
+      #`(cur-app #,e #,(car args)))))
 
 (define-syntax (cur-app syn)
   (syntax-parse syn
@@ -660,24 +660,20 @@
 (define-syntax (cur-define syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_:top-level-id name:id body:cur-typed-expr)
+    [(_:top-level-id name:id body:cur-expr)
      (define-typed-identifier #'name #'body.type #'body.reified)]))
 
 (define-syntax (cur-axiom syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_:top-level-id n:id : type:cur-typed-axiom-telescope)
+    [(_:top-level-id n:id : type:cur-axiom-telescope)
      ;; TODO: Hmmm no longer can use 'constant to mean constructor or inductive type, but maybe to
      ;; mean axioms too is okay.
      #:do [(define name (syntax-property #'n 'constant? #t))]
      #:with axiom (fresh name)
      #:with make-axiom (format-id name "make-~a" #'axiom #:props name)
      #`(begin
-         ;; TODO: these .args names should either be in terms of the source, or arbirary. Right
-         ;; now, they are alpha-renamed source.
-         ;; Probably should be arbitrary since it shouldn't be possible to directly observe them, and
-         ;; then we wouldn't need to keep names around, just number of args.
-         (struct axiom #,(attribute type.name-ls) #:transparent #:reflection-name '#,name)
+         (struct axiom #,(for/list ([_ (in-range (attribute type.length))]) (fresh)) #:transparent #:reflection-name '#,name)
          #,(define-typed-identifier name #'type.reified #'((curry axiom)) #'make-axiom)
          ;; NB: Need a predicate with a known name to generate eliminators, but need a fresh
          ;; name for struct to handle typing.
@@ -696,15 +692,15 @@
 (define-syntax (_cur-constructor syn)
   (syntax-parse syn
    #:datum-literals (:)
-   ;; TODO: Maybe that local expand should be elsewhere, e.g., cur-typed-constructor
-   [(_ name (D) : (~var type (cur-typed-constructor-telescope (cur-reify #'D))))
+   ;; TODO: Maybe that local expand should be elsewhere, e.g., cur-constructor
+   [(_ name (D) : (~var type (cur-constructor-telescope (cur-reify #'D))))
     #`(cur-axiom #,(syntax-properties
                     #'name
-                    `((recursive-arg-positions . ,(attribute type.recursive-index-ls)))) : type)]))
+                    `((recursive-index-ls . ,(attribute type.recursive-index-ls)))) : type)]))
 
 (define-syntax (_cur-elim syn)
   (syntax-parse syn
-   [(_ elim-name D c:cur-typed-expr ...)
+   [(_ elim-name D c:cur-expr ...)
     ;; TODO cur-reify
     #:do [(define D- (cur-reify #'D))
           (define constructor-count (syntax-property D- 'constructor-count))
@@ -713,7 +709,7 @@
           ;; couldn't do it with elim-name
           (define constructor-predicates (map (curry format-id #'D "~a?") (attribute c)))
           (define method-names (map fresh (attribute c)))]
-    #:with ((~var t (cur-typed-constructor-telescope D-)) ...) #'(c.type ...)
+    #:with ((~var t (cur-constructor-telescope D-)) ...) #'(c.type ...)
     #:with p (syntax-property D- 'param-count)
     #`(define elim-name
         ;; NB: _ is the motive; necessary in the application of elim for compile-time evaluation,
@@ -723,7 +719,7 @@
             (cond
               #,@(for/list ([pred? constructor-predicates]
                             [m method-names]
-                            [_ (attribute t.name-ls)]
+                            [_ (attribute t.length)]
                             [rargs (attribute t.recursive-index-ls)])
                    ;; TODO: Wouldn't it be better to statically generate the dereferencing of each field
                    ;; from the struct? This would also make it easy to place the recursive elimination.
@@ -751,7 +747,7 @@
 (define-syntax (cur-data syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_:top-level-id name:id : p:nat type:cur-typed-inductive-telescope (c-name:id : c-type) ...)
+    [(_:top-level-id name:id : p:nat type:cur-inductive-telescope (c-name:id : c-type) ...)
      #:do [(define constructor-count (length (attribute c-name)))
            (define elim-name (syntax-property (format-id syn "~a-elim" #'name) 'elim #t))
            (define param-count (syntax->datum #'p))
@@ -793,13 +789,16 @@
                [t_motive t_motive])
       (syntax-parse #`(#,Dp #,t_Dp #,t_motive)
         [(e e1:reified-universe ~! e2:reified-pi)
-         #:with result:cur-typed-expr #'e2.result
+         ;; TODO: Not sure why this version doesn't work. Maybe something to do with backtracking
+;         #:with (~or result:reified-universe) #'e2.result
+;         #:fail-unless (attribute result)
+         #:with result:cur-expr #'e2.result
          #:fail-unless (syntax-parse #'result [_:reified-universe #t] [_ #f])
          (raise-syntax-error
           'core-type-error
           (format "Expected result of motive to be a kind, but found something of type ~a."
                   ;; TODO: ad-hoc resugaring
-                  (syntax->datum (cur-reflect #'result)))
+                  (syntax->datum (cur-reflect #'e2.result)))
           syn)
          (unless (cur-equal? #'e #'e2.ann)
            (raise-syntax-error
@@ -814,8 +813,8 @@
 
   ;; TODO: Check recursive arguments; not sure if they can be Ξ[(D e ...)]; see brady2005
   (define (check-method syn name n params motive method constr)
-    (define/syntax-parse m:cur-typed-expr method)
-    (define/syntax-parse c:cur-typed-expr (cur-app* constr params))
+    (define/syntax-parse m:cur-expr method)
+    (define/syntax-parse c:cur-expr (cur-app* constr params))
     (define/syntax-parse (~var c-tele (reified-constructor-telescope name)) #'c.type)
     (define rargs (attribute c-tele.recursive-index-ls))
     (let loop ([c-type #'c.type]
@@ -825,7 +824,7 @@
                [recursive '()])
       (syntax-parse #`(#,c-type #,m-type)
         [(e1:reified-constant ~! e:reified-telescope)
-         #:do [(define expected-return-type (cur-normalize (cur-app* motive `(,@(drop (attribute e1.rands) n) ,target))))]
+         #:do [(define expected-return-type (cur-normalize (cur-app* motive `(,@(drop (attribute e1.rand-ls) n) ,target))))]
          #:do [(define return-type
                  (for/fold ([r #'e])
                            ([t (attribute e.ann-ls)]
@@ -835,7 +834,7 @@
                      [e:reified-constant
                       ;; TODO: append
                       #:with r-:reified-pi r
-                      #:do [(define ih (cur-normalize (cur-app* motive (append (drop (attribute e.rands) n)
+                      #:do [(define ih (cur-normalize (cur-app* motive (append (drop (attribute e.rand-ls) n)
                                                                                (list (car rarg))))))]
                       #:fail-unless (cur-equal? t ih)
                       (raise-syntax-error
@@ -874,37 +873,31 @@
 (define-syntax (cur-elim syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_ e:cur-typed-expr motive:cur-procedure (method:cur-typed-expr ...))
-     ;; TODO: Some attributes should be definitions
-     #:with e-type:cur-typed-expr #'e.type
-     #:fail-unless (syntax-parse #'e-type.type
-                     [_:reified-universe #t]
-                     [_ #f])
+    [(_ target:cur-expr motive:cur-procedure (method:cur-expr ...))
+     #:with (~or type:reified-constant) #'target.type
+     #:fail-unless (attribute type)
      (cur-type-error
       syn
       "target to be a fully applied inductive type"
       "found target ~a"
       "~a, which accepts more arguments"
-      (syntax->datum #'e)
-      (syntax->datum #'e.type))
-     #:fail-unless (syntax-parse #'e-type.reified
-                     [e:reified-constant
-                      (syntax-property #'e.constr 'inductive?)]
-                     [_ #f])
+      (syntax->datum #'target)
+      (syntax->datum #'target.type))
+     #:fail-unless (syntax-property #'type.constr 'inductive?)
      (cur-type-error
       syn
       ;; TODO: Maybe check if axiom and report that? Might be easy to confuse axiom and inductive.
       "target to inhabit an inductive type"
-      (syntax->datum #'e)
-      (syntax->datum (car (syntax-property (attribute e.type) 'origin))))
-     #:with D:reified-constant #'e-type.reified
-     #:do [(define inductive-name #'D.constr)
+      (syntax->datum #'target)
+      (syntax->datum (car (syntax-property (attribute target.type) 'origin))))
+     #:do [(define inductive-name #'type.constr)
            (define param-count (syntax-property inductive-name 'param-count))
-           (define indices (drop (attribute D.rands) param-count))
-           (define param-ls (take (attribute D.rands) param-count))
+           (define rand-ls (attribute type.rand-ls))
+           (define indices (drop rand-ls param-count))
+           (define param-ls (take rand-ls param-count))
            (define method-count (length (attribute method)))]
      #:with elim-name (syntax-property inductive-name 'elim-name)
-     #:with n:cur-typed-expr inductive-name
+     #:with n:cur-expr inductive-name
      #:do [(check-motive #'motive inductive-name param-ls #'n.type #'motive.type)]
      #:do [(for ([m (attribute method.reified)]
                  [c (syntax-property inductive-name 'constructor-ls)])
@@ -916,6 +909,7 @@
                                  (attribute constructor-count)
                                  method-count)
                          syn)
-     (⊢ (elim-name e.reified motive.reified method.reified ...) :
+     (⊢ (elim-name target.reified motive.reified method.reified ...) :
         ;; TODO: Need cur-reflect anytime there is computation in a type..?
-        #,(cur-reflect (cur-normalize (cur-app* #'motive.reified (append indices (list #'e.reified))))))]))
+        ;; TODO: append
+        #,(cur-reflect (cur-normalize (cur-app* #'motive.reified (append indices (list #'target.reified))))))]))

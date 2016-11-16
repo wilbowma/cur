@@ -148,8 +148,8 @@ z2
 #;(elim (s2 z2) (λ (x : Nat) Nat2)
       (z2))
 
-;; should fail with good error, does
-#;(elim (s2 z2) (λ (x : Nat2) (λ (y : Nat) (Type 0)))
+;; TODO: should fail with good error, doesn't
+(elim (s2 z2) (λ (x : Nat2) (λ (y : Nat) (Type 0)))
       (z2 (λ (x : Nat2) (λ (IH : Nat) IH))))
 
 ;; TODO: Should fail with good error, does ish
