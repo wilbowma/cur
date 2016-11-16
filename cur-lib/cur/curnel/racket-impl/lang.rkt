@@ -84,7 +84,18 @@
 ;;; ------------------------------------------------------------------------
 
 ;; Reified
+;; TODO: all "erased" things are really "reified"; their type annotations aren't erased, just turned
+;; into syntax properties.
 ;; ----------------------------------------------------------------
+
+;; All reified expressions have the syntax-property 'type.
+(begin-for-syntax
+  (define (reified-get-type e)
+    (syntax-property e 'type))
+
+  (define (reified-set-type e t)
+    (syntax-property e 'type t)))
+
 ; The run-time representation of univeres. (Type i), where i is a Nat.
 (struct Type (level) #:transparent)
 
@@ -110,9 +121,18 @@
     (pattern (#%plain-app (~var constr (constructor #'Type)) ~! (quote level-syn:nat))
              #:attr level (syntax->datum #'level-syn)))
 
+  ;; TODO: Pattern to abstract
+  (define (reify-universe syn i)
+    (reified-set-type (cur-local-expand (quasisyntax/loc syn (Type (quote i))))
+                      (reified-get-type syn)))
+
   (define-syntax-class reified-pi
     #:literals (#%plain-app #%plain-lambda Π)
     (pattern (#%plain-app (~var constr (constructor #'Π)) ~! type-ann (#%plain-lambda (name) body))))
+
+  (define (reify-pi syn x t e)
+    (reified-set-type (cur-local-expand (quasisyntax/loc syn (Π #,t (#%plain-lambda (#,x) #,e))))
+                      (reified-get-type syn)))
 
   (define-syntax-class reified-lambda
     #:literals (#%plain-lambda)
@@ -120,16 +140,29 @@
              ;; NB: Require type anotations on variables in erased syntax.
              #:attr type-ann (syntax-property #'name 'type)))
 
+  (define (reify-lambda syn x e)
+    (reified-set-type (quasisyntax/loc syn (#%plain-lambda (#,x) #,e))
+                      (reified-get-type syn)))
+
   (define-syntax-class reified-app
     #:literals (#%plain-app)
     (pattern (#%plain-app operator operand)))
+
+  (define (reify-app syn e . rest)
+    (reified-set-type
+     (for/fold ([app (quasisyntax/loc syn #,e)])
+               ([arg rest])
+       (quasisyntax/loc syn (#%plain-app #,app #,arg)))
+     (reified-get-type syn)))
 
   (define-syntax-class reified-elim
     #:literals (#%plain-app)
     (pattern (#%plain-app x:id discriminant motive methods ...)
              #:when (syntax-property #'x 'elim)))
 
-
+  (define (reify-elim syn x d m methods)
+    (reified-set-type (quasisyntax/loc syn (#%plain-app #,x #,d #,m #,@methods))
+                      (reified-get-type syn)))
 
   ;; Reification: turn a compile-time term into a run-time term.
   ;; This is done implicitly via macro expansion; each of the surface macros define the
@@ -251,17 +284,6 @@
     #:literals (cur-app)
     (pattern (cur-app operator operand)))
 
-  ;; TODO: This should go away; uses should be of reified-telescope
-  (define-syntax-class telescope
-    (pattern (cur-Π (x : t1) t2:telescope)
-             #:attr hole #'t2.hole
-             #:attr ts (cons #'t1 (attribute t2.ts))
-             #:attr xs (cons #'x (attribute t2.xs)))
-
-    (pattern hole:expr
-             #:attr ts '()
-             #:attr xs '()))
-
   ;; Reflection: turn a run-time term back into a compile-time term.
   ;; This is done explicitly when we need to pattern match.
   (define (cur-reflect e)
@@ -302,57 +324,41 @@
      ;; #:eq syn-eq? (subst #'z #'x (expand-syntax-once #'(#%plain-lambda (y) x))) #'(#%plain-lambda (y) z)
      #:eq syn-eq? (subst #'z #'x (expand-syntax-once #'(#%plain-lambda (x) x))) #'(#%plain-lambda (x) x)))
 
-  ;; TODO: eval should use reified forms, not typed forms. Otherwise we type-check forms that we can
-  ;; assume (know) are well-typed.
-  (define (cur-app* e args)
-    (if (null? args)
-        e
-        (cur-app* #`(cur-app #,e #,(car args)) (cdr args))))
 
   ;; TODO: Should this be parameterizable, to allow for different eval strategies if user wants?
-  (define (cur-eval e)
-    (syntax-parse e
-      [_:reified-universe e]
-      [_:id e]
+  (define (cur-eval syn)
+    (syntax-parse syn
+      [_:reified-universe syn]
+      [_:id syn]
       [e:reified-pi
-       (cur-local-expand
-        #`(cur-Π (e.name : #,(cur-eval #'e.type-ann)) #,(cur-eval #'e.body)))]
+       (reify-pi syn #'e.name (cur-eval #'e.type-ann) (cur-eval #'e.body))]
       [e:reified-app
        #:with a (cur-eval #'e.operand)
        (syntax-parse (cur-eval #'e.operator)
          [f:reified-lambda
           (cur-eval (subst #'a #'f.name #'f.body))]
          [e1-
-          (cur-local-expand
-           (quasisyntax/loc #'e.operator (cur-app e1- a)))])]
+          (reify-app syn #'e1- #'a)])]
       [e:reified-elim
        #:with discriminant #'e.discriminant
        #:declare discriminant reified-constant
        ;; TODO: Maybe recursive args should be a syntax property on the constructor
-       ;; TODO: Should avoid using get-type, but can't use cur-typed-expr since it's defined later
-       #:with (_ (_ : t)) (get-type (attribute discriminant.constr))
-       #:with (~var tel (reified-constructor-telescope
-                         (cur-local-expand
-                          (syntax-property (attribute discriminant.constr) 'constructors-inductive)))) #'t
-       ;; TODO: Recursion
-       ;; TODO: Why isn't this just normalize?
-       ;; TODO: Using reflected syntax is convenient, but causes redundant error checking. Don't do it.
+       #:do [(define recursive-args
+               (syntax-property (attribute discriminant.constr) 'recursive-arg-positions))]
+       ;; TODO: Performance hack: use unsafe version of list operators and such for internal matters
        (cur-eval
-        (cur-local-expand
-         ;; TODO: Performance hack: use unsafe version of list operators and such for internal matters
-         (cur-app* (list-ref (attribute e.methods) (attribute discriminant.constructor-index))
-                   (for/fold ([m-args (attribute discriminant.args)])
-                             ([arg (attribute discriminant.args)]
-                              [i (in-naturals)]
-                              [j (attribute tel.recursive-args)]
-                              ;; TODO: Change all these =s to eq?s
-                              #:when (= i j))
-                     ;; TODO: Badness 10000; append in a loop
-                     (append m-args (list #`(cur-elim #,arg e.motive (e.methods ...))))))))]
+        (apply reify-app syn (list-ref (attribute e.methods) (attribute discriminant.constructor-index))
+               (for/fold ([m-args (attribute discriminant.args)])
+                         ([arg (attribute discriminant.args)]
+                          [i (in-naturals)]
+                          [j recursive-args]
+                          ;; TODO: Change all these =s to eq?s
+                          #:when (= i j))
+                 ;; TODO: Badness 10000; append in a loop
+                 (append m-args (list (reify-elim syn #'e.x arg #'e.motive (attribute e.methods)))))))]
       [e:reified-lambda
-       (cur-local-expand
-        #`(cur-λ (e.name : #,(cur-eval #'e.type-ann)) #,(cur-eval #'e.body)))]
-      [_ (error 'cur-beta-iota-short "Something has gone horribly wrong: ~a" e)]))
+       (reify-lambda syn #'e.name (cur-eval #'e.body))]
+      [_ (error 'cur-eval "Something has gone horribly wrong: ~a" syn)]))
 
   (define (cur-normalize e)
     ;; TODO:
@@ -647,6 +653,14 @@
      ;; erased syntax has the right bindings due to how get-type handles bindings/renamings
      (⊢ (#%plain-lambda (#,(car (attribute e.name))) e.erased) : (cur-Π (#,(car (attribute e.name)) : t1.erased) e.type))]))
 
+(begin-for-syntax
+  ;; TODO: Maybe mulit-artiy functions would be a good thing. Always currying probably incurs a
+  ;; performance hit.
+  (define (cur-app* e args)
+    (if (null? args)
+        e
+        (cur-app* #`(cur-app #,e #,(car args)) (cdr args)))))
+
 (define-syntax (cur-app syn)
   (syntax-parse syn
     [(_ e1:cur-procedure (~var e2 (cur-expr-of-type #'e1.arg-type)))
@@ -714,7 +728,9 @@
    #:datum-literals (:)
    ;; TODO: Maybe that local expand should be elsewhere, e.g., cur-typed-constructor
    [(_ name (D) : (~var type (cur-typed-constructor-telescope (cur-local-expand #'D))))
-    #`(cur-axiom name : type)]))
+    #`(cur-axiom #,(syntax-properties
+                    #'name
+                    `((recursive-arg-positions . ,(attribute type.recursive-args)))) : type)]))
 
 (define-syntax (_cur-elim syn)
   (syntax-parse syn
