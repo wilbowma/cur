@@ -1,7 +1,7 @@
 #lang s-exp "lang.rkt"
 
 (require
- (only-in racket/base define-syntax)
+ (only-in racket/base define-syntax begin-for-syntax)
  (for-syntax racket/base)
  (only-in "lang.rkt"
           [#%app base-app]
@@ -33,6 +33,17 @@
      #'e]
     [(_ (x : t) (x_r : t_r) ... e)
      #'(base-λ (x : t) (λ (x_r : t_r) ... e))]))
+
+(begin-for-syntax
+  (define (nat->unary n)
+    (if (zero? n)
+        #`z
+        #`(s #,(nat->unary (sub1 n))))))
+
+(define-syntax (#%datum syn)
+  (syntax-case syn ()
+    [(_ . n)
+     (nat->unary (syntax->datum #'n))]))
 
 (define add1 s)
 
@@ -107,7 +118,7 @@
 (check-equal? (odd? (s z)) true)
 (check-equal? (odd? (s (s z))) false)
 (check-equal? (odd? (s (s (s z)))) true)
-;
-;(check-equal? 0 z)
-;(check-equal? 1 (s z))
-;(check-equal? 2 (s (s z)))
+
+(check-equal? 0 z)
+(check-equal? 1 (s z))
+(check-equal? 2 (s (s z)))
