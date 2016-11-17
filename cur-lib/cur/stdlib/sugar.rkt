@@ -1,5 +1,6 @@
 #lang s-exp "../main.rkt"
 (provide
+  Type
   ->
   lambda
   (rename-out
@@ -35,7 +36,8 @@
     [#%app real-app]
     [λ real-lambda]
     [Π real-Π]
-    [define real-define]))
+    [define real-define]
+    [Type real-Type]))
 
 (begin-for-syntax
   (define-syntax-class result-type
@@ -47,6 +49,11 @@
     (pattern
      type:expr
      #:attr name (format-id #'type "~a" (gensym 'anon-parameter)))))
+
+(define-syntax (Type syn)
+  (syntax-case syn ()
+    [(_ i) (quasisyntax/loc syn (real-Type i))]
+    [_ (quasisyntax/loc syn (real-Type 0))]))
 
 ;; A multi-arity function type; takes parameter declaration of either
 ;; a binding (name : type), or type whose name is generated.

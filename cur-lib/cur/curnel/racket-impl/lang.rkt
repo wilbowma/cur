@@ -36,7 +36,7 @@
   [cur-app #%app]
   [cur-axiom axiom]
   [cur-data data]
-  [cur-elim elim])
+  [depricated-cur-elim elim])
  ;; TODO: Don't export these by default; export in library or so
 ;; DYI syntax extension
   define-syntax
@@ -48,14 +48,31 @@
   (for-syntax
    (all-from-out syntax/parse)
    (all-from-out racket)
-   (all-from-out racket/syntax))
+   (all-from-out racket/syntax)
+   with-env
+   call-with-env
+   cur->datum
+   cur-expand
+   cur-type-infer
+   cur-type-check?
+   cur-constructors-for
+   cur-data-parameters
+   cur-normalize
+   cur-step
+   cur-equal?)
  ;; TODO: export all subforms?
  require only-in for-syntax
- provide
+ provide rename-out
  #%top
  ;; TODO: Need to not export datum, but prevents level annotations in type and param annotations in data
  #%datum
  #%module-begin)
+
+;; Backward compatible elimination syntax
+(define-syntax (depricated-cur-elim syn)
+  (syntax-case syn ()
+    [(_ _ motive (methods ...) target)
+     #`(cur-elim target motive (methods ...))]))
 
 (begin-for-syntax
   (define (env->ctx env)
@@ -72,39 +89,54 @@
                   ])
       (datum->syntax #f (map list names types))))
 
-  (define (with-env env syn)
-    (cur-reify/ctx syn (env->ctx env)))
+  (define current-env (make-parameter '()))
 
-  (define (cur-normalize syn #:local-env [env '()])
-    (cur-reflect
-     (cur-normalize (with-env env syn))))
+  (define (call-with-env env t)
+    (parameterize ([current-env env])
+      (t)))
 
-  (define (cur-step syn #:local-env [env '()])
+  (define-syntax-rule (with-env env e)
+    (call-with-env env (thunk e)))
+
+  (define (cur-reify/env syn)
+    (syntax-case (cur-reify/ctx syn (env->ctx (current-env))) ()
+      [(_ e) #'e]))
+
+  (define (cur-normalize syn #:local-env [env (current-env)])
+    (with-env env
+      (cur-reflect
+       (_cur-normalize (cur-reify/env syn)))))
+
+  (define (cur-step syn #:local-env [env (current-env)])
     (printf "Warning: cur-step is not yet supported.~n")
     (cur-normalize syn #:local-env env))
 
   ;; Are these two terms equivalent in type-systems internal equational reasoning?
-  (define (cur-equal? e1 e2 #:local-env [env '()])
-    ;; TODO: Performance: env->ctx gets recomputed
-    (cur-equal? (with-env env e1) (with-env env e2)))
+  (define (cur-equal? e1 e2 #:local-env [env (current-env)])
+    ;; TODO: recomputing ctx
+    (with-env env
+      (_cur-equal? (cur-reify/env e1) (cur-reify/env e2))))
 
-  (define (cur-type-infer syn #:local-env [env '()])
-    (with-handlers ([values (λ _ #f)])
-      (let ([t (get-type (with-env env syn))])
-        (cur-reflect t))))
+  (define (cur-type-infer syn #:local-env [env (current-env)])
+    (with-env env
+      (with-handlers ([values (λ _ #f)])
+        (let ([t (get-type (cur-reify/env syn))])
+          (cur-reflect t)))))
 
-  (define (cur-type-check? syn type #:local-env [env '()])
-    (cur-subtype? (get-type (with-env env syn)) (with-env env type)))
+  (define (cur-type-check? syn type #:local-env [env (current-env)])
+    ;; TODO: recomputing ctx
+    (with-env env
+      (cur-subtype? (get-type (cur-reify/env syn)) (cur-reify/env type))))
 
   ;; Given an identifiers representing an inductive type, return a sequence of the constructor names
   ;; (as identifiers) for the inductive type.
   (define (cur-constructors-for syn)
-    (syntax-property (cur-reify syn) 'constructor-ls))
+    (syntax-property (cur-reify/env syn) 'constructor-ls))
 
   ;; Given an identifier representing an inductive type, return the number of parameters in that
   ;; inductive, as a natural starting from the first argument to the inductive type.
   (define (cur-data-parameters syn)
-    (syntax-property (cur-reify syn) 'param-count))
+    (syntax-property (cur-reify/env syn) 'param-count))
 
   ;; Takes a Cur term syn and an arbitrary number of identifiers ls. The cur term is
   ;; expanded until expansion reaches a Curnel form, or one of the
@@ -117,4 +149,7 @@
        syn
        'expression
        (append (syntax-e #'(cur-type cur-λ cur-app cur-Π cur-data cur-elim))
-               ls))))
+               ls)))
+
+  (define (cur->datum syn)
+    (syntax->datum (cur-reflect (cur-reify/ctx syn)))))
