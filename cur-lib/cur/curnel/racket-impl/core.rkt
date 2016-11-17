@@ -627,8 +627,12 @@
     #`(begin
         (define-syntax #,name
           (make-rename-transformer
-           (set-type (quasisyntax/loc #'#,name #,y)
-                     (quasisyntax/loc #'#,name #,type))))
+           (syntax-property
+            (set-type (quasisyntax/loc #'#,name #,y)
+                      (quasisyntax/loc #'#,name #,type))
+            ;; NB: Defeats an optimization? performed by make-rename-transformer, but necessary to
+            ;; ensure type is exported on identifier.
+            'not-free-identifier=? #t)))
         (define #,y #,reified-term))))
 
 (define-syntax (cur-define syn)

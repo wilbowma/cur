@@ -85,8 +85,7 @@
                       [(~var e (cur-expr/ctx (datum->syntax #f (map list names types))))
                        (values
                         (cons (car p) (attribute e.name))
-                        (cons #'e.reified (types)))]))
-                  ])
+                        (cons #'e.reified types))]))])
       (datum->syntax #f (map list names types))))
 
   (define current-env (make-parameter '()))
