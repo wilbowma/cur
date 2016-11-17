@@ -701,7 +701,7 @@
     #`(cur-axiom #,(syntax-properties
                     #'name
                     `((recursive-index-ls . ,(attribute type.recursive-index-ls))
-                      (constructor-for . ,#'D))) : type)]))
+                      (constructors-inductive . ,#'D))) : type)]))
 
 (define-syntax (_cur-elim syn)
   (syntax-parse syn

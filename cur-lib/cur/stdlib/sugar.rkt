@@ -349,7 +349,8 @@
              #:attr names '()
              #:attr types '()))
 
-  (require (only-in racket/trace trace-define-syntax trace-define))
+  (require (only-in racket/trace trace-define))
+  (require (for-template (only-in racket/trace trace-define-syntax)))
   ;; TODO: Error checking
   (define (rename t ls)
     (define type (cur-expand t))
@@ -388,7 +389,7 @@
      (name:id (~datum :) type:expr)))
 
   (trace-define (is-constructor-for x name)
-    (ormap (curry free-identifier=? x) (cur-constructors-for name)))
+    (ormap (curry cur-equal? x) (cur-constructors-for name)))
 
   (define-syntax-class (match-prepattern D-expr)
     (pattern
@@ -446,7 +447,7 @@
                                type)))
        (cons (cons name type) d))
      #:attr decls
-     (map (lambda (x y) #`(#,(syntax-local-identifier-as-binding x) : #,y)) (attribute d.name) (attribute types))
+     (map (lambda (x y) #`(#,x : #,y)) (attribute d.name) (attribute types))
      #:attr names
      (attribute d.name)))
 
@@ -477,7 +478,7 @@
                      ;; Normalize at compile-time, for efficiency at run-time
                      [ih-type (cur-normalize #`(#,motive #,@(attribute type.indices) #,name-syn))])
                  (dict-set! ih-dict (syntax->datum name-syn) ih-name)
-                 (append decls (list #`(#,(syntax-local-identifier-as-binding ih-name) : #,ih-type))))
+                 (append decls (list #`(#,ih-name : #,ih-type))))
                decls)))
        )))
 
@@ -489,11 +490,12 @@
      (or maybe-return-type
          ;; Ignore errors when trying to infer this type; other attempt might succeed
          (with-handlers ([values (lambda _ #f)])
-           (cur-type-infer #:local-env (attribute p.local-env) #'b)))))
+           ;; TODO: all these reverse's are garbage; should keep track of the env in the right order
+           (cur-type-infer #:local-env (reverse (attribute p.local-env)) #'b)))))
 
   ;; TODO: Perhaps this should be part of the application macro. That could simply test the operator
   ;; against the current-definition-id, rather than walk over the syntax tree.
-  (define (replace-recursive-call body)
+  (trace-define (replace-recursive-call body)
     (syntax-parse (cur-expand body)
       #:literals (real-lambda real-Π real-app elim)
       #:datum-literals (:)
