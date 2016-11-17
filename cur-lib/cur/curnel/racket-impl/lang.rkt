@@ -72,9 +72,10 @@
 (define-syntax (depricated-cur-elim syn)
   (syntax-case syn ()
     [(_ _ motive (methods ...) target)
-     #`(cur-elim target motive (methods ...))]))
+     (quasisyntax/loc syn (cur-elim target motive (methods ...)))]))
 
 (begin-for-syntax
+  (require racket/trace)
   (define (env->ctx env)
     (let-values ([(names types)
                   (for/fold ([names '()]
@@ -147,7 +148,7 @@
     (local-expand
        syn
        'expression
-       (append (syntax-e #'(cur-type cur-λ cur-app cur-Π cur-data cur-elim))
+       (append (syntax-e #'(cur-type cur-λ cur-app cur-Π cur-data depricated-cur-elim))
                ls)))
 
   (define (cur->datum syn)

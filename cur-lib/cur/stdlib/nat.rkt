@@ -72,8 +72,8 @@
 (define (even? (n : Nat))
   (match n
     [z true]
-    [(s n)
-     (not (even? n))]))
+    [(s n-1)
+     (not (even? n-1))]))
 
 (define (odd? (n : Nat))
   (not (even? n)))

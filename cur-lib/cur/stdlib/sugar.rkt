@@ -442,7 +442,7 @@
                                type)))
        (dict-set d name itype))
      #:attr decls
-     (map (lambda (x y) #`(#,x : #,y)) (attribute d.name) (attribute types))
+     (map (lambda (x y) #`(#,(syntax-local-identifier-as-binding x) : #,y)) (attribute d.name) (attribute types))
      #:attr names
      (attribute d.name)))
 
@@ -469,11 +469,11 @@
          (begin
            (define/syntax-parse type:inductive-type-declaration (cur-expand type-syn))
            (if (cur-equal? (attribute type.inductive-name) (attribute D.inductive-name))
-               (let ([ih-name (quasisyntax/loc src #,(format-id name-syn "ih-~a" name-syn))]
+               (let ([ih-name (format-id name-syn "ih-~a" name-syn)]
                      ;; Normalize at compile-time, for efficiency at run-time
                      [ih-type (cur-normalize #`(#,motive #,@(attribute type.indices) #,name-syn))])
                  (dict-set! ih-dict (syntax->datum name-syn) ih-name)
-                 (append decls (list #`(#,ih-name : #,ih-type))))
+                 (append decls (list #`(#,(syntax-local-identifier-as-binding ih-name) : #,ih-type))))
                decls)))
        )))
 
@@ -524,11 +524,15 @@
        (quasisyntax/loc #'p
          #,(if (null? (attribute p.decls))
                b
-               #`(lambda #,@(attribute p.decls) #,b)))))))
+               ;; TODO XXX HACK: Backwards compatibility hack; recur should be use syntax-paramterize
+               (cur-expand #`(lambda #,@(attribute p.decls) #,b))))))))
+
+(require (only-in racket/trace trace-define-syntax))
 (define-syntax (recur syn)
   (syntax-case syn ()
     [(_ id)
-     (dict-ref
+     ;; TODO XXX HACK: Backwards compatibility hack; recur should be use syntax-paramterize
+     (datum->syntax #'id (syntax->datum (dict-ref
       ih-dict
       (syntax->datum #'id)
       (lambda ()
@@ -539,7 +543,7 @@
           "Cannot recur on ~a. Ether not inside a match or ~a is not an inductive argument."
           (syntax->datum #'id)
           (syntax->datum #'id))
-         syn)))]))
+         syn)))))]))
 
 (define-syntax (match syn)
   (syntax-parse syn
