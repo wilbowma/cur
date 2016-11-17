@@ -283,10 +283,42 @@
 ;;; Intensional equality
 ;;; ------------------------------------------------------------------------
 (begin-for-syntax
+#| TODO:
+  Observed substitution bug in cur-normalize. Changed bound-identifier=? to free-identifier=?, which
+  seems to have solve it ...
+  > (cur-normalize
+   '(#%plain-app
+     (#%plain-lambda
+      (A13413101341475)
+      (#%app
+       Π2
+       A13413101341475
+       (#%plain-lambda
+        (anon-parameter134130713413141341479)
+        (#%app
+         Π2
+         (#%plain-app make-List1341258 A13413101341475)
+         (#%plain-lambda
+          (anon-parameter134130813413211341486)
+          (#%plain-app make-List1341258 A13413101341475))))))
+     A1341360))
+  < '(#%app
+    Π2
+    A1341360
+    (#%plain-lambda
+     (anon-parameter134130713413141341479)
+     (#%app
+      Π2
+      (#%plain-app make-List1341258 A13413101341475)
+      (#%plain-lambda
+       (anon-parameter134130813413211341486)
+       (#%plain-app make-List1341258 A13413101341475)))))
+  |#
   (define (subst v x e)
     (syntax-parse e
       [y:id
-       #:when (bound-identifier=? e x)
+       ;; TODO: BAD BAD BAD BAD BAD; need to be bound-identifier, but...
+       #:when (free-identifier=? e x)
        v]
       [(e ...)
        #`(#,@(map (lambda (e) (subst v x e)) (attribute e)))]
@@ -338,6 +370,7 @@
        (reify-lambda syn #'e.name (cur-eval #'e.body))]
       [_ (error 'cur-eval "Something has gone horribly wrong: ~a" syn)]))
 
+  
   (define (cur-normalize e)
     ;; TODO: eta-expand! or, build into equality
     (cur-eval (cur-reify e)))
@@ -420,7 +453,7 @@
         ;; list from growing large?
         (let ([t1 (car t)])
           (let loop ([t (cdr t)])
-            (let ([t2 (and (pair? t) (cadr t))])
+            (let ([t2 (and (pair? t) (car t))])
               (when t2
                 ;; TODO: Subtypes?
                 (unless (cur-equal? t1 t2)
@@ -667,7 +700,8 @@
    [(_ name (D) : (~var type (cur-constructor-telescope #'D)))
     #`(cur-axiom #,(syntax-properties
                     #'name
-                    `((recursive-index-ls . ,(attribute type.recursive-index-ls)))) : type)]))
+                    `((recursive-index-ls . ,(attribute type.recursive-index-ls))
+                      (constructor-for . ,#'D))) : type)]))
 
 (define-syntax (_cur-elim syn)
   (syntax-parse syn

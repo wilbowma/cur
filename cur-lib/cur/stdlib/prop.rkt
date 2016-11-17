@@ -41,6 +41,7 @@
 (define pf:and-is-symmetric
   (lambda (P : Type) (Q : Type) (ab : (And P Q))
           (match ab
+            #:return (And P Q)
             [(conj (x : P) (y : Q))
              (conj/i y x)])))
 

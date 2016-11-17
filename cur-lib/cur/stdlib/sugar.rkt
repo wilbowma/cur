@@ -349,6 +349,7 @@
              #:attr names '()
              #:attr types '()))
 
+  (require (only-in racket/trace trace-define-syntax trace-define))
   ;; TODO: Error checking
   (define (rename t ls)
     (define type (cur-expand t))
@@ -357,10 +358,12 @@
       #:datum-literals (:)
       [(real-Π (x:id : t:expr) e:expr)
        #`(real-Π (#,(car ls) : t)
-                 #,(with-env
+                 #,(rename
+                    (with-env
                      `((,(car ls) . ,#'t))
                      (cur-normalize
-                      #`((lambda (x : t) #,(rename #'e (cdr ls))) #,(car ls)))))]
+                      #`((lambda (x : t) e) #,(car ls))))
+                    (cdr ls)))]
       [e #'e]))
 
   (define (instantiate t ls)
@@ -370,7 +373,9 @@
       #:datum-literals (:)
       [(real-Π (x:id : t:expr) e:expr)
        (if (not (null? ls))
-           (cur-normalize #`((λ (x : t) #,(instantiate #'e (cdr ls))) #,(car ls)))
+           (instantiate
+               (cur-normalize #`((λ (x : t) e) #,(car ls)))
+               (cdr ls))
            type)]
       [e #'e]))
 
@@ -382,7 +387,7 @@
     (pattern
      (name:id (~datum :) type:expr)))
 
-  (define (is-constructor-for x name)
+  (trace-define (is-constructor-for x name)
     (ormap (curry free-identifier=? x) (cur-constructors-for name)))
 
   (define-syntax-class (match-prepattern D-expr)
@@ -423,16 +428,15 @@
 
      #:attr constr #'x
      #:attr types
-     (syntax-parse (rename (instantiate (cur-type-infer #'x) (attribute D.params))
-                           (attribute d.name))
+     (syntax-parse (instantiate (cur-type-infer #'x) (attribute D.params))
        [t:telescope (attribute t.types)])
      #:attr local-env
-     (for/fold ([d (make-immutable-hash)])
+     (for/fold ([d `()])
                ([name (attribute d.name)]
                 [type (attribute d.type)]
                 [itype (attribute types)])
        (when type
-         (unless (cur-equal? type itype)
+         (unless (cur-equal? type itype #:local-env (reverse d))
            (raise-syntax-error 'match
                                (format
                                 "Type annotation ~a did not match inferred type ~a"
@@ -440,7 +444,7 @@
                                 (syntax->datum itype))
                                #'x
                                type)))
-       (dict-set d name itype))
+       (cons (cons name type) d))
      #:attr decls
      (map (lambda (x y) #`(#,(syntax-local-identifier-as-binding x) : #,y)) (attribute d.name) (attribute types))
      #:attr names
@@ -461,11 +465,11 @@
                 ;; NB: Non-hygenic
                 )
        ;; TODO: Need decls->env
-       (with-env (map (lambda (x) (syntax-parse x
+       (with-env (reverse (map (lambda (x) (syntax-parse x
                                     #:datum-literals (:)
                                     [(x : t)
                                      `(,#'x . ,#'t)]))
-                      decls)
+                      decls))
          (begin
            (define/syntax-parse type:inductive-type-declaration (cur-expand type-syn))
            (if (cur-equal? (attribute type.inductive-name) (attribute D.inductive-name))
@@ -515,19 +519,17 @@
      #:attr constr (attribute p.constr)
      #:attr method
      (let ([b (with-env
-                (map (lambda (x)
+                (reverse (map (lambda (x)
                        (syntax-parse x
                          #:datum-literals (:)
                          [(x : t) `(,#'x . ,#'t)]))
-                     (attribute p.decls))
+                     (attribute p.decls)))
                 (replace-recursive-call #'b))])
        (quasisyntax/loc #'p
          #,(if (null? (attribute p.decls))
                b
-               ;; TODO XXX HACK: Backwards compatibility hack; recur should be use syntax-paramterize
-               (cur-expand #`(lambda #,@(attribute p.decls) #,b))))))))
+               #`(lambda #,@(attribute p.decls) #,b)))))))
 
-(require (only-in racket/trace trace-define-syntax))
 (define-syntax (recur syn)
   (syntax-case syn ()
     [(_ id)
