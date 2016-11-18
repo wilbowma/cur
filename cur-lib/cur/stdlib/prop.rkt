@@ -31,6 +31,7 @@
 (define-syntax (conj/i syn)
   (syntax-case syn ()
     [(_ a b)
+     ;; TODO: This should fail if cur-type-infer fails; I think cur-type-infer interface must have changed
      (let ([a-type (cur-type-infer #'a)]
            [b-type (cur-type-infer #'b)])
        #`(conj #,a-type #,b-type a b))]))
