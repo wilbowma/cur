@@ -1,7 +1,5 @@
 #lang s-exp "../main.rkt"
 (require "sugar.rkt")
-;; TODO: Handle multiple provide forms properly
-;; TODO: Handle (all-defined-out) properly
 (provide
   True T
   thm:anything-implies-true
@@ -72,15 +70,12 @@
 
 (define proof:A-or-A
   (lambda (A : Type) (c : (Or A A))
-    ;; TODO: What should the motive be?
     (elim Or (lambda (c : (Or A A)) A)
           ((lambda (a : A) a)
            (lambda (b : A) b))
           c)))
 
-;; TODO: This doesn't work anymore since identifiers are no longer automatically inlined. Need some
-;; kind of eval when doing equality between types with identifiers
-;(:: proof:A-or-A thm:A-or-A)
+(:: proof:A-or-A thm:A-or-A)
 
 (data == : 1 (forall (A : Type) (x : A) (-> A Type))
   (refl : (forall (A : Type) (x : A) (== A x x))))

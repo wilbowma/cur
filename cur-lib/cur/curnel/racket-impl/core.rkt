@@ -22,6 +22,8 @@
   (for-syntax
    cur-eval
    cur-normalize
+   ;; TODO: shouldn't be exported separately, but as some kind of parameter
+   cur-delta-reduce
    cur-equal?
    cur-subtype?
    cur-reflect
@@ -94,7 +96,7 @@
     (syntax-property e 'type))
 
   (define (reified-set-type e t)
-    (syntax-property e 'type t))
+    (syntax-property e 'type t #t))
 
   (define (reified-copy-type e syn)
     (reified-set-type e (reified-get-type syn))))
@@ -365,19 +367,46 @@
                                   ;; TODO: Performance: memq in a loop
                                   #:when (memq i recursive-index-ls))
                          (cons (reify-elim syn #'e.elim arg #'e.motive (attribute e.method-ls)) m-args)))))]
+      [e:reified-elim
+       (reify-elim syn #'e.elim (cur-eval #'e.target) (cur-eval #'e.motive) (map cur-eval (attribute e.method-ls)))]
       [e:reified-lambda
        (reify-lambda syn #'e.name (cur-eval #'e.body))]
-      [_ (error 'cur-eval "Something has gone horribly wrong: ~a" syn)]))
+      [_ (error 'cur-eval "Something has gone horribly wrong: ~a" (syntax->datum syn))]))
 
-  
   (define (cur-normalize e)
     ;; TODO: eta-expand! or, build into equality
     (cur-eval (cur-reify e)))
 
+  ;; TODO: Need as option to cur-normalize
+  ;; TODO: Need generic fold over reified term
+  (define (cur-delta-reduce syn)
+    (syntax-parse syn
+      [_:reified-universe syn]
+      [_:id
+       #:attr def (syntax-property syn 'definition)
+       #:when (attribute def)
+       (cur-normalize (syntax-local-introduce (attribute def)))]
+      [_:id
+       #:when (not (syntax-property syn 'definition))
+       syn]
+      [e:reified-pi
+       (reify-pi syn #'e.name (cur-delta-reduce #'e.ann) (cur-delta-reduce #'e.result))]
+      [e:reified-app
+       (reify-app syn (cur-delta-reduce #'e.rator) (cur-delta-reduce #'e.rand))]
+      [e:reified-elim
+       (reify-elim syn #'e.elim (cur-delta-reduce #'e.target) (cur-delta-reduce #'e.motive)
+                   (map cur-delta-reduce (attribute e.method-ls)))]
+      [e:reified-lambda
+       (reify-lambda syn #'e.name (cur-delta-reduce #'e.body))]
+      [_ (error 'cur-delta-reduce "Something has gone horribly wrong: ~a" syn)]))
+
   ;; When are two Cur terms intensionally equal? When they normalize the α-equivalent reified syntax.
   (define (cur-equal? t1 t2)
-    (syntax-parse #`(#,(cur-normalize t1) #,(cur-normalize t2))
+                ;; TODO: Performance: Okay this is stupidly inefficient
+    (syntax-parse #`(#,(cur-normalize (cur-delta-reduce (cur-normalize t1))) #,(cur-normalize (cur-delta-reduce (cur-normalize t2))))
       [(x:id y:id)
+;       (printf "x binding: ~a~n" (identifier-binding #'x))
+;       (printf "y binding: ~a~n" (identifier-binding #'y))
        (free-identifier=? #'x #'y)]
       [(A:reified-universe B:reified-universe)
        (= (attribute A.level) (attribute B.level))]
@@ -397,13 +426,15 @@
       [_ #f]))
 
   (define (cur-subtype? t1 t2)
-    (syntax-parse #`(#,(cur-normalize t1) #,(cur-normalize t2))
+    ;; TODO: Performance
+    (syntax-parse #`(#,(cur-normalize (cur-delta-reduce (cur-normalize t1))) #,(cur-normalize (cur-delta-reduce (cur-normalize t2))))
       [(A:reified-universe B:reified-universe)
        (<= (attribute A.level) (attribute B.level))]
       [(e1:reified-pi e2:reified-pi)
        (and (cur-equal? #'e1.ann #'e2.ann)
             (cur-subtype? #'e1.result (subst #'e1.name #'e2.name #'e2.result)))]
       [(e1 e2)
+       ;; TODO: results in extra calls to cur-normalize and cur-delta-reduce
        (cur-equal? #'e1 #'e2)])))
 
 ;;; Nothing before here should be able to error. Things after here might, since they are dealing with
@@ -443,7 +474,7 @@
     (for/list ([_ (in-range n)]) (fresh x)))
 
   (define (set-type e t)
-    (syntax-property e 'type (syntax-local-introduce t)))
+    (syntax-property e 'type (syntax-local-introduce t) #t))
 
   (define (merge-type-props syn t)
     (if (pair? t)
@@ -655,7 +686,7 @@
         #,(cur-reflect (subst #'e2.reified #'e1.name #'e1.result)))]))
 
 (begin-for-syntax
-  (define (define-typed-identifier name type reified-term (y (fresh name)))
+  (define (define-typed-identifier name type reified-term (y (format-id name "~a" (fresh name) #:props name)))
     #`(begin
         (define #,y #,reified-term)
         (define-syntax #,name
@@ -665,14 +696,17 @@
                       (quasisyntax/loc #'#,name #,type))
             ;; NB: Defeats an optimization? performed by make-rename-transformer, but necessary to
             ;; ensure type is exported on identifier.
-            'not-free-identifier=? #t)))
-        (provide #,y))))
+            'not-free-identifier=? #t #t)))
+        ;; TODO: Do I need to provide this?
+        #;(provide #,y))))
 
 (define-syntax (cur-define syn)
   (syntax-parse syn
     #:datum-literals (:)
     [(_:top-level-id name:id body:cur-expr)
-     (define-typed-identifier #'name #'body.type #'body.reified)]))
+     ;; NB: Store definition to get δ reduction
+     ;; TODO: Should reified or original syntax?
+     (define-typed-identifier (syntax-property #'name 'definition (syntax-local-introduce #'body.reified) #t) #'body.type #'body.reified)]))
 
 (define-syntax (cur-axiom syn)
   (syntax-parse syn
@@ -692,7 +726,7 @@
 (define-for-syntax (syntax-properties e als)
   (for/fold ([e e])
             ([pair als])
-    (syntax-property e (car pair) (cdr pair))))
+    (syntax-property e (car pair) (cdr pair) #t)))
 
 ;; TODO: Strict positivity checking
 (define-syntax (_cur-constructor syn)
@@ -756,7 +790,7 @@
     #:datum-literals (:)
     [(_:top-level-id name:id : p:nat type:cur-inductive-telescope (c-name:id : c-type) ...)
      #:do [(define constructor-count (length (attribute c-name)))
-           (define elim-name (syntax-property (format-id syn "~a-elim" #'name) 'elim #t))
+           (define elim-name (syntax-property (format-id syn "~a-elim" #'name) 'elim #t #t))
            (define param-count (syntax->datum #'p))
            (define index-ls (build-list constructor-count values))]
      #:with (a-name ...) (map (λ (n i)
@@ -882,7 +916,6 @@
          (raise-syntax-error
           'core-type-error
           (format "Expected argument ~a (0 indexed) to have type ~a, but found type ~a."
-                  ;; NB: un-adjust parameters
                   i
                   (syntax->datum (last (syntax-property #'e1.ann 'origin)))
                   (syntax->datum (last (syntax-property #'e2.ann 'origin))))

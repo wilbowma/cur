@@ -7,7 +7,6 @@
  cur/stdlib/maybe
  cur/stdlib/list)
 
-(require (only-in racket void))
 (check-equal?
  nil
  nil)

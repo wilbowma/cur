@@ -36,6 +36,7 @@
   [cur-app #%app]
   [cur-axiom axiom]
   [cur-data data]
+  [cur-void void]
   [depricated-cur-elim elim])
  begin
  ;; TODO: Don't export these by default; export in library or so
@@ -75,6 +76,9 @@
     [(_ _ motive (methods ...) target)
      (quasisyntax/loc syn (cur-elim target motive (methods ...)))]))
 
+(define-syntax-rule (cur-void)
+  (#%plain-app void))
+
 (begin-for-syntax
   (require racket/trace)
   (define (env->ctx env)
@@ -106,7 +110,8 @@
   (define (cur-normalize syn #:local-env [env (current-env)])
     (with-env env
       (cur-reflect
-       (_cur-normalize (cur-reify/env syn)))))
+       ;; TODO: BADNESS: repeating this pattern everywhere
+       (_cur-normalize (cur-delta-reduce (_cur-normalize (cur-reify/env syn)))))))
 
   (define (cur-step syn #:local-env [env (current-env)])
     (printf "Warning: cur-step is not yet supported.~n")

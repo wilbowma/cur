@@ -115,12 +115,13 @@
      (quasisyntax/loc syn
        (#%app (#%app e1 e2) e3 ...))]))
 
-(define-syntax define-type
-  (syntax-rules ()
+;; NB: No syntax rules if you want to traverse syntax
+(define-syntax (define-type syn)
+  (syntax-case syn ()
     [(_ (name (a : t) ...) body)
-     (define name (-> (a : t) ... body))]
+     #`(define name (-> (a : t) ... body))]
     [(_ name type)
-     (define name type)]))
+     #`(define name type)]))
 
 ;; Cooperates with define to allow Haskell-esque type annotations
 #| TODO NB:
@@ -641,7 +642,6 @@
 
 ;; Normally type checking will only happen if a term is actually used/appears at top-level.
 ;; This forces a term to be checked against a particular type.
-(require (only-in racket void))
 (define-syntax (:: syn)
   (syntax-case syn ()
     [(_ pf t)
