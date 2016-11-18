@@ -69,5 +69,5 @@
                     "Invalid implementation of typeclass."
                     #'class
                     #'body))
-                #`(define #,(format-id syn "~a-~a" name #'param)
+                #`(define #,(format-id syn "~a-~a" name (cur-expand #'param))
                     #,body))))]))
