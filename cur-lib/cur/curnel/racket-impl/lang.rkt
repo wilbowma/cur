@@ -131,7 +131,7 @@
   ;; Given an identifiers representing an inductive type, return a sequence of the constructor names
   ;; (as identifiers) for the inductive type.
   (define (cur-constructors-for syn)
-    (syntax-property (cur-reify/env syn) 'constructor-ls))
+    (dict-ref constructor-dict (cur-reify/env syn)))
 
   ;; Given an identifier representing an inductive type, return the number of parameters in that
   ;; inductive, as a natural starting from the first argument to the inductive type.

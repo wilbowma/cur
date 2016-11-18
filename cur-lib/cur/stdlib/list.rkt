@@ -22,6 +22,7 @@
      (lambda (n : Nat)
        (match n
          #:in Nat
+         #:return (Maybe A)
          [z (some A a)]
          [(s (n-1 : Nat))
           ((recur rest) n-1)]))]))

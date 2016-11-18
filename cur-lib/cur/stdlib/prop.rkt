@@ -41,9 +41,9 @@
 (define pf:and-is-symmetric
   (lambda (P : Type) (Q : Type) (ab : (And P Q))
           (match ab
-            #:return (And P Q)
+            #:return (And Q P)
             [(conj (x : P) (y : Q))
-             (conj/i y x)])))
+             (conj Q P y x)])))
 
 (define thm:proj1
   (forall (A : Type) (B : Type) (c : (And A B)) A))

@@ -658,6 +658,7 @@
 (begin-for-syntax
   (define (define-typed-identifier name type reified-term (y (fresh name)))
     #`(begin
+        (define #,y #,reified-term)
         (define-syntax #,name
           (make-rename-transformer
            (syntax-property
@@ -665,8 +666,7 @@
                       (quasisyntax/loc #'#,name #,type))
             ;; NB: Defeats an optimization? performed by make-rename-transformer, but necessary to
             ;; ensure type is exported on identifier.
-            'not-free-identifier=? #t)))
-        (define #,y #,reified-term))))
+            'not-free-identifier=? #t))))))
 
 (define-syntax (cur-define syn)
   (syntax-parse syn
@@ -700,8 +700,7 @@
    [(_ name (D) : (~var type (cur-constructor-telescope #'D)))
     #`(cur-axiom #,(syntax-properties
                     #'name
-                    `((recursive-index-ls . ,(attribute type.recursive-index-ls))
-                      (constructors-inductive . ,#'D))) : type)]))
+                    `((recursive-index-ls . ,(attribute type.recursive-index-ls)))) : type)]))
 
 (define-syntax (_cur-elim syn)
   (syntax-parse syn
@@ -742,6 +741,11 @@
 
 ;; NB: By generating a sequence of macros, we reuse the elaborators environment management to thread
 ;; alpha-renamed identifiers implicitly, rather than dealing with it ourselves via cur-reify/ctx
+(begin-for-syntax
+  (provide constructor-dict elim-dict)
+  (require racket/dict)
+  (define constructor-dict (make-custom-hash free-identifier=?))
+  (define elim-dict (make-custom-hash free-identifier=?)))
 (define-syntax (cur-data syn)
   (syntax-parse syn
     #:datum-literals (:)
@@ -760,14 +764,21 @@
      #:with inductive-name (syntax-properties #'name
                              `((inductive? . #t)
                                (constant? . #t)
-                               (constructor-ls . ,(attribute a-name))
+                               ;; TODO: can't do this since a-name isn't bound yet, doesn't  get bound
+                               ;; in the syntax parameter.
+                               ;; resorting to global state...
+                               ;(constructor-ls . ,(attribute a-name))
                                (constructor-count . ,constructor-count)
                                (param-count . ,param-count)
-                               (elim-name . ,elim-name)))
+                               #;(elim-name . ,elim-name)))
      #`(begin
          (cur-axiom inductive-name : type)
          (_cur-constructor a-name (inductive-name) : c-type) ...
-         (_cur-elim #,elim-name inductive-name c-name ...))]))
+         (begin-for-syntax
+           (dict-set! constructor-dict (cur-reify #'inductive-name) (list #'a-name ...)))
+         (_cur-elim #,elim-name inductive-name c-name ...)
+         (begin-for-syntax
+           (dict-set! elim-dict (cur-reify #'inductive-name) #'#,elim-name)))]))
 
 ;; TODO: Rewrite and abstract this code omg
 (begin-for-syntax
@@ -892,11 +903,11 @@
            (define index-ls (drop rand-ls param-count))
            (define param-ls (take rand-ls param-count))
            (define method-count (length (attribute method)))]
-     #:with elim-name (syntax-property inductive-name 'elim-name)
+     #:with elim-name (dict-ref elim-dict inductive-name)
      #:with n:cur-expr inductive-name
      #:do [(check-motive #'motive inductive-name param-ls #'n.type #'motive.type)]
      #:do [(for ([m (attribute method.reified)]
-                 [c (syntax-property inductive-name 'constructor-ls)])
+                 [c (dict-ref constructor-dict inductive-name) #;(syntax-property inductive-name 'constructor-ls)])
              (check-method syn inductive-name param-count param-ls #'motive.reified m c))]
      #:attr constructor-count (syntax-property inductive-name 'constructor-count)
      #:fail-unless (= (attribute constructor-count) method-count)

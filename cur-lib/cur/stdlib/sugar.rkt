@@ -388,7 +388,7 @@
     (pattern
      (name:id (~datum :) type:expr)))
 
-  (trace-define (is-constructor-for x name)
+  (define (is-constructor-for x name)
     (ormap (curry cur-equal? x) (cur-constructors-for name)))
 
   (define-syntax-class (match-prepattern D-expr)
@@ -495,7 +495,7 @@
 
   ;; TODO: Perhaps this should be part of the application macro. That could simply test the operator
   ;; against the current-definition-id, rather than walk over the syntax tree.
-  (trace-define (replace-recursive-call body)
+  (define (replace-recursive-call body)
     (syntax-parse (cur-expand body)
       #:literals (real-lambda real-Π real-app elim)
       #:datum-literals (:)
