@@ -147,7 +147,7 @@
      ;; NB: Unhygenic; need to reuse Racket's identifiers, and make this type annotation a syntax property
      (syntax-parse (cur-expand #'type)
       #:datum-literals (:)
-      [(real-Π (x:id : type) body) (void)]
+      [(real-Π (x:id : type) body) #'(void)]
       [_
        (raise-syntax-error
         ':
@@ -166,6 +166,8 @@
 ;(define-syntax-parameter current-definition-id #f)
 
 ;; TODO: Allow inferring types as in above TODOs for lambda, forall
+(require (for-syntax (only-in racket/trace trace-define)))
+(require (only-in racket/trace trace-define-syntax))
 (define-syntax (define syn)
   (syntax-parse syn
     #:datum-literals (:)
@@ -349,8 +351,6 @@
              #:attr names '()
              #:attr types '()))
 
-  (require (only-in racket/trace trace-define))
-  (require (for-template (only-in racket/trace trace-define-syntax)))
   ;; TODO: Error checking
   (define (rename t ls)
     (define type (cur-expand t))
@@ -500,19 +500,24 @@
       #:literals (real-lambda real-Π real-app elim)
       #:datum-literals (:)
       [(real-lambda (x : t) e)
-       #`(real-lambda (x : #,(replace-recursive-call #'t)) #,(replace-recursive-call #'e))]
+       (quasisyntax/loc this-syntax
+         (real-lambda (x : #,(replace-recursive-call #'t)) #,(replace-recursive-call #'e)))]
       [(real-Π (x : t) e)
-       #`(real-Π (x : #,(replace-recursive-call #'t)) #,(replace-recursive-call #'e))]
+       (quasisyntax/loc this-syntax
+         (real-Π (x : #,(replace-recursive-call #'t)) #,(replace-recursive-call #'e)))]
       [(real-app e:id a:expr)
        ;; TODO: Need proper identifiers to do the right thing
        #:when (and (current-definition-id) (eq? (syntax-e #'e) (syntax-e (current-definition-id))))
 ;       #:when (bound-identifier=? #'e (syntax-parameter-value #'current-definition-id))
-       #`(lambda #,@(cdr (current-definition-param-decl)) (recur #,(replace-recursive-call #'a)))]
+       (quasisyntax/loc this-syntax
+         (lambda #,@(cdr (current-definition-param-decl)) (recur #,(replace-recursive-call #'a))))]
       [(real-app e:expr e2:expr)
-       #`(#,(replace-recursive-call #'e) #,(replace-recursive-call #'e2))]
+       (quasisyntax/loc this-syntax
+         (#,(replace-recursive-call #'e) #,(replace-recursive-call #'e2)))]
       [(elim e:expr ...)
-       #`(elim #,@(map replace-recursive-call (attribute e)))]
-      [x:id #'x]))
+       (quasisyntax/loc this-syntax
+         (elim #,@(map replace-recursive-call (attribute e))))]
+      [x:id this-syntax]))
 
   (define-syntax-class (match-clause D motive)
     (pattern
@@ -674,7 +679,6 @@
     [(_ term)
      (begin
        (printf "\"~a\" has type \"~a\"~n" (syntax->datum #'term) (syntax->datum (cur-type-infer #'term)))
-       ;; Void is undocumented and a hack, but sort of works
        #'(void))]))
 
 (begin-for-syntax

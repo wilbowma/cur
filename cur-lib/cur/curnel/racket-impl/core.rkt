@@ -361,10 +361,9 @@
                (append (attribute target.rand-ls)
                        (for/fold ([m-args '()])
                                  ([arg (attribute target.rand-ls)]
-                                  [i (in-naturals)]
-                                  [j recursive-index-ls]
-                                  ;; TODO: Performance: unsafe-fx=
-                                  #:when (= i j))
+                                  [i (in-naturals (syntax-property (attribute target.constr) 'param-count))]
+                                  ;; TODO: Performance: memq in a loop
+                                  #:when (memq i recursive-index-ls))
                          (cons (reify-elim syn #'e.elim arg #'e.motive (attribute e.method-ls)) m-args)))))]
       [e:reified-lambda
        (reify-lambda syn #'e.name (cur-eval #'e.body))]
@@ -647,7 +646,7 @@
   (define (cur-app* e args)
     (for/fold ([e e])
               ([arg args])
-      #`(cur-app #,e #,(car args)))))
+      #`(cur-app #,e #,arg))))
 
 (define-syntax (cur-app syn)
   (syntax-parse syn
@@ -666,7 +665,8 @@
                       (quasisyntax/loc #'#,name #,type))
             ;; NB: Defeats an optimization? performed by make-rename-transformer, but necessary to
             ;; ensure type is exported on identifier.
-            'not-free-identifier=? #t))))))
+            'not-free-identifier=? #t)))
+        (provide #,y))))
 
 (define-syntax (cur-define syn)
   (syntax-parse syn
@@ -701,8 +701,10 @@
    [(_ name (D) : (~var type (cur-constructor-telescope #'D)))
     #`(cur-axiom #,(syntax-properties
                     #'name
+                    ;; TODO: Maybe adjust for parameters; all uses seem to do this now.
                     `((recursive-index-ls . ,(attribute type.recursive-index-ls)))) : type)]))
 
+(require (for-template (only-in racket/trace trace-define trace-let trace)))
 (define-syntax (_cur-elim syn)
   (syntax-parse syn
    [(_ elim-name D c:cur-expr ...)
@@ -728,16 +730,18 @@
                    #`[(#,pred? e)
                       ;; TODO: Performance/code size: this procedure should be a (phase 0) function.
                       (let* ([args (drop (struct->list e) 'p)]
-                             [recursive-index-ls
+                             [recursive-args
+                              ;; TODO: Do we not have constructor argument count?
                               (for/list ([x args]
-                                         [i (in-naturals)]
-                                         [j '#,rargs]
-                                         #:when (eq? i j))
+                                         [i (in-naturals 'p)]
+                                         ;; TODO: Performance: memq, in a loop
+                                         ;; TODO: Performance/code size: Duplicating rargs in code
+                                         #:when (memq i '#,rargs))
                                 (loop x))])
                         ;; NB: the method is curried, so ...
                         ;; TODO: Performance: attempt to uncurry elim methods?
                         (for/fold ([app #,m])
-                                  ([a (append args recursive-index-ls)])
+                                  ([a (append args recursive-args)])
                             (app a)))])))))]))
 
 ;; NB: By generating a sequence of macros, we reuse the elaborators environment management to thread
@@ -822,19 +826,28 @@
          (loop #`(#%plain-app #,Dp e2.name) (subst #'e2.name #'e1.name #'e1.result) #'e2.result)]
         [_ (error 'check-motive (format "Something terrible has happened: ~a" this-syntax))])))
 
-  (define (check-method syn name n params motive method constr)
+  (define (check-method syn name param-count params motive method constr)
     (define/syntax-parse m:cur-expr method)
     (define/syntax-parse c:cur-expr (cur-app* constr params))
     (define/syntax-parse (~var c-tele (reified-constructor-telescope name)) #'c.type)
     (define rargs (attribute c-tele.recursive-index-ls))
+;    (printf "Constr type      ~a~n" (syntax->datum (get-type (cur-reify constr))))
+;    (printf "Constr           ~a~n" (syntax->datum constr))
+;    (printf "Parameters       ~a~n" (map syntax->datum params))
+;    (printf "Constrw/ param   ~a~n" (syntax->datum (cur-app* constr params)))
+;    (printf "Constructor type ~a~n" (syntax->datum #'c.type))
+;    (printf "Method type      ~a~n" (syntax->datum #'m.type))
+;    (printf "Recursive indices ~a~n" rargs)
     (let loop ([c-type #'c.type]
                [m-type #'m.type]
+               ;; NB: Since c.type and m.type are param adjusted already, index is not.
                [i 0]
                [target #'c.reified]
                [recursive '()])
       (syntax-parse #`(#,c-type #,m-type)
         [(e1:reified-constant ~! e:reified-telescope)
-         #:do [(define expected-return-type (cur-normalize (cur-app* motive `(,@(drop (attribute e1.rand-ls) n) ,target))))]
+         ;; TODO: No recurisve in expected return type?
+         #:do [(define expected-return-type (cur-normalize (cur-app* motive `(,@(drop (attribute e1.rand-ls) param-count) ,target))))]
          #:do [(define return-type
                  (for/fold ([r #'e])
                            ([t (attribute e.ann-ls)]
@@ -844,7 +857,7 @@
                      [e:reified-constant
                       ;; TODO: append in a loop
                       #:with r-:reified-pi r
-                      #:do [(define ih (cur-normalize (cur-app* motive (append (drop (attribute e.rand-ls) n)
+                      #:do [(define ih (cur-normalize (cur-app* motive (append (drop (attribute e.rand-ls) param-count)
                                                                                (list (car rarg))))))]
                       #:fail-unless (cur-equal? t ih)
                       (raise-syntax-error
@@ -868,11 +881,15 @@
          #:fail-unless (cur-equal? #'e1.ann #'e2.ann)
          (raise-syntax-error
           'core-type-error
-          (format "Expected ~ath method argument to have type ~a, but found type ~a"
+          (format "Expected argument ~a (0 indexed) to have type ~a, but found type ~a."
+                  ;; NB: un-adjust parameters
                   i
-                  #'e1.ann
-                  #'e2.ann)
-          syn)
+                  (syntax->datum (last (syntax-property #'e1.ann 'origin)))
+                  (syntax->datum (last (syntax-property #'e2.ann 'origin))))
+          method
+          #'e1.name
+          (list syn)
+          )
          (loop #'e1.result (subst #'e1.name #'e2.name #'e2.result) (add1 i) #`(cur-app #,target e1.name)
                (if (memq i rargs)
                    (cons (cons #'e1.name #'e1.ann) recursive)

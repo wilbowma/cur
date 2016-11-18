@@ -60,6 +60,7 @@
 (define pf:proj2
   (lambda (A : Type) (B : Type) (c : (And A B))
           (match c
+            #:return B
             [(conj (a : A) (b : B)) b])))
 
 (data Or : 2 (forall (A : Type) (B : Type) Type)
@@ -77,7 +78,9 @@
            (lambda (b : A) b))
           c)))
 
-(:: proof:A-or-A thm:A-or-A)
+;; TODO: This doesn't work anymore since identifiers are no longer automatically inlined. Need some
+;; kind of eval when doing equality between types with identifiers
+;(:: proof:A-or-A thm:A-or-A)
 
 (data == : 1 (forall (A : Type) (x : A) (-> A Type))
   (refl : (forall (A : Type) (x : A) (== A x x))))

@@ -37,6 +37,7 @@
   [cur-axiom axiom]
   [cur-data data]
   [depricated-cur-elim elim])
+ begin
  ;; TODO: Don't export these by default; export in library or so
 ;; DYI syntax extension
   define-syntax
@@ -62,7 +63,7 @@
    cur-equal?)
  ;; TODO: export all subforms?
  require only-in for-syntax
- provide rename-out
+ provide rename-out all-defined-out all-from-out
  #%top
  ;; TODO: Need to not export datum, but prevents level annotations in type and param annotations in data
  #%datum
@@ -152,4 +153,4 @@
                ls)))
 
   (define (cur->datum syn)
-    (syntax->datum (cur-reflect (cur-reify/ctx syn)))))
+    (syntax->datum (cur-reflect (cur-reify/env syn)))))

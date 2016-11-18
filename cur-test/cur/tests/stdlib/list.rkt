@@ -47,3 +47,6 @@
 (check-equal?
  ((list-ref Bool (cons Bool true (nil Bool))) z)
  (some Bool true))
+
+;; TODO: Produces bad error message
+; (((list-ref Bool (cons Bool true (nil Bool))) z) z)
