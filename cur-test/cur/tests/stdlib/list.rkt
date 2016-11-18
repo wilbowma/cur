@@ -7,6 +7,7 @@
  cur/stdlib/maybe
  cur/stdlib/list)
 
+(require (only-in racket void))
 (check-equal?
  nil
  nil)
@@ -18,7 +19,7 @@
 (check-equal?
  (void)
  (:: (lambda (A : Type) (a : A)
-             (ih-a : (-> Nat (Maybe A))) 
+             (ih-a : (-> Nat (Maybe A)))
              (n : Nat)
              (match n
                [z (some A a)]

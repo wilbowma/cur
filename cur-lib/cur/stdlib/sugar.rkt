@@ -597,7 +597,7 @@
                  (dict-ref
                   (map cons constrs constr-index)
                   (car x)))))
-       
+
        (map cdr sorted))
 
      (quasisyntax/loc syn
@@ -636,6 +636,7 @@
 
 ;; Normally type checking will only happen if a term is actually used/appears at top-level.
 ;; This forces a term to be checked against a particular type.
+(require (only-in racket void))
 (define-syntax (:: syn)
   (syntax-case syn ()
     [(_ pf t)

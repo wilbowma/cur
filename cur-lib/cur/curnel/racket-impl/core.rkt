@@ -686,7 +686,8 @@
      #:with make-axiom (format-id name "make-~a" #'axiom #:props name)
      #`(begin
          (struct axiom #,(n-fresh (attribute type.length)) #:transparent #:reflection-name '#,name)
-         #,(define-typed-identifier name #'type.reified #'((curry axiom)) #'make-axiom))]))
+         ;; TODO: Cannot store reified types as syntax-properties; else namespace errors ensue
+         #,(define-typed-identifier name #'type #'((curry axiom)) #'make-axiom))]))
 
 (define-for-syntax (syntax-properties e als)
   (for/fold ([e e])

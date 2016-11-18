@@ -8,6 +8,7 @@
 
 (define-syntax-rule (if t s f)
   (match t
+    #:in Bool
     [true s]
     [false f]))
 
