@@ -33,13 +33,6 @@
   (define (coq-lift-top-level str)
     (coq-defns (format "~a~a~n" (coq-defns) str)))
 
-  (define (constructor-args syn)
-    (syntax-parse (cur-type-infer syn)
-      #:datum-literals (Π :)
-      [(Π (x:id : t) body)
-       (cons #'x (constructor-args #'body))]
-      [_ null]))
-
   (define (sanitize-id str)
     (let ([replace-by `((: _) (- _))])
       (for/fold ([str str])

@@ -40,7 +40,7 @@
    (has-type g (stlc-val->stlc-term stlc-false) stlc-boolty)]
 
   [(g : (List stlc-type)) (x : Nat) (t : stlc-type)
-   (== (Maybe stlc-type) (run (lookup-env g x)) (some stlc-type t))
+   (== (Maybe stlc-type) (lookup-env g x) (some stlc-type t))
    ------------------------ T-Var
    (has-type g (Nat->stlc-term x) t)]
 
@@ -55,12 +55,12 @@
                (t1 : stlc-type) (t2 : stlc-type)
                (t : stlc-type)
    (has-type g e1 (stlc-* t1 t2))
-   (has-type (run (extend-env (extend-env g t1) t2)) e2 t)
+   (has-type (extend-env (extend-env g t1) t2) e2 t)
    ---------------------- T-Let
    (has-type g (stlc-let e1 e2) t)]
 
   [(g : (List stlc-type)) (e1 : stlc-term) (t1 : stlc-type) (t2 : stlc-type)
-   (has-type (run (extend-env g t1)) e1 t2)
+   (has-type (extend-env g t1) e1 t2)
    ---------------------- T-Fun
    (has-type g (stlc-lambda t1 e1) (stlc--> t1 t2))]
 

@@ -99,7 +99,8 @@
   (define current-env (make-parameter '()))
 
   (define (call-with-env env t)
-    (parameterize ([current-env env])
+    ;; TODO: backwards-compatible, but perhaps very slow/memory intensive
+    (parameterize ([current-env (append env (current-env))])
       (t)))
 
   (define-syntax-rule (with-env env e)
@@ -109,18 +110,18 @@
     (syntax-case (cur-reify/ctx syn (env->ctx (current-env))) ()
       [(_ e) #'e]))
 
-  (define (cur-normalize syn #:local-env [env (current-env)])
+  (define (cur-normalize syn #:local-env [env '()])
     (with-env env
       (cur-reflect
        ;; TODO: BADNESS: repeating this pattern everywhere
        (_cur-normalize (cur-delta-reduce (_cur-normalize (cur-reify/env syn)))))))
 
-  (define (cur-step syn #:local-env [env (current-env)])
+  (define (cur-step syn #:local-env [env '()])
     (printf "Warning: cur-step is not yet supported.~n")
     (cur-normalize syn #:local-env env))
 
   ;; Are these two terms equivalent in type-systems internal equational reasoning?
-  (define (cur-equal? e1 e2 #:local-env [env (current-env)])
+  (define (cur-equal? e1 e2 #:local-env [env '()])
     ;; TODO: recomputing ctx
     ;; TODO: It's worse than that; because cur-reify with rename the environment differently on each
     ;; go, if e1 and e2 are the same identifier, they will not longer be equal...
@@ -138,13 +139,13 @@
   (define (cur-rename new old term)
     (subst new old term))
 
-  (define (cur-type-infer syn #:local-env [env (current-env)])
+  (define (cur-type-infer syn #:local-env [env '()])
     (with-env env
       (with-handlers ([values (λ _ #f)])
         (let ([t (get-type (cur-reify/env syn))])
           (cur-reflect t)))))
 
-  (define (cur-type-check? syn type #:local-env [env (current-env)])
+  (define (cur-type-check? syn type #:local-env [env '()])
     ;; TODO: recomputing ctx
     (with-env env
       (cur-subtype? (get-type (cur-reify/env syn)) (cur-reify/env type))))
