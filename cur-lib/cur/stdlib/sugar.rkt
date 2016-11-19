@@ -65,7 +65,7 @@
      (foldr (lambda (src name type r)
               (quasisyntax/loc src
                 (real-Π (#,name : #,type) #,r)))
-            #'result
+            (syntax-local-introduce #'result)
             (attribute d)
             (attribute d.name)
             (attribute d.type))]))

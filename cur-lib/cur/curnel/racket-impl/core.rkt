@@ -54,6 +54,14 @@
 ;; NB: have to use erased terms in types because the erased terms may have renamed
 ;; variables, e.g., from the expansion that happens in get-type.
 
+;;; Some gross mutual stores that seem necessary due to limitations in syntax-properties
+(begin-for-syntax
+  (provide constructor-dict elim-dict)
+  (require racket/dict)
+  (define constructor-dict (make-custom-hash free-identifier=?))
+  (define elim-dict (make-custom-hash free-identifier=?))
+  (define def-dict (make-custom-hash free-identifier=?)))
+
 ;;; Testing
 ;;; ------------------------------------------------------------------------
 (begin-for-syntax
@@ -386,11 +394,12 @@
     (syntax-parse syn
       [_:reified-universe syn]
       [_:id
-       #:attr def (syntax-property syn 'definition)
+       #:attr def (dict-ref def-dict syn #f)
        #:when (attribute def)
-       (cur-normalize (syntax-local-introduce (attribute def)))]
+       (printf "~a ~n" (attribute def))
+       (cur-normalize (quasisyntax/loc syn def))]
       [_:id
-       #:when (not (syntax-property syn 'definition))
+       #:when (not (dict-ref def-dict syn #f))
        syn]
       [e:reified-pi
        (reify-pi syn #'e.name (cur-delta-reduce #'e.ann) (cur-delta-reduce #'e.result))]
@@ -709,8 +718,9 @@
     #:datum-literals (:)
     [(_:top-level-id name:id body:cur-expr)
      ;; NB: Store definition to get δ reduction
-     ;; TODO: Should reified or original syntax?
-     (define-typed-identifier (syntax-property #'name 'definition (syntax-local-introduce #'body.reified) #t) #'body.type #'body.reified)]))
+     #:do [(define y (format-id #'name "~a" (fresh #'name) #:props #'name))]
+     (dict-set! def-dict y #'body.reified)
+     (define-typed-identifier #'name #'body.type #'body.reified y)]))
 
 (define-syntax (cur-axiom syn)
   (syntax-parse syn
@@ -784,11 +794,7 @@
 
 ;; NB: By generating a sequence of macros, we reuse the elaborators environment management to thread
 ;; alpha-renamed identifiers implicitly, rather than dealing with it ourselves via cur-reify/ctx
-(begin-for-syntax
-  (provide constructor-dict elim-dict)
-  (require racket/dict)
-  (define constructor-dict (make-custom-hash free-identifier=?))
-  (define elim-dict (make-custom-hash free-identifier=?)))
+
 (define-syntax (cur-data syn)
   (syntax-parse syn
     #:datum-literals (:)
