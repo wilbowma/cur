@@ -87,12 +87,13 @@
                              [types '()])
                             ([p (reverse env)])
                     (syntax-parse (cdr p)
-                      ;; TODO: cur-expr/ctx should take a list, not a syntax object
-                      [(~var e (cur-expr/ctx (datum->syntax #f (map list names types))))
+                      [(~var e (cur-expr/ctx (map cons names types)))
                        (values
-                        (cons (car p) (attribute e.name))
+                        ;; TODO: what if the names get .. renamed? but such names should have a type
+                        ;; attached so maybe okay
+                        (cons (car p) names #;(attribute e.name))
                         (cons #'e.reified types))]))])
-      (datum->syntax #f (map list names types))))
+      (map cons names types)))
 
   (define current-env (make-parameter '()))
 
@@ -122,6 +123,7 @@
     ;; TODO: recomputing ctx
     (with-env env
       (_cur-equal? (cur-reify/env e1) (cur-reify/env e2))))
+  (trace cur-equal?)
 
   (define (cur-type-infer syn #:local-env [env (current-env)])
     (with-env env

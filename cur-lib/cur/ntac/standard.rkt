@@ -33,8 +33,8 @@
 (define-for-syntax (display-focus tz)
   (match (nttz-focus tz)
     [(ntt-hole _ goal)
-     (for ([(k v) (in-hash (nttz-context tz))])
-       (printf "~a : ~a\n" k (syntax->datum v)))
+     (for ([(k v) (in-dict (nttz-context tz))])
+       (printf "~a : ~a\n" (syntax->datum k) (syntax->datum v)))
      (printf "--------------------------------\n")
      (printf "~a\n\n" (syntax->datum goal))]
     [(ntt-done _ _ _)
@@ -52,7 +52,7 @@
                       (λ (in)
                         (syntax-case in ()
                           [(_ . cmd)
-                           (esc (ntac-syntax #'cmd))]))])
+                           (esc #'cmd)]))])
         (read-eval-print-loop))))
   (define next-ptz
     (with-handlers ([exn:fail:ntac:goal?
@@ -76,22 +76,22 @@
     (t ptz)))
 
 ;; define-tactical
+(require (for-syntax racket/trace))
 (define-for-syntax ((intro [name #f]) ctxt pt)
   ;; TODO: ntt-match(-define) to hide this extra argument. Maybe also add ntt- to constructors in pattern?
   (match-define (ntt-hole _ goal) pt)
   (ntac-match goal
    [(forall (x:id : P:expr) body:expr)
     (let ()
-      ;; NB: syntax is not hashable.
-      (define the-name (syntax->datum (or name #'x)))
+      (define the-name (or name #'x))
       (make-ntt-apply
        goal
        (list
         (make-ntt-context
-         (λ (old-ctxt) (hash-set old-ctxt the-name #'P))
+         (λ (old-ctxt) (dict-set old-ctxt the-name #'P))
          (make-ntt-hole #'body)))
-       (λ (body-pf)
-         #`(λ (#,the-name : P) #,body-pf))))]))
+       (lambda (body-pf)
+         #`(λ (#,(syntax-local-identifier-as-binding the-name) : P) #,body-pf))))]))
 
 ;; A pattern emerges:
 ;; tacticals must take additional arguments as ntac-syntax
@@ -103,7 +103,7 @@
       [_
        #`(fill (intro))]
       [(_ syn)
-       #`(fill (intro (ntac-syntax #'syn)))])))
+       #`(fill (intro #'syn))])))
 
 (define-for-syntax (intros names)
   (for/fold ([t nop])
@@ -113,15 +113,15 @@
   (define-syntax (by-intros syn)
     (syntax-case syn ()
       [(_ id ...)
-       #`(intros (list (ntac-syntax #'id) ...))])))
+       #`(intros (list #'id ...))])))
 
 ;; define-tactical
 (define-for-syntax ((exact a) ctxt pt)
   (match-define (ntt-hole _ goal) pt)
   (define env
-    (for/list ([(k v) (in-hash ctxt)])
-      (cons (datum->syntax #f k) v)))
-  (unless (cur-type-check? a goal #:local-env env)
+    (for/list ([(k v) (in-dict ctxt)])
+      (cons k v)))
+  (unless (cur-type-check? a goal #:local-env (reverse env))
     (raise-ntac-goal-exception "~v does not have type ~v" a goal))
   (make-ntt-exact goal a))
 
@@ -129,19 +129,19 @@
   (define-syntax (by-exact syn)
     (syntax-case syn ()
       [(_ syn)
-       #`(fill (exact (ntac-syntax #'syn)))])))
+       #`(fill (exact #'syn))])))
 
-;;define-tactical 
+;;define-tactical
 (define-for-syntax (assumption ctxt pt)
   (match-define (ntt-hole _ goal) pt)
   (define env
-    (for/list ([(k v) (in-hash ctxt)])
-      (cons (datum->syntax #f k) v)))
+    (for/list ([(k v) (in-dict ctxt)])
+      (cons k v)))
   ;; TODO: Actually, need to collect (k v) as we search for a matching assumption, otherwise we might
   ;; break dependency. Hopefully we have some invariants that prevent that from actually happening.
   (define ntt
-    (for/or ([(k v) (in-hash ctxt)]
-           #:when (cur-equal? v goal #:local-env env))
+    (for/or ([(k v) (in-dict ctxt)]
+           #:when (cur-equal? v goal #:local-env (reverse env)))
       (make-ntt-exact goal k)))
   (unless ntt
     (raise-ntac-goal-exception "could not find matching assumption for goal ~a" goal))

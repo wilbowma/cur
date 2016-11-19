@@ -20,6 +20,7 @@
   cur-elim
 
   (for-syntax
+   fresh
    cur-eval
    cur-normalize
    ;; TODO: shouldn't be exported separately, but as some kind of parameter
@@ -514,12 +515,13 @@
   ;; where zv ... are the alpha-renamed bindings from ctx in e and t
   ;;       e is the well-typed compiled Cur term
   ;; NB: ctx must only contained well-typed types.
-  ;; TODO: env, not ctx
   (define (cur-reify/ctx syn ctx)
-    (syntax-parse ctx
+    (syntax-parse syn
       #:datum-literals (:)
       #:literals (#%plain-lambda let-values)
-      [([x:id t] ...)
+      [_
+       #:with (x ...) (map car ctx)
+       #:with (t ...) (map cdr ctx)
        #:with (internal-name ...) (map fresh (attribute x))
        #:with (#%plain-lambda (name ...) (let-values () (let-values () e)))
        (cur-reify
@@ -660,14 +662,14 @@
 (define-syntax (cur-Π syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx #`([x t1.reified]))))
+    [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
      #:declare e.type cur-kind
      (⊢ (Π t1.reified (#%plain-lambda (#,(car (attribute e.name))) e.reified)) : e.type)]))
 
 (define-syntax (cur-λ syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx #`([x t1.reified]))))
+    [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
      #:declare e.type cur-kind
      (⊢ (#%plain-lambda (#,(car (attribute e.name))) e.reified) :
         (cur-Π (#,(car (attribute e.name)) : t1.reified) e.type))]))
