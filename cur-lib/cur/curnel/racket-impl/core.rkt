@@ -269,20 +269,20 @@
 (begin-for-syntax
   ;; Reflection: turn a run-time term back into a compile-time term.
   ;; This is done explicitly when we need to pattern match.
-  (define (cur-reflect e)
-    (syntax-parse e
-      [x:id e]
+  (define (cur-reflect syn)
+    (syntax-parse syn
+      [x:id syn]
       [e:reified-universe
-       #`(cur-type e.level-syn)]
+       (quasisyntax/loc syn (cur-type e.level-syn))]
       [e:reified-pi
-       #`(cur-Π (e.name : #,(cur-reflect #'e.ann)) #,(cur-reflect #'e.result))]
+       (quasisyntax/loc syn (cur-Π (e.name : #,(cur-reflect #'e.ann)) #,(cur-reflect #'e.result)))]
       [e:reified-app
-       #`(cur-app #,(cur-reflect #'e.rator) #,(cur-reflect #'e.rand))]
+       (quasisyntax/loc syn (cur-app #,(cur-reflect #'e.rator) #,(cur-reflect #'e.rand)))]
       [e:reified-lambda
-       #`(cur-λ (e.name : #,(cur-reflect #'e.ann)) #,(cur-reflect #'e.body))]
+       (quasisyntax/loc syn (cur-λ (e.name : #,(cur-reflect #'e.ann)) #,(cur-reflect #'e.body)))]
       [e:reified-elim
-       #`(cur-elim #,(cur-reflect #'e.target) #,(cur-reflect #'e.motive)
-                   #,(map cur-reflect (attribute e.method-ls)))])))
+       (quasisyntax/loc syn (cur-elim #,(cur-reflect #'e.target) #,(cur-reflect #'e.motive)
+                   #,(map cur-reflect (attribute e.method-ls))))])))
 
 ;;; Intensional equality
 ;;; ------------------------------------------------------------------------
