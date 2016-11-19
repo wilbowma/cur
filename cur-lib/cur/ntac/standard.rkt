@@ -77,6 +77,10 @@
 
 ;; define-tactical
 (require (for-syntax racket/trace))
+(define-for-syntax (ctxt->env ctxt)
+  (reverse (for/list ([(k v) (in-dict ctxt)])
+             (cons k v))))
+
 (define-for-syntax ((intro [name #f]) ctxt pt)
   ;; TODO: ntt-match(-define) to hide this extra argument. Maybe also add ntt- to constructors in pattern?
   (match-define (ntt-hole _ goal) pt)
@@ -88,10 +92,11 @@
        goal
        (list
         (make-ntt-context
-         (λ (old-ctxt) (dict-set old-ctxt the-name #'P))
-         (make-ntt-hole #'body)))
+         (lambda (old-ctxt)
+           (dict-set old-ctxt the-name #'P))
+         (make-ntt-hole (cur-rename the-name #'x #'body))))
        (lambda (body-pf)
-         #`(λ (#,(syntax-local-identifier-as-binding the-name) : P) #,body-pf))))]))
+         (quasisyntax/loc goal (λ (#,the-name : P) #,body-pf)))))]))
 
 ;; A pattern emerges:
 ;; tacticals must take additional arguments as ntac-syntax
@@ -100,10 +105,10 @@
 (begin-for-syntax
   (define-syntax (by-intro syn)
     (syntax-case syn ()
-      [_
-       #`(fill (intro))]
       [(_ syn)
-       #`(fill (intro #'syn))])))
+       #`(fill (intro #'syn))]
+      [_
+       #`(fill (intro))])))
 
 (define-for-syntax (intros names)
   (for/fold ([t nop])
@@ -118,10 +123,7 @@
 ;; define-tactical
 (define-for-syntax ((exact a) ctxt pt)
   (match-define (ntt-hole _ goal) pt)
-  (define env
-    (for/list ([(k v) (in-dict ctxt)])
-      (cons k v)))
-  (unless (cur-type-check? a goal #:local-env (reverse env))
+  (unless (cur-type-check? a goal #:local-env (ctxt->env ctxt))
     (raise-ntac-goal-exception "~v does not have type ~v" a goal))
   (make-ntt-exact goal a))
 
@@ -134,14 +136,11 @@
 ;;define-tactical
 (define-for-syntax (assumption ctxt pt)
   (match-define (ntt-hole _ goal) pt)
-  (define env
-    (for/list ([(k v) (in-dict ctxt)])
-      (cons k v)))
   ;; TODO: Actually, need to collect (k v) as we search for a matching assumption, otherwise we might
   ;; break dependency. Hopefully we have some invariants that prevent that from actually happening.
   (define ntt
     (for/or ([(k v) (in-dict ctxt)]
-           #:when (cur-equal? v goal #:local-env (reverse env)))
+           #:when (cur-equal? v goal #:local-env (ctxt->env ctxt)))
       (make-ntt-exact goal k)))
   (unless ntt
     (raise-ntac-goal-exception "could not find matching assumption for goal ~a" goal))

@@ -23,6 +23,7 @@
    fresh
    cur-eval
    cur-normalize
+   subst
    ;; TODO: shouldn't be exported separately, but as some kind of parameter
    cur-delta-reduce
    cur-equal?
@@ -71,11 +72,11 @@
         (syntax->datum x)
         x))
 
-  (current-trace-print-args
+  #;(current-trace-print-args
    (let ([ctpa (current-trace-print-args)])
      (lambda (s l kw l2 n)
        (ctpa s (map maybe-syntax->datum l) kw l2 n))))
-  (current-trace-print-results
+  #;(current-trace-print-results
    (let ([ctpr (current-trace-print-results)])
      (lambda (s l n)
        (ctpr s (map maybe-syntax->datum l) n))))
@@ -317,15 +318,16 @@
        (anon-parameter134130813413211341486)
        (#%plain-app make-List1341258 A13413101341475)))))
   |#
-  (define (subst v x e)
-    (syntax-parse e
+  (define (subst v x syn)
+    (syntax-parse syn
       [y:id
        ;; TODO: BAD BAD BAD BAD BAD; need to be bound-identifier, but...
-       #:when (free-identifier=? e x)
-       v]
+       ;; or maybe not
+       #:when (free-identifier=? syn x)
+       (quasisyntax/loc syn #,v)]
       [(e ...)
-       #`(#,@(map (lambda (e) (subst v x e)) (attribute e)))]
-      [_ e]))
+       (datum->syntax syn (map (lambda (e) (subst v x e)) (attribute e)))]
+      [_ syn]))
   (module+ test
     (define syn-eq? (lambda (x y) (equal? (syntax->datum x) (syntax->datum y))))
     (chk
@@ -406,8 +408,8 @@
                 ;; TODO: Performance: Okay this is stupidly inefficient
     (syntax-parse #`(#,(cur-normalize (cur-delta-reduce (cur-normalize t1))) #,(cur-normalize (cur-delta-reduce (cur-normalize t2))))
       [(x:id y:id)
-;       (printf "x binding: ~a~n" (identifier-binding #'x))
-;       (printf "y binding: ~a~n" (identifier-binding #'y))
+;       (printf "~a binding: ~a~n" #'x (identifier-binding #'x))
+;       (printf "~a binding: ~a~n" #'y (identifier-binding #'y))
        (free-identifier=? #'x #'y)]
       [(A:reified-universe B:reified-universe)
        (= (attribute A.level) (attribute B.level))]

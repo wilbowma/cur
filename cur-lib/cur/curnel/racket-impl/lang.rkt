@@ -60,6 +60,7 @@
    cur-constructors-for
    cur-data-parameters
    cur-normalize
+   cur-rename
    cur-step
    cur-equal?)
  ;; TODO: export all subforms?
@@ -121,9 +122,21 @@
   ;; Are these two terms equivalent in type-systems internal equational reasoning?
   (define (cur-equal? e1 e2 #:local-env [env (current-env)])
     ;; TODO: recomputing ctx
-    (with-env env
-      (_cur-equal? (cur-reify/env e1) (cur-reify/env e2))))
-  (trace cur-equal?)
+    ;; TODO: It's worse than that; because cur-reify with rename the environment differently on each
+    ;; go, if e1 and e2 are the same identifier, they will not longer be equal...
+    (or
+     ;; TODO: A hack to deal with the previous TODO, as a short term solution
+     (and
+      (identifier? e1)
+      (identifier? e2)
+      (free-identifier=? e1 e2)
+          (cur-type-infer e1 #:local-env env)
+          (cur-type-infer e2 #:local-env env))
+     (with-env env
+      (_cur-equal? (cur-reify/env e1) (cur-reify/env e2)))))
+
+  (define (cur-rename new old term)
+    (subst new old term))
 
   (define (cur-type-infer syn #:local-env [env (current-env)])
     (with-env env
