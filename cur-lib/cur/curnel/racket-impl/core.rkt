@@ -531,6 +531,13 @@
 
   (define get-type (compose cur-normalize cur-reify pre-get-type))
 
+  (define-syntax-class in-let-values #:attributes (body)
+    #:literals (let-values)
+    (pattern (let-values () e:in-let-values)
+             #:attr body #'e.body)
+
+    (pattern body))
+
   ;; When reifying a term in an extended context, the names may be alpha-converted.
   ;; cur-reify/ctx returns both the reified term and the alpha-converted names.
   ;; #`((zv ...) e)
@@ -551,7 +558,9 @@
                    [t (attribute t)])
                #;(printf "~a reflects to ~a~n" in (dict-ref id-reflect-dict (syntax-local-introduce n) n))
                (dict-set! id-reflect-dict in (dict-ref id-reflect-dict n (set-type n t))))]
-       #:with (#%plain-lambda (name ...) (let-values () (let-values () e)))
+       ;; TODO: syntax-parameter support added this hack
+       ;; NB: consume arbitrary number of let-values.
+       #:with (#%plain-lambda (name ...) e:in-let-values)
        (cur-reify
         #`(lambda (#,@(attribute internal-name))
             (let-syntax ([x (make-rename-transformer #'internal-name)] ...)
@@ -559,8 +568,8 @@
        #:with (#%plain-lambda (tname ...) type)
        (cur-reify
         #`(lambda (#,@(map syntax-local-identifier-as-binding (attribute name)))
-            #,(pre-get-type #'e)))
-       #`((name ...) (tname ...) e : #,(syntax-local-introduce #'type))]))
+            #,(pre-get-type #'e.body)))
+       #`((name ...) (tname ...) e.body : #,(syntax-local-introduce #'type))]))
 
   ;; Type checking via syntax classes
 
