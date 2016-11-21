@@ -390,7 +390,7 @@
        (reify-elim syn #'e.elim (cur-eval #'e.target) (cur-eval #'e.motive) (map cur-eval (attribute e.method-ls)))]
       [e:reified-lambda
        (reify-lambda syn #'e.name (cur-eval #'e.body))]
-      [_ (error 'cur-eval "Something has gone horribly wrong: ~a" (syntax->datum syn))]))
+      [_ (raise-syntax-error 'cur-eval (format "Something has gone horribly wrong: ~a" (syntax->datum syn)) syn)]))
 
   (define (cur-normalize e)
     ;; TODO: eta-expand! or, build into equality
@@ -697,7 +697,7 @@
 (define-syntax (cur-type syn)
   (syntax-parse syn
     [(_ i:nat)
-     (⊢ (Type i) : (cur-type #,(add1 (syntax->datum #'i))))]))
+     (⊢ (Type 'i) : (cur-type #,(add1 (syntax->datum #'i))))]))
 
 (define-syntax (cur-Π syn)
   (syntax-parse syn

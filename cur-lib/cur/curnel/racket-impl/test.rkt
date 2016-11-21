@@ -124,36 +124,36 @@ s
 z2
 
 ;; should fail with good error, does
-#;(elim z (λ (x : Nat) Nat)
+#;(new-elim z (λ (x : Nat) Nat)
       (z (λ (n : Nat) n)))
 
 ;; TODO: Should fail with type error, doesn't
-(elim z2 (λ (x : Nat2) Nat2)
+(new-elim z2 (λ (x : Nat2) Nat2)
       (z2 (λ (n : Nat2) n)))
 
 #;(require (only-in racket displayln [#%app unsafe-racket-apply]))
 #;(unsafe-racket-apply displayln "mark")
-(elim (s2 z2) (λ (x : Nat2) Nat2)
+(new-elim (s2 z2) (λ (x : Nat2) Nat2)
       ((s2 z2) (λ (n : Nat2) (λ (IH : Nat2) (s2 IH)))))
 
 ;; should fail with good error, does
-#;(elim (s2 z2) Nat2
+#;(new-elim (s2 z2) Nat2
       (z2 (λ (n : Nat2) n)))
 
 ;; should fail with good error, does
-#;(elim (s2 z2) (λ (x : Nat2) Nat2)
+#;(new-elim (s2 z2) (λ (x : Nat2) Nat2)
       (z2))
 
 ;; TODO: should fail with good error, doish. needs resugaring/syntax->datum
-#;(elim (s2 z2) (λ (x : Nat) Nat2)
+#;(new-elim (s2 z2) (λ (x : Nat) Nat2)
       (z2))
 
 ;; Should fail with good error, does
-#;(elim (s2 z2) (λ (x : Nat2) (λ (y : Nat) (Type 0)))
+#;(new-elim (s2 z2) (λ (x : Nat2) (λ (y : Nat) (Type 0)))
       (z2 (λ (x : Nat2) (λ (IH : Nat) IH))))
 
 ;; TODO: Should fail with good error, does ish
-#;(elim (s2 z2) (λ (x : Nat2) Nat)
+#;(new-elim (s2 z2) (λ (x : Nat2) Nat)
       (z2 (λ (x : Nat2) (λ (IH : Nat) IH))))
 
 (data Maybe : 1 (Π (A : (Type 0)) (Type 0))
@@ -164,14 +164,14 @@ z2
 
 ((λ (f : (Π (A : (Type 0)) (Type 0))) z) Maybe)
 
-(elim (none Nat) (λ (x : (Maybe Nat)) Nat)
+(new-elim (none Nat) (λ (x : (Maybe Nat)) Nat)
       (z (λ (a : Nat) a)))
 
-(elim ((just Nat) (s z)) (λ (x : (Maybe Nat)) Nat)
+(new-elim ((just Nat) (s z)) (λ (x : (Maybe Nat)) Nat)
       (z (λ (a : Nat) a)))
 
-((λ (x : (elim z2 (λ (x : Nat2) (Type 1))
+((λ (x : (new-elim z2 (λ (x : Nat2) (Type 1))
                ((Type 0) (λ (x : Nat2) (Type 0))))) x) Nat)
 
-((λ (x : (elim (s2 z2) (λ (x : Nat2) (Type 1))
+((λ (x : (new-elim (s2 z2) (λ (x : Nat2) (Type 1))
                ((Type 0) (λ (x : Nat2) (λ (IH : (Type 1)) IH))))) x) Nat)

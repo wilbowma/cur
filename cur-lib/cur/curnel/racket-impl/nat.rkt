@@ -49,22 +49,22 @@
 
 (define sub1
   (λ (x : Nat)
-    (elim x (λ (x : Nat) Nat)
+    (new-elim x (λ (x : Nat) Nat)
           (z (λ (n-1 : Nat) (IH : Nat) n-1)))))
 
 (define plus
   (λ (x : Nat) (y : Nat)
-     (elim x (λ (x : Nat) Nat)
+     (new-elim x (λ (x : Nat) Nat)
            (y (λ (n-1 : Nat) (IH : Nat) (s IH))))))
 
 (define mult
   (λ (x : Nat) (y : Nat)
-     (elim x (λ (x : Nat) Nat)
+     (new-elim x (λ (x : Nat) Nat)
            (z (λ (n-1 : Nat) (IH : Nat) (plus IH y))))))
 
 (define exp
   (λ (x : Nat) (y : Nat)
-     (elim y (λ (x : Nat) Nat)
+     (new-elim y (λ (x : Nat) Nat)
            ((s z) (λ (n-1 : Nat) (IH : Nat) (mult IH y))))))
 
 (define square
@@ -72,22 +72,22 @@
 
 (define nat-equal?
   (λ (x : Nat)
-    (elim x (λ (x : Nat) (Π (x : Nat) Bool))
+    (new-elim x (λ (x : Nat) (Π (x : Nat) Bool))
           ((λ (y : Nat)
-             (elim y (λ (x : Nat) Bool)
+             (new-elim y (λ (x : Nat) Bool)
                    (true (λ (x : Nat) (IH : Bool) false))))
            (λ (n-1 : Nat) (IH : (Π (x : Nat) Bool))
               (λ (y : Nat)
-                (elim y (λ (x : Nat) Bool)
+                (new-elim y (λ (x : Nat) Bool)
                     (false (λ (x : Nat) (_ : Bool) (IH x))))))))))
 
 (define not
   (λ (x : Bool)
-    (elim x (λ (x : Bool) Bool) (false true))))
+    (new-elim x (λ (x : Bool) Bool) (false true))))
 
 (define even?
   (λ (x : Nat)
-    (elim x (λ (x : Nat) Bool)
+    (new-elim x (λ (x : Nat) Bool)
           (true (λ (x : Nat) (IH : Bool) (not IH))))))
 
 (define odd? (λ (x : Nat) (not (even? x))))

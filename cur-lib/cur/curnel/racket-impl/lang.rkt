@@ -37,6 +37,7 @@
   [cur-axiom axiom]
   [cur-data data]
   [cur-void void]
+  [cur-elim new-elim]
   [depricated-cur-elim elim])
  begin
  ;; TODO: Don't export these by default; export in library or so
@@ -68,7 +69,6 @@
  provide rename-out all-defined-out all-from-out
  #%top
  ;; TODO: Need to not export datum, but prevents level annotations in type and param annotations in data
- #%datum
  #%module-begin)
 
 ;; Backward compatible elimination syntax
