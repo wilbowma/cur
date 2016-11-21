@@ -88,13 +88,13 @@
                              [types '()])
                             ([p (reverse env)])
                     (syntax-parse (cdr p)
-                      [(~var e (cur-expr/ctx (map cons names types)))
+                      [(~var e (cur-expr/ctx (reverse (map cons names types))))
                        (values
                         ;; TODO: what if the names get .. renamed? but such names should have a type
                         ;; attached so maybe okay
                         (cons (car p) names #;(attribute e.name))
-                        (cons #'e.reified types))]))])
-      (map cons names types)))
+                        (cons (cur-reflect #'e.reified) types))]))])
+      (reverse (map cons names types))))
 
   (define current-env (make-parameter '()))
 
@@ -108,7 +108,13 @@
 
   (define (cur-reify/env syn)
     (syntax-case (cur-reify/ctx syn (env->ctx (current-env))) ()
-      [(_ e) #'e]))
+      [(_ _ e _ _)
+       #'e]))
+
+  (define (cur-get-type/env syn)
+    (syntax-case (cur-reify/ctx syn (env->ctx (current-env))) ()
+      [(_ _ _ _ t)
+       #'t]))
 
   (define (cur-normalize syn #:local-env [env '()])
     (with-env env
@@ -141,14 +147,14 @@
 
   (define (cur-type-infer syn #:local-env [env '()])
     (with-env env
-      (with-handlers ([values (λ _ #f)])
-        (let ([t (get-type (cur-reify/env syn))])
+      (with-handlers (#;[values (λ _ #f)])
+        (let ([t (cur-get-type/env syn)])
           (cur-reflect t)))))
 
   (define (cur-type-check? syn type #:local-env [env '()])
     ;; TODO: recomputing ctx
     (with-env env
-      (cur-subtype? (get-type (cur-reify/env syn)) (cur-reify/env type))))
+      (cur-subtype? (cur-get-type/env syn) (cur-reify/env type))))
 
   ;; Given an identifiers representing an inductive type, return a sequence of the constructor names
   ;; (as identifiers) for the inductive type.
@@ -167,11 +173,15 @@
     ;; TODO: env isn't supported yet, since only interface is via cur-reify/ctx, which fully
     ;; elaborates.
     ;; Maybe need a better interface for env, like directly the let-syntax bit in cur-reify/ctx
-    (local-expand
+    (define n (local-expand
        syn
        'expression
        (append (syntax-e #'(cur-type cur-λ cur-app cur-Π cur-data depricated-cur-elim))
                ls)))
+    ;; TODO: Hack to deal with reflecting identifiers and above TODO
+    (if (identifier? n)
+        (cur-reflect n)
+        n))
 
   (define (cur->datum syn)
     (syntax->datum (cur-reflect (cur-reify/env syn)))))

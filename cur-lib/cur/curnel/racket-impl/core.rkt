@@ -6,6 +6,7 @@
  (only-in racket/list drop)
  (for-syntax
   racket/base
+  syntax/stx
   (only-in racket/function curry curryr)
   (only-in racket/syntax format-id)
   syntax/parse))
@@ -57,10 +58,12 @@
 ;;; Some gross mutual stores that seem necessary due to limitations in syntax-properties
 (begin-for-syntax
   (provide constructor-dict elim-dict)
-  (require racket/dict)
-  (define constructor-dict (make-custom-hash free-identifier=?))
-  (define elim-dict (make-custom-hash free-identifier=?))
-  (define def-dict (make-custom-hash free-identifier=?)))
+  (require racket/dict syntax/id-table)
+  (define constructor-dict (make-free-id-table))
+  (define elim-dict (make-free-id-table))
+  (define def-dict (make-free-id-table))
+  ;; TODO: Can we always reflect things back into surface syntax?
+  (define id-reflect-dict (make-free-id-table)))
 
 ;;; Testing
 ;;; ------------------------------------------------------------------------
@@ -75,6 +78,8 @@
  (for-syntax
   racket/trace))
 (begin-for-syntax
+#;  (define syntax-local-introduce values)
+#;  (define syntax-local-identifier-as-binding values)
   (define (maybe-syntax->datum x)
     (if (syntax? x)
         (syntax->datum x)
@@ -279,15 +284,18 @@
   ;; This is done explicitly when we need to pattern match.
   (define (cur-reflect syn)
     (syntax-parse syn
-      [x:id syn]
+      [x:id
+       (dict-ref id-reflect-dict syn syn)]
       [e:reified-universe
        (quasisyntax/loc syn (cur-type e.level-syn))]
       [e:reified-pi
-       (quasisyntax/loc syn (cur-Π (e.name : #,(cur-reflect #'e.ann)) #,(cur-reflect #'e.result)))]
+       (quasisyntax/loc syn (cur-Π (#,(cur-reflect #'e.name) : #,(cur-reflect #'e.ann))
+                                   #,(subst (cur-reflect #'e.name) #'e.name (cur-reflect #'e.result))))]
       [e:reified-app
        (quasisyntax/loc syn (cur-app #,(cur-reflect #'e.rator) #,(cur-reflect #'e.rand)))]
       [e:reified-lambda
-       (quasisyntax/loc syn (cur-λ (e.name : #,(cur-reflect #'e.ann)) #,(cur-reflect #'e.body)))]
+       (quasisyntax/loc syn (cur-λ (#,(cur-reflect #'e.name) : #,(cur-reflect #'e.ann))
+                                   #,(subst (cur-reflect #'e.name) #'e.name (cur-reflect #'e.body))))]
       [e:reified-elim
        (quasisyntax/loc syn (cur-elim #,(cur-reflect #'e.target) #,(cur-reflect #'e.motive)
                    #,(map cur-reflect (attribute e.method-ls))))])))
@@ -396,7 +404,6 @@
       [_:id
        #:attr def (dict-ref def-dict syn #f)
        #:when (attribute def)
-       (printf "~a ~n" (attribute def))
        (cur-normalize (quasisyntax/loc syn def))]
       [_:id
        #:when (not (dict-ref def-dict syn #f))
@@ -480,7 +487,7 @@
 ;;; ------------------------------------------------------------------------
 (begin-for-syntax
   (define (fresh [x #f])
-    (datum->syntax x (gensym (if x (syntax->datum x) 'x))))
+    (datum->syntax x (gensym (if x (syntax->datum x) 'x)) x x))
 
   (define (n-fresh n [x #f])
     (for/list ([_ (in-range n)]) (fresh x)))
@@ -510,7 +517,9 @@
           t1)
         t))
 
-  (define (get-type e)
+  ;; TODO: What if e is in a context, and we should be using cur-reify/ctx? and cur-normalzie needs to
+  ;; run under that? I see now why these were the same function.
+  (define (pre-get-type e)
     (define type (syntax-property e 'type))
     ;; NB: This error is a last result; macros in e should have reported error before now.
     (unless type
@@ -518,7 +527,9 @@
        'internal-error
        "Something terrible has occured. Expected a cur term, but found something else."
        e))
-    (cur-normalize (cur-reify (syntax-local-introduce (merge-type-props e type)))))
+    (syntax-local-introduce (merge-type-props e type)))
+
+  (define get-type (compose cur-normalize cur-reify pre-get-type))
 
   ;; When reifying a term in an extended context, the names may be alpha-converted.
   ;; cur-reify/ctx returns both the reified term and the alpha-converted names.
@@ -533,13 +544,23 @@
       [_
        #:with (x ...) (map car ctx)
        #:with (t ...) (map cdr ctx)
-       #:with (internal-name ...) (map fresh (attribute x))
+       #:with (internal-name ...) (map set-type (map fresh (attribute x)) (attribute t))
+       #:do [;; TODO: See earlier todo
+             (for ([in (attribute internal-name)]
+                   [n (attribute x)]
+                   [t (attribute t)])
+               #;(printf "~a reflects to ~a~n" in (dict-ref id-reflect-dict (syntax-local-introduce n) n))
+               (dict-set! id-reflect-dict in (dict-ref id-reflect-dict n (set-type n t))))]
        #:with (#%plain-lambda (name ...) (let-values () (let-values () e)))
        (cur-reify
-        #`(lambda (#,@(map set-type (attribute internal-name) (attribute t)))
-            (let-syntax ([x (make-rename-transformer (set-type #'internal-name #'t))] ...)
+        #`(lambda (#,@(attribute internal-name))
+            (let-syntax ([x (make-rename-transformer #'internal-name)] ...)
               #,syn)))
-       #`((name ...) e)]))
+       #:with (#%plain-lambda (tname ...) type)
+       (cur-reify
+        #`(lambda (#,@(map syntax-local-identifier-as-binding (attribute name)))
+            #,(pre-get-type #'e)))
+       #`((name ...) (tname ...) e : #,(syntax-local-introduce #'type))]))
 
   ;; Type checking via syntax classes
 
@@ -552,10 +573,9 @@
 
   ;; Expect *some* well-typed expression, in an extended context.
   ;; TODO: name should be name-ls
-  (define-syntax-class (cur-expr/ctx ctx) #:attributes ((name 1) reified type)
+  (define-syntax-class (cur-expr/ctx ctx) #:attributes ((name 1) (tname 1) reified type)
     (pattern e:expr
-             #:with ((name ...) reified) (cur-reify/ctx #'e ctx)
-             #:attr type (get-type #'reified)))
+             #:with ((name ...) (tname ...) reified : type) (cur-reify/ctx #'e ctx)))
 
   ;; Expected a well-typed expression of a particular type.
   (define-syntax-class (cur-expr-of-type type) #:attributes (reified)
@@ -675,15 +695,16 @@
     #:datum-literals (:)
     [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
      #:declare e.type cur-kind
-     (⊢ (Π t1.reified (#%plain-lambda (#,(car (attribute e.name))) e.reified)) : e.type)]))
+     (⊢ (Π t1.reified (#%plain-lambda (#,(syntax-local-identifier-as-binding (car (attribute e.name)))) e.reified)) : e.type)]))
 
 (define-syntax (cur-λ syn)
   (syntax-parse syn
     #:datum-literals (:)
     [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
-     #:declare e.type cur-kind
-     (⊢ (#%plain-lambda (#,(car (attribute e.name))) e.reified) :
-        (cur-Π (#,(car (attribute e.name)) : t1.reified) e.type))]))
+     #:with result:cur-kind #'e.type
+     (⊢ (#%plain-lambda (#,(syntax-local-identifier-as-binding (car (attribute e.name)))) e.reified) :
+        #,(reify-pi #'result (syntax-local-identifier-as-binding (car (attribute e.tname))) #'t1.reified
+                   #'e.type))]))
 
 (begin-for-syntax
   ;; TODO: Performance: Maybe mulit-artiy functions.

@@ -221,7 +221,7 @@
   ;; NB: This with-env might be better
   (define (local-env->gamma env)
     (for/fold ([g (gamma)])
-              ([(x t) (in-dict env)])
+              ([(x t) (in-dict (reverse (dict->list env)))])
       ;; Because dependency
       (parameterize ([gamma g])
         (extend-Γ/syn gamma x t))))
