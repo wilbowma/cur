@@ -63,12 +63,6 @@
   ;; TODO: Can we always reflect things back into surface syntax?
   (define id-reflect-dict (make-free-id-table)))
 
-;;; Testing
-;;; ------------------------------------------------------------------------
-(begin-for-syntax
-  (module+ test
-    (require chk)))
-
 ;;; Debugging
 ;;; ------------------------------------------------------------------------
 (require
@@ -346,7 +340,7 @@
       [(e ...)
        (datum->syntax syn (map (lambda (e) (subst v x e)) (attribute e)))]
       [_ syn]))
-  (module+ test
+  #;(module+ test
     (define syn-eq? (lambda (x y) (equal? (syntax->datum x) (syntax->datum y))))
     (chk
      #:eq bound-identifier=? (subst #'z #'x #'x) #'z
