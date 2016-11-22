@@ -101,11 +101,13 @@
 (begin-for-syntax
   (define (reified-get-type e)
     (define x (syntax-property e 'type))
-    ;; TODO: Should we do something about this?
-    (syntax-local-introduce (if (pair? x) (car x) x)))
+    ;; TODO: Should we do something about this? Some reified terms don't have types.. and that's okay...?
+    (if x
+        (syntax-local-introduce (if (pair? x) (car x) x))
+        e))
 
   (define (reified-set-type e t)
-    (syntax-property e 'type (syntax-local-introduce t) #t))
+    (if t (syntax-property e 'type t #t) e))
 
   (define (reified-copy-type e syn)
     (reified-set-type e (reified-get-type syn))))
@@ -686,16 +688,15 @@
     #:datum-literals (:)
     [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
      #:declare e.type cur-kind
-     (⊢ (Π t1.reified (#%plain-lambda (#,(syntax-local-identifier-as-binding (car (attribute e.name)))) e.reified)) : e.type)]))
+     (⊢ (Π t1.reified (#%plain-lambda (#,(car (attribute e.name))) e.reified)) : e.type)]))
 
 (define-syntax (cur-λ syn)
   (syntax-parse syn
     #:datum-literals (:)
     [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
      #:with result:cur-kind #'e.type
-     (⊢ (#%plain-lambda (#,(syntax-local-identifier-as-binding (car (attribute e.name)))) e.reified) :
-        #,(reify-pi #'result (syntax-local-identifier-as-binding (car (attribute e.tname))) #'t1.reified
-                   #'e.type))]))
+     (⊢ (#%plain-lambda (#,(car (attribute e.name))) e.reified) :
+        #,(reify-pi #'result (car (attribute e.tname)) #'t1.reified #'e.type))]))
 
 (begin-for-syntax
   ;; TODO: Performance: Maybe mulit-artiy functions.
@@ -716,13 +717,16 @@
         (define #,y #,reified-term)
         (define-syntax #,name
           (make-rename-transformer
-           (syntax-property
-            (set-type (quasisyntax/loc #'#,name #,y)
-                      (quasisyntax/loc #'#,name #,type))
-            ;; NB: Defeats an optimization? performed by make-rename-transformer, but necessary to
-            ;; ensure type is exported on identifier.
-            'not-free-identifier=? #t #t)))
-        ;; TODO: Do I need to provide this?
+           ;; TODO: Clean this up. Need to be *very* careful when preserving properties
+           (format-id #'#,name
+                      "~a"
+                      #'#,y
+                      #:props
+                      (set-type
+                       (syntax-property #'#,name 'not-free-identifier=? #t #t)
+                       #'#,type))))
+        ;; TODO: Do I need to provide this? Shouldn't need to; racket can handle moving non-exported
+        ;; names across module boundaries
         #;(provide #,y))))
 
 (define-syntax (cur-define syn)
@@ -745,7 +749,7 @@
                            (pred . ,(format-id #'n "~a?" #'axiom)))))]
      #:with make-axiom (format-id name "make-~a" #'axiom #:props name)
      #`(begin
-         (struct axiom #,(n-fresh (attribute type.length)) #:transparent #:reflection-name '#,name)
+         (struct #,(syntax-local-identifier-as-binding #'axiom) #,(n-fresh (attribute type.length)) #:transparent #:reflection-name '#,name)
          ;; TODO: Cannot store reified types as syntax-properties; else namespace errors ensue
          #,(define-typed-identifier name #'type #'((curry axiom)) #'make-axiom))]))
 
