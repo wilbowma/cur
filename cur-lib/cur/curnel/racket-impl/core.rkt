@@ -108,10 +108,12 @@
 ;; All reified expressions have the syntax-property 'type.
 (begin-for-syntax
   (define (reified-get-type e)
-    (syntax-property e 'type))
+    (define x (syntax-property e 'type))
+    ;; TODO: Should we do something about this?
+    (syntax-local-introduce (if (pair? x) (car x) x)))
 
   (define (reified-set-type e t)
-    (syntax-property e 'type t #t))
+    (syntax-property e 'type (syntax-local-introduce t) #t))
 
   (define (reified-copy-type e syn)
     (reified-set-type e (reified-get-type syn))))
@@ -137,8 +139,10 @@
   ;; TODO: Performance: Maybe want #:no-delimit-cut for some of these, but prevents use in ~not
   (define-syntax-class (constructor constr-syn) #:attributes (constr)
     (pattern x:id
-             #:attr constr (syntax-property #'x 'constructor-for)
-             #:when (and (attribute constr) (free-identifier=? constr-syn #'constr))))
+             ;; TODO: Something about this causes failure when compiled.
+             ;; 'constructor-for is not preserved, so can't use that.
+             #:attr constr (local-expand constr-syn 'expression null)
+             #:when (and (attribute constr) (free-identifier=? #'x #'constr))))
 
   (define-syntax-class reified-universe #:attributes (level-syn level)
     #:literals (#%plain-app quote Type)
