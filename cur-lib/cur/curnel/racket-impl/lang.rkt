@@ -119,8 +119,7 @@
   (define (cur-normalize syn #:local-env [env '()])
     (with-env env
       (cur-reflect
-       ;; TODO: BADNESS: repeating this pattern everywhere
-       (_cur-normalize (cur-delta-reduce (_cur-normalize (cur-reify/env syn)))))))
+       (_cur-normalize (cur-reify/env syn)))))
 
   (define (cur-step syn #:local-env [env '()])
     (printf "Warning: cur-step is not yet supported.~n")

@@ -25,8 +25,6 @@
    cur-eval
    cur-normalize
    subst
-   ;; TODO: shouldn't be exported separately, but as some kind of parameter
-   cur-delta-reduce
    cur-equal?
    cur-subtype?
    cur-reflect
@@ -365,7 +363,13 @@
   (define (cur-eval syn)
     (syntax-parse syn
       [_:reified-universe syn]
-      [_:id syn]
+      [_:id
+       #:attr def (dict-ref def-dict syn #f)
+       #:when (attribute def)
+       (cur-normalize (quasisyntax/loc syn def))]
+      [_:id
+       #:when (not (dict-ref def-dict syn #f))
+       syn]
       [e:reified-pi
        (reify-pi syn #'e.name (cur-eval #'e.ann) (cur-eval #'e.result))]
       [e:reified-app
@@ -402,31 +406,11 @@
 
   ;; TODO: Need as option to cur-normalize
   ;; TODO: Need generic fold over reified term
-  (define (cur-delta-reduce syn)
-    (syntax-parse syn
-      [_:reified-universe syn]
-      [_:id
-       #:attr def (dict-ref def-dict syn #f)
-       #:when (attribute def)
-       (cur-normalize (quasisyntax/loc syn def))]
-      [_:id
-       #:when (not (dict-ref def-dict syn #f))
-       syn]
-      [e:reified-pi
-       (reify-pi syn #'e.name (cur-delta-reduce #'e.ann) (cur-delta-reduce #'e.result))]
-      [e:reified-app
-       (reify-app syn (cur-delta-reduce #'e.rator) (cur-delta-reduce #'e.rand))]
-      [e:reified-elim
-       (reify-elim syn #'e.elim (cur-delta-reduce #'e.target) (cur-delta-reduce #'e.motive)
-                   (map cur-delta-reduce (attribute e.method-ls)))]
-      [e:reified-lambda
-       (reify-lambda syn #'e.name (cur-delta-reduce #'e.body))]
-      [_ (error 'cur-delta-reduce "Something has gone horribly wrong: ~a" syn)]))
 
   ;; When are two Cur terms intensionally equal? When they normalize the α-equivalent reified syntax.
   (define (cur-equal? t1 t2)
                 ;; TODO: Performance: Okay this is stupidly inefficient
-    (syntax-parse #`(#,(cur-normalize (cur-delta-reduce (cur-normalize t1))) #,(cur-normalize (cur-delta-reduce (cur-normalize t2))))
+    (syntax-parse #`(#,(cur-normalize t1) #,(cur-normalize t2))
       [(x:id y:id)
 ;       (printf "~a binding: ~a~n" #'x (identifier-binding #'x))
 ;       (printf "~a binding: ~a~n" #'y (identifier-binding #'y))
@@ -450,14 +434,14 @@
 
   (define (cur-subtype? t1 t2)
     ;; TODO: Performance
-    (syntax-parse #`(#,(cur-normalize (cur-delta-reduce (cur-normalize t1))) #,(cur-normalize (cur-delta-reduce (cur-normalize t2))))
+    (syntax-parse #`(#,(cur-normalize t1) #,(cur-normalize t2))
       [(A:reified-universe B:reified-universe)
        (<= (attribute A.level) (attribute B.level))]
       [(e1:reified-pi e2:reified-pi)
        (and (cur-equal? #'e1.ann #'e2.ann)
             (cur-subtype? #'e1.result (subst #'e1.name #'e2.name #'e2.result)))]
       [(e1 e2)
-       ;; TODO: results in extra calls to cur-normalize and cur-delta-reduce
+       ;; TODO: results in extra calls to cur-normalize
        (cur-equal? #'e1 #'e2)])))
 
 ;;; Nothing before here should be able to error. Things after here might, since they are dealing with
