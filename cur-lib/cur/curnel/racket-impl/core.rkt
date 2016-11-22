@@ -97,21 +97,6 @@
 ;; Reified
 ;; ----------------------------------------------------------------
 
-;; All reified expressions have the syntax-property 'type.
-(begin-for-syntax
-  (define (reified-get-type e)
-    (define x (syntax-property e 'type))
-    ;; TODO: Should we do something about this? Some reified terms don't have types.. and that's okay...?
-    (if x
-        (syntax-local-introduce (if (pair? x) (car x) x))
-        e))
-
-  (define (reified-set-type e t)
-    (if t (syntax-property e 'type t #t) e))
-
-  (define (reified-copy-type e syn)
-    (reified-set-type e (reified-get-type syn))))
-
 ; The run-time representation of univeres. (Type i), where i is a Nat.
 (struct Type (l) #:transparent)
 
@@ -144,7 +129,31 @@
              #:attr level (syntax->datum #'level-syn)))
 
   (define (reify-universe syn i)
-    (reified-copy-type (cur-reify (quasisyntax/loc syn (Type (quote i)))) syn))
+    (quasisyntax/loc syn (#%plain-app #,(local-expand #'Type 'expression null) (quote #,i))))
+
+  ;; All reified expressions have the syntax-property 'type, except universes
+  (define (reified-get-type e)
+    (syntax-parse e
+      [e:reified-universe
+       (reify-universe this-syntax (add1 (attribute e.level)))]
+      [_
+       (define x (syntax-property e 'type))
+       ;; TODO: Should we do something about this? Some reified terms don't have types.. and that's okay...?
+       (if x
+           (syntax-local-introduce (if (pair? x) (car x) x))
+           (begin
+             (printf "Warning: reified term ~a does not have a type.~n" e)
+             e))]))
+
+  (define (reified-set-type e t)
+    (if t
+        (syntax-property e 'type t #t)
+        (begin
+          (printf "Warning: reified term ~a given #f as a type.~n" e)
+          e)))
+
+  (define (reified-copy-type e syn)
+    (reified-set-type e (reified-get-type syn)))
 
   (define-syntax-class reified-pi #:attributes (name ann result)
     #:literals (#%plain-app #%plain-lambda Π)
@@ -477,7 +486,7 @@
     (for/list ([_ (in-range n)]) (fresh x)))
 
   (define (set-type e t)
-    (syntax-property e 'type (syntax-local-introduce t) #t))
+    (syntax-property e 'type (syntax-local-introduce (cur-normalize t)) #t))
 
   (define (merge-type-props syn t)
     (if (pair? t)
@@ -504,7 +513,7 @@
   ;; TODO: What if e is in a context, and we should be using cur-reify/ctx? and cur-normalzie needs to
   ;; run under that? I see now why these were the same function.
   (define (pre-get-type e)
-    (define type (syntax-property e 'type))
+    (define type (reified-get-type e))
     ;; NB: This error is a last result; macros in e should have reported error before now.
     (unless type
       (raise-syntax-error
@@ -513,7 +522,7 @@
        e))
     (syntax-local-introduce (merge-type-props e type)))
 
-  (define get-type (compose cur-normalize cur-reify pre-get-type))
+  (define get-type pre-get-type)
 
   (define-syntax-class in-let-values #:attributes (body)
     #:literals (let-values)
@@ -681,7 +690,11 @@
 (define-syntax (cur-type syn)
   (syntax-parse syn
     [(_ i:nat)
-     (⊢ (Type 'i) : (cur-type #,(add1 (syntax->datum #'i))))]))
+     ;; NB: Need to store types reified. Using reflected syntax for Type in type of Type causes
+     ;; infinite derivations. Instead, we use the reified syntax. If we ever need the type of a
+     ;; reified universe, get-type handles that, breaking what would otherwise be an infinite
+     ;; expansion.
+     #`(Type 'i)]))
 
 (define-syntax (cur-Π syn)
   (syntax-parse syn
