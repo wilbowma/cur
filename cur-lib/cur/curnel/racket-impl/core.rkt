@@ -142,14 +142,14 @@
        (if x
            (syntax-local-introduce (if (pair? x) (car x) x))
            (begin
-             (printf "Warning: reified term ~a does not have a type.~n" e)
-             e))]))
+             #;(printf "Warning: reified term ~a does not have a type.~n" e)
+             x))]))
 
   (define (reified-set-type e t)
     (if t
         (syntax-property e 'type t #t)
         (begin
-          (printf "Warning: reified term ~a given #f as a type.~n" e)
+          #;(printf "Warning: reified term ~a given #f as a type.~n" e)
           e)))
 
   (define (reified-copy-type e syn)
@@ -512,7 +512,7 @@
 
   ;; TODO: What if e is in a context, and we should be using cur-reify/ctx? and cur-normalzie needs to
   ;; run under that? I see now why these were the same function.
-  (define (pre-get-type e)
+  (define (get-type e)
     (define type (reified-get-type e))
     ;; NB: This error is a last result; macros in e should have reported error before now.
     (unless type
@@ -520,9 +520,8 @@
        'internal-error
        "Something terrible has occured. Expected a cur term, but found something else."
        e))
-    (syntax-local-introduce (merge-type-props e type)))
-
-  (define get-type pre-get-type)
+    type
+    #;(syntax-local-introduce (merge-type-props e type)))
 
   (define-syntax-class in-let-values #:attributes (body)
     #:literals (let-values)
@@ -544,12 +543,15 @@
       [_
        #:with (x ...) (map car ctx)
        #:with (t ...) (map cdr ctx)
+       ;; TODO: This is teh cause of many problems. Cannot store t as a type since it may contain
+       ;; unbound identifiers, but need to store t as a type or things break.
        #:with (internal-name ...) (map set-type (map fresh (attribute x)) (attribute t))
        #:do [;; TODO: See earlier todo
              (for ([in (attribute internal-name)]
                    [n (attribute x)]
                    [t (attribute t)])
                #;(printf "~a reflects to ~a~n" in (dict-ref id-reflect-dict (syntax-local-introduce n) n))
+               ;; TODO: Use syntax-properties; testing show they work fine.
                (dict-set! id-reflect-dict in (dict-ref id-reflect-dict n (set-type n t))))]
        ;; TODO: syntax-parameter support added this hack
        ;; NB: consume arbitrary number of let-values.
@@ -561,7 +563,7 @@
        #:with (#%plain-lambda (tname ...) type)
        (cur-reify
         #`(lambda (#,@(map syntax-local-identifier-as-binding (attribute name)))
-            #,(pre-get-type #'e.body)))
+            #,(get-type #'e.body)))
        #`((name ...) (tname ...) e.body : #,(syntax-local-introduce #'type))]))
 
   ;; Type checking via syntax classes
