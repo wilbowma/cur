@@ -98,7 +98,7 @@
 ;; ----------------------------------------------------------------
 
 ; The run-time representation of univeres. (Type i), where i is a Nat.
-(struct Type (l) #:transparent)
+(struct Type (i) #:transparent)
 
 ; The run-time representation of Π types. (Π t f), where is a type and f is a procedure that computes
 ; the result type given an argument.
@@ -162,6 +162,7 @@
   (define (reify-pi syn x t e)
     (reified-copy-type (cur-reify (quasisyntax/loc syn (Π #,t (#%plain-lambda (#,x) #,e)))) syn))
 
+  ;; TODO: Look at pattern expanders instead of syntax-classes
   (define-syntax-class reified-lambda #:attributes (name ann body)
     #:literals (#%plain-lambda)
     (pattern (#%plain-lambda (name) body)
@@ -558,6 +559,7 @@
        #:with (#%plain-lambda (name ...) e:in-let-values)
        (cur-reify
         #`(lambda (#,@(attribute internal-name))
+            ;; TODO: Need let*-syntax
             (let-syntax ([x (make-rename-transformer #'internal-name)] ...)
               #,syn)))
        #:with (#%plain-lambda (tname ...) type)
@@ -711,6 +713,7 @@
     [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
      #:with result:cur-kind #'e.type
      (⊢ (#%plain-lambda (#,(car (attribute e.name))) e.reified) :
+        #;(cur-Π (#,(car (attribute e.name)) : t1.reified) e.type)
         #,(reify-pi #'result (car (attribute e.tname)) #'t1.reified #'e.type))]))
 
 (begin-for-syntax
