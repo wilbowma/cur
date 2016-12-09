@@ -285,10 +285,6 @@
 ;; Reflected
 ;; ----------------------------------------------------------------
 
-;; NB: Due to compile-time computation in types, and because types of types are computed via macro
-;; expansion, a reflection procedure is necessary when building a new type-level computation that does
-;; not yet have a type.
-;; TODO: Can I get rid of that requirement by building such types and doing set-type?
 (begin-for-syntax
   ;; Reflection: turn a run-time term back into a compile-time term.
   ;; This is done explicitly when we need to pattern match.
@@ -691,10 +687,8 @@
   (syntax-parse syn
     #:datum-literals (:)
     [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
-     #:with result:cur-kind #'e.type
      (⊢ (#%plain-lambda (#,(car (attribute e.name))) e.reified) :
-        #;(cur-Π (#,(car (attribute e.name)) : t1.reified) e.type)
-        #,(reify-pi #'result (car (attribute e.tname)) #'t1.reified #'e.type))]))
+        (cur-Π (#,(car (attribute e.tname)) : t1.reified) e.type))]))
 
 (begin-for-syntax
   ;; TODO: Performance: Maybe mulit-artiy functions.
@@ -707,7 +701,7 @@
   (syntax-parse syn
     [(_ e1:cur-procedure (~var e2 (cur-expr-of-type #'e1.ann)))
      (⊢ (#%plain-app e1.reified e2.reified) :
-        #,(cur-reflect (subst #'e2.reified #'e1.name #'e1.result)))]))
+        #,(subst #'e2.reified #'e1.name #'e1.result))]))
 
 (begin-for-syntax
   (define (define-typed-identifier name type reified-term (y (format-id name "~a" (fresh name) #:props name)))
@@ -992,6 +986,5 @@
                                  method-count)
                          syn)
      (⊢ (elim-name target.reified motive.reified method.reified ...) :
-        ;; TODO: Need cur-reflect anytime there is computation in a type..?
         ;; TODO: append
-        #,(cur-reflect (cur-normalize (cur-app* #'motive.reified (append index-ls (list #'target.reified))))))]))
+        #,(cur-app* #'motive.reified (append index-ls (list #'target.reified))))]))
