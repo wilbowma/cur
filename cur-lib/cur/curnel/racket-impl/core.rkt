@@ -507,8 +507,17 @@
     (pattern (let-values () e:in-let-values)
              #:attr body #'e.body)
 
-    (pattern body))
+    (pattern body)))
 
+(define-syntax (let*-syntax syn)
+  (syntax-case syn ()
+    [(_ () e)
+     #`e]
+    [(_ ([x e] r ...) body)
+     #`(let-syntax ([x e])
+         (let*-syntax (r ...) body))]))
+
+(begin-for-syntax
   ;; When reifying a term in an extended context, the names may be alpha-converted.
   ;; cur-reify/ctx returns both the reified term and the alpha-converted names.
   ;; #`((zv ...) e)
@@ -537,12 +546,11 @@
        #:with (#%plain-lambda (name ...) e:in-let-values)
        (cur-reify
         #`(lambda (#,@(attribute internal-name))
-            ;; TODO: Need let*-syntax
-            (let-syntax ([x (make-rename-transformer #'internal-name)] ...)
+            (let*-syntax ([x (make-rename-transformer #'internal-name)] ...)
               #,syn)))
        #:with (#%plain-lambda (tname ...) type)
        (cur-reify
-        #`(lambda (#,@(map syntax-local-identifier-as-binding (attribute name)))
+        #`(lambda (#,@(attribute name))
             #,(get-type #'e.body)))
        #`((name ...) (tname ...) e.body : #,(syntax-local-introduce #'type))]))
 
