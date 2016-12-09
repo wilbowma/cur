@@ -93,7 +93,7 @@
                         ;; TODO: what if the names get .. renamed? but such names should have a type
                         ;; attached so maybe okay
                         (cons (car p) names #;(attribute e.name))
-                        (cons (cur-reflect #'e.reified) types))]))])
+                        (cons #'e.reified types))]))])
       (reverse (map cons names types))))
 
   (define current-env (make-parameter '()))
