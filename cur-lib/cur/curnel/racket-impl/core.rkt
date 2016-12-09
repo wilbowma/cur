@@ -311,46 +311,14 @@
 ;;; Intensional equality
 ;;; ------------------------------------------------------------------------
 (begin-for-syntax
-#| TODO:
-  Observed substitution bug in cur-normalize. Changed bound-identifier=? to free-identifier=?, which
-  seems to have solve it ...
-  > (cur-normalize
-   '(#%plain-app
-     (#%plain-lambda
-      (A13413101341475)
-      (#%app
-       Π2
-       A13413101341475
-       (#%plain-lambda
-        (anon-parameter134130713413141341479)
-        (#%app
-         Π2
-         (#%plain-app make-List1341258 A13413101341475)
-         (#%plain-lambda
-          (anon-parameter134130813413211341486)
-          (#%plain-app make-List1341258 A13413101341475))))))
-     A1341360))
-  < '(#%app
-    Π2
-    A1341360
-    (#%plain-lambda
-     (anon-parameter134130713413141341479)
-     (#%app
-      Π2
-      (#%plain-app make-List1341258 A13413101341475)
-      (#%plain-lambda
-       (anon-parameter134130813413211341486)
-       (#%plain-app make-List1341258 A13413101341475)))))
-  |#
   (define (subst v x syn)
     (syntax-parse syn
       [y:id
-       ;; TODO: BAD BAD BAD BAD BAD; need to be bound-identifier, but...
-       ;; or maybe not
        #:when (free-identifier=? syn x)
-       (quasisyntax/loc syn #,v)]
+       v]
       [(e ...)
-       (datum->syntax syn (map (lambda (e) (subst v x e)) (attribute e)))]
+       #:with (e^ ...) (map (lambda (e) (subst v x e)) (attribute e))
+       (quasisyntax/loc syn (e^ ...))]
       [_ syn]))
   #;(module+ test
     (define syn-eq? (lambda (x y) (equal? (syntax->datum x) (syntax->datum y))))
