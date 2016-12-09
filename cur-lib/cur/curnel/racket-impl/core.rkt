@@ -157,7 +157,9 @@
 
   (define-syntax-class reified-pi #:attributes (name ann result)
     #:literals (#%plain-app #%plain-lambda Π)
-    (pattern (#%plain-app (~var _ (constructor #'Π)) ~! ann (#%plain-lambda (name) result))))
+    (pattern (#%plain-app (~var _ (constructor #'Π)) ~! ann (#%plain-lambda (n) result))
+             ;; TODO: Hack; n should already have the right type if substitution is done correctly
+             #:attr name (reified-set-type #'n #'ann)))
 
   (define (reify-pi syn x t e)
     (reified-copy-type (cur-reify (quasisyntax/loc syn (Π #,t (#%plain-lambda (#,x) #,e)))) syn))
@@ -311,6 +313,8 @@
 ;;; Intensional equality
 ;;; ------------------------------------------------------------------------
 (begin-for-syntax
+  ;; TODO: Might be better for performance if this was syntax directed; avoids trying to substitute
+  ;; into non-syntax like quote or 0
   (define (subst v x syn)
     (syntax-parse syn
       [y:id
@@ -320,7 +324,14 @@
        #:with (e^ ...) (map (lambda (e) (subst v x e)) (attribute e))
        ;; NB: Will induce warnings since blindly copies syntax
        (reified-copy-type (quasisyntax/loc syn (e^ ...)) syn)]
-      [_ syn]))
+      [_
+       ;; TODO: A pattern
+       ;; NB: When substituting into a term, need to take into account that dependent types will change.
+       ;; previously, cur-reflect did this. But we want to avoid using cur-reflect.
+       (define type (reified-get-type syn))
+       (if type
+           (reified-set-type syn (subst v x type))
+           syn)]))
   #;(module+ test
     (define syn-eq? (lambda (x y) (equal? (syntax->datum x) (syntax->datum y))))
     (chk
