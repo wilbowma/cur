@@ -157,9 +157,10 @@
 
   (define-syntax-class reified-pi #:attributes (name ann result)
     #:literals (#%plain-app #%plain-lambda Π)
-    (pattern (#%plain-app (~var _ (constructor #'Π)) ~! ann (#%plain-lambda (n) result))
+    (pattern (#%plain-app (~var _ (constructor #'Π)) ~! ann (#%plain-lambda (n) r))
              ;; TODO: Hack; n should already have the right type if substitution is done correctly
-             #:attr name (reified-set-type #'n #'ann)))
+             #:attr name (reified-set-type #'n #'ann)
+             #:attr result (subst (attribute name) #'n #'r)))
 
   (define (reify-pi syn x t e)
     (reified-copy-type (cur-reify (quasisyntax/loc syn (Π #,t (#%plain-lambda (#,x) #,e)))) syn))
@@ -324,6 +325,7 @@
        ;; TODO: A pattern
        ;; NB: When substituting into a term, need to take into account that dependent types will change.
        ;; previously, cur-reflect did this. But we want to avoid using cur-reflect.
+       ;; TODO: This doesn't seem to work well enough
        (define type (reified-get-type syn))
        (if type
            (reified-set-type syn (subst v x type))
