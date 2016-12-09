@@ -318,7 +318,8 @@
        v]
       [(e ...)
        #:with (e^ ...) (map (lambda (e) (subst v x e)) (attribute e))
-       (quasisyntax/loc syn (e^ ...))]
+       ;; NB: Will induce warnings since blindly copies syntax
+       (reified-copy-type (quasisyntax/loc syn (e^ ...)) syn)]
       [_ syn]))
   #;(module+ test
     (define syn-eq? (lambda (x y) (equal? (syntax->datum x) (syntax->datum y))))
