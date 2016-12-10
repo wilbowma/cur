@@ -343,7 +343,7 @@
   ;; TODO: Should this be parameterizable, to allow for different eval strategies if user wants?
   ;; TODO: Performance: Should the interpreter operate directly on syntax? Might be better to first
   ;; parse into structs, turn back into syntax later?
-  (trace-define (cur-eval syn)
+  (define (cur-eval syn)
     (syntax-parse syn
       [_:reified-universe syn]
       [_:id
