@@ -292,7 +292,9 @@
   (define (cur-reflect syn)
     (syntax-parse syn
       [x:id
-       (dict-ref id-reflect-dict syn syn)]
+       syn
+       ;; TODO: I'd love to reflect the names, but I don't think we can.
+       #;(or (syntax-property syn 'reflected-name) syn)]
       [e:reified-universe
        (quasisyntax/loc syn (cur-type e.level-syn))]
       [e:reified-pi
@@ -531,22 +533,13 @@
       [_
        #:with (x ...) (map car ctx)
        #:with (t ...) (map cdr ctx)
-       ;; TODO: This is teh cause of many problems. Cannot store t as a type since it may contain
-       ;; unbound identifiers, but need to store t as a type or things break.
-       #:with (internal-name ...) (map set-type (map fresh (attribute x)) (attribute t))
-       #:do [;; TODO: See earlier todo
-             (for ([in (attribute internal-name)]
-                   [n (attribute x)]
-                   [t (attribute t)])
-               #;(printf "~a reflects to ~a~n" in (dict-ref id-reflect-dict (syntax-local-introduce n) n))
-               ;; TODO: Use syntax-properties; testing show they work fine.
-               (dict-set! id-reflect-dict in (dict-ref id-reflect-dict n (set-type n t))))]
+       #:with (internal-name ...) (map (λ (x) (syntax-property (fresh x) 'reflected-name x #t)) (attribute x))
        ;; TODO: syntax-parameter support added this hack
        ;; NB: consume arbitrary number of let-values.
        #:with (#%plain-lambda (name ...) e:in-let-values)
        (cur-reify
-        #`(lambda (#,@(attribute internal-name))
-            (let*-syntax ([x (make-rename-transformer #'internal-name)] ...)
+        #`(lambda (internal-name ...)
+            (let*-syntax ([x (make-rename-transformer (set-type #'internal-name #'t))] ...)
               #,syn)))
        #:with (#%plain-lambda (tname ...) type)
        (cur-reify
@@ -697,7 +690,7 @@
   (syntax-parse syn
     #:datum-literals (:)
     [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
-     (⊢ (#%plain-lambda (#,(car (attribute e.name))) e.reified) :
+     (⊢ (#%plain-lambda (#,(set-type (car (attribute e.name)) #'t1.reified)) e.reified) :
         (cur-Π (#,(car (attribute e.tname)) : t1.reified) e.type))]))
 
 (begin-for-syntax
