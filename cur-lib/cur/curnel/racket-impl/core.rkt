@@ -58,7 +58,9 @@
   (provide constructor-dict elim-dict)
   (require racket/dict syntax/id-table)
   (define constructor-dict (make-free-id-table))
-  (define elim-dict (make-free-id-table)))
+  (define elim-dict (make-free-id-table))
+  ;; NB: Can't use syntax-properties for this for reasons that make no sense to me.
+  (define def-dict (make-free-id-table)))
 
 ;;; Debugging
 ;;; ------------------------------------------------------------------------
@@ -347,11 +349,11 @@
     (syntax-parse syn
       [_:reified-universe syn]
       [_:id
-       #:attr def (syntax-property syn 'definition)
+       #:attr def (dict-ref def-dict syn #f)
        #:when (attribute def)
-       (cur-eval (quasisyntax/loc syn #,(syntax-local-introduce #'def)))]
+       (cur-normalize (quasisyntax/loc syn def))]
       [_:id
-       #:when (not (syntax-property syn 'definition))
+       #:when (not (dict-ref def-dict syn #f))
        syn]
       [e:reified-pi
        (reify-pi syn #'e.name (cur-eval #'e.ann) (cur-eval #'e.result))]
@@ -727,7 +729,8 @@
     [(_:top-level-id name:id body:cur-expr)
      ;; NB: Store definition to get δ reduction
      #:do [(define y (format-id #'name "~a" (fresh #'name) #:props #'name))]
-     (define-typed-identifier (syntax-property #'name 'definition (syntax-local-introduce #'body.reified) #t) #'body.type #'body.reified y)]))
+     (dict-set! def-dict y #'body.reified)
+     (define-typed-identifier #'name #'body.type #'body.reified y)]))
 
 (define-syntax (cur-axiom syn)
   (syntax-parse syn
