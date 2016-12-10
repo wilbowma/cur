@@ -351,7 +351,7 @@
       [_:id
        #:attr def (dict-ref def-dict syn #f)
        #:when (attribute def)
-       (cur-normalize (quasisyntax/loc syn def))]
+       (cur-eval (quasisyntax/loc syn def))]
       [_:id
        #:when (not (dict-ref def-dict syn #f))
        syn]
