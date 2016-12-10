@@ -58,10 +58,7 @@
   (provide constructor-dict elim-dict)
   (require racket/dict syntax/id-table)
   (define constructor-dict (make-free-id-table))
-  (define elim-dict (make-free-id-table))
-  (define def-dict (make-free-id-table))
-  ;; TODO: Can we always reflect things back into surface syntax?
-  (define id-reflect-dict (make-free-id-table)))
+  (define elim-dict (make-free-id-table)))
 
 ;;; Debugging
 ;;; ------------------------------------------------------------------------
@@ -346,15 +343,15 @@
   ;; TODO: Should this be parameterizable, to allow for different eval strategies if user wants?
   ;; TODO: Performance: Should the interpreter operate directly on syntax? Might be better to first
   ;; parse into structs, turn back into syntax later?
-  (define (cur-eval syn)
+  (trace-define (cur-eval syn)
     (syntax-parse syn
       [_:reified-universe syn]
       [_:id
-       #:attr def (dict-ref def-dict syn #f)
+       #:attr def (syntax-property syn 'definition)
        #:when (attribute def)
-       (cur-normalize (quasisyntax/loc syn def))]
+       (cur-eval (quasisyntax/loc syn #,(syntax-local-introduce #'def)))]
       [_:id
-       #:when (not (dict-ref def-dict syn #f))
+       #:when (not (syntax-property syn 'definition))
        syn]
       [e:reified-pi
        (reify-pi syn #'e.name (cur-eval #'e.ann) (cur-eval #'e.result))]
@@ -730,8 +727,7 @@
     [(_:top-level-id name:id body:cur-expr)
      ;; NB: Store definition to get δ reduction
      #:do [(define y (format-id #'name "~a" (fresh #'name) #:props #'name))]
-     (dict-set! def-dict y #'body.reified)
-     (define-typed-identifier #'name #'body.type #'body.reified y)]))
+     (define-typed-identifier (syntax-property #'name 'definition (syntax-local-introduce #'body.reified) #t) #'body.type #'body.reified y)]))
 
 (define-syntax (cur-axiom syn)
   (syntax-parse syn
