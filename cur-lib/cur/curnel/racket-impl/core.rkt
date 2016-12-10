@@ -705,11 +705,14 @@
 (begin-for-syntax
   (define (define-typed-identifier name type reified-term (y (format-id name "~a" (fresh name) #:props name)))
     #`(begin
-        (define #,y #,reified-term)
+        (define #,(syntax-local-identifier-as-binding y) #,reified-term)
         (define-syntax #,name
           (make-rename-transformer
            ;; TODO: Clean this up. Need to be *very* careful when preserving properties
-           (format-id #'#,name
+           (set-type
+            (syntax-property #'#,y 'not-free-identifier=? #t #t)
+            #'#,type)
+           #;(format-id #'#,name
                       "~a"
                       #'#,y
                       #:props
