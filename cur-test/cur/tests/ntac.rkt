@@ -11,9 +11,8 @@
 
 ;; Not quite and-proj1; need elim for that.
 
-;; TODO: For some reason, #%app in (And A B) isn't expanded properly. Not getting right binding?
 (define-theorem and-proj1
-  (forall (A : Type) (B : Type) (c : (#%app And A B)) Type)
+  (forall (A : Type) (B : Type) (c : (And A B)) Type)
   (try by-assumption)
   nop
   (by-intro A-)

@@ -319,9 +319,9 @@
        #:when (free-identifier=? syn x)
        v]
       [(e ...)
-       #:with (e^ ...) (map (lambda (e) (subst v x e)) (attribute e))
+       #:attr ls (map (lambda (e) (subst v x e)) (attribute e))
        ;; NB: Will induce warnings since blindly copies syntax
-       (reified-copy-type (quasisyntax/loc syn (e^ ...)) syn)]
+       (reified-copy-type (quasisyntax/loc syn #,(datum->syntax syn (attribute ls))) syn)]
       [_
        ;; TODO: A pattern
        ;; NB: When substituting into a term, need to take into account that dependent types will change.
