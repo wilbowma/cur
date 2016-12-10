@@ -540,11 +540,8 @@
         #`(lambda (internal-name ...)
             (let*-syntax ([x (make-rename-transformer (set-type #'internal-name #'t))] ...)
               #,syn)))
-       #:with (#%plain-lambda (tname ...) type)
-       (cur-reify
-        #`(lambda (#,@(attribute name))
-            #,(get-type #'e.body)))
-       #`((name ...) (tname ...) e.body : #,(syntax-local-introduce #'type))]))
+       ;; TODO: duplicate names since types no longer expanded in separate context.
+       #`((name ...) (name ...) e.body : #,(syntax-local-introduce (get-type #'e.body)))]))
 
   ;; Type checking via syntax classes
 
