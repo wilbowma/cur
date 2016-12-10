@@ -83,18 +83,7 @@
 (begin-for-syntax
   (require racket/trace)
   (define (env->ctx env)
-    (let-values ([(names types)
-                  (for/fold ([names '()]
-                             [types '()])
-                            ([p (reverse env)])
-                    (syntax-parse (cdr p)
-                      [(~var e (cur-expr/ctx (reverse (map cons names types))))
-                       (values
-                        ;; TODO: what if the names get .. renamed? but such names should have a type
-                        ;; attached so maybe okay
-                        (cons (car p) names #;(attribute e.name))
-                        (cons #'e.reified types))]))])
-      (reverse (map cons names types))))
+    (reverse env))
 
   (define current-env (make-parameter '()))
 
