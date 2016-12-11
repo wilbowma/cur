@@ -5,30 +5,14 @@
    racket
    racket/syntax
    racket/dict
-   syntax/parse
    syntax/id-table)
 
   (define def-dict (make-free-id-table)))
-
-(define-syntax (define-type syn)
-  (syntax-case syn ()
-    [(_ e)
-     #`(begin
-         (struct e ()))]))
 
 (define-for-syntax (typed-identifier x type)
   (format-id x "~a1" x #:props (syntax-property
                                 (syntax-property x 'type type #t)
                                 'not-free-identifier=? #t #t)))
-
-(define-syntax (define-constr syn)
-  (syntax-case syn (:)
-    [(_ id : type)
-     (with-syntax ([x (typed-identifier #'id #'type)])
-       #`(begin
-           (struct x ())
-           (define-syntax id
-             (make-rename-transformer #'x))))]))
 
 (define-syntax (define^ syn)
   (syntax-case syn (:)
@@ -41,19 +25,14 @@
              (make-rename-transformer #'x))))]))
 
 (define-for-syntax (type-eval e)
-  (syntax-parse e
-    [x:id
-     #:attr def (dict-ref def-dict #'x #f)
-     #:when (attribute def)
-     #'def]
-    [_ e]))
+  (dict-ref def-dict e e))
 
 (define-for-syntax (type-equal? e1 e2)
   (let ([x (type-eval e1)]
         [y (type-eval e2)])
     (displayln (identifier-binding x))
     (displayln (identifier-binding y))
-    (free-identifier=? x y)) )
+    (free-identifier=? x y)))
 
 (define-for-syntax (my-expand syn)
   (local-expand syn 'expression null))
@@ -65,11 +44,10 @@
        (error "Type error"))
      #'(void)]))
 
-(define (Type) (error "Can't use Type at runtime"))
+(define (Type) (error "Type"))
+(define (True) (error "True"))
 
-(define-type True)
-
-(define-constr T : True)
+(define^ T : True (void))
 
 (define^ thm : (Type) True)
 
