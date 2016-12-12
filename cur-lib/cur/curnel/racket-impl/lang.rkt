@@ -60,6 +60,8 @@
    cur-type-check?
    cur-constructors-for
    cur-data-parameters
+   cur-method-type
+   cur-method-telescope-length
    cur-normalize
    cur-rename
    cur-step
@@ -153,6 +155,19 @@
   ;; inductive, as a natural starting from the first argument to the inductive type.
   (define (cur-data-parameters syn)
     (syntax-property (cur-reify/env syn) 'param-count))
+
+  ;; Given an a target (a constructor applied to parameters) and a motive for eliminating
+  ;; it, return the type of the method required for this
+  (define (cur-method-type syn motive)
+    (cur-reflect (branch-type syn syn motive)))
+
+  ;; Given an a constructor, return the number of arguments the method takes, including constructor
+  ;; parameters and inductive hypotheses.
+  (define (cur-method-telescope-length syn)
+    (define/syntax-parse c:cur-expr syn)
+    (define/syntax-parse c^:reified-constant (attribute c.reified))
+    (define/syntax-parse e:reified-telescope (attribute c.type))
+    (+ (attribute e.length) (length (syntax-property (attribute c^.constr) 'recursive-index-ls))))
 
   ;; Takes a Cur term syn and an arbitrary number of identifiers ls. The cur term is
   ;; expanded until expansion reaches a Curnel form, or one of the

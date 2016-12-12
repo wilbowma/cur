@@ -35,6 +35,9 @@
 
    cur-expr
    cur-expr/ctx
+   reified-constant
+   reified-telescope
+   branch-type
 
    ))
 
