@@ -127,8 +127,8 @@ z2
 #;(new-elim z (λ (x : Nat) Nat)
       (z (λ (n : Nat) n)))
 
-;; TODO: Should fail with type error, doesn't
-(new-elim z2 (λ (x : Nat2) Nat2)
+;; TODO Should fail with type error, does, but needs improvement
+#;(new-elim z2 (λ (x : Nat2) Nat2)
       (z2 (λ (n : Nat2) n)))
 
 #;(require (only-in racket displayln [#%app unsafe-racket-apply]))
@@ -170,7 +170,8 @@ z2
 (new-elim ((just Nat) (s z)) (λ (x : (Maybe Nat)) Nat)
       (z (λ (a : Nat) a)))
 
-((λ (x : (new-elim z2 (λ (x : Nat2) (Type 1))
+;; TODO Should fail with type error, does but needs improvement
+#;((λ (x : (new-elim z2 (λ (x : Nat2) (Type 1))
                ((Type 0) (λ (x : Nat2) (Type 0))))) x) Nat)
 
 ((λ (x : (new-elim (s2 z2) (λ (x : Nat2) (Type 1))

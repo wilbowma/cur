@@ -691,10 +691,11 @@
 
 (begin-for-syntax
   ;; TODO: Performance: Maybe mulit-artiy functions.
-  (define (cur-app* e args)
-    (for/fold ([e e])
+  ;; TODO: cur-app generates bad error messages; loses type info
+  (define (cur-app* rator args)
+    (for/fold ([e rator])
               ([arg args])
-      #`(cur-app #,e #,arg))))
+      (quasisyntax/loc rator (cur-app #,e #,arg)))))
 
 (define-syntax (cur-app syn)
   (syntax-parse syn
@@ -879,7 +880,57 @@
          (loop #`(#%plain-app #,Dp e2.name) (subst #'e2.name #'e1.name #'e1.result) #'e2.result)]
         [_ (error 'check-motive (format "Something terrible has happened: ~a" this-syntax))])))
 
-  (define (check-method syn name param-count params motive method constr)
+  (define (branch-type syn constr motive)
+    (define/syntax-parse e:cur-expr constr)
+    (define/syntax-parse c:reified-constant (attribute e.reified))
+    (define recursive-index-ls (syntax-property (attribute c.constr) 'recursive-index-ls))
+    ;; TODO: syntax-property get merged; could be a cons pair not a natural. Applies to others
+    (define maybe-param-count (syntax-property (attribute c.constr) 'param-count))
+    ;; TODO: Should check consistency
+    (define param-count (if (pair? maybe-param-count) (car maybe-param-count) maybe-param-count))
+    (let branch-type ([target (attribute c)]
+                      [type (attribute e.type)]
+                      [i 0]
+                      [r-ann-ls '()])
+      (syntax-parse type
+        [e:reified-pi
+         ;; TODO: performance, maybe use reified-Π here instead of cur-Π
+         (quasisyntax/loc syn
+           (cur-Π (e.name : e.ann)
+                  #,(branch-type (quasisyntax/loc syn (cur-app #,target e.name)) #'e.result (add1 i)
+                                 ;; TODO: performance, memq in a loop. over numbers, should be
+                                 ;; performant way to do this.
+                                 (if (memq i recursive-index-ls)
+                                     (cons (cons #'e.name #'e.ann) r-ann-ls)
+                                     r-ann-ls))))]
+        [e:reified-constant
+         #:do [(define index-ls (drop (attribute e.rand-ls) param-count))
+               (define final-result (cur-app* motive (append index-ls (list target))))]
+         (for/fold ([r final-result])
+                   ([p (reverse r-ann-ls)])
+           (define/syntax-parse r-ann:reified-constant (cdr p))
+           (define r-index-ls (drop (attribute r-ann.rand-ls) param-count))
+           (define r-arg (car p))
+           (quasisyntax/loc syn
+             (cur-Π (#,(fresh r-arg) : #,(cur-app* motive (append r-index-ls (list r-arg))))
+                    #,r)))])))
+
+  (define (check-method syn c motive br-type)
+    (define expected (branch-type syn c motive))
+    (unless (cur-equal? expected br-type)
+      (raise-syntax-error
+       'core-type-error
+       ;; TODO: Resugar
+       (format "Expected method of type ~a, but found method of type of ~a"
+               (syntax->datum expected)
+               (syntax->datum br-type))
+       syn)))
+
+  ;; TODO: Better errors, worse code
+  ;; TODO: Mostly, this is checking equality. Maybe need a check-cur-equal method that reports errors
+  ;; instead of returning true or false (probably index cur-equal? by failure result which is either
+  ;; #f or error message)
+  #;(define (check-method syn name param-count params motive method constr)
     (define/syntax-parse m:cur-expr method)
     (define/syntax-parse c:cur-expr (cur-app* constr params))
     (define/syntax-parse (~var c-tele (reified-constructor-telescope name)) #'c.type)
@@ -976,9 +1027,9 @@
      #:with elim-name (dict-ref elim-dict inductive-name)
      #:with n:cur-expr inductive-name
      #:do [(check-motive #'motive inductive-name param-ls #'n.type #'motive.type)]
-     #:do [(for ([m (attribute method.reified)]
+     #:do [(for ([m (attribute method.type)]
                  [c (dict-ref constructor-dict inductive-name) #;(syntax-property inductive-name 'constructor-ls)])
-             (check-method syn inductive-name param-count param-ls #'motive.reified m c))]
+             (check-method syn (cur-app* c param-ls) #'motive.reified m))]
      #:attr constructor-count (syntax-property inductive-name 'constructor-count)
      #:fail-unless (= (attribute constructor-count) method-count)
      (raise-syntax-error 'core-type-error
