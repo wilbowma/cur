@@ -8,11 +8,10 @@
 
 (check-equal? And And)
 (check-equal? True True)
-;; TODO: Weird binding issues prevent these from passing
-#;(:: pf:anything-implies-true thm:anything-implies-true)
-#;(:: pf:and-is-symmetric thm:and-is-symmetric)
-#;(:: pf:proj1 thm:proj1)
-#;(:: pf:proj2 thm:proj2)
+(:: pf:anything-implies-true thm:anything-implies-true)
+(:: pf:and-is-symmetric thm:and-is-symmetric)
+(:: pf:proj1 thm:proj1)
+(:: pf:proj2 thm:proj2)
 (check-equal?
  (elim == (λ (x : Bool) (y : Bool) (p : (== Bool x y)) Nat)
        ((λ (x : Bool) z))

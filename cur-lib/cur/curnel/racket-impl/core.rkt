@@ -61,9 +61,7 @@
   (provide constructor-dict elim-dict)
   (require racket/dict syntax/id-table)
   (define constructor-dict (make-free-id-table))
-  (define elim-dict (make-free-id-table))
-  ;; NB: Can't use syntax-properties for this for reasons that make no sense to me.
-  (define def-dict (make-free-id-table)))
+  (define elim-dict (make-free-id-table)))
 
 ;;; Debugging
 ;;; ------------------------------------------------------------------------
@@ -352,11 +350,11 @@
     (syntax-parse syn
       [_:reified-universe syn]
       [_:id
-       #:attr def (dict-ref def-dict syn #f)
+       #:attr def (syntax-property syn 'definition)
        #:when (attribute def)
-       (cur-eval (quasisyntax/loc syn def))]
+       (cur-eval (cur-reify (attribute def)))]
       [_:id
-       #:when (not (dict-ref def-dict syn #f))
+       #:when (not (syntax-property syn 'definition))
        syn]
       [e:reified-pi
        (reify-pi syn #'e.name (cur-eval #'e.ann) (cur-eval #'e.result))]
@@ -713,6 +711,10 @@
         (define-syntax #,name
           (make-rename-transformer
            ;; TODO: Clean this up. Need to be *very* careful when preserving properties
+           ;; TODO: Should be able to simplify this some; seems to have been affected by some bug in Racket
+           ;; fixed as of ce370c2f6475c108ecf0b172417944b5ed10950d
+           ;; Partially a bug in this code, since that bug is only triggered when identifier is
+           ;; missing source location information
            (format-id #'#,name
                       "~a"
                       #'#,y
@@ -729,9 +731,27 @@
     #:datum-literals (:)
     [(_:top-level-id name:id body:cur-expr)
      ;; NB: Store definition to get δ reduction
-     #:do [(define y (format-id #'name "~a" (fresh #'name) #:props #'name))]
-     (dict-set! def-dict y #'body.reified)
-     (define-typed-identifier #'name #'body.type #'body.reified y)]))
+     #:do [(define y (format-id #'name "~a" (fresh #'name) #:props #'name))
+           (define info (format-id #'name "~a-info" y))]
+     #`(begin
+         (define-syntax #,info (λ (_) #'body.reified))
+         (define #,y body.reified)
+         ;; TODO: Bit of code duplication here
+         ;; TODO NB can't reused define-typed-indentifier because need to
+         ;; delay the syntax-property attachment until inside the macro expander. This is probably
+         ;; true of *all* syntax-properties I use; hard to explain why, but see also:
+         ;; https://groups.google.com/forum/#!topic/racket-users/TGax2h8dVxs
+         ;; https://github.com/racket/racket/issues/1495
+         ;; https://github.com/lexi-lambda/rascal/commit/d7c92bffcc5347125b37f6e4ba8a080a548cdf78
+         (define-syntax name
+           (make-rename-transformer
+            (syntax-property
+             (syntax-property
+              (set-type #'#,y #'body.type)
+              'not-free-identifier=? #t #t)
+             'definition #'(#,info)
+             #t)))
+         #;(define-typed-identifier name (syntax-property name 'definition #`(#,info) #t) body.type body.reified y))]))
 
 (define-syntax (cur-axiom syn)
   (syntax-parse syn
