@@ -147,6 +147,9 @@
 
   (define (reified-set-type e t)
     (if t
+        ;; TODO: Theory: this syntax property needs to be attached "in the expander", i.e., under a #`. See
+        ;; fixes for δreduction discussed below, introduced in commit a6c3d7dbf88cafbcdf65508c8a6649863f9127b5
+        ;; Otherwise, compilation will not work.
         (syntax-property e 'type t #t)
         (begin
           #;(printf "Warning: reified term ~a given #f as a type.~n" e)
