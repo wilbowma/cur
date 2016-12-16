@@ -37,9 +37,7 @@
    cur-expr/ctx
    reified-constant
    reified-telescope
-   branch-type
-
-   ))
+   branch-type))
 
 ;; NB: Naming conventions
 ;; number-of-bla should be: bla-count
@@ -56,7 +54,7 @@
 ;; NB: have to use erased terms in types because the erased terms may have renamed
 ;; variables, e.g., from the expansion that happens in get-type.
 
-;;; Some gross mutual stores that seem necessary due to limitations in syntax-properties
+;; TODO PERF: Would global dictionaries be less memory intensive than syntax-properties?
 (begin-for-syntax
   (provide constructor-dict elim-dict)
   (require racket/dict syntax/id-table)
@@ -70,8 +68,6 @@
  (for-syntax
   racket/trace))
 (begin-for-syntax
-#;  (define syntax-local-introduce values)
-#;  (define syntax-local-identifier-as-binding values)
   (define (maybe-syntax->datum x)
     (if (syntax? x)
         (syntax->datum x)
@@ -95,6 +91,7 @@
 ;;; ------------------------------------------------------------------------
 
 ;; Reified
+;; TODO: Should all reified terms have type in run-time representation, instead of just syntax-property?
 ;; ----------------------------------------------------------------
 
 ; The run-time representation of univeres. (Type i), where i is a Nat.
@@ -115,11 +112,13 @@
   ;; abstraction.
 
   ; A syntax class for detecting the constructor of a struct
-  ;; TODO: Performance: Maybe want #:no-delimit-cut for some of these, but prevents use in ~not
+  ;; TODO PERF: Maybe want #:no-delimit-cut for some of these, but prevents use in ~not
   (define-syntax-class (constructor constr-syn) #:attributes (constr)
     (pattern x:id
              ;; TODO: Something about this causes failure when compiled.
              ;; 'constructor-for is not preserved, so can't use that.
+             ;; TODO PERF: Unnnecessary repeated local-expand of constr name. Could require
+             ;; fully-expanded name, and define-for-syntax once
              #:attr constr (local-expand constr-syn 'expression null)
              #:when (and (attribute constr) (free-identifier=? #'x #'constr))))
 
@@ -138,7 +137,6 @@
        (reify-universe this-syntax (add1 (attribute e.level)))]
       [_
        (define x (syntax-property e 'type))
-       ;; TODO: Should we do something about this? Some reified terms don't have types.. and that's okay...?
        (if x
            (syntax-local-introduce (if (pair? x) (car x) x))
            (begin
@@ -302,6 +300,7 @@
        (quasisyntax/loc syn (cur-type e.level-syn))]
       [e:reified-pi
        (quasisyntax/loc syn (cur-Π (#,(cur-reflect #'e.name) : #,(cur-reflect #'e.ann))
+                                   ;; TODO: subst should always be called on reified syntax?
                                    #,(subst (cur-reflect #'e.name) #'e.name (cur-reflect #'e.result))))]
       [e:reified-app
        (quasisyntax/loc syn (cur-app #,(cur-reflect #'e.rator) #,(cur-reflect #'e.rand)))]
@@ -315,7 +314,7 @@
 ;;; Intensional equality
 ;;; ------------------------------------------------------------------------
 (begin-for-syntax
-  ;; TODO: Might be better for performance if this was syntax directed; avoids trying to substitute
+  ;; TODO PERF: Might be better for if this was syntax directed; avoids trying to substitute
   ;; into non-syntax like quote or 0
   (define (subst v x syn)
     (syntax-parse syn
@@ -347,8 +346,13 @@
      #:eq syn-eq? (subst #'z #'x (expand-syntax-once #'(#%plain-lambda (x) x))) #'(#%plain-lambda (x) x)))
 
   ;; TODO: Should this be parameterizable, to allow for different eval strategies if user wants?
-  ;; TODO: Performance: Should the interpreter operate directly on syntax? Might be better to first
-  ;; parse into structs, turn back into syntax later?
+  ;; TODO PERF: Should the interpreter operate directly on syntax? Might be better to first
+  ;; parse into structs, turn back into syntax later? Alternatively, represent procedures as custom
+  ;; struct (with attached syntax), use eval, then turn back into syntax?
+  ;; TODO: quasisyntax/loc
+  ;; TODO PERF: Might be worth manually reifying/copying types instead of using the type-assigning
+  ;; macros (which we were doing); however, this complicates things a bit, due to issues with
+  ;; syntax-properties containing identifiers
   (define (cur-eval syn)
     (syntax-parse syn
       [_:reified-universe syn]
@@ -463,6 +467,8 @@
 ;;; Types as Macros; type system helpers.
 ;;; ------------------------------------------------------------------------
 (begin-for-syntax
+  ;; TODO: Fresh generates awful names, particularly since names get re-freshened a bunch.
+  ;; Can we alternate between ~a^ and ~a by storing the original name as a syntax-property?
   (define (fresh [x #f])
     (datum->syntax x (gensym (if x (syntax->datum x) 'x)) x x))
 
@@ -475,7 +481,7 @@
   (define (merge-type-props syn t)
     (if (pair? t)
         ;; TODO: Is there no better way to loop over a cons list?
-        ;; TODO: Performance: Should merge-type-props be used when elaborating, to prevent the 'type
+        ;; TODO PERF: Should merge-type-props be used when elaborating, to prevent the 'type
         ;; list from growing large?
         (let ([t1 (car t)])
           (let loop ([t (cdr t)])
@@ -494,8 +500,6 @@
           t1)
         t))
 
-  ;; TODO: What if e is in a context, and we should be using cur-reify/ctx? and cur-normalzie needs to
-  ;; run under that? I see now why these were the same function.
   (define (get-type e)
     (define type (reified-get-type e))
     ;; NB: This error is a last result; macros in e should have reported error before now.
@@ -504,8 +508,7 @@
        'internal-error
        "Something terrible has occured. Expected a cur term, but found something else."
        e))
-    type
-    #;(syntax-local-introduce (merge-type-props e type)))
+    type)
 
   (define-syntax-class in-let-values #:attributes (body)
     #:literals (let-values)
@@ -525,10 +528,6 @@
 (begin-for-syntax
   ;; When reifying a term in an extended context, the names may be alpha-converted.
   ;; cur-reify/ctx returns both the reified term and the alpha-converted names.
-  ;; #`((zv ...) e)
-  ;; where zv ... are the alpha-renamed bindings from ctx in e and t
-  ;;       e is the well-typed compiled Cur term
-  ;; NB: ctx must only contained well-typed types.
   (define (cur-reify/ctx syn ctx)
     (syntax-parse syn
       #:datum-literals (:)
@@ -536,6 +535,7 @@
       [_
        #:with (x ...) (map car ctx)
        #:with (t ...) (map cdr ctx)
+       ;; TODO: reflected-name is never used
        #:with (internal-name ...) (map (λ (x) (syntax-property (fresh x) 'reflected-name x #t)) (attribute x))
        ;; TODO: syntax-parameter support added this hack
        ;; NB: consume arbitrary number of let-values.
@@ -545,7 +545,7 @@
             (let*-syntax ([x (make-rename-transformer (set-type #'internal-name #'t))] ...)
               #,syn)))
        ;; TODO: duplicate names since types no longer expanded in separate context.
-       #`((name ...) (name ...) e.body : #,(syntax-local-introduce (get-type #'e.body)))]))
+       #`((name ...) (name ...) e.body : #,(get-type #'e.body))]))
 
   ;; Type checking via syntax classes
 
@@ -694,7 +694,7 @@
         (cur-Π (#,(car (attribute e.tname)) : t1.reified) e.type))]))
 
 (begin-for-syntax
-  ;; TODO: Performance: Maybe mulit-artiy functions.
+  ;; TODO PERF: Maybe mulit-artiy functions.
   ;; TODO: cur-app generates bad error messages; loses type info
   (define (cur-app* rator args)
     (for/fold ([e rator])
@@ -804,23 +804,23 @@
                             [m method-names]
                             [_ (attribute t.length)]
                             [rargs (attribute t.recursive-index-ls)])
-                   ;; TODO: Performance: Generate the dereferencing of each field instead of struct->list?
+                   ;; TODO PERF: Generate the dereferencing of each field instead of struct->list?
                    ;; Can't do that easily, due to alpha-conversion; won't know the name of the
                    ;; field reference function. Might solve this by storing accessor abstraction in
                    ;; syntax-property of constructor
                    #`[(#,pred? e)
-                      ;; TODO: Performance/code size: this procedure should be a (phase 0) function.
+                      ;; TODO PERF: /code size: this procedure should be a (phase 0) function.
                       (let* ([args (drop (struct->list e) 'p)]
                              [recursive-args
                               ;; TODO: Do we not have constructor argument count?
                               (for/list ([x args]
                                          [i (in-naturals 'p)]
-                                         ;; TODO: Performance: memq, in a loop
-                                         ;; TODO: Performance/code size: Duplicating rargs in code
+                                         ;; TODO PERF: memq, in a loop, over numbers
+                                         ;; TODO PERF: /code size: Duplicating rargs in code
                                          #:when (memq i '#,rargs))
                                 (loop x))])
                         ;; NB: the method is curried, so ...
-                        ;; TODO: Performance: attempt to uncurry elim methods?
+                        ;; TODO PERF: attempt to uncurry elim methods?
                         (for/fold ([app #,m])
                                   ([a (append args recursive-args)])
                             (app a)))])))))]))
@@ -917,11 +917,11 @@
                       [r-ann-ls '()])
       (syntax-parse type
         [e:reified-pi
-         ;; TODO: performance, maybe use reified-Π here instead of cur-Π
+         ;; TODO PERF: maybe use reified-Π here instead of cur-Π
          (quasisyntax/loc syn
            (cur-Π (e.name : e.ann)
                   #,(branch-type (quasisyntax/loc syn (cur-app #,target e.name)) #'e.result (add1 i)
-                                 ;; TODO: performance, memq in a loop. over numbers, should be
+                                 ;; TODO PERF: memq in a loop. over numbers, should be
                                  ;; performant way to do this.
                                  (if (memq i recursive-index-ls)
                                      (cons (cons #'e.name #'e.ann) r-ann-ls)
@@ -940,6 +940,7 @@
 
   (define (check-method syn c motive br-type)
     (define expected (branch-type syn c motive))
+    ;; TODO: should probably be subtype?
     (unless (cur-equal? expected br-type)
       (raise-syntax-error
        'core-type-error
