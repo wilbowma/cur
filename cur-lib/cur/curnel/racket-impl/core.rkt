@@ -913,7 +913,7 @@
     (define param-count (if (pair? maybe-param-count) (car maybe-param-count) maybe-param-count))
     (let branch-type ([target (attribute c)]
                       [type (attribute e.type)]
-                      [i 0]
+                      [i param-count]
                       [r-ann-ls '()])
       (syntax-parse type
         [e:reified-pi
