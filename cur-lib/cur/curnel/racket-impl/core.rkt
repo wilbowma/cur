@@ -401,7 +401,7 @@
   ;; TODO: Need generic fold over reified term
 
   ;; When are two Cur terms intensionally equal? When they normalize the α-equivalent reified syntax.
-  (define (cur-equal? t1 t2)
+  (define (cur-equal? t1 t2 (fail (lambda _ #f)))
     (let cur-equal? ([t1 (cur-normalize t1)]
                      [t2 (cur-normalize t2)])
       (syntax-parse #`(#,t1 #,t2)
@@ -422,7 +422,7 @@
         [(e1:reified-lambda e2:reified-lambda)
          (and (cur-equal? #'e1.ann #'e2.ann)
               (cur-equal? #'e1.body (subst #'e1.name #'e2.name #'e2.body)))]
-        [_ #f])))
+        [_ (fail t1 t2)])))
 
   (define (cur-subtype? t1 t2)
     (let cur-subtype? ([t1 (cur-normalize t1)]
@@ -938,17 +938,20 @@
              (cur-Π (#,(fresh r-arg) : #,(cur-app* motive (append r-index-ls (list r-arg))))
                     #,r)))])))
 
-  (define (check-method syn c motive br-type)
+  (define (check-method syn c motive br-type method)
     (define expected (branch-type syn c motive))
     ;; TODO: should probably be subtype?
-    (unless (cur-equal? expected br-type)
-      (raise-syntax-error
-       'core-type-error
-       ;; TODO: Resugar
-       (format "Expected method of type ~a, but found method of type of ~a"
-               (syntax->datum expected)
-               (syntax->datum br-type))
-       syn)))
+    (cur-equal? expected br-type
+                (lambda (t1 t2)
+                  (raise-syntax-error
+                   'core-type-error
+                   ;; TODO: Resugar
+                   (format "Expected type ~a, but found type of ~a while checking method for ~a"
+                           (syntax->datum t1)
+                           (syntax->datum t2)
+                           (syntax->datum c))
+                   syn
+                   method))))
 
   ;; TODO: Better errors, worse code
   ;; TODO: Mostly, this is checking equality. Maybe need a check-cur-equal method that reports errors
@@ -1052,8 +1055,9 @@
      #:with n:cur-expr inductive-name
      #:do [(check-motive #'motive inductive-name param-ls #'n.type #'motive.type)]
      #:do [(for ([m (attribute method.type)]
+                 [method (attribute method)]
                  [c (dict-ref constructor-dict inductive-name) #;(syntax-property inductive-name 'constructor-ls)])
-             (check-method syn (cur-app* c param-ls) #'motive.reified m))]
+             (check-method syn (cur-app* c param-ls) #'motive.reified m method))]
      #:attr constructor-count (syntax-property inductive-name 'constructor-count)
      #:fail-unless (= (attribute constructor-count) method-count)
      (raise-syntax-error 'core-type-error
