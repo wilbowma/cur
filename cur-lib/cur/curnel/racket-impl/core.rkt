@@ -402,40 +402,40 @@
 
   ;; When are two Cur terms intensionally equal? When they normalize the α-equivalent reified syntax.
   (define (cur-equal? t1 t2)
-                ;; TODO: Performance: Okay this is stupidly inefficient
-    (syntax-parse #`(#,(cur-normalize t1) #,(cur-normalize t2))
-      [(x:id y:id)
-;       (printf "~a binding: ~a~n" #'x (identifier-binding #'x))
-;       (printf "~a binding: ~a~n" #'y (identifier-binding #'y))
-       (free-identifier=? #'x #'y)]
-      [(A:reified-universe B:reified-universe)
-       (= (attribute A.level) (attribute B.level))]
-      [(e1:reified-pi e2:reified-pi)
-       (and (cur-equal? #'e1.ann #'e2.ann)
-            (cur-equal? #'e1.result (subst #'e1.name #'e2.name #'e2.result)))]
-      [(e1:reified-elim e2:reified-elim)
-       (and (cur-equal? #'e1.target #'e2.target)
-            (cur-equal? #'e1.motive #'e2.motive)
-            (map cur-equal? (attribute e1.method-ls) (attribute e2.method-ls)))]
-      [(e1:reified-app e2:reified-app)
-       (and (cur-equal? #'e1.rator #'e2.rator)
-            (cur-equal? #'e1.rand #'e2.rand))]
-      [(e1:reified-lambda e2:reified-lambda)
-       (and (cur-equal? #'e1.ann #'e2.ann)
-            (cur-equal? #'e1.body (subst #'e1.name #'e2.name #'e2.body)))]
-      [_ #f]))
+    (let cur-equal? ([t1 (cur-normalize t1)]
+                     [t2 (cur-normalize t2)])
+      (syntax-parse #`(#,t1 #,t2)
+        [(x:id y:id)
+         (free-identifier=? #'x #'y)]
+        [(A:reified-universe B:reified-universe)
+         (= (attribute A.level) (attribute B.level))]
+        [(e1:reified-pi e2:reified-pi)
+         (and (cur-equal? #'e1.ann #'e2.ann)
+              (cur-equal? #'e1.result (subst #'e1.name #'e2.name #'e2.result)))]
+        [(e1:reified-elim e2:reified-elim)
+         (and (cur-equal? #'e1.target #'e2.target)
+              (cur-equal? #'e1.motive #'e2.motive)
+              (map cur-equal? (attribute e1.method-ls) (attribute e2.method-ls)))]
+        [(e1:reified-app e2:reified-app)
+         (and (cur-equal? #'e1.rator #'e2.rator)
+              (cur-equal? #'e1.rand #'e2.rand))]
+        [(e1:reified-lambda e2:reified-lambda)
+         (and (cur-equal? #'e1.ann #'e2.ann)
+              (cur-equal? #'e1.body (subst #'e1.name #'e2.name #'e2.body)))]
+        [_ #f])))
 
   (define (cur-subtype? t1 t2)
-    ;; TODO: Performance
-    (syntax-parse #`(#,(cur-normalize t1) #,(cur-normalize t2))
-      [(A:reified-universe B:reified-universe)
-       (<= (attribute A.level) (attribute B.level))]
-      [(e1:reified-pi e2:reified-pi)
-       (and (cur-equal? #'e1.ann #'e2.ann)
-            (cur-subtype? #'e1.result (subst #'e1.name #'e2.name #'e2.result)))]
-      [(e1 e2)
-       ;; TODO: results in extra calls to cur-normalize
-       (cur-equal? #'e1 #'e2)])))
+    (let cur-subtype? ([t1 (cur-normalize t1)]
+                       [t2 (cur-normalize t2)])
+      (syntax-parse #`(#,t1 #,t2)
+        [(A:reified-universe B:reified-universe)
+         (<= (attribute A.level) (attribute B.level))]
+        [(e1:reified-pi e2:reified-pi)
+         (and (cur-equal? #'e1.ann #'e2.ann)
+              (cur-subtype? #'e1.result (subst #'e1.name #'e2.name #'e2.result)))]
+        [(e1 e2)
+         ;; TODO PERF: results in (2) extra calls to cur-normalize
+         (cur-equal? #'e1 #'e2)]))))
 
 ;;; Nothing before here should be able to error. Things after here might, since they are dealing with
 ;;; terms before they are type-checked.
