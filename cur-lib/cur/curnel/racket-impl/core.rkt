@@ -545,7 +545,9 @@
             (let*-syntax ([x (make-rename-transformer (set-type #'internal-name #'t))] ...)
               #,syn)))
        ;; TODO: duplicate names since types no longer expanded in separate context.
-       #`((name ...) (name ...) e.body : #,(get-type #'e.body))]))
+       ;; NB: This syntax-local-introduce should be reduntant, but apparently isn't (introduces bug
+       ;; with cur-call)
+       #`((name ...) (name ...) e.body : #,(syntax-local-introduce (get-type #'e.body)))]))
 
   ;; Type checking via syntax classes
 
