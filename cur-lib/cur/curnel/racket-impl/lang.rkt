@@ -153,6 +153,7 @@
 
   ;; Given an identifier representing an inductive type, return the number of parameters in that
   ;; inductive, as a natural starting from the first argument to the inductive type.
+  ;; TODO: Does this work on constructors too? If not, it should.
   (define (cur-data-parameters syn)
     (syntax-property (cur-reify/env syn) 'param-count))
 
@@ -161,13 +162,21 @@
   (define (cur-method-type syn motive)
     (cur-reflect (branch-type syn syn motive)))
 
-  ;; Given an a constructor, return the number of arguments the method takes, including constructor
-  ;; parameters and inductive hypotheses.
-  (define (cur-method-telescope-length syn)
+  ;; Given a constructor, return the number of arguments it takes.
+  (define (cur-constructor-telescope-length syn)
     (define/syntax-parse c:cur-expr syn)
     (define/syntax-parse c^:reified-constant (attribute c.reified))
     (define/syntax-parse e:reified-telescope (attribute c.type))
     (+ (attribute e.length) (length (syntax-property (attribute c^.constr) 'recursive-index-ls))))
+
+  ;; Given a constructor, return a 0-indexed list of the positions of its recursive arguments.
+  ;; E.g. for the constructor `s : (Π (x : Nat) Nat)` of the natural numbers, its
+  ;; constructor-telescope-length is 1, and it's recursive-index-ls is '(0)
+  ;; `cons : (Π (A : (Type 0)) (Π (a : A) (Π (a : (List A)) (List A))))` = '(2)
+  (define (cur-constructor-recursive-index-ls syn)
+    (define/syntax-parse c:cur-expr syn)
+    (define/syntax-parse c^:reified-constant (attribute c.reified))
+    (syntax-property (attribute c^.constr) 'recursive-index-ls))
 
   ;; Takes a Cur term syn and an arbitrary number of identifiers ls. The cur term is
   ;; expanded until expansion reaches a Curnel form, or one of the
