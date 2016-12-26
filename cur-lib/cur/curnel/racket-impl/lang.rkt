@@ -61,7 +61,8 @@
    cur-constructors-for
    cur-data-parameters
    cur-method-type
-   cur-method-telescope-length
+   cur-constructor-recursive-index-ls
+   cur-constructor-telescope-length
    cur-normalize
    cur-rename
    cur-step
