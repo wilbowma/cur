@@ -763,11 +763,54 @@
             ([pair als])
     (syntax-property e (car pair) (cdr pair) #t)))
 
-;; TODO: Strict positivity checking
+;; NB: arg-flag is #f at the "top-level", i.e., when we're analyzing the top-level type of a
+;; constructor, and #t when analyzing an argument to the constructor.
+(define-for-syntax (positive D type arg-flag (fail (lambda _ #f)))
+  (let loop ([type type])
+    (syntax-parse type
+      [e:reified-constant
+       ;; TODO: I mean this makes sense to me now but
+       (not
+        (and
+         (cur-equal? D #'e.constr)
+         arg-flag
+         (fail this-syntax)))]
+      [e:reified-pi
+       (and
+        (syntax-parse #'e.ann
+          [arg:reified-constant
+           #:when (cur-equal? D #'arg.constr)
+           #t]
+          [_
+           (nonpositive D this-syntax fail)])
+        (loop #'e.result))]
+      [_ #t])))
+
+(define-for-syntax (nonpositive D type (fail (lambda _ #f)))
+  (let loop ([type type])
+    (syntax-parse type
+      [e:reified-pi
+       (and (syntax-parse #'e.ann
+              [arg:reified-constant
+               #:when (cur-equal? D #'arg.constr)
+               (fail this-syntax)]
+              [_
+               (positive D this-syntax #t fail)])
+            (loop #'e.result))]
+      [_ #t])))
+
 (define-syntax (_cur-constructor syn)
   (syntax-parse syn
    #:datum-literals (:)
    [(_ name (D) : (~var type (cur-constructor-telescope #'D)))
+    #:when (positive #'D #'type.reified #f
+             (lambda (t)
+               (raise-syntax-error
+                'core-type-error
+                (format "Expected strictly positive type, but found non-positive occurance at ~a."
+                        (syntax->datum t))
+                #'type
+                #'name)))
     #`(cur-axiom #,(syntax-properties
                     #'name
                     ;; TODO: Maybe adjust for parameters; all uses seem to do this now.
