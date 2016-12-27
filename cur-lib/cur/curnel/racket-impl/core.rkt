@@ -714,7 +714,7 @@
                       #'#,y
                       #:props
                       (set-type
-                       (syntax-property (syntax-property #'#,name 'not-free-identifier=? #t #t)
+                      (syntax-property (syntax-property #'#,name 'not-free-identifier=? #t #t)
                                         'reflected-name #'#,name #t)
                        #'#,type)))))))
 

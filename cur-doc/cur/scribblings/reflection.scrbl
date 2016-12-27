@@ -111,6 +111,13 @@ If @racket[#:local-env] is specified, checks the type under an extended lexical 
 @deprecated[#:what "#:local-env keyword argument" @local-env-message]
 }
 
+@defproc[(cur-reflect-id [id identifier?])
+         identifier?]{
+Return the original name of @racket[id] for identifiers that have been renamed during expansion or type-checking, if one exists.
+
+@history[#:added "0.20"]
+}
+
 @defproc[(cur-rename [new identifier?] [old identifier?] [term syntax?])
          syntax?]{
 Replace @racket[old] by @racket[new] in @racket[term], without evaluating or expanding @racket[term].
