@@ -67,6 +67,7 @@
    cur-constructor-telescope-length
    cur-normalize
    cur-rename
+   cur-reflect-id
    cur-step
    cur-equal?)
  require only-in except-in prefix-in rename-in combine-in relative-in only-meta-in for-syntax
@@ -139,6 +140,9 @@
 
   (define (cur-rename new old term)
     (subst new old term))
+
+  (define (cur-reflect-id id)
+    (or (syntax-property id 'reflected-name) id))
 
   (define (cur-type-infer syn #:local-env [env '()])
     (with-env env

@@ -34,7 +34,7 @@
     (coq-defns (format "~a~a~n" (coq-defns) str)))
 
   (define (sanitize-id str)
-    (let ([replace-by `((: _) (- _))])
+    (let ([replace-by `((: _) (- _) (> _) (_ __) (* _))])
       (for/fold ([str str])
                 ([p replace-by])
         (string-replace str (symbol->string (first p))
@@ -118,11 +118,11 @@
                (cur->coq #'d))]
              [(real-app e1 e2)
               (format "(~a ~a)" (cur->coq #'e1) (cur->coq #'e2))]
-             [e:id (sanitize-id (format "~a" (syntax->datum #'e)))])))
+             [e:id (sanitize-id (format "~a" (syntax->datum (cur-reflect-id #'e))))])))
        (format
         "~a~a"
         (coq-defns)
-        (if (regexp-match "^\\s*$" output)
+        (if (regexp-match #px"^\\s*$" output)
             ""
             (format "Eval compute in ~a." output)))))))
 

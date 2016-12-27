@@ -714,7 +714,8 @@
                       #'#,y
                       #:props
                       (set-type
-                       (syntax-property #'#,name 'not-free-identifier=? #t #t)
+                       (syntax-property (syntax-property #'#,name 'not-free-identifier=? #t #t)
+                                        'reflected-name #'#,name #t)
                        #'#,type)))))))
 
 (define-syntax (cur-define syn)
@@ -736,12 +737,11 @@
          ;; https://github.com/lexi-lambda/rascal/commit/d7c92bffcc5347125b37f6e4ba8a080a548cdf78
          (define-syntax name
            (make-rename-transformer
-            (syntax-property
-             (syntax-property
-              (set-type #'#,y #'body.type)
-              'not-free-identifier=? #t #t)
-             'definition #'(#,info)
-             #t)))
+            (syntax-properties
+             (set-type #'#,y #'body.type)
+             `((not-free-identifier=? . #t)
+               (definition . ,#'(#,info))
+               (reflected-name . ,#'name)))))
          #;(define-typed-identifier name (syntax-property name 'definition #`(#,info) #t) body.type body.reified y))]))
 
 (define-syntax (cur-axiom syn)
