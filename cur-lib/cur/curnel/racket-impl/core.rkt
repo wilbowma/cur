@@ -866,44 +866,30 @@
 
 ;; TODO: Rewrite and abstract this code omg
 (begin-for-syntax
-  ;; corresponds to check-motive judgment in model
-  (define (check-motive syn D params t_D t_motive)
-    ;; Apply D and t_D to params
-    (define-values (Dp t_Dp)
-      (for/fold ([Dp D]
-                 [t_Dp t_D])
-                ([p params])
-        (values
-         #`(#%plain-app #,Dp #,p)
-         (syntax-parse t_Dp
-           [e:reified-pi
-            (subst p #'e.name #'e.result)]))))
-    (let loop ([Dp Dp]
-               [t_Dp t_Dp]
-               [t_motive t_motive])
-      (syntax-parse #`(#,t_Dp #,t_motive)
-        [(e1:reified-universe ~! e2:reified-pi)
-         ;; TODO: Not sure why this version doesn't work. Maybe something to do with backtracking
-;         #:with (~or result:reified-universe) #'e2.result
-;         #:fail-unless (attribute result)
-         #:with result:cur-expr #'e2.result
-         #:fail-unless (syntax-parse #'result [_:reified-universe #t] [_ #f])
-         (raise-syntax-error
-          'core-type-error
-          (format "Expected result of motive to be a kind, but found something of type ~a."
-                  ;; TODO: ad-hoc resugaring
-                  (syntax->datum (cur-reflect #'e2.result)))
-          syn)
-         (unless (cur-equal? Dp #'e2.ann)
-           (raise-syntax-error
-            'core-type-error
-            (format "Expected final argument of motive to be the same type as the target, i.e. ~a, but found ~a."
-                    Dp
-                    #'e2.ann))
-           syn)]
-        [(e1:reified-pi ~! e2:reified-pi)
-         (loop #`(#%plain-app #,Dp e2.name) (subst #'e2.name #'e1.name #'e1.result) #'e2.result)]
-        [_ (error 'check-motive (format "Something terrible has happened: ~a" this-syntax))])))
+  ;; TODO: Might be some recomputing of (D params) type between here and cur-elim
+  (define (motive-type D params)
+    (define/syntax-parse e:cur-expr (cur-app* D params))
+    (let loop ([inductive-type (attribute e.type)]
+               [indices '()])
+      (syntax-parse inductive-type
+        [e:reified-pi
+         #`(cur-Π (e.name : e.ann) #,(loop #'e.result (cons #'e.name indices)))]
+        [e:reified-universe
+         ;; TODO PERF: append, reverse
+         ;; TODO: (cur-type 0) is an arbitrary choice here... really, any universe type is valid.
+         #`(cur-Π (_ : #,(cur-app* D (append params (reverse indices)))) (cur-type 0))])))
+
+  (define (check-motive syn D params motive-t)
+    (define expected (motive-type D params))
+    (cur-subtype? expected motive-t
+                (lambda (t1 t2)
+                  (raise-syntax-error
+                   'core-type-error
+                   ;; TODO: Resugar
+                   (format "Expected type ~a, but found type of ~a while checking motive."
+                           (syntax->datum t1)
+                           (syntax->datum t2))
+                   syn))))
 
   (define (branch-type syn constr motive)
     (define/syntax-parse e:cur-expr constr)
@@ -1054,8 +1040,7 @@
            (define param-ls (take rand-ls param-count))
            (define method-count (length (attribute method)))]
      #:with elim-name (dict-ref elim-dict inductive-name)
-     #:with n:cur-expr inductive-name
-     #:do [(check-motive #'motive inductive-name param-ls #'n.type #'motive.type)]
+     #:do [(check-motive #'motive inductive-name param-ls #'motive.type)]
      #:do [(for ([m (attribute method.type)]
                  [method (attribute method)]
                  [c (dict-ref constructor-dict inductive-name) #;(syntax-property inductive-name 'constructor-ls)])
