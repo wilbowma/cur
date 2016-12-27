@@ -159,7 +159,7 @@
     (syntax-property (cur-reify/env syn) 'param-count))
 
   ;; Given an a target (a constructor applied to parameters) and a motive for eliminating
-  ;; it, return the type of the method required for this
+  ;; it, return the type of the method required for this.
   (define (cur-method-type syn motive)
     (cur-reflect (branch-type syn syn motive)))
 
