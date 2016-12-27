@@ -964,11 +964,6 @@
            (define param-ls (take rand-ls param-count))
            (define method-count (length (attribute method)))]
      #:with elim-name (dict-ref elim-dict inductive-name)
-     #:do [(check-motive #'motive inductive-name param-ls #'motive.type)]
-     #:do [(for ([m (attribute method.type)]
-                 [method (attribute method)]
-                 [c (dict-ref constructor-dict inductive-name) #;(syntax-property inductive-name 'constructor-ls)])
-             (check-method syn (cur-app* c param-ls) #'motive.reified m method))]
      #:attr constructor-count (syntax-property inductive-name 'constructor-count)
      #:fail-unless (= (attribute constructor-count) method-count)
      (raise-syntax-error 'core-type-error
@@ -976,6 +971,11 @@
                                  (attribute constructor-count)
                                  method-count)
                          syn)
+     #:do [(check-motive #'motive inductive-name param-ls #'motive.type)]
+     #:do [(for ([m (attribute method.type)]
+                 [method (attribute method)]
+                 [c (dict-ref constructor-dict inductive-name) #;(syntax-property inductive-name 'constructor-ls)])
+             (check-method syn (cur-app* c param-ls) #'motive.reified m method))]
      (⊢ (elim-name target.reified motive.reified method.reified ...) :
         ;; TODO: append
         #,(cur-app* #'motive.reified (append index-ls (list #'target.reified))))]))
