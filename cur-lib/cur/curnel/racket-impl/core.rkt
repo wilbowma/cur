@@ -668,7 +668,7 @@
      ;; infinite derivations. Instead, we use the reified syntax. If we ever need the type of a
      ;; reified universe, get-type handles that, breaking what would otherwise be an infinite
      ;; expansion.
-     #`(Type 'i)]))
+     (quasisyntax/loc syn (Type 'i))]))
 
 (define-syntax (cur-Π syn)
   (syntax-parse syn
@@ -851,23 +851,22 @@
            (dict-set! elim-dict (cur-reify #'inductive-name) #'#,elim-name)))]))
 
 (begin-for-syntax
-  (define (motive-type D params)
+  (define (motive-type syn D params)
     (define/syntax-parse e:cur-expr (cur-app* D params))
     (let loop ([inductive-type (attribute e.type)]
                [indices '()])
       (syntax-parse inductive-type
         [e:reified-pi
          ;; TODO PERF: maybe use reified-Π here instead of cur-Π
-         ;; TODO: Shouldn't this be quasisyntax/loc
-         #`(cur-Π (e.name : e.ann) #,(loop #'e.result (cons #'e.name indices)))]
+         (quasisyntax/loc syn (cur-Π (e.name : e.ann) #,(loop #'e.result (cons #'e.name indices))))]
         [e:reified-universe
          ;; TODO PERF: append, reverse
          ;; NB: (cur-type 0) is an arbitrary choice here... really, any universe type is valid. Must
          ;; check this is a subtype of motive's type
-         #`(cur-Π (_ : #,(cur-app* D (append params (reverse indices)))) (cur-type 0))])))
+         (quasisyntax/loc syn (cur-Π (_ : #,(cur-app* D (append params (reverse indices)))) (cur-type 0)))])))
 
   (define (check-motive syn D params motive-t)
-    (define expected (motive-type D params))
+    (define expected (motive-type syn D params))
     (cur-subtype? expected motive-t
                 (lambda (t1 t2)
                   (raise-syntax-error
