@@ -22,9 +22,7 @@ Cur is impredicative in @racket[(Type 0)], although this is likely to change to
 a more restricted impredicative universe.
 
 @examples[#:eval curnel-eval
-          (Type 0)]
-
-@examples[#:eval curnel-eval
+          (Type 0)
           (Type 1)]
 
 @history[#:changed "0.20" @elem{Removed @racket[Type] synonym from Curnel; changed run-time representation from symbolic @racket['(Unv n)] to transparent struct.}]
@@ -41,9 +39,7 @@ Currently, Cur will return the underlying representation of a procedure when a
 Do not rely on this representation.
 
 @examples[#:eval curnel-eval
-          (λ (x : (Type 0)) x)]
-
-@examples[#:eval curnel-eval
+          (λ (x : (Type 0)) x)
           (λ (x : (Type 0)) (λ (y : x) y))]
 
 @history[#:changed "0.20" @elem{Changed run-time representation from symbolic @racket['(λ (x : t) e)] to Racket procedure}]
@@ -51,12 +47,9 @@ Do not rely on this representation.
 
 @defform[(#%app procedure argument)]{
 Applies the single-arity @racket[procedure] to @racket[argument].
-}
 
 @examples[#:eval curnel-eval
-          ((λ (x : (Type 1)) x) (Type 0))]
-
-@examples[#:eval curnel-eval
+          ((λ (x : (Type 1)) x) (Type 0))
           (#%app (λ (x : (Type 1)) x) (Type 0))]
 }
 
@@ -66,9 +59,7 @@ Produces a dependent function type, binding the identifier @racket[id] of type
 
 
 @examples[#:eval curnel-eval
-          (Π (x : (Type 0)) (Type 0))]
-
-@examples[#:eval curnel-eval
+          (Π (x : (Type 0)) (Type 0))
           (λ (x : (Π (x : (Type 1)) (Type 0)))
             (x (Type 0)))]
 
@@ -145,4 +136,16 @@ Binds @racket[id] to the result of @racket[expr].
           (sub1 (s (s z)))
           (sub1 (s z))
           (sub1 z)]
+}
+
+@defform[(cur-axiom id : type)]{
+Creates a new constant @racket[id] of type @racket[type] which has no computational content.
+
+@history[#:added "0.20"]
+}
+
+@defform[(void)]{
+A representation of nothing. Primarily used by extensions that perform side-effects but produce nothing.
+
+@history[#:added "0.20"]
 }
