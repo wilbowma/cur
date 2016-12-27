@@ -334,16 +334,6 @@
        (if type
            (reified-set-type syn (subst v x type))
            syn)]))
-  #;(module+ test
-    (define syn-eq? (lambda (x y) (equal? (syntax->datum x) (syntax->datum y))))
-    (chk
-     #:eq bound-identifier=? (subst #'z #'x #'x) #'z
-     #:eq bound-identifier=? (subst #'z #'x #'y) #'y
-     ; TODO Not sure how to capture this test; x isn't getting the "right" binding...
-     ; but syntax-local-introduce only works in the macro expander ...
-     ; maybe should do subst by applying?
-     ;; #:eq syn-eq? (subst #'z #'x (expand-syntax-once #'(#%plain-lambda (y) x))) #'(#%plain-lambda (y) z)
-     #:eq syn-eq? (subst #'z #'x (expand-syntax-once #'(#%plain-lambda (x) x))) #'(#%plain-lambda (x) x)))
 
   ;; TODO: Should this be parameterizable, to allow for different eval strategies if user wants?
   ;; TODO PERF: Should the interpreter operate directly on syntax? Might be better to first
