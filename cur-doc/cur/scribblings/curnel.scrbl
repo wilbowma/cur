@@ -27,8 +27,7 @@ a more restricted impredicative universe.
 @examples[#:eval curnel-eval
           (Type 1)]
 
-@history[#:changed "0.20" @elem{Removed @racket[Type] synonym from Curnel.}
-         #:changed "0.20" @elem{Changed run-time representation from symbolic @racket['(Unv n)] to transparent struct.}]
+@history[#:changed "0.20" @elem{Removed @racket[Type] synonym from Curnel; changed run-time representation from symbolic @racket['(Unv n)] to transparent struct.}]
 }
 
 @defform[(λ (id : type-expr) body-expr)]{
@@ -121,7 +120,7 @@ The following example runs @racket[(sub1 (s z))].
 		    ((((conj Bool) Nat) b) n))))
                 ((((conj Nat) Bool) z) true))]
 
-@history[#:changed "0.20" "Deprecated in favor of @racket[new-elim]"]
+@deprecated[#:what "function" @racket[new-elim]]
 
 }
 
