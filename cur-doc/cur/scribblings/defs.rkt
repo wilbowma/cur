@@ -15,8 +15,7 @@
 (define (curnel-sandbox init-string)
   (parameterize ([sandbox-output 'string]
                  [sandbox-error-output 'string]
-                 ;; TODO: Probs a bad idea
-                 [sandbox-eval-limits #f]
-                 [sandbox-memory-limit #f])
+                 [sandbox-eval-limits '(30 256)]
+                 [sandbox-memory-limit 256])
     (make-module-evaluator
      (format "#lang cur~n~a" init-string))))
