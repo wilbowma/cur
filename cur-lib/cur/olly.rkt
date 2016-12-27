@@ -34,7 +34,7 @@
     (coq-defns (format "~a~a~n" (coq-defns) str)))
 
   (define (sanitize-id str)
-    (let ([replace-by `((: _) (- _) (> _) (_ __) (* _))])
+    (let ([replace-by `((_ __) (: _) (- _) (> _) (* _))])
       (for/fold ([str str])
                 ([p replace-by])
         (string-replace str (symbol->string (first p))
