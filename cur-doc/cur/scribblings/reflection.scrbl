@@ -111,6 +111,19 @@ If @racket[#:local-env] is specified, checks the type under an extended lexical 
 @deprecated[#:what "#:local-env keyword argument" @local-env-message]
 }
 
+@defproc[(cur-rename [new identifier?] [old identifier?] [term syntax?])
+         syntax?]{
+Replace @racket[old] by @racket[new] in @racket[term], without evaluating or expanding @racket[term].
+While @racket[cur-normalize] can be used to substitute into a term, @racket[cur-rename] can be useful when you want to keep a term in the surface syntax.
+
+@examples[
+(eval:alts (cur-rename #'Y #'X #'((λ (X : (Type 0)) X) X))
+           #'((λ (X : (Type 0)) X) Y))
+]
+
+@history[#:added "0.20"]
+}
+
 @defproc[(cur-normalize [syn syntax?] [#:local-env env (listof (cons/c syntax? syntax?)) '()])
          syntax?]{
 Runs the Cur term @racket[syn] to a value.

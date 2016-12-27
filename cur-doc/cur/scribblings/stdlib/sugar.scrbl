@@ -18,6 +18,13 @@ that expands into the eliminator.
 @defmodule[cur/stdlib/sugar]
 This library defines various syntactic extensions making Cur easier to write than writing raw TT.
 
+@defform*[((Type n)
+           Type)]{
+Added @racket[Type] as a synonym for @racket[(Type 0)].
+
+@history[#:changed "0.20" @elem{Moved @racket[Type] synonym from Curnel.}]
+}
+
 @defform*[((-> decl decl ... type)
            (→ decl decl ... type)
 	   (forall decl decl ... type)
@@ -210,6 +217,7 @@ results before returning the result of evaluation.
 @examples[#:eval curnel-eval
           (step (plus z z))]
 
+@history[#:changed "0.20" "Broken by new Curnel; fix is part of planned rewrite of evaluator."]
 }
 
 @defform[(step-n natural syn)]{
@@ -218,6 +226,7 @@ Like @racket[step], but expands to @racket[natural] calls to @racket[step].
 @examples[#:eval curnel-eval
           (step-n 3 (plus z z))]
 
+@history[#:changed "0.20" "Broken by new Curnel; fix is part of planned rewrite of evaluator."]
 }
 
 @defform[(query-type expr)]{
