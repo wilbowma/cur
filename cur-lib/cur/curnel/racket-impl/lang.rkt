@@ -67,12 +67,13 @@
    cur-rename
    cur-step
    cur-equal?)
- ;; TODO: export all subforms?
- require only-in for-syntax
- provide rename-out all-defined-out all-from-out
- #%top
- #%top-interaction
- ;; TODO: Need to not export datum, but prevents level annotations in type and param annotations in data
+ require only-in except-in prefix-in rename-in combine-in relative-in only-meta-in for-syntax
+ for-template for-label for-meta submod lib file planet
+
+ provide all-defined-out all-from-out rename-out except-out prefix-out struct-out combine-out
+ protect-out for-meta for-syntax for-template for-label
+
+ #%top #%top-interaction
  #%module-begin)
 
 ;; Backward compatible elimination syntax
