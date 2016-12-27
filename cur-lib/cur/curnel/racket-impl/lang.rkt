@@ -89,7 +89,6 @@
   (#%plain-app void))
 
 (begin-for-syntax
-  (require racket/trace)
   (define (env->ctx env)
     (reverse env))
 

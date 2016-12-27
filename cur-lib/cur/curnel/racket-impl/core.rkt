@@ -6,7 +6,6 @@
  (only-in racket/list drop)
  (for-syntax
   racket/base
-  syntax/stx
   (only-in racket/function curry curryr)
   (only-in racket/syntax format-id)
   syntax/parse))
@@ -816,7 +815,6 @@
                     ;; TODO: Maybe adjust for parameters; all uses seem to do this now.
                     `((recursive-index-ls . ,(attribute type.recursive-index-ls)))) : type)]))
 
-(require (for-template (only-in racket/trace trace-define trace-let trace)))
 (define-syntax (_cur-elim syn)
   (syntax-parse syn
    [(_ elim-name D c:cur-expr ...)
