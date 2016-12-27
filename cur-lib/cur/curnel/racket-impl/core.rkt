@@ -100,7 +100,6 @@
 ; The run-time representation of Π types. (Π t f), where is a type and f is a procedure that computes
 ; the result type given an argument.
 (struct Π (t f))
-;; TODO: Should unierses and Π types have a run-time representation?
 
 ; The run-time representation of an application is a Racket plain application.
 ; (#%plain-app e1 e2)
@@ -148,6 +147,7 @@
         ;; TODO: Theory: this syntax property needs to be attached "in the expander", i.e., under a #`. See
         ;; fixes for δreduction discussed below, introduced in commit a6c3d7dbf88cafbcdf65508c8a6649863f9127b5
         ;; Otherwise, compilation will not work.
+        ;; After much tinkering, couldn't get rid of the compilation problem. Not sure this theory holds.
         (syntax-property e 'type t #t)
         (begin
           #;(printf "Warning: reified term ~a given #f as a type.~n" e)
@@ -349,7 +349,6 @@
   ;; TODO PERF: Should the interpreter operate directly on syntax? Might be better to first
   ;; parse into structs, turn back into syntax later? Alternatively, represent procedures as custom
   ;; struct (with attached syntax), use eval, then turn back into syntax?
-  ;; TODO: quasisyntax/loc
   ;; TODO PERF: Might be worth manually reifying/copying types instead of using the type-assigning
   ;; macros (which we were doing); however, this complicates things a bit, due to issues with
   ;; syntax-properties containing identifiers
@@ -376,15 +375,15 @@
        #:with target:reified-constant #'e.target
        #:do [(define recursive-index-ls
                (syntax-property (attribute target.constr) 'recursive-index-ls))]
-       ;; TODO: Performance: use unsafe version of list operators and such for internal matters
-       ;; TODO: Performance: list-ref; could we make it a vector?
+       ;; TODO PERF: use unsafe version of list operators and such for internal matters
+       ;; TODO PERF: list-ref; could we make it a vector?
        (cur-eval
         (apply reify-app syn (list-ref (attribute e.method-ls) (attribute target.constructor-index))
                (append (attribute target.rand-ls)
                        (for/fold ([m-args '()])
                                  ([arg (attribute target.rand-ls)]
                                   [i (in-naturals (syntax-property (attribute target.constr) 'param-count))]
-                                  ;; TODO: Performance: memq in a loop
+                                  ;; TODO PERF: memq in a loop over numbers...
                                   #:when (memq i recursive-index-ls))
                          (cons (reify-elim syn #'e.elim arg #'e.motive (attribute e.method-ls)) m-args)))))]
       [e:reified-elim
@@ -397,7 +396,6 @@
     ;; TODO: eta-expand! or, build into equality
     (cur-eval (cur-reify e)))
 
-  ;; TODO: Need as option to cur-normalize
   ;; TODO: Need generic fold over reified term
 
   ;; When are two Cur terms intensionally equal? When they normalize the α-equivalent reified syntax.
@@ -537,7 +535,6 @@
        #:with (t ...) (map cdr ctx)
        ;; TODO: reflected-name is never used
        #:with (internal-name ...) (map (λ (x) (syntax-property (fresh x) 'reflected-name x #t)) (attribute x))
-       ;; TODO: syntax-parameter support added this hack
        ;; NB: consume arbitrary number of let-values.
        #:with (#%plain-lambda (name ...) e:in-let-values)
        (cur-reify
@@ -726,10 +723,7 @@
                       #:props
                       (set-type
                        (syntax-property #'#,name 'not-free-identifier=? #t #t)
-                       #'#,type))))
-        ;; TODO: Do I need to provide this? Shouldn't need to; racket can handle moving non-exported
-        ;; names across module boundaries
-        #;(provide #,y))))
+                       #'#,type)))))))
 
 (define-syntax (cur-define syn)
   (syntax-parse syn
@@ -864,19 +858,20 @@
          (begin-for-syntax
            (dict-set! elim-dict (cur-reify #'inductive-name) #'#,elim-name)))]))
 
-;; TODO: Rewrite and abstract this code omg
 (begin-for-syntax
-  ;; TODO: Might be some recomputing of (D params) type between here and cur-elim
   (define (motive-type D params)
     (define/syntax-parse e:cur-expr (cur-app* D params))
     (let loop ([inductive-type (attribute e.type)]
                [indices '()])
       (syntax-parse inductive-type
         [e:reified-pi
+         ;; TODO PERF: maybe use reified-Π here instead of cur-Π
+         ;; TODO: Shouldn't this be quasisyntax/loc
          #`(cur-Π (e.name : e.ann) #,(loop #'e.result (cons #'e.name indices)))]
         [e:reified-universe
          ;; TODO PERF: append, reverse
-         ;; TODO: (cur-type 0) is an arbitrary choice here... really, any universe type is valid.
+         ;; NB: (cur-type 0) is an arbitrary choice here... really, any universe type is valid. Must
+         ;; check this is a subtype of motive's type
          #`(cur-Π (_ : #,(cur-app* D (append params (reverse indices)))) (cur-type 0))])))
 
   (define (check-motive syn D params motive-t)
@@ -928,8 +923,7 @@
 
   (define (check-method syn c motive br-type method)
     (define expected (branch-type syn c motive))
-    ;; TODO: should probably be subtype?
-    (cur-equal? expected br-type
+    (cur-subtype? expected br-type
                 (lambda (t1 t2)
                   (raise-syntax-error
                    'core-type-error
