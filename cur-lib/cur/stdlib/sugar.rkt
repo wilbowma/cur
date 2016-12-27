@@ -1,5 +1,6 @@
 #lang s-exp "../main.rkt"
 (provide
+  Type
   ->
   lambda
   (rename-out
@@ -35,7 +36,8 @@
     [#%app real-app]
     [λ real-lambda]
     [Π real-Π]
-    [define real-define]))
+    [define real-define]
+    [Type real-Type]))
 
 (begin-for-syntax
   (define-syntax-class result-type
@@ -48,6 +50,11 @@
      type:expr
      #:attr name (format-id #'type "~a" (gensym 'anon-parameter)))))
 
+(define-syntax (Type syn)
+  (syntax-case syn ()
+    [(_ i) (quasisyntax/loc syn (real-Type i))]
+    [_ (quasisyntax/loc syn (real-Type 0))]))
+
 ;; A multi-arity function type; takes parameter declaration of either
 ;; a binding (name : type), or type whose name is generated.
 ;; E.g.
@@ -58,7 +65,7 @@
      (foldr (lambda (src name type r)
               (quasisyntax/loc src
                 (real-Π (#,name : #,type) #,r)))
-            #'result
+            (syntax-local-introduce #'result)
             (attribute d)
             (attribute d.name)
             (attribute d.type))]))
@@ -108,12 +115,13 @@
      (quasisyntax/loc syn
        (#%app (#%app e1 e2) e3 ...))]))
 
-(define-syntax define-type
-  (syntax-rules ()
+;; NB: No syntax rules if you want to traverse syntax
+(define-syntax (define-type syn)
+  (syntax-case syn ()
     [(_ (name (a : t) ...) body)
-     (define name (-> (a : t) ... body))]
+     #`(define name (-> (a : t) ... body))]
     [(_ name type)
-     (define name type)]))
+     #`(define name type)]))
 
 ;; Cooperates with define to allow Haskell-esque type annotations
 #| TODO NB:
@@ -140,7 +148,7 @@
      ;; NB: Unhygenic; need to reuse Racket's identifiers, and make this type annotation a syntax property
      (syntax-parse (cur-expand #'type)
       #:datum-literals (:)
-      [(real-Π (x:id : type) body) (void)]
+      [(real-Π (x:id : type) body) #'(void)]
       [_
        (raise-syntax-error
         ':
@@ -159,6 +167,8 @@
 ;(define-syntax-parameter current-definition-id #f)
 
 ;; TODO: Allow inferring types as in above TODOs for lambda, forall
+(require (for-syntax (only-in racket/trace trace-define)))
+(require (only-in racket/trace trace-define-syntax))
 (define-syntax (define syn)
   (syntax-parse syn
     #:datum-literals (:)
@@ -350,10 +360,12 @@
       #:datum-literals (:)
       [(real-Π (x:id : t:expr) e:expr)
        #`(real-Π (#,(car ls) : t)
-                 #,(with-env
+                 #,(rename
+                    (with-env
                      `((,(car ls) . ,#'t))
                      (cur-normalize
-                      #`((lambda (x : t) #,(rename #'e (cdr ls))) #,(car ls)))))]
+                      #`((lambda (x : t) e) #,(car ls))))
+                    (cdr ls)))]
       [e #'e]))
 
   (define (instantiate t ls)
@@ -363,7 +375,9 @@
       #:datum-literals (:)
       [(real-Π (x:id : t:expr) e:expr)
        (if (not (null? ls))
-           (cur-normalize #`((λ (x : t) #,(instantiate #'e (cdr ls))) #,(car ls)))
+           (instantiate
+               (cur-normalize #`((λ (x : t) e) #,(car ls)))
+               (cdr ls))
            type)]
       [e #'e]))
 
@@ -376,7 +390,7 @@
      (name:id (~datum :) type:expr)))
 
   (define (is-constructor-for x name)
-    (ormap (curry free-identifier=? x) (cur-constructors-for name)))
+    (ormap (curry cur-equal? x) (cur-constructors-for name)))
 
   (define-syntax-class (match-prepattern D-expr)
     (pattern
@@ -416,16 +430,15 @@
 
      #:attr constr #'x
      #:attr types
-     (syntax-parse (rename (instantiate (cur-type-infer #'x) (attribute D.params))
-                           (attribute d.name))
+     (syntax-parse (instantiate (cur-type-infer #'x) (attribute D.params))
        [t:telescope (attribute t.types)])
      #:attr local-env
-     (for/fold ([d (make-immutable-hash)])
+     (for/fold ([d `()])
                ([name (attribute d.name)]
                 [type (attribute d.type)]
                 [itype (attribute types)])
        (when type
-         (unless (cur-equal? type itype)
+         (unless (cur-equal? type itype #:local-env (reverse d))
            (raise-syntax-error 'match
                                (format
                                 "Type annotation ~a did not match inferred type ~a"
@@ -433,7 +446,7 @@
                                 (syntax->datum itype))
                                #'x
                                type)))
-       (dict-set d name itype))
+       (cons (cons name type) d))
      #:attr decls
      (map (lambda (x y) #`(#,x : #,y)) (attribute d.name) (attribute types))
      #:attr names
@@ -454,15 +467,15 @@
                 ;; NB: Non-hygenic
                 )
        ;; TODO: Need decls->env
-       (with-env (map (lambda (x) (syntax-parse x
+       (with-env (reverse (map (lambda (x) (syntax-parse x
                                     #:datum-literals (:)
                                     [(x : t)
                                      `(,#'x . ,#'t)]))
-                      decls)
+                      decls))
          (begin
            (define/syntax-parse type:inductive-type-declaration (cur-expand type-syn))
            (if (cur-equal? (attribute type.inductive-name) (attribute D.inductive-name))
-               (let ([ih-name (quasisyntax/loc src #,(format-id name-syn "ih-~a" name-syn))]
+               (let ([ih-name (format-id name-syn "ih-~a" name-syn)]
                      ;; Normalize at compile-time, for efficiency at run-time
                      [ih-type (cur-normalize #`(#,motive #,@(attribute type.indices) #,name-syn))])
                  (dict-set! ih-dict (syntax->datum name-syn) ih-name)
@@ -478,7 +491,8 @@
      (or maybe-return-type
          ;; Ignore errors when trying to infer this type; other attempt might succeed
          (with-handlers ([values (lambda _ #f)])
-           (cur-type-infer #:local-env (attribute p.local-env) #'b)))))
+           ;; TODO: all these reverse's are garbage; should keep track of the env in the right order
+           (cur-type-infer #:local-env (reverse (attribute p.local-env)) #'b)))))
 
   ;; TODO: Perhaps this should be part of the application macro. That could simply test the operator
   ;; against the current-definition-id, rather than walk over the syntax tree.
@@ -487,19 +501,24 @@
       #:literals (real-lambda real-Π real-app elim)
       #:datum-literals (:)
       [(real-lambda (x : t) e)
-       #`(real-lambda (x : #,(replace-recursive-call #'t)) #,(replace-recursive-call #'e))]
+       (quasisyntax/loc this-syntax
+         (real-lambda (x : #,(replace-recursive-call #'t)) #,(replace-recursive-call #'e)))]
       [(real-Π (x : t) e)
-       #`(real-Π (x : #,(replace-recursive-call #'t)) #,(replace-recursive-call #'e))]
+       (quasisyntax/loc this-syntax
+         (real-Π (x : #,(replace-recursive-call #'t)) #,(replace-recursive-call #'e)))]
       [(real-app e:id a:expr)
        ;; TODO: Need proper identifiers to do the right thing
        #:when (and (current-definition-id) (eq? (syntax-e #'e) (syntax-e (current-definition-id))))
 ;       #:when (bound-identifier=? #'e (syntax-parameter-value #'current-definition-id))
-       #`(lambda #,@(cdr (current-definition-param-decl)) (recur #,(replace-recursive-call #'a)))]
+       (quasisyntax/loc this-syntax
+         (lambda #,@(cdr (current-definition-param-decl)) (recur #,(replace-recursive-call #'a))))]
       [(real-app e:expr e2:expr)
-       #`(#,(replace-recursive-call #'e) #,(replace-recursive-call #'e2))]
+       (quasisyntax/loc this-syntax
+         (#,(replace-recursive-call #'e) #,(replace-recursive-call #'e2)))]
       [(elim e:expr ...)
-       #`(elim #,@(map replace-recursive-call (attribute e)))]
-      [x:id #'x]))
+       (quasisyntax/loc this-syntax
+         (elim #,@(map replace-recursive-call (attribute e))))]
+      [x:id this-syntax]))
 
   (define-syntax-class (match-clause D motive)
     (pattern
@@ -508,20 +527,22 @@
      #:attr constr (attribute p.constr)
      #:attr method
      (let ([b (with-env
-                (map (lambda (x)
+                (reverse (map (lambda (x)
                        (syntax-parse x
                          #:datum-literals (:)
                          [(x : t) `(,#'x . ,#'t)]))
-                     (attribute p.decls))
+                     (attribute p.decls)))
                 (replace-recursive-call #'b))])
        (quasisyntax/loc #'p
          #,(if (null? (attribute p.decls))
                b
                #`(lambda #,@(attribute p.decls) #,b)))))))
+
 (define-syntax (recur syn)
   (syntax-case syn ()
     [(_ id)
-     (dict-ref
+     ;; TODO XXX HACK: Backwards compatibility hack; recur should be use syntax-paramterize
+     (datum->syntax #'id (syntax->datum (dict-ref
       ih-dict
       (syntax->datum #'id)
       (lambda ()
@@ -532,7 +553,7 @@
           "Cannot recur on ~a. Ether not inside a match or ~a is not an inductive argument."
           (syntax->datum #'id)
           (syntax->datum #'id))
-         syn)))]))
+         syn)))))]))
 
 (define-syntax (match syn)
   (syntax-parse syn
@@ -582,7 +603,7 @@
                  (dict-ref
                   (map cons constrs constr-index)
                   (car x)))))
-       
+
        (map cdr sorted))
 
      (quasisyntax/loc syn
@@ -658,7 +679,6 @@
     [(_ term)
      (begin
        (printf "\"~a\" has type \"~a\"~n" (syntax->datum #'term) (syntax->datum (cur-type-infer #'term)))
-       ;; Void is undocumented and a hack, but sort of works
        #'(void))]))
 
 (begin-for-syntax

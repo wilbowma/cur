@@ -18,7 +18,7 @@
 (check-equal?
  (void)
  (:: (lambda (A : Type) (a : A)
-             (ih-a : (-> Nat (Maybe A))) 
+             (ih-a : (-> Nat (Maybe A)))
              (n : Nat)
              (match n
                [z (some A a)]
@@ -46,3 +46,6 @@
 (check-equal?
  ((list-ref Bool (cons Bool true (nil Bool))) z)
  (some Bool true))
+
+;; TODO: Produces bad error message
+; (((list-ref Bool (cons Bool true (nil Bool))) z) z)

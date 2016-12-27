@@ -50,10 +50,8 @@ files:
 ...
 > raco test cur-test
 ...
-355 tests passed
+69 tests passed
 ```
-
-Note: running the entire test suite will take ~10 minutes. You can run individual tests instead:
 
 ```sh
 > raco test cur-test/cur/tests/stdlib/nat.rkt
@@ -151,8 +149,8 @@ Open up `cur-lib/cur/ntac` to see one way to implement tactics in Cur.
 Open up anything in `cur-lib/cur/stdlib/` to see some standard dependent-type
 formalisms.
 
-Open up `cur-lib/cur/curnel/model/core.rkt` to see a model of the core
+Open up `cur-model/cur/curnel/model/core.rkt` to see a model of the core
 language, <600 lines of code.
-You can run Cur using this model, but the
-`cur-lib/cur/curnel/redex-impl/core.rkt` (the default Curnel) is much
-faster.
+You can run some Cur code using this model, but the
+`cur-lib/cur/curnel/racket-impl/core.rkt` (the default Curnel) is much
+faster and supports more features.

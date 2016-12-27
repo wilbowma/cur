@@ -537,6 +537,7 @@
   [(method-type n D Ξ e (in-hole Θ D) t_P)
    (in-hole Ξ ((in-hole (Θ-drop Θ n) t_P) e))]
   ;; recursive argument; collect an additional inductive hypothesis
+  ;; TODO: Based on brady2005, this Φ should always be empty. what gives?
   [(method-type n D Ξ e (name any (Π (x : (name t_0 (in-hole Φ (in-hole Θ D)))) t_1)) t_P)
    (Π (x : t_0)
       (method-type

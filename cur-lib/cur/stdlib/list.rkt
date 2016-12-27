@@ -18,10 +18,11 @@
 (define (list-ref (A : Type) (ls : (List A)))
   (match ls
     [nil (lambda (n : Nat) (none A))]
-    [(cons (a : A) (rest : (List A)))
+    [(cons a rest)
      (lambda (n : Nat)
        (match n
          #:in Nat
+         #:return (Maybe A)
          [z (some A a)]
          [(s (n-1 : Nat))
           ((recur rest) n-1)]))]))

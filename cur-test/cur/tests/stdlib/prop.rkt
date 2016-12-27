@@ -6,6 +6,8 @@
  cur/stdlib/nat
  rackunit)
 
+(check-equal? And And)
+(check-equal? True True)
 (:: pf:anything-implies-true thm:anything-implies-true)
 (:: pf:and-is-symmetric thm:and-is-symmetric)
 (:: pf:proj1 thm:proj1)

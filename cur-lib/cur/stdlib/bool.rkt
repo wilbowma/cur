@@ -6,10 +6,15 @@
   (true : Bool)
   (false : Bool))
 
-(define-syntax-rule (if t s f)
-  (match t
-    [true s]
-    [false f]))
+;; NB: Can't use syntax rules due to taint issues
+(define-syntax (if syn)
+  (syntax-case syn ()
+    [(_ t s f)
+     (quasisyntax/loc syn
+       (match t
+         #:in Bool
+         [true s]
+         [false f]))]))
 
 (define (not (x : Bool)) (if x false true))
 

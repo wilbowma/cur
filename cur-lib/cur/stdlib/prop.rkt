@@ -1,7 +1,5 @@
 #lang s-exp "../main.rkt"
 (require "sugar.rkt")
-;; TODO: Handle multiple provide forms properly
-;; TODO: Handle (all-defined-out) properly
 (provide
   True T
   thm:anything-implies-true
@@ -31,6 +29,7 @@
 (define-syntax (conj/i syn)
   (syntax-case syn ()
     [(_ a b)
+     ;; TODO: This should fail if cur-type-infer fails; I think cur-type-infer interface must have changed
      (let ([a-type (cur-type-infer #'a)]
            [b-type (cur-type-infer #'b)])
        #`(conj #,a-type #,b-type a b))]))
@@ -41,8 +40,9 @@
 (define pf:and-is-symmetric
   (lambda (P : Type) (Q : Type) (ab : (And P Q))
           (match ab
+            #:return (And Q P)
             [(conj (x : P) (y : Q))
-             (conj/i y x)])))
+             (conj Q P y x)])))
 
 (define thm:proj1
   (forall (A : Type) (B : Type) (c : (And A B)) A))
@@ -58,6 +58,7 @@
 (define pf:proj2
   (lambda (A : Type) (B : Type) (c : (And A B))
           (match c
+            #:return B
             [(conj (a : A) (b : B)) b])))
 
 (data Or : 2 (forall (A : Type) (B : Type) Type)
@@ -69,7 +70,6 @@
 
 (define proof:A-or-A
   (lambda (A : Type) (c : (Or A A))
-    ;; TODO: What should the motive be?
     (elim Or (lambda (c : (Or A A)) A)
           ((lambda (a : A) a)
            (lambda (b : A) b))

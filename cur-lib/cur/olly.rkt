@@ -3,14 +3,7 @@
 ;; TODO: Automagically create a parser from bnf grammar
 (require
   "stdlib/sugar.rkt"
-  "stdlib/nat.rkt"
-  ;; TODO: "real-"? More like "curnel-"
-  (only-in
-   "main.rkt"
-   [#%app real-app]
-   [elim real-elim]
-   [Π real-forall]
-   [λ real-lambda]))
+  "stdlib/nat.rkt")
 
 (provide
   define-relation
@@ -26,34 +19,36 @@
 ;; Generate Coq from Cur:
 
 (begin-for-syntax
+  (require (for-template
+            (only-in
+   "main.rkt"
+   [#%app real-app]
+   [elim real-elim]
+   [Π real-forall]
+   ;; TODO: real-lambda caused some kind of nonsense import error
+   [λ real-lambda]
+   [Type real-Type])))
   (define coq-defns (make-parameter ""))
 
   (define (coq-lift-top-level str)
     (coq-defns (format "~a~a~n" (coq-defns) str)))
 
-  (define (constructor-args syn)
-    (syntax-parse (cur-type-infer syn)
-      #:datum-literals (Π :)
-      [(Π (x:id : t) body)
-       (cons #'x (constructor-args #'body))]
-      [_ null]))
-
   (define (sanitize-id str)
-    (let ([replace-by `((: _) (- _))])
+    (let ([replace-by `((_ __) (: _) (- _) (> _) (* _))])
       (for/fold ([str str])
                 ([p replace-by])
         (string-replace str (symbol->string (first p))
                         (symbol->string (second p))))))
 
   (define (cur->coq syn)
-    (local-data-scope
+    (begin #;local-data-scope
      (parameterize ([coq-defns ""])
        (define output
          (let cur->coq ([syn syn])
            (syntax-parse (cur-expand syn #'define #'begin)
              ;; TODO: Need to add these to a literal set and export it
              ;; Or, maybe overwrite syntax-parse
-             #:literals (real-lambda real-forall data real-app real-elim define begin Type)
+             #:literals (real-lambda real-forall data real-app real-elim define begin real-Type)
              [(begin e ...)
               (for/fold ([str ""])
                         ([e (syntax->list #'(e ...))])
@@ -109,9 +104,9 @@
                                       (cur->coq t))
                               (dict-set local-env x t)))))
                           (lambda (x y) x))))
-                (declare-data! #'n #'p #'t (map cons (attribute x*) (attribute t*)))
+                #;(declare-data! #'n #'p #'t (map cons (attribute x*) (attribute t*)))
                 "")]
-             [(Type i) "Type"]
+             [(real-Type i) "Type"]
              [(real-elim var:id motive (m ...) d)
               (format
                "(~a_rect ~a~a ~a)"
@@ -123,11 +118,11 @@
                (cur->coq #'d))]
              [(real-app e1 e2)
               (format "(~a ~a)" (cur->coq #'e1) (cur->coq #'e2))]
-             [e:id (sanitize-id (format "~a" (syntax->datum #'e)))])))
+             [e:id (sanitize-id (format "~a" (syntax->datum (cur-reflect-id #'e))))])))
        (format
         "~a~a"
         (coq-defns)
-        (if (regexp-match "^\\s*$" output)
+        (if (regexp-match #px"^\\s*$" output)
             ""
             (format "Eval compute in ~a." output)))))))
 

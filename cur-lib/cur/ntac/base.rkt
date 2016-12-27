@@ -66,6 +66,7 @@
   (define (new-proof-tree goal)
     (make-ntt-hole goal))
 
+  (require racket/trace)
   (define (proof-tree->complete-term pt [err-stx #f])
     (let loop ([pt pt])
       (match pt
@@ -82,8 +83,10 @@
     ;; NTac proof Tree Zipper
   (struct nttz (context focus prev) #:constructor-name _nttz)
 
+  (require racket/dict)
+  (define (identifier-hash) (make-immutable-custom-hash free-identifier=?))
   (define (make-nttz pt)
-    (_nttz (hasheq) pt
+    (_nttz (identifier-hash) pt
          (λ (last-pt)
            (make-nttz (make-ntt-done last-pt)))))
 
