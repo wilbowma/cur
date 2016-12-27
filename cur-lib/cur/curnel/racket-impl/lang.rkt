@@ -71,6 +71,7 @@
  require only-in for-syntax
  provide rename-out all-defined-out all-from-out
  #%top
+ #%top-interaction
  ;; TODO: Need to not export datum, but prevents level annotations in type and param annotations in data
  #%module-begin)
 
