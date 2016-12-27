@@ -52,6 +52,8 @@
    (all-from-out syntax/parse)
    (all-from-out racket)
    (all-from-out racket/syntax)
+   ;; TODO: Should provide this at phase 0 in separate module, reprovide at phase 1 here? Would make
+   ;; documentation easier, perhaps make interop easier?
    with-env
    call-with-env
    cur->datum

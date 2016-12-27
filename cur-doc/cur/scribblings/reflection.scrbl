@@ -4,7 +4,11 @@
    "defs.rkt"
    scribble/eval
    racket/sandbox
-   (for-label (only-in racket local-expand)))
+   (for-label
+     (only-in racket local-expand)
+     cur/stdlib/nat
+     cur/stdlib/bool
+     cur/stdlib/list))
 
 @title{Reflection}
 To support the addition of new user-defined language features, @racketmodname[cur] provides access to
@@ -99,8 +103,9 @@ If @racket[#:local-env] is specified, checks the type under an extended lexical 
            (eval:result @racket[#t] "" ""))
 (eval:alts (cur-type-check? #'x #'Nat)
            (eval:result @racket[#f] "" ""))
-(eval:alts (cur-type-check? #'x #'Nat #:local-env (list (cons #'x #'Nat)))
+(eval:alts (cur-type-check? #'x #'Nat #:local-env `((#'x . #'Nat)))
            (eval:result @racket[#t] "" ""))
+
 ]
 
 @deprecated[#:what "#:local-env keyword argument" @local-env-message]
@@ -151,7 +156,7 @@ If @racket[#:local-env] is specified, runs under an extended lexical environment
            (eval:result @racket[#t] "" ""))
 (eval:alts (cur-equal? #'((λ (a : (Type 0)) a) Bool) #'Bool)
            (eval:result @racket[#t] "" ""))
-(eval:alts (cur-equal? #'(λ (a : (Type 0)) (sub1 (s z))) #'(λ (a : Type) z))
+(eval:alts (cur-equal? #'(λ (a : (Type 0)) (sub1 (s z))) #'(λ (a : (Type 0)) z))
            (eval:result @racket[#f] "" ""))
 ]
 
