@@ -388,7 +388,7 @@
 
   ;; TODO: Need generic fold over reified term
 
-  ;; When are two Cur terms intensionally equal? When they normalize the α-equivalent reified syntax.
+  ;; When are two Cur terms intensionally equal? When they normalize to α-equivalent reified syntax.
   (define (cur-equal? t1 t2 (fail (lambda _ #f)))
     (let cur-equal? ([t1 (cur-normalize t1)]
                      [t2 (cur-normalize t2)])
