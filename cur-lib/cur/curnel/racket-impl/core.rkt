@@ -424,18 +424,18 @@
               (cur-equal? #'e1.body (subst #'e1.name #'e2.name #'e2.body)))]
         [_ (fail t1 t2)])))
 
-  (define (cur-subtype? t1 t2)
+  (define (cur-subtype? t1 t2 (fail (lambda _ #f)))
     (let cur-subtype? ([t1 (cur-normalize t1)]
                        [t2 (cur-normalize t2)])
       (syntax-parse #`(#,t1 #,t2)
         [(A:reified-universe B:reified-universe)
-         (<= (attribute A.level) (attribute B.level))]
+         (or (<= (attribute A.level) (attribute B.level)) (fail t1 t2))]
         [(e1:reified-pi e2:reified-pi)
-         (and (cur-equal? #'e1.ann #'e2.ann)
+         (and (cur-equal? #'e1.ann #'e2.ann fail)
               (cur-subtype? #'e1.result (subst #'e1.name #'e2.name #'e2.result)))]
         [(e1 e2)
          ;; TODO PERF: results in (2) extra calls to cur-normalize
-         (cur-equal? #'e1 #'e2)]))))
+         (cur-equal? #'e1 #'e2 fail)]))))
 
 ;;; Nothing before here should be able to error. Things after here might, since they are dealing with
 ;;; terms before they are type-checked.
