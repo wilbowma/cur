@@ -465,10 +465,13 @@
 ;;; Types as Macros; type system helpers.
 ;;; ------------------------------------------------------------------------
 (begin-for-syntax
-  ;; TODO: Fresh generates awful names, particularly since names get re-freshened a bunch.
-  ;; Can we alternate between ~a^ and ~a by storing the original name as a syntax-property?
-  (define (fresh [x #f])
-    (datum->syntax x (gensym (if x (syntax->datum x) 'x)) x x))
+  ;; Try to make readable fresh names.
+  (define fresh
+    (let ([n 0])
+      (lambda ([x #f])
+        (set! n (add1 n))
+        (or (and x (syntax-property x 'reflected-name))
+            (format-id x "~a~a" (or x 'x) n #:props (and x (syntax-property x 'reflected-name x #t)))))))
 
   (define (n-fresh n [x #f])
     (for/list ([_ (in-range n)]) (fresh x)))
@@ -533,8 +536,7 @@
       [_
        #:with (x ...) (map car ctx)
        #:with (t ...) (map cdr ctx)
-       ;; TODO: reflected-name is never used
-       #:with (internal-name ...) (map (λ (x) (syntax-property (fresh x) 'reflected-name x #t)) (attribute x))
+       #:with (internal-name ...) (map fresh (attribute x))
        ;; NB: consume arbitrary number of let-values.
        #:with (#%plain-lambda (name ...) e:in-let-values)
        (cur-reify
