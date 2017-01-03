@@ -175,7 +175,7 @@
     (define/syntax-parse c:cur-expr syn)
     (define/syntax-parse c^:reified-constant (attribute c.reified))
     (define/syntax-parse e:reified-telescope (attribute c.type))
-    (+ (attribute e.length) (length (syntax-property (attribute c^.constr) 'recursive-index-ls))))
+    (attribute e.length))
 
   ;; Given a constructor, return a 0-indexed list of the positions of its recursive arguments.
   ;; E.g. for the constructor `s : (Π (x : Nat) Nat)` of the natural numbers, its
