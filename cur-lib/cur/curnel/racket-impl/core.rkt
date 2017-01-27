@@ -276,19 +276,31 @@
        ;; TODO: I'd love to reflect the names, but I don't think we can.
        #;(or (syntax-property syn 'reflected-name) syn)]
       [e:reified-universe
-       (quasisyntax/loc syn (cur-type e.level-syn))]
+       (reified-copy-type (quasisyntax/loc syn (cur-type e.level-syn)) syn)]
       [e:reified-pi
-       (quasisyntax/loc syn (cur-Π (#,(cur-reflect #'e.name) : #,(cur-reflect #'e.ann))
-                                   ;; TODO: subst should always be called on reified syntax?
-                                   #,(subst (cur-reflect #'e.name) #'e.name (cur-reflect #'e.result))))]
+       (reified-copy-type
+        (quasisyntax/loc syn
+          (cur-Π (#,(cur-reflect #'e.name) : #,(cur-reflect #'e.ann))
+                 ;; TODO: subst should always be called on reified syntax?
+                 #,(subst (cur-reflect #'e.name) #'e.name (cur-reflect #'e.result))))
+        syn)]
       [e:reified-app
-       (quasisyntax/loc syn (cur-app #,(cur-reflect #'e.rator) #,(cur-reflect #'e.rand)))]
+       (reified-copy-type
+        (quasisyntax/loc syn
+          (cur-app #,(cur-reflect #'e.rator) #,(cur-reflect #'e.rand)))
+        syn)]
       [e:reified-lambda
-       (quasisyntax/loc syn (cur-λ (#,(cur-reflect #'e.name) : #,(cur-reflect #'e.ann))
-                                   #,(subst (cur-reflect #'e.name) #'e.name (cur-reflect #'e.body))))]
+       (reified-copy-type
+        (quasisyntax/loc syn
+          (cur-λ (#,(cur-reflect #'e.name) : #,(cur-reflect #'e.ann))
+                 #,(subst (cur-reflect #'e.name) #'e.name (cur-reflect #'e.body))))
+        syn)]
       [e:reified-elim
-       (quasisyntax/loc syn (cur-elim #,(cur-reflect #'e.target) #,(cur-reflect #'e.motive)
-                   #,(map cur-reflect (attribute e.method-ls))))])))
+       (reified-copy-type
+        (quasisyntax/loc syn
+          (cur-elim #,(cur-reflect #'e.target) #,(cur-reflect #'e.motive)
+                    #,(map cur-reflect (attribute e.method-ls))))
+        syn)])))
 
 ;;; Intensional equality
 ;;; ------------------------------------------------------------------------
