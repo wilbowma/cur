@@ -67,6 +67,8 @@
    cur-constructor-telescope-length
    cur-normalize
    cur-rename
+   cur-elaborate
+   cur-get-type
    cur-reflect-id
    cur-step
    cur-equal?)
@@ -204,4 +206,12 @@
         n))
 
   (define (cur->datum syn)
-    (syntax->datum (cur-reflect (cur-reify/env syn)))))
+    (syntax->datum (cur-reflect (cur-reify/env syn))))
+
+  (define (cur-elaborate syn)
+    (cur-reflect (local-expand syn 'expression '())))
+
+  ;; Like cur-type-infer, but can't fail because we know syn must be fully elaborated already
+  (define (cur-get-type syn)
+    (cur-reflect (syntax-property syn 'type)))
+  )
