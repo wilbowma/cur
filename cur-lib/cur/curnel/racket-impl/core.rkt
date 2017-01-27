@@ -111,7 +111,11 @@
       [_
        (define x (syntax-property e 'type))
        (if x
-           (syntax-local-introduce (if (pair? x) (car x) x))
+           ;; TODO: This should be unnecessary, because a type should never get assigned twice
+           (let loop ([x x])
+             (if (pair? x)
+                 (loop (car x))
+                 x))
            (begin
              #;(printf "Warning: reified term ~a does not have a type.~n" e)
              x))]))
@@ -122,6 +126,7 @@
         ;; fixes for δreduction discussed below, introduced in commit a6c3d7dbf88cafbcdf65508c8a6649863f9127b5
         ;; Otherwise, compilation will not work.
         ;; After much tinkering, couldn't get rid of the compilation problem. Not sure this theory holds.
+        ;; TODO: Should check some consistency between assigned types and any already assigned type
         (syntax-property e 'type t #t)
         (begin
           #;(printf "Warning: reified term ~a given #f as a type.~n" e)
@@ -442,28 +447,6 @@
 
   (define (set-type e t)
     (syntax-property e 'type (syntax-local-introduce (cur-normalize t)) #t))
-
-  (define (merge-type-props syn t)
-    (if (pair? t)
-        ;; TODO: Is there no better way to loop over a cons list?
-        ;; TODO PERF: Should merge-type-props be used when elaborating, to prevent the 'type
-        ;; list from growing large?
-        (let ([t1 (car t)])
-          (let loop ([t (cdr t)])
-            (let ([t2 (and (pair? t) (car t))])
-              (when t2
-                ;; TODO: Subtypes?
-                (unless (cur-equal? t1 t2)
-                  (raise-syntax-error
-                   'core-type-error
-                   (format "Found multiple incompatible types for ~a: ~a and ~a"
-                           syn
-                           (syntax->datum t1)
-                           (syntax->datum t2))
-                   syn))
-                (loop (cdr t)))))
-          t1)
-        t))
 
   (define (get-type e)
     (define type (reified-get-type e))
