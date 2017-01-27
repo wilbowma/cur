@@ -452,7 +452,9 @@
       (lambda ([x #f])
         (set! n (add1 n))
         (or (and x (syntax-property x 'reflected-name))
-            (format-id x "~a~a" (or x 'x) n #:props (and x (syntax-property x 'reflected-name x #t)))))))
+            (format-id x "~a~a" (or x 'x) n
+                       #:source x
+                       #:props (and x (syntax-property x 'reflected-name x #t)))))))
 
   (define (n-fresh n [x #f])
     (for/list ([_ (in-range n)]) (fresh x)))
