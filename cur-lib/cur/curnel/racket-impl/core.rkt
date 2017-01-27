@@ -446,7 +446,7 @@
     (for/list ([_ (in-range n)]) (fresh x)))
 
   (define (set-type e t)
-    (syntax-property e 'type (syntax-local-introduce (cur-normalize t)) #t))
+    (syntax-property e 'type (cur-normalize t) #t))
 
   (define (get-type e)
     (define type (reified-get-type e))
@@ -491,9 +491,7 @@
             (let*-syntax ([x (make-rename-transformer (set-type #'internal-name #'t))] ...)
               #,syn)))
        ;; TODO: duplicate names since types no longer expanded in separate context.
-       ;; NB: This syntax-local-introduce should be reduntant, but apparently isn't (introduces bug
-       ;; with cur-call)
-       #`((name ...) (name ...) e.body : #,(syntax-local-introduce (get-type #'e.body)))]))
+       #`((name ...) (name ...) e.body : #,(get-type #'e.body))]))
 
   ;; Type checking via syntax classes
 
