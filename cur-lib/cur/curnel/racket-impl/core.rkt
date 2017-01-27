@@ -530,8 +530,8 @@
               this-syntax
               "term of type ~a"
               (syntax->datum #'e)
-              (syntax->datum #'e.type)
-              (syntax->datum type))
+              (syntax->datum (cur-reflect #'e.type))
+              (syntax->datum (cur-reflect type)))
              #:attr reified #'e.reified))
 
   ;; Expect a well-typed function.
