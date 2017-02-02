@@ -56,6 +56,7 @@
 
 ;; TODO PERF: Would global dictionaries be less memory intensive than syntax-properties?
 (begin-for-syntax
+  (require racket/trace)
   (provide constructor-dict elim-dict)
   (require racket/dict syntax/id-table)
   (define constructor-dict (make-free-id-table))
@@ -78,8 +79,10 @@
 ; The run-time representation of an application is a Racket plain application.
 ; (#%plain-app e1 e2)
 
-; The run-time representation of a function is a Racket plain procedure.
-; (#%plain-lambda (f) e)
+; The run-time representation of a function. (λ t f), where t is a type and f is a procedure that
+; computer the result type given an argument of type t.
+(struct λ (t f) #:property prop:procedure (struct-field-index f))
+
 (begin-for-syntax
   ;; Reified syntax classes match or fail, but do not report errors. That is left to higher levels of
   ;; abstraction.
@@ -137,23 +140,27 @@
 
   (define-syntax-class reified-pi #:attributes (name ann result)
     #:literals (#%plain-app #%plain-lambda Π)
-    (pattern (#%plain-app (~var _ (constructor #'Π)) ~! ann (#%plain-lambda (n) r))
+    (pattern (#%plain-app (~var _ (constructor #'Π)) ~! ann (#%plain-lambda (name) result))
              ;; TODO: Hack; n should already have the right type if substitution is done correctly
-             #:attr name (reified-set-type #'n #'ann)
-             #:attr result (subst (attribute name) #'n #'r)))
+             ;#:attr name (reified-set-type #'n #'ann)
+             ;#:attr result (subst (attribute name) #'n #'r)
+             ))
 
   (define (reify-pi syn x t e)
     (reified-copy-type (cur-reify (quasisyntax/loc syn (Π #,t (#%plain-lambda (#,x) #,e)))) syn))
 
   ;; TODO: Look at pattern expanders instead of syntax-classes
+  ;; This would let me avoid having a cur-reflect, by letting users pattern match on reified syntax.
   (define-syntax-class reified-lambda #:attributes (name ann body)
     #:literals (#%plain-lambda)
-    (pattern (#%plain-lambda (name) body)
-             ; NB: Require type anotations on variables in reified syntax.
-             #:attr ann (reified-get-type #'name)))
+    (pattern (#%plain-app (~var _ (constructor #'λ)) ~! ann (#%plain-lambda (name) body))
+             ;; TODO: Hack; n should already have the right type if substitution is done correctly
+             ;#:attr name (reified-set-type #'n #'ann)
+             ;#:attr body (subst (attribute name) #'n #'r)
+             ))
 
-  (define (reify-lambda syn x e)
-    (reified-copy-type (quasisyntax/loc syn (#%plain-lambda (#,x) #,e)) syn))
+  (define (reify-lambda syn x t e)
+    (reified-copy-type (cur-reify (quasisyntax/loc syn (λ #,t (#%plain-lambda (#,x) #,e)))) syn))
 
   (define-syntax-class reified-app #:attributes (rator rand)
     #:literals (#%plain-app)
@@ -271,18 +278,13 @@
   ;; This is done explicitly when we need to pattern match.
   (define (cur-reflect syn)
     (syntax-parse syn
-      [x:id
-       syn
-       ;; TODO: I'd love to reflect the names, but I don't think we can.
-       #;(or (syntax-property syn 'reflected-name) syn)]
+      [x:id syn]
       [e:reified-universe
        (reified-copy-type (quasisyntax/loc syn (cur-type e.level-syn)) syn)]
       [e:reified-pi
        (reified-copy-type
         (quasisyntax/loc syn
-          (cur-Π (#,(cur-reflect #'e.name) : #,(cur-reflect #'e.ann))
-                 ;; TODO: subst should always be called on reified syntax?
-                 #,(subst (cur-reflect #'e.name) #'e.name (cur-reflect #'e.result))))
+          (cur-Π (e.name : #,(cur-reflect #'e.ann)) #,(cur-reflect #'e.result)))
         syn)]
       [e:reified-app
        (reified-copy-type
@@ -292,8 +294,8 @@
       [e:reified-lambda
        (reified-copy-type
         (quasisyntax/loc syn
-          (cur-λ (#,(cur-reflect #'e.name) : #,(cur-reflect #'e.ann))
-                 #,(subst (cur-reflect #'e.name) #'e.name (cur-reflect #'e.body))))
+          (cur-λ (e.name : #,(cur-reflect #'e.ann))
+                 #,(cur-reflect #'e.body)))
         syn)]
       [e:reified-elim
        (reified-copy-type
@@ -370,7 +372,7 @@
       [e:reified-elim
        (reify-elim syn #'e.elim (cur-eval #'e.target) (cur-eval #'e.motive) (map cur-eval (attribute e.method-ls)))]
       [e:reified-lambda
-       (reify-lambda syn #'e.name (cur-eval #'e.body))]
+       (reify-lambda syn #'e.name #'e.ann (cur-eval #'e.body))]
       [_ (raise-syntax-error 'cur-eval (format "Something has gone horribly wrong: ~a" (syntax->datum syn)) syn)]))
 
   (define (cur-normalize e)
@@ -451,10 +453,10 @@
     (let ([n 0])
       (lambda ([x #f])
         (set! n (add1 n))
-        (or (and x (syntax-property x 'reflected-name))
+        (or #;(and x (syntax-property x 'reflected-name) )
             (format-id x "~a~a" (or x 'x) n
                        #:source x
-                       #:props (and x (syntax-property x 'reflected-name x #t)))))))
+                       #:props (and x #;(syntax-property x 'reflected-name x #t)))))))
 
   (define (n-fresh n [x #f])
     (for/list ([_ (in-range n)]) (fresh x)))
@@ -650,7 +652,7 @@
   (syntax-parse syn
     #:datum-literals (:)
     [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
-     (⊢ (#%plain-lambda (#,(set-type (car (attribute e.name)) #'t1.reified)) e.reified) :
+     (⊢ (λ t1.reified (#%plain-lambda (#,(car (attribute e.name))) e.reified)) :
         (cur-Π (#,(car (attribute e.tname)) : t1.reified) e.type))]))
 
 (begin-for-syntax
