@@ -45,7 +45,7 @@
      (parameterize ([coq-defns ""])
        (define output
          (let cur->coq ([syn syn])
-           (syntax-parse (cur-expand syn #'define #'begin)
+           (syntax-parse (depricated-cur-expand syn #'define #'begin)
              ;; TODO: Need to add these to a literal set and export it
              ;; Or, maybe overwrite syntax-parse
              #:literals (real-lambda real-forall data real-app real-elim define begin real-Type)

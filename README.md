@@ -50,7 +50,7 @@ files:
 ...
 > raco test cur-test
 ...
-69 tests passed
+... tests passed
 ```
 
 ```sh
