@@ -65,7 +65,17 @@
 ;;; ------------------------------------------------------------------------
 
 ;; Reified
-;; TODO: Should all reified terms have type in run-time representation, instead of just syntax-property?
+;; A reified term is either
+;; (Type <nat>) or
+;; (begin <type> <run-time term>)
+;; where type is a reified term
+
+;; A run-time term is either
+;; identifier
+;; (Type <nat>)
+;; (Π <reified term> (#%plain-lambda (x) <reified term>)))
+;; (λ <reified term> (#%plain-lambda (x) <reified term>)))
+;; (#%plain-app <reified term> <reified term))
 ;; ----------------------------------------------------------------
 
 ; The run-time representation of univeres. (Type i), where i is a Nat.
@@ -78,8 +88,9 @@
 ; The run-time representation of an application is a Racket plain application.
 ; (#%plain-app e1 e2)
 
-; The run-time representation of a function is a Racket plain procedure.
-; (#%plain-lambda (f) e)
+; The run-time representation of a function. (λ t f), where t is a type and f is a procedure that
+; computer the result type given an argument of type t.
+(struct λ (t f) #:property prop:procedure (struct-field-index f))
 (begin-for-syntax
   ;; Reified syntax classes match or fail, but do not report errors. That is left to higher levels of
   ;; abstraction.
@@ -103,42 +114,34 @@
   (define (reify-universe syn i)
     (quasisyntax/loc syn (#%plain-app #,(local-expand #'Type 'expression null) (quote #,i))))
 
+  (define-syntax-class reified-term #:attributes (type term)
+    #:literals (begin)
+    (pattern term:reified-universe
+             #:attr type (reify-universe (add1 (attribute term.level))))
+    ;; TODO: Difficult to stratify these syntax-classes correctly.
+    (pattern (begin type:reified-term term #;:runtime-term)))
+
   ;; All reified expressions have the syntax-property 'type, except universes
+  ;; TODO: Renamed reified-term-type, following struct naming conventions
   (define (reified-get-type e)
     (syntax-parse e
-      [e:reified-universe
-       (reify-universe this-syntax (add1 (attribute e.level)))]
-      [_
-       (define x (syntax-property e 'type))
-       (if x
-           ;; TODO: This should be unnecessary, because a type should never get assigned twice
-           (let loop ([x x])
-             (if (pair? x)
-                 (loop (car x))
-                 x))
-           (begin
-             #;(printf "Warning: reified term ~a does not have a type.~n" e)
-             x))]))
+      [e:reified-term #'e.type]))
 
+  (define (reified-get-term e)
+    (syntax-parse e
+      [e:reified-term #'e.term]))
+
+  ;; TODO: Rename make-reified-term
   (define (reified-set-type e t)
-    (if t
-        ;; TODO: Theory: this syntax property needs to be attached "in the expander", i.e., under a #`. See
-        ;; fixes for δreduction discussed below, introduced in commit a6c3d7dbf88cafbcdf65508c8a6649863f9127b5
-        ;; Otherwise, compilation will not work.
-        ;; After much tinkering, couldn't get rid of the compilation problem. Not sure this theory holds.
-        ;; TODO: Should check some consistency between assigned types and any already assigned type
-        (syntax-property e 'type t #t)
-        (begin
-          #;(printf "Warning: reified term ~a given #f as a type.~n" e)
-          e)))
+    #`(begin #,t #,e))
 
   (define (reified-copy-type e syn)
     (reified-set-type e (reified-get-type syn)))
 
+  ;; name, ann, and result should be reified-terms
   (define-syntax-class reified-pi #:attributes (name ann result)
     #:literals (#%plain-app #%plain-lambda Π)
     (pattern (#%plain-app (~var _ (constructor #'Π)) ~! ann (#%plain-lambda (n) r))
-             ;; TODO: Hack; n should already have the right type if substitution is done correctly
              #:attr name (reified-set-type #'n #'ann)
              #:attr result (subst (attribute name) #'n #'r)))
 
@@ -148,12 +151,12 @@
   ;; TODO: Look at pattern expanders instead of syntax-classes
   (define-syntax-class reified-lambda #:attributes (name ann body)
     #:literals (#%plain-lambda)
-    (pattern (#%plain-lambda (name) body)
-             ; NB: Require type anotations on variables in reified syntax.
-             #:attr ann (reified-get-type #'name)))
+    (pattern (#%plain-app (~var _ (constructor #'λ)) ~! ann (#%plain-lambda (n) r))
+             #:attr name (reified-set-type #'n #'ann)
+             #:attr body (subst (attribute name) #'n #'r))))
 
-  (define (reify-lambda syn x e)
-    (reified-copy-type (quasisyntax/loc syn (#%plain-lambda (#,x) #,e)) syn))
+  (define (reify-lambda syn x t e)
+    (reified-copy-type (cur-reify (quasisyntax/loc syn (λ #,t (#%plain-lambda (#,x) #,e)))) syn))
 
   (define-syntax-class reified-app #:attributes (rator rand)
     #:literals (#%plain-app)
@@ -267,46 +270,39 @@
 ;; ----------------------------------------------------------------
 
 (begin-for-syntax
-  ;; Reflection: turn a run-time term back into a compile-time term.
-  ;; This is done explicitly when we need to pattern match.
+  ;; Takes a reified term and returns a reflected term.
+  ;; TODO: Type annotations no longer available on reflected terms. Perhaps source should include type
+  ;; annotation form. Maybe not since reflected should mostly go away
   (define (cur-reflect syn)
-    (syntax-parse syn
+    (syntax-parse (reified-get-term syn)
       [x:id
        syn
        ;; TODO: I'd love to reflect the names, but I don't think we can.
        #;(or (syntax-property syn 'reflected-name) syn)]
       [e:reified-universe
-       (reified-copy-type (quasisyntax/loc syn (cur-type e.level-syn)) syn)]
+       (quasisyntax/loc syn (cur-type e.level-syn))]
       [e:reified-pi
-       (reified-copy-type
-        (quasisyntax/loc syn
+       (quasisyntax/loc syn
           (cur-Π (#,(cur-reflect #'e.name) : #,(cur-reflect #'e.ann))
-                 ;; TODO: subst should always be called on reified syntax?
-                 #,(subst (cur-reflect #'e.name) #'e.name (cur-reflect #'e.result))))
-        syn)]
+                 #,(cur-reflect #'e.result)))]
       [e:reified-app
-       (reified-copy-type
-        (quasisyntax/loc syn
-          (cur-app #,(cur-reflect #'e.rator) #,(cur-reflect #'e.rand)))
-        syn)]
+       (quasisyntax/loc syn
+          (cur-app #,(cur-reflect #'e.rator) #,(cur-reflect #'e.rand)))]
       [e:reified-lambda
-       (reified-copy-type
-        (quasisyntax/loc syn
-          (cur-λ (#,(cur-reflect #'e.name) : #,(cur-reflect #'e.ann))
-                 #,(subst (cur-reflect #'e.name) #'e.name (cur-reflect #'e.body))))
-        syn)]
+       (quasisyntax/loc syn
+          (cur-λ (#,(cur-reflect #'e.name) : #,(cur-reflect #'e.ann)) #,(cur-reflect #'e.body)))]
       [e:reified-elim
-       (reified-copy-type
-        (quasisyntax/loc syn
+       (quasisyntax/loc syn
           (cur-elim #,(cur-reflect #'e.target) #,(cur-reflect #'e.motive)
-                    #,(map cur-reflect (attribute e.method-ls))))
-        syn)])))
+                    #,(map cur-reflect (attribute e.method-ls))))])))
 
 ;;; Intensional equality
 ;;; ------------------------------------------------------------------------
 (begin-for-syntax
   ;; TODO PERF: Might be better for if this was syntax directed; avoids trying to substitute
   ;; into non-syntax like quote or 0
+
+  ;; takes a reified term v, an identifier x, and a reified term syn. returns a reified term
   (define (subst v x syn)
     (syntax-parse syn
       [y:id
@@ -316,15 +312,7 @@
        #:attr ls (map (lambda (e) (subst v x e)) (attribute e))
        ;; NB: Will induce warnings since blindly copies syntax
        (reified-copy-type (quasisyntax/loc syn #,(datum->syntax syn (attribute ls))) syn)]
-      [_
-       ;; TODO: A pattern
-       ;; NB: When substituting into a term, need to take into account that dependent types will change.
-       ;; previously, cur-reflect did this. But we want to avoid using cur-reflect.
-       ;; TODO: This doesn't seem to work well enough
-       (define type (reified-get-type syn))
-       (if type
-           (reified-set-type syn (subst v x type))
-           syn)]))
+      [_ syn]))
 
   ;; TODO: Should this be parameterizable, to allow for different eval strategies if user wants?
   ;; TODO PERF: Should the interpreter operate directly on syntax? Might be better to first
@@ -333,45 +321,54 @@
   ;; TODO PERF: Might be worth manually reifying/copying types instead of using the type-assigning
   ;; macros (which we were doing); however, this complicates things a bit, due to issues with
   ;; syntax-properties containing identifiers
-  (define (cur-eval syn)
-    (syntax-parse syn
-      [_:reified-universe syn]
-      [_:id
-       #:attr def (syntax-property syn 'definition)
-       #:when (attribute def)
-       (cur-eval (cur-reify (attribute def)))]
-      [_:id
-       #:when (not (syntax-property syn 'definition))
-       syn]
-      [e:reified-pi
-       (reify-pi syn #'e.name (cur-eval #'e.ann) (cur-eval #'e.result))]
-      [e:reified-app
-       #:with a (cur-eval #'e.rand)
-       (syntax-parse (cur-eval #'e.rator)
-         [f:reified-lambda
-          (cur-eval (subst #'a #'f.name #'f.body))]
-         [e1-
-          (reify-app syn #'e1- #'a)])]
-      [e:reified-elim
-       #:with target:reified-constant #'e.target
-       #:do [(define recursive-index-ls
-               (syntax-property (attribute target.constr) 'recursive-index-ls))]
-       ;; TODO PERF: use unsafe version of list operators and such for internal matters
-       ;; TODO PERF: list-ref; could we make it a vector?
-       (cur-eval
-        (apply reify-app syn (list-ref (attribute e.method-ls) (attribute target.constructor-index))
-               (append (attribute target.rand-ls)
-                       (for/fold ([m-args '()])
-                                 ([arg (attribute target.rand-ls)]
-                                  [i (in-naturals (syntax-property (attribute target.constr) 'param-count))]
-                                  ;; TODO PERF: memq in a loop over numbers...
-                                  #:when (memq i recursive-index-ls))
-                         (cons (reify-elim syn #'e.elim arg #'e.motive (attribute e.method-ls)) m-args)))))]
-      [e:reified-elim
-       (reify-elim syn #'e.elim (cur-eval #'e.target) (cur-eval #'e.motive) (map cur-eval (attribute e.method-ls)))]
-      [e:reified-lambda
-       (reify-lambda syn #'e.name (cur-eval #'e.body))]
-      [_ (raise-syntax-error 'cur-eval (format "Something has gone horribly wrong: ~a" (syntax->datum syn)) syn)]))
+
+  ;; takes a reified term and returns a reified term
+  ;; TODO: Can we lift functions defined on runtime to reified terms?
+  (define (cur-lift-runtime f)
+    (lambda (x)
+      (reified-copy-type (f (reified-get-term x)) x)))
+
+  (define cur-eval
+    (cur-lift-runtime
+     (lambda (syn)
+       (syntax-parse syn
+         [_:reified-universe syn]
+         [_:id
+          #:attr def (syntax-property syn 'definition)
+          #:when (attribute def)
+          (cur-eval (cur-reify (attribute def)))]
+         [_:id
+          #:when (not (syntax-property syn 'definition))
+          syn]
+         [e:reified-pi
+          (reify-pi syn #'e.name (cur-eval #'e.ann) (cur-eval #'e.result))]
+         [e:reified-app
+          #:with a (cur-eval #'e.rand)
+          (syntax-parse (cur-eval #'e.rator)
+            [f:reified-lambda
+             (cur-eval (subst #'a #'f.name #'f.body))]
+            [e1-
+             (reify-app syn #'e1- #'a)])]
+         [e:reified-elim
+          #:with target:reified-constant #'e.target
+          #:do [(define recursive-index-ls
+                  (syntax-property (attribute target.constr) 'recursive-index-ls))]
+          ;; TODO PERF: use unsafe version of list operators and such for internal matters
+          ;; TODO PERF: list-ref; could we make it a vector?
+          (cur-eval
+           (apply reify-app syn (list-ref (attribute e.method-ls) (attribute target.constructor-index))
+                  (append (attribute target.rand-ls)
+                          (for/fold ([m-args '()])
+                                    ([arg (attribute target.rand-ls)]
+                                     [i (in-naturals (syntax-property (attribute target.constr) 'param-count))]
+                                     ;; TODO PERF: memq in a loop over numbers...
+                                     #:when (memq i recursive-index-ls))
+                            (cons (reify-elim syn #'e.elim arg #'e.motive (attribute e.method-ls)) m-args)))))]
+         [e:reified-elim
+          (reify-elim syn #'e.elim (cur-eval #'e.target) (cur-eval #'e.motive) (map cur-eval (attribute e.method-ls)))]
+         [e:reified-lambda
+          (reify-lambda syn #'e.name (cur-eval #'e.body))]
+         [_ (raise-syntax-error 'cur-eval (format "Something has gone horribly wrong: ~a" (syntax->datum syn)) syn)]))))
 
   (define (cur-normalize e)
     ;; TODO: eta-expand! or, build into equality
@@ -383,7 +380,7 @@
   (define (cur-equal? t1 t2 (fail (lambda _ #f)))
     (let cur-equal? ([t1 (cur-normalize t1)]
                      [t2 (cur-normalize t2)])
-      (syntax-parse #`(#,t1 #,t2)
+      (syntax-parse #`(#,(reified-get-term t1) #,(reified-get-term t2))
         [(x:id y:id)
          (free-identifier=? #'x #'y)]
         [(A:reified-universe B:reified-universe)
@@ -406,7 +403,7 @@
   (define (cur-subtype? t1 t2 (fail (lambda _ #f)))
     (let cur-subtype? ([t1 (cur-normalize t1)]
                        [t2 (cur-normalize t2)])
-      (syntax-parse #`(#,t1 #,t2)
+      (syntax-parse #`(#,(reified-get-term t1) #,(reified-get-term t2))
         [(A:reified-universe B:reified-universe)
          (or (<= (attribute A.level) (attribute B.level)) (fail t1 t2))]
         [(e1:reified-pi e2:reified-pi)
@@ -460,7 +457,7 @@
     (for/list ([_ (in-range n)]) (fresh x)))
 
   (define (set-type e t)
-    (syntax-property e 'type (cur-normalize t) #t))
+    (reified-set-type e (cur-normalize t)))
 
   (define (get-type e)
     (define type (reified-get-type e))
@@ -502,10 +499,10 @@
        #:with (#%plain-lambda (name ...) e:in-let-values)
        (cur-reify
         #`(lambda (internal-name ...)
-            (let*-syntax ([x (make-rename-transformer (set-type #'internal-name #'t))] ...)
+            (let*-syntax ([x (lambda (stx) (set-type #'internal-name #'t))] ...)
               #,syn)))
        ;; TODO: duplicate names since types no longer expanded in separate context.
-       #`((name ...) (name ...) e.body : #,(get-type #'e.body))]))
+       #`((name ...) (name ...) #,(reified-get-term #'e.body) : #,(get-type #'e.body))]))
 
   ;; Type checking via syntax classes
 
@@ -513,7 +510,8 @@
   ;; NB: Cannot check that type is well-formed eagerly, otherwise infinite loop.
   (define-syntax-class cur-expr #:attributes (reified type)
     (pattern e:expr
-             #:attr reified (cur-reify #'e)
+             #:attr t (cur-reify #'e)
+             #:attr reified (reified-get-term t)
              #:attr type (get-type #'reified)))
 
   ;; Expect *some* well-typed expression, in an extended context.
@@ -650,7 +648,7 @@
   (syntax-parse syn
     #:datum-literals (:)
     [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
-     (⊢ (#%plain-lambda (#,(set-type (car (attribute e.name)) #'t1.reified)) e.reified) :
+     (⊢ (λ t1.reified (#%plain-lambda (#,(car (attribute e.name))) e.reified)) :
         (cur-Π (#,(car (attribute e.tname)) : t1.reified) e.type))]))
 
 (begin-for-syntax
