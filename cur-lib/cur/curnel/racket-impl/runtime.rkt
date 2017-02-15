@@ -2,11 +2,7 @@
 
 (require
  racket/list
- racket/struct
- ;syntax/parse
- #;(for-syntax
-  racket/base
-  racket/list))
+ racket/struct)
 
 #|
 Cur is implemented by type-checking macro expansion into Racket run-time terms.
