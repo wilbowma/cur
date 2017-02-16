@@ -282,53 +282,59 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
   (begin-for-syntax
     (require chk)
 
+    (define-values (universe? id? lambda? pi? constant? app? elim? term?)
+      (apply values
+             (for/list ([f (list cur-runtime-universe? cur-runtime-identifier? cur-runtime-lambda?
+                          cur-runtime-pi? cur-runtime-constant? cur-runtime-app? cur-runtime-elim?
+                          cur-runtime-term?)])
+               (compose f local-expand-expr))))
     (chk
-     #:? cur-runtime-universe? #'(Type 0)
-     #:? cur-runtime-term? #'(Type 0)
-     #:! #:? cur-runtime-identifier? #'(Type 0)
-     #:! #:? cur-runtime-constant? #'(Type 0)
-     #:! #:? cur-runtime-lambda? #'(Type 0)
-     #:! #:? cur-runtime-pi? #'(Type 0)
-     #:! #:? cur-runtime-app? #'(Type 0)
-     #:! #:? cur-runtime-elim? #'(Type 0)
-     #:? cur-runtime-identifier? #'two
-     #:? cur-runtime-term? #'two
-     #:! #:? cur-runtime-constant? #'two
-     #:! #:? cur-runtime-universe? #'two
-     #:! #:? cur-runtime-pi? #'two
-     #:! #:? cur-runtime-lambda? #'two
-     #:! #:? cur-runtime-app? #'two
-     #:! #:? cur-runtime-elim? #'two
-     #:? cur-runtime-pi? #'(Π (Type 0) (lambda (x) x))
-     #:? cur-runtime-term? #'(Π (Type 0) (lambda (x) x))
-     #:! #:? cur-runtime-lambda? #'(Π (Type 0) (lambda (x) x))
-     #:! #:? cur-runtime-app? #'(Π (Type 0) (lambda (x) x))
-     #:! #:? cur-runtime-elim? #'(Π (Type 0) (lambda (x) x))
-     #:! #:? cur-runtime-universe? #'(Π (Type 0) (lambda (x) x))
-     #:! #:? cur-runtime-identifier? #'(Π (Type 0) (lambda (x) x))
-     #:! #:? cur-runtime-constant? #'(Π (Type 0) (lambda (x) x))
-     #:? cur-runtime-constant? #'(z)
-     #:! #:? cur-runtime-identifier? #'(z)
-     #:! #:? cur-runtime-app? #'(z)
-     #:! #:? cur-runtime-universe? #'(z)
-     #:? cur-runtime-constant? #'(s (z))
-     #:! #:? cur-runtime-app? #'(s (z))
-     #:? cur-runtime-lambda? #'(λ (Type 0) (lambda (x) x))
-     #:! #:? cur-runtime-pi? #'(λ (Type 0) (lambda (x) x))
-     #:! #:? cur-runtime-app? #'(λ (Type 0) (lambda (x) x))
-     #:? cur-runtime-app? #'(plus (z))
-     #:? cur-runtime-term? #'(plus (z))
-     #:! #:? cur-runtime-constant? #'(plus (z))
-     #:! #:? cur-runtime-elim? #'(plus (z))
-     #:! #:? cur-runtime-identifier? #'(plus (z))
-     #:! #:? cur-runtime-universe? #'(plus (z))
-     #:! #:? cur-runtime-lambda? #'(plus (z))
-     #:! #:? cur-runtime-pi? #'(plus (z))
-     #:? cur-runtime-app? #'((plus (z)) (z))
-     #:? cur-runtime-term? #'((plus (z)) (z))
-     #:? cur-runtime-elim? #'(elim (z) void (z) (s (z)))
-     #:? cur-runtime-term? #'(elim (z) void (z) (s (z)))
-     #:! #:? cur-runtime-app? #'(elim (z) void (z) (s (z)))
-     #:! #:? cur-runtime-constant? #'(elim (z) void (z) (s (z)))
-     #:! #:? cur-runtime-lambda? #'(elim (z) void (z) (s (z)))
-     #:! #:? cur-runtime-pi? #'(elim (z) void (z) (s (z))))))
+     #:? universe? #'(Type 0)
+     #:? term? #'(Type 0)
+     #:! #:? identifier? #'(Type 0)
+     #:! #:? constant? #'(Type 0)
+     #:! #:? lambda? #'(Type 0)
+     #:! #:? pi? #'(Type 0)
+     #:! #:? app? #'(Type 0)
+     #:! #:? elim? #'(Type 0)
+     #:? identifier? #'two
+     #:? term? #'two
+     #:! #:? constant? #'two
+     #:! #:? universe? #'two
+     #:! #:? pi? #'two
+     #:! #:? lambda? #'two
+     #:! #:? app? #'two
+     #:! #:? elim? #'two
+     #:? pi? #'(Π (Type 0) (lambda (x) x))
+     #:? term? #'(Π (Type 0) (lambda (x) x))
+     #:! #:? lambda? #'(Π (Type 0) (lambda (x) x))
+     #:! #:? app? #'(Π (Type 0) (lambda (x) x))
+     #:! #:? elim? #'(Π (Type 0) (lambda (x) x))
+     #:! #:? universe? #'(Π (Type 0) (lambda (x) x))
+     #:! #:? identifier? #'(Π (Type 0) (lambda (x) x))
+     #:! #:? constant? #'(Π (Type 0) (lambda (x) x))
+     #:? constant? #'(z)
+     #:! #:? identifier? #'(z)
+     #:! #:? app? #'(z)
+     #:! #:? universe? #'(z)
+     #:? constant? #'(s (z))
+     #:! #:? app? #'(s (z))
+     #:? lambda? #'(λ (Type 0) (lambda (x) x))
+     #:! #:? pi? #'(λ (Type 0) (lambda (x) x))
+     #:! #:? app? #'(λ (Type 0) (lambda (x) x))
+     #:? app? #'(plus (z))
+     #:? term? #'(plus (z))
+     #:! #:? constant? #'(plus (z))
+     #:! #:? elim? #'(plus (z))
+     #:! #:? identifier? #'(plus (z))
+     #:! #:? universe? #'(plus (z))
+     #:! #:? lambda? #'(plus (z))
+     #:! #:? pi? #'(plus (z))
+     #:? app? #'((plus (z)) (z))
+     #:? term? #'((plus (z)) (z))
+     #:? elim? #'(elim (z) void (z) (s (z)))
+     #:? term? #'(elim (z) void (z) (s (z)))
+     #:! #:? app? #'(elim (z) void (z) (s (z)))
+     #:! #:? constant? #'(elim (z) void (z) (s (z)))
+     #:! #:? lambda? #'(elim (z) void (z) (s (z)))
+     #:! #:? pi? #'(elim (z) void (z) (s (z))))))

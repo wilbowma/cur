@@ -13,7 +13,7 @@
 
 (define (reified-syntax-class->pred stxclass)
   (lambda (expr)
-    (syntax-parse (local-expand-expr expr)
+    (syntax-parse expr
       [(~reflect _ (stxclass)) #t]
       [_ #f])))
 
