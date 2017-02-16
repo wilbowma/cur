@@ -9,13 +9,17 @@ Cur is implemented by type-checking macro expansion into Racket run-time terms.
 
 The run-time terms are either:
 1. A Racket identifier.
-2. The struct (Type i), where i is a natural number
-3. The struct (Π t f), where t is a run-time term and f is a run-time term.
-4. The struct (λ t f), where t is a run-time term and f is a run-time term.
-5. A plain application (#%plain-app rator rand) of a run-time term to a run-time term.
-6. A plain application (#%plain-app id target motive method-ls) of an identifier with the syntax
-   property 'elim set to #t, to a target (a run-time term) a motive (a run-time term) and a list of
-   run-time terms.
+2. A transparent struct inheriting from constant, whose first field is a constant-info, and whose
+   other fields are run-time terms.
+3. A transparent struct inheriting from inductive, whose first field is a inductive-info, and whose
+   other fields are run-time terms.
+4. The struct (Type i), where i is a natural number
+5. The struct (Π t f), where t is a run-time term and f is a run-time term.
+6. The struct (λ t f), where t is a run-time term and f is a run-time term.
+7. A plain application (#%plain-app rator rand) of a run-time term to a run-time term.
+8. A plain application (#%plain-app elim target motive method-ls), where elim is the function defined
+   below, target is a run-time term, motive is a run-time term, and method-ls is a list of run-time
+   terms.
 
 A compiled Cur module should be of the form:
 (module-begin
@@ -48,48 +52,60 @@ Any module that requires a Racket library, rather than a Cur library, is conside
 ; computer the result type given an argument of type t.
 (struct λ (t f) #:property prop:procedure (struct-field-index f))
 
-; Each inductive type has some required metadata:
-; 1. a type (a universe)
-; 2. some number of parameters
-; 3. a number of constructors given by constructor-count
-; 4. a curried dispatch function:
-;    Dispatch accepts a list of length constructor-count in constructor order and a target, and returns
-;    the ith element based on which constructor the target is constructed from.
-(struct inductive-info (type parameter-count constructor-count dispatch))
+; The constant-type property is a Racket procedure that computes the type of a constant.
+; It accepts the fields of a constant, as runtime terms, and returna a runtime term.
+(define-values (prop:constant-type constant-type? constant-type-ref)
+  (make-struct-type-property 'type))
 
-; An inductive type is a transparent struct that inherits inductive.
-; Each inductive has a field containing metadata about the inductive type, followed by arguments to
-; the inductive type.
-(struct inductive (iinfo) #:transparent)
+; The parameter-count property is natural number representing the number of fields that are parameters.
+(define-values (prop:parameter-count parameter-count? parameter-count-ref)
+  (make-struct-type-property 'parameter-count))
 
-; Each constant has some required metadata:
-; 1. A type that is an inductive
-; 2. number of fields
-; 3. A list of indecies indicating which fields are recurisve arguemnts.
-(struct constant-info (type field-count recursive-index-ls))
+; The dispatch property is a box containing a curried Racket procedure.
+; The procedure accepts a list of length equal to the number of fields the associated constant has,
+; then a target, and returns the ith element based on which constructor the target is constructed
+; from.
+; TODO: Currently must be in a box, since the procedure can only be generated after all constant
+; structs are defined. Since the constant structs must have the property, the box must exist but be
+; initalized later.
+(define-values (prop:dispatch dispatch? dispatch-ref)
+  (make-struct-type-property 'dispatch))
 
-; A constant is a transparent struct that inherits constant.
-; Each constant has a field containing metadata about the constant, followed by additional arguments
-; to the constant.
-(struct constant (cinfo) #:transparent)
+; The recursive-index-ls property is a list of natural numbers, representing which fields of the
+; constant are recursive.
+(define-values (prop:recursive-index-ls recursive-index-ls? recursive-index-ls-ref)
+  (make-struct-type-property 'recursive-index-ls))
+
+; The inductive property is set to #t for constants that are inductively defined types
+(define-values (prop:inductive inductive? inductive-ref)
+  (make-struct-type-property 'inductive))
+
+; The constructor property is set to #t for constants that are constructors for an inductively defined type.
+(define-values (prop:constructor constructor? constructor-ref)
+  (make-struct-type-property 'constructor))
+
+; An inductive type is a transparent struct that inherits constant, and has prop:inductive,
+; prop:constant-type, prop:parameter-count.
+
+; A constructor is a transparent struct that inherits constant, and has prop:constructor,
+; prop:constant-type, prop:parameter-count, prop:dispatch, and prop:recursive-index-ls.
+(struct constant () #:transparent)
 
 ;; Target must a constant, and method-ls must be a list of methods of length equal to the number of
 ;; constructs for the inductive type of target.
 (define (elim target _ method-ls)
-  (define cinfo (constant-cinfo target))
-  (define type (constant-info-type cinfo))
-  (define iinfo (inductive-iinfo type))
-  (define dispatch ((inductive-info-dispatch iinfo) method-ls))
   ;; NB: The constant info field plus the parameters
-  (define fields-to-drop (+ 1 (inductive-info-parameter-count iinfo)))
+  (define fields-to-drop (parameter-count-ref target))
+  (define dispatch ((unbox (dispatch-ref target)) method-ls))
   (let loop ([e target])
     (let* ([method (dispatch e)]
            [args (drop (struct->list e) fields-to-drop)]
+           [r-arg-ls (recursive-index-ls-ref e)]
            [r-args
             (for/list ([x args]
                        [i (in-naturals fields-to-drop)]
                        ;; TODO PERF: memq, in a loop, over numbers
-                       #:when (memq i (constant-info-recursive-index-ls (constant-cinfo e))))
+                       #:when (memq i r-arg-ls))
               ;; TODO PERF: CBV; eager eval of recursive arguments. Is there a better way?
               (loop x))])
       ;; NB: the method is curried, so ...
@@ -110,26 +126,34 @@ Any module that requires a Racket library, rather than a Cur library, is conside
           (k l))
         (error 'run-time "Something very very bad has happened.")))))
 
-(define (constant-equal? i1 i2)
-  (if (null? i1)
-      (equal? i1 i2)
-      (equal?/recur (drop (struct->list i1) 1) (drop (struct->list i2) 1) constant-equal?)))
+(define constant-equal? equal?)
 
 (module+ test
   (require chk)
-  (struct Nat inductive () #:transparent)
-  (struct z constant () #:transparent)
-  (struct s constant (pred) #:transparent)
+  (struct Nat constant () #:transparent
+    #:property prop:inductive #t
+    #:property prop:constant-type (Type 0)
+    #:property prop:parameter-count 0)
 
-  ;; TODO PERF: When the make-x functions take no argument, optimize into a singleton structure.
-  ;; TODO PERF: When the info does not depend on arguments, optimize info into a singleton structure
-  ;; and reference it.
-  (define (make-Nat)
-    (Nat (inductive-info (Type 0) 0 2 (build-dispatch (list z? s?)))))
-  (define (make-z)
-    (z (constant-info (make-Nat) 0 null)))
-  (define (make-s x)
-    (s (constant-info (make-Nat) 1 (list 0)) x))
+  (define Nat-dispatch (box #f))
+
+  (struct z constant () #:transparent
+    #:property prop:constructor #t
+    #:property prop:constant-type (Nat)
+    #:property prop:parameter-count 0
+    #:property prop:dispatch Nat-dispatch
+    #:property prop:recursive-index-ls null)
+
+  (struct s constant (pred) #:transparent
+    #:property prop:constructor #t
+    #:property prop:constant-type (Nat)
+    #:property prop:parameter-count 0
+    #:property prop:dispatch Nat-dispatch
+    #:property prop:recursive-index-ls (list 0))
+
+  (set-box! Nat-dispatch (build-dispatch (list z? s?)))
+
+  ;; TODO PERF: When the constant has no fields, optimize into a singleton structure.
   ;; TODO PERF: When we make singletons, should be possible to optimize equality checks into eq?
   ;; instead of equal?. Might require defining a genric for constants, instantiating, etc.
 
@@ -139,8 +163,8 @@ Any module that requires a Racket library, rather than a Cur library, is conside
    #:t (λ (Type 1) (#%plain-lambda (x) x))
    #:t (Π (Type 1) (#%plain-lambda (x) (Type 1)))
    #:= (#%plain-app (λ (Type 1) (#%plain-lambda (x) x)) (Type 0)) (Type 0)
-   #:? z? (make-z)
-   #:? s? (make-s make-z)
-   #:eq constant-equal? (elim (make-z) void (list (make-z) (lambda (p) p))) (make-z)
-   #:! #:eq constant-equal? (elim (make-s (make-s (make-z))) void (list (make-z) (lambda (p) p))) (make-z)
-   #:eq constant-equal? (elim (make-s (make-s (make-z))) void (list (make-z) (lambda (p) p))) (make-s (make-z))))
+   #:? z? (z)
+   #:? s? (s z)
+   #:eq constant-equal? (elim (z) void (list (z) (lambda (p) (lambda (ih) p)))) (z)
+   #:! #:eq constant-equal? (elim (s (s (z))) void (list (z) (lambda (p) (lambda (ih) p)))) (z)
+   #:eq constant-equal? (elim (s (s (z))) void (list (z) (lambda (p) (lambda (ih) p)))) (s (z))))
