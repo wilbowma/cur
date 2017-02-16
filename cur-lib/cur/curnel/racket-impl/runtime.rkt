@@ -124,8 +124,6 @@ Any module that requires a Racket library, rather than a Cur library, is conside
           (k l))
         (error 'run-time "Something very very bad has happened.")))))
 
-(define constant-equal? equal?)
-
 (module+ test
   (require chk (for-syntax (submod "..")))
   (struct Nat constant () #:transparent
@@ -154,9 +152,11 @@ Any module that requires a Racket library, rather than a Cur library, is conside
 
   (set-box! Nat-dispatch (build-dispatch (list z? s?)))
 
-  ;; TODO PERF: When the constant has no fields, optimize into a singleton structure.
+  ;; TODO PERF: When the constant has no fields, optimize into a singleton structure. this can be
+  ;; detected at transformer time using struct-info, by a null field-accessor list
   ;; TODO PERF: When we make singletons, should be possible to optimize equality checks into eq?
-  ;; instead of equal?. Might require defining a genric for constants, instantiating, etc.
+  ;; instead of equal?.
+  ;; "A structure type can override the default equal? definition through the gen:equal+hash generic interface."
   (require (for-syntax racket/syntax))
   (define-syntax (type-of syn)
     (syntax-case syn ()
