@@ -3,7 +3,7 @@
 (require
  racket/list
  racket/struct)
-
+(provide (all-defined-out))
 #|
 Cur is implemented by type-checking macro expansion into Racket run-time terms.
 
@@ -52,11 +52,6 @@ Any module that requires a Racket library, rather than a Cur library, is conside
 ; computer the result type given an argument of type t.
 (struct λ (t f) #:property prop:procedure (struct-field-index f))
 
-; The constant-type property is a Racket procedure that computes the type of a constant.
-; It accepts the fields of a constant, as runtime terms, and returna a runtime term.
-(define-values (prop:constant-type constant-type? constant-type-ref)
-  (make-struct-type-property 'type))
-
 ; The parameter-count property is natural number representing the number of fields that are parameters.
 (define-values (prop:parameter-count parameter-count? parameter-count-ref)
   (make-struct-type-property 'parameter-count))
@@ -65,7 +60,7 @@ Any module that requires a Racket library, rather than a Cur library, is conside
 ; The procedure accepts a list of length equal to the number of fields the associated constant has,
 ; then a target, and returns the ith element based on which constructor the target is constructed
 ; from.
-; TODO: Currently must be in a box, since the procedure can only be generated after all constant
+; NB: Currently must be in a box, since the procedure can only be generated after all constant
 ; structs are defined. Since the constant structs must have the property, the box must exist but be
 ; initalized later.
 (define-values (prop:dispatch dispatch? dispatch-ref)
@@ -76,22 +71,25 @@ Any module that requires a Racket library, rather than a Cur library, is conside
 (define-values (prop:recursive-index-ls recursive-index-ls? recursive-index-ls-ref)
   (make-struct-type-property 'recursive-index-ls))
 
-; The inductive property is set to #t for constants that are inductively defined types
-(define-values (prop:inductive inductive? inductive-ref)
-  (make-struct-type-property 'inductive))
+; An inductive type is a transparent struct that inherits constant, and has
+; prop:parameter-count.
+; For every inductive type (struct i constant ...), a transformer binding of type:i must also be
+; defined.
+; The binding must be a procedure that takes one argument for every argument to the inductive type,
+; and produces a runtime term as a syntax object representing the type of the inductive type.
+; TODO: Should probably also provide inductive-info:i, with other type-checking information.
 
-; The constructor property is set to #t for constants that are constructors for an inductively defined type.
-(define-values (prop:constructor constructor? constructor-ref)
-  (make-struct-type-property 'constructor))
-
-; An inductive type is a transparent struct that inherits constant, and has prop:inductive,
-; prop:constant-type, prop:parameter-count.
-
-; A constructor is a transparent struct that inherits constant, and has prop:constructor,
-; prop:constant-type, prop:parameter-count, prop:dispatch, and prop:recursive-index-ls.
+; A constructor is a transparent struct that inherits constant, and has
+; prop:parameter-count, prop:dispatch, and prop:recursive-index-ls.
+; For every constant (struct c constant ...), a transformer binding of type:c must also be
+; defined.
+; The binding must be a procedure that takes one argument for every argument to the inductive type,
+; and produces a runtime term as a syntax object representing the type of the constant.
+; TODO: Should probably also provide constructor-info:i, with other type-checking information.
 (struct constant () #:transparent)
+; TODO: every provided definition def should also define type:def and delta:def.
 
-;; Target must a constant, and method-ls must be a list of methods of length equal to the number of
+;; Target must a constructor, and method-ls must be a list of methods of length equal to the number of
 ;; constructs for the inductive type of target.
 (define (elim target _ method-ls)
   ;; NB: The constant info field plus the parameters
@@ -129,33 +127,41 @@ Any module that requires a Racket library, rather than a Cur library, is conside
 (define constant-equal? equal?)
 
 (module+ test
-  (require chk)
+  (require chk (for-syntax (submod "..")))
   (struct Nat constant () #:transparent
-    #:property prop:inductive #t
-    #:property prop:constant-type (Type 0)
     #:property prop:parameter-count 0)
+
+  (require (for-syntax (except-in racket/base λ)))
+
+  ;; TODO PERF: When the type takes no arguments, can we avoid making it a function?
+  (define-syntax type:Nat (lambda () #`(Type 0)))
 
   (define Nat-dispatch (box #f))
 
   (struct z constant () #:transparent
-    #:property prop:constructor #t
-    #:property prop:constant-type (Nat)
     #:property prop:parameter-count 0
     #:property prop:dispatch Nat-dispatch
     #:property prop:recursive-index-ls null)
 
+  (define-syntax type:z (lambda () #`(Nat)))
+
   (struct s constant (pred) #:transparent
-    #:property prop:constructor #t
-    #:property prop:constant-type (Nat)
     #:property prop:parameter-count 0
     #:property prop:dispatch Nat-dispatch
     #:property prop:recursive-index-ls (list 0))
+
+  (define-syntax type:s (lambda (x) #`(Nat)))
 
   (set-box! Nat-dispatch (build-dispatch (list z? s?)))
 
   ;; TODO PERF: When the constant has no fields, optimize into a singleton structure.
   ;; TODO PERF: When we make singletons, should be possible to optimize equality checks into eq?
   ;; instead of equal?. Might require defining a genric for constants, instantiating, etc.
+  (require (for-syntax racket/syntax))
+  (define-syntax (type-of syn)
+    (syntax-case syn ()
+      [(_ (syn args ...))
+       (apply (syntax-local-value (format-id #'syn "type:~a" #'syn)) (syntax->list #'(args ...)))]))
 
   (chk
    #:t (Type 0)
@@ -167,4 +173,9 @@ Any module that requires a Racket library, rather than a Cur library, is conside
    #:? s? (s z)
    #:eq constant-equal? (elim (z) void (list (z) (lambda (p) (lambda (ih) p)))) (z)
    #:! #:eq constant-equal? (elim (s (s (z))) void (list (z) (lambda (p) (lambda (ih) p)))) (z)
-   #:eq constant-equal? (elim (s (s (z))) void (list (z) (lambda (p) (lambda (ih) p)))) (s (z))))
+   #:eq constant-equal? (elim (s (s (z))) void (list (z) (lambda (p) (lambda (ih) p)))) (s (z))
+   #:= (Type 0) (type-of (Nat))
+   #:= (Nat) (type-of (z))
+   #:= (Nat) (type-of (s z))
+   )
+  )
