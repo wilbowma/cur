@@ -2,7 +2,13 @@
 
 (require
  racket/list
- racket/struct)
+ racket/struct
+ (for-syntax
+  racket/base
+  racket/list
+  racket/struct-info
+  syntax/parse
+  racket/syntax))
 (provide (all-defined-out))
 #|
 Cur is implemented by type-checking macro expansion into Racket run-time terms.
@@ -24,19 +30,21 @@ Cur does not guarantee that requiring such modules with succeed, and if it succe
 guarantee that it will run, and if it runs Cur does not guarnatee safety.
 |#
 
+
 ; The run-time representation of univeres. (Type i), where i is a Nat.
-(struct Type (i) #:transparent)
+; NB: Separate extra-constructor-name makes identifying constructor with free-identifier=? easier.
+(struct cur-Type (i) #:transparent #:extra-constructor-name Type #:reflection-name 'Type)
 
 ; The run-time representation of Π types. (Π t f), where is a type and f is a procedure that computes
 ; the result type given an argument.
-(struct Π (t f))
+(struct cur-Π (t f) #:extra-constructor-name Π #:reflection-name 'Π)
 
 ; The run-time representation of an application is a Racket plain application.
 ; (#%plain-app e1 e2)
 
 ; The run-time representation of a function. (λ t f), where t is a type and f is a procedure that
 ; computer the result type given an argument of type t.
-(struct λ (t f) #:property prop:procedure (struct-field-index f))
+(struct cur-λ (t f) #:property prop:procedure (struct-field-index f) #:extra-constructor-name λ #:reflection-name 'λ)
 
 ; The parameter-count property is natural number representing the number of fields that are parameters.
 (define-values (prop:parameter-count parameter-count? parameter-count-ref)
@@ -59,16 +67,16 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
 
 ; An inductive type is a transparent struct that inherits constant, and has
 ; prop:parameter-count.
-; For every inductive type (struct i constant ...), a transformer binding of type:i must also be
-; defined.
+; For every inductive type (struct i constant ...), where i is of the format "constant:~a", and a
+; transformer binding of type:i must also be defined.
 ; The binding must be a procedure that takes one argument for every argument to the inductive type,
 ; and produces a runtime term as a syntax object representing the type of the inductive type.
 ; TODO: Should probably also provide inductive-info:i, with other type-checking information.
 
 ; A constructor is a transparent struct that inherits constant, and has
 ; prop:parameter-count, prop:dispatch, and prop:recursive-index-ls.
-; For every constant (struct c constant ...), a transformer binding of type:c must also be
-; defined.
+; For every constant (struct c constant ...), , where c is of the format "constant:~a", and a
+; transformer binding of type:c must also be defined.
 ; The binding must be a procedure that takes one argument for every argument to the inductive type,
 ; and produces a runtime term as a syntax object representing the type of the constant.
 ; TODO: Should probably also provide constructor-info:i, with other type-checking information.
@@ -76,7 +84,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
 
 ;; Target must a constructor, and method-ls must be a list of methods of length equal to the number of
 ;; constructs for the inductive type of target.
-(define (elim target _ method-ls)
+(define (elim target _ . method-ls)
   (define fields-to-drop (parameter-count-ref target))
   (define dispatch ((unbox (dispatch-ref target)) method-ls))
   (let loop ([e target])
@@ -96,6 +104,90 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
                 ([a (append args r-args)])
         (app a)))))
 
+; Syntax classes for matching cur run-time terms.
+; These classes only do shallow pattern matching, since we assume all run-time terms were
+; type-checked.
+(begin-for-syntax
+  (require "stxutils.rkt")
+  (provide
+   cur-runtime-identifier
+   cur-runtime-constant
+   cur-runtime-universe
+   cur-runtime-pi
+   cur-runtime-lambda
+   cur-runtime-app
+   cur-runtime-elim
+   cur-runtime-term
+
+   cur-runtime-identifier?
+   cur-runtime-constant?
+   cur-runtime-universe?
+   cur-runtime-pi?
+   cur-runtime-lambda?
+   cur-runtime-app?
+   cur-runtime-elim?
+   cur-runtime-term?)
+
+  (define-syntax-class/pred cur-runtime-identifier
+    (pattern name:id))
+
+  (define-syntax-class/pred cur-runtime-constant
+    #:literals (#%plain-app)
+    (pattern (#%plain-app name:id args ...)
+             #:when
+             ; TODO: format-id is annoying; more identifier based conventions. Need something
+             ; better. E.g. how do we overload an identifier to do one thing at runtime, and another
+             ; with syntax-local-value, the way struct works?
+             (let ([v (syntax-local-value (format-id #'name "constant:~a" #'name) (lambda () #f))])
+                 (and v (free-identifier=? #'constant (sixth (extract-struct-info v)))))))
+
+  (define universe-constructor (second (extract-struct-info (syntax-local-value #'cur-Type))))
+
+  (define-syntax-class/pred cur-runtime-universe #:attributes (level-syn level)
+    #:literals (#%plain-app quote)
+    (pattern (#%plain-app constr:id (quote level-syn))
+             #:when (free-identifier=? #'constr universe-constructor)
+             #:attr level (syntax->datum #'level-syn)))
+
+  (define pi-constructor (second (extract-struct-info (syntax-local-value #'cur-Π))))
+
+  (define-syntax-class/pred cur-runtime-pi #:attributes (name ann result)
+    #:literals (#%plain-app #%plain-lambda)
+    (pattern (#%plain-app constr:id ann (#%plain-lambda (name) result))
+             #:when (free-identifier=? #'constr pi-constructor)))
+
+  (define lambda-constructor (second (extract-struct-info (syntax-local-value #'cur-λ))))
+
+  (define-syntax-class/pred cur-runtime-lambda #:attributes (name ann body)
+    #:literals (#%plain-app #%plain-lambda)
+    (pattern (#%plain-app constr:id ann (#%plain-lambda (name) body))
+             #:when (free-identifier=? #'constr lambda-constructor)))
+
+  (define-syntax-class/pred cur-runtime-app #:attributes (rator rand)
+    #:literals (#%plain-app)
+    ; NB: Additional matching to ensure mutually exclusive syntax classes.
+    ; TODO: Is this worth the cost? Perhaps Cur could use #%plain-app apply rator rand as the
+    ; application form, or so. But that may shift the cost to run-time instead of expansion time.
+    (pattern (~and (#%plain-app rator rand)
+                   (~not e:cur-runtime-universe)
+                   (~not e:cur-runtime-lambda)
+                   (~not e:cur-runtime-pi)
+                   (~not e:cur-runtime-elim)
+                   (~not e:cur-runtime-constant))))
+
+  (define-syntax-class/pred cur-runtime-elim #:attributes (target motive (method-ls 1))
+    #:literals (#%plain-app elim)
+    (pattern (#%plain-app elim target motive method-ls ...)))
+
+  (define-syntax-class/pred cur-runtime-term
+    (pattern e:cur-runtime-identifier)
+    (pattern e:cur-runtime-constant)
+    (pattern e:cur-runtime-universe)
+    (pattern e:cur-runtime-pi)
+    (pattern e:cur-runtime-lambda)
+    (pattern e:cur-runtime-app)
+    (pattern e:cur-runtime-elim)))
+
 ;; NB: Non-essential
 ;; TODO PERF: Should be able to do a better job since predicates are mutually exclusive.
 (define (build-dispatch predicates)
@@ -112,35 +204,42 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
 (module+ test
   (require
    chk
+   syntax/parse
    (for-syntax
     (submod "..")
     (except-in racket/base λ)
     syntax/transformer))
   (provide (all-defined-out))
 
-  (struct Nat constant () #:transparent
+  (struct constant:Nat constant () #:transparent
+    #:extra-constructor-name Nat
+    #:reflection-name 'Nat
     #:property prop:parameter-count 0)
 
   ;; TODO PERF: When the type takes no arguments, can we avoid making it a function?
-  (define-syntax type:struct:Nat (lambda () #`(Type 0)))
+  (define-syntax type:struct:constant:Nat (lambda () #`(Type 0)))
 
   (define Nat-dispatch (box #f))
 
-  (struct z constant () #:transparent
+  (struct constant:z constant () #:transparent
+    #:extra-constructor-name z
+    #:reflection-name 'z
     #:property prop:parameter-count 0
     #:property prop:dispatch Nat-dispatch
     #:property prop:recursive-index-ls null)
 
-  (define-syntax type:struct:z (lambda () #`(Nat)))
+  (define-syntax type:struct:constant:z (lambda () #`(Nat)))
 
-  (struct s constant (pred) #:transparent
+  (struct constant:s constant (pred) #:transparent
+    #:extra-constructor-name s
+    #:reflection-name 's
     #:property prop:parameter-count 0
     #:property prop:dispatch Nat-dispatch
     #:property prop:recursive-index-ls (list 0))
 
-  (define-syntax type:struct:s (lambda (x) #`(Nat)))
+  (define-syntax type:struct:constant:s (lambda (x) #`(Nat)))
 
-  (set-box! Nat-dispatch (build-dispatch (list z? s?)))
+  (set-box! Nat-dispatch (build-dispatch (list constant:z? constant:s?)))
 
   (define-syntax type:two #`(Nat))
   (define-syntax delta:two (make-variable-like-transformer #'(s (s (z)))))
@@ -157,7 +256,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
          (#%plain-lambda (n1)
            (λ (Nat)
              (#%plain-lambda (n2)
-               (elim n1 void (list n2 (lambda (n1-1) (lambda (ih) (s ih)))))))))))
+               (elim n1 void n2 (lambda (n1-1) (lambda (ih) (s ih))))))))))
 
   (define plus delta:plus)
 
@@ -173,9 +272,63 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
    #:t (λ (Type 1) (#%plain-lambda (x) x))
    #:t (Π (Type 1) (#%plain-lambda (x) (Type 1)))
    #:= (#%plain-app (λ (Type 1) (#%plain-lambda (x) x)) (Type 0)) (Type 0)
-   #:? z? (z)
-   #:? s? (s z)
-   #:= (elim (z) void (list (z) (lambda (p) (lambda (ih) p)))) (z)
-   #:! #:= (elim (s (s (z))) void (list (z) (lambda (p) (lambda (ih) p)))) (z)
-   #:= (elim (s (s (z))) void (list (z) (lambda (p) (lambda (ih) p)))) (s (z))
-   #:= (s (s (s (s (z))))) ((plus (s (s (z)))) (s (s (z))))))
+   #:? constant:z? (z)
+   #:? constant:s? (s z)
+   #:= (elim (z) void (z) (lambda (p) (lambda (ih) p))) (z)
+   #:! #:= (elim (s (s (z))) void (z) (lambda (p) (lambda (ih) p))) (z)
+   #:= (elim (s (s (z))) void (z) (lambda (p) (lambda (ih) p))) (s (z))
+   #:= (s (s (s (s (z))))) ((plus (s (s (z)))) (s (s (z)))))
+
+  (begin-for-syntax
+    (require chk)
+
+    (chk
+     #:? cur-runtime-universe? #'(Type 0)
+     #:? cur-runtime-term? #'(Type 0)
+     #:! #:? cur-runtime-identifier? #'(Type 0)
+     #:! #:? cur-runtime-constant? #'(Type 0)
+     #:! #:? cur-runtime-lambda? #'(Type 0)
+     #:! #:? cur-runtime-pi? #'(Type 0)
+     #:! #:? cur-runtime-app? #'(Type 0)
+     #:! #:? cur-runtime-elim? #'(Type 0)
+     #:? cur-runtime-identifier? #'two
+     #:? cur-runtime-term? #'two
+     #:! #:? cur-runtime-constant? #'two
+     #:! #:? cur-runtime-universe? #'two
+     #:! #:? cur-runtime-pi? #'two
+     #:! #:? cur-runtime-lambda? #'two
+     #:! #:? cur-runtime-app? #'two
+     #:! #:? cur-runtime-elim? #'two
+     #:? cur-runtime-pi? #'(Π (Type 0) (lambda (x) x))
+     #:? cur-runtime-term? #'(Π (Type 0) (lambda (x) x))
+     #:! #:? cur-runtime-lambda? #'(Π (Type 0) (lambda (x) x))
+     #:! #:? cur-runtime-app? #'(Π (Type 0) (lambda (x) x))
+     #:! #:? cur-runtime-elim? #'(Π (Type 0) (lambda (x) x))
+     #:! #:? cur-runtime-universe? #'(Π (Type 0) (lambda (x) x))
+     #:! #:? cur-runtime-identifier? #'(Π (Type 0) (lambda (x) x))
+     #:! #:? cur-runtime-constant? #'(Π (Type 0) (lambda (x) x))
+     #:? cur-runtime-constant? #'(z)
+     #:! #:? cur-runtime-identifier? #'(z)
+     #:! #:? cur-runtime-app? #'(z)
+     #:! #:? cur-runtime-universe? #'(z)
+     #:? cur-runtime-constant? #'(s (z))
+     #:! #:? cur-runtime-app? #'(s (z))
+     #:? cur-runtime-lambda? #'(λ (Type 0) (lambda (x) x))
+     #:! #:? cur-runtime-pi? #'(λ (Type 0) (lambda (x) x))
+     #:! #:? cur-runtime-app? #'(λ (Type 0) (lambda (x) x))
+     #:? cur-runtime-app? #'(plus (z))
+     #:? cur-runtime-term? #'(plus (z))
+     #:! #:? cur-runtime-constant? #'(plus (z))
+     #:! #:? cur-runtime-elim? #'(plus (z))
+     #:! #:? cur-runtime-identifier? #'(plus (z))
+     #:! #:? cur-runtime-universe? #'(plus (z))
+     #:! #:? cur-runtime-lambda? #'(plus (z))
+     #:! #:? cur-runtime-pi? #'(plus (z))
+     #:? cur-runtime-app? #'((plus (z)) (z))
+     #:? cur-runtime-term? #'((plus (z)) (z))
+     #:? cur-runtime-elim? #'(elim (z) void (z) (s (z)))
+     #:? cur-runtime-term? #'(elim (z) void (z) (s (z)))
+     #:! #:? cur-runtime-app? #'(elim (z) void (z) (s (z)))
+     #:! #:? cur-runtime-constant? #'(elim (z) void (z) (s (z)))
+     #:! #:? cur-runtime-lambda? #'(elim (z) void (z) (s (z)))
+     #:! #:? cur-runtime-pi? #'(elim (z) void (z) (s (z))))))
