@@ -2,7 +2,9 @@
 
 (require
  racket/syntax
- syntax/parse)
+ syntax/parse
+ racket/struct-info
+ (for-template "runtime.rkt"))
 
 #|
 The Cur elaborator is also the type-checker, sort of.
@@ -20,21 +22,61 @@ However, we don't really want the type system to be extensible since we desire a
 |#
 
 ;; TODO: Implement syntax classes
-(define-syntax-class )
+;(define-syntax-class )
 
-;; Takes a runtime term and returns it's type, as a runtime term.
+; Get the type of a identifier, such as a define or a struct.
+; Types for these are stored with particular names as transformer bindings.
+(define (identifier-type syn id)
+  (syntax-local-value (format-id syn "type:~a" id)))
+
+(define (type-of-constant syn)
+  (syntax-case syn ()
+    [(syn args ...)
+     ;; NB: More resilient to provide/require renaming, but still annoying use of format-id
+     (apply (identifier-type #'syn (car (extract-struct-info (syntax-local-value #'syn))))
+            (syntax->list #'(args ...)))]))
+
+(define (type-of-id syn)
+  ;; NB: More resilient to provide/require renaming, but still annoying use of format-id
+  (identifier-type syn (cadr (identifier-binding syn))))
+
+(provide (all-defined-out))
+
+(module+ test
+  (require
+   (for-syntax
+    chk
+    (except-in racket/base λ)
+    (submod ".."))
+   "runtime.rkt"
+   (submod "runtime.rkt" test))
+
+  (begin-for-syntax
+    (define (equal-syn? syn1 syn2)
+      (equal? (syntax->datum syn1) (syntax->datum syn2)))
+
+    (chk
+     #:eq equal-syn? (type-of-id #'two) #'(Nat)
+     #:eq equal-syn? (type-of-constant #'(Nat)) #'(Type 0)
+     #:eq equal-syn? (type-of-constant #'(z)) #'(Nat)
+     #:eq equal-syn? (type-of-constant #'(s z)) #'(Nat))))
+
+#|
+;; Takes a runtime term and computes it's type, as a runtime term.
 (define (get-type e)
   (syntax-parse e
     [e:runtime-identifier
-     (cur-elab (syntax-property #'e.name 'type-transformer))]
+     (type-of-id #'e)]
+    [e:runtime-constant
+     (type-of-constant #'e)]
     [e:runtime-universe
-     (cur-elab #`(Type (quote #,(add1 (attribute e.level)))))]
+     #`(Type (quote #,(add1 (attribute e.level))))]
     [e:runtime-pi
      ;; TODO: Shouldn't this be the max of the annotation and the result?
      (get-type #'e.result)]
     [e:runtime-lambda
      #:with ((x) body) (cur-elab/ctx #'e.body (list #'e.name #'e.ann))
-     (cur-elab #`(Π e.ann (#%plain-lambda (x) #,(get-type #'type))))]
+     #`(Π e.ann (#%plain-lambda (x) #,(get-type #'type)))]
     [e:runtime-app
      #:with t1:runtime-pi (get-type #'e.rator)
      (subst #'e.rand #'t1.name #'t1.result)]
@@ -88,3 +130,5 @@ However, we don't really want the type system to be extensible since we desire a
            (let-syntax ([x (make-rename-transformer
                             (syntax-property #'x-internal 'type #'x-type #t))])
              body)))]))
+
+|#

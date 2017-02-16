@@ -8,34 +8,20 @@
 Cur is implemented by type-checking macro expansion into Racket run-time terms.
 
 The run-time terms are either:
-1. A Racket identifier.
-2. A transparent struct inheriting from constant, whose first field is a constant-info, and whose
-   other fields are run-time terms.
-3. A transparent struct inheriting from inductive, whose first field is a inductive-info, and whose
-   other fields are run-time terms.
-4. The struct (Type i), where i is a natural number
-5. The struct (Π t f), where t is a run-time term and f is a run-time term.
-6. The struct (λ t f), where t is a run-time term and f is a run-time term.
-7. A plain application (#%plain-app rator rand) of a run-time term to a run-time term.
-8. A plain application (#%plain-app elim target motive method-ls), where elim is the function defined
+1. A Racket identifier x, as long as the transformer binding type:x also exist. If the transformer
+   binding delta:x also exists, the identifer is eligible for delta reduction.
+2. A transparent struct inheriting from constant, as described below.
+3. The struct (Type i), where i is a natural number
+4. The struct (Π t f), where t is a run-time term and f is a run-time term.
+5. The struct (λ t f), where t is a run-time term and f is a run-time term.
+6. A plain application (#%plain-app rator rand) of a run-time term to a run-time term.
+7. A plain application (#%plain-app elim target motive method-ls), where elim is the function defined
    below, target is a run-time term, motive is a run-time term, and method-ls is a list of run-time
    terms.
 
-A compiled Cur module should be of the form:
-(module-begin
-   (require ...)
-   (provide ...)
-   (define-syntax id-type transformer)
-   (define id term)
-   ...
-   term
-   ...)
-
-Each provided id must have a syntax-property with the identifier of a transformer that, when expanded,
-produces the type of the id.
-That transformer must also be provided.
-
 Any module that requires a Racket library, rather than a Cur library, is considered unsafe.
+Cur does not guarantee that requiring such modules with succeed, and if it succeeds Cur does not
+guarantee that it will run, and if it runs Cur does not guarnatee safety.
 |#
 
 ; The run-time representation of univeres. (Type i), where i is a Nat.
@@ -91,7 +77,6 @@ Any module that requires a Racket library, rather than a Cur library, is conside
 ;; Target must a constructor, and method-ls must be a list of methods of length equal to the number of
 ;; constructs for the inductive type of target.
 (define (elim target _ method-ls)
-  ;; NB: The constant info field plus the parameters
   (define fields-to-drop (parameter-count-ref target))
   (define dispatch ((unbox (dispatch-ref target)) method-ls))
   (let loop ([e target])
@@ -121,14 +106,20 @@ Any module that requires a Racket library, rather than a Cur library, is conside
               [l ls]
               #:when (p e))
           (k l))
-        (error 'run-time "Something very very bad has happened.")))))
+        ;; NB: This error should be impossible when used with well-typed code.
+        (error 'build-dispatch "Something very very bad has happened.")))))
 
 (module+ test
-  (require chk (for-syntax (submod "..")))
+  (require
+   chk
+   (for-syntax
+    (submod "..")
+    (except-in racket/base λ)
+    syntax/transformer))
+  (provide (all-defined-out))
+
   (struct Nat constant () #:transparent
     #:property prop:parameter-count 0)
-
-  (require (for-syntax (except-in racket/base λ)))
 
   ;; TODO PERF: When the type takes no arguments, can we avoid making it a function?
   (define-syntax type:struct:Nat (lambda () #`(Type 0)))
@@ -151,7 +142,6 @@ Any module that requires a Racket library, rather than a Cur library, is conside
 
   (set-box! Nat-dispatch (build-dispatch (list z? s?)))
 
-  (require (for-syntax syntax/transformer))
   (define-syntax type:two #`(Nat))
   (define-syntax delta:two (make-variable-like-transformer #'(s (s (z)))))
   (define two delta:two)
@@ -162,11 +152,12 @@ Any module that requires a Racket library, rather than a Cur library, is conside
   ;; optimized, resulting in code duplication. Perhaps should be opt-in
   (define-syntax type:plus #`(Π (Nat) (#%plain-lambda (x) (Nat))))
   (define-syntax delta:plus
-    (make-variable-like-transformer #`(λ (Nat)
-      (#%plain-lambda (n1)
-                      (λ (Nat)
-                         (#%plain-lambda (n2)
-                                         (elim n1 void (list n2 (lambda (n1-1) (lambda (ih) (s ih)))))))))))
+    (make-variable-like-transformer
+     #`(λ (Nat)
+         (#%plain-lambda (n1)
+           (λ (Nat)
+             (#%plain-lambda (n2)
+               (elim n1 void (list n2 (lambda (n1-1) (lambda (ih) (s ih)))))))))))
 
   (define plus delta:plus)
 
@@ -175,22 +166,6 @@ Any module that requires a Racket library, rather than a Cur library, is conside
   ;; TODO PERF: When we make singletons, should be possible to optimize equality checks into eq?
   ;; instead of equal?.
   ;; "A structure type can override the default equal? definition through the gen:equal+hash generic interface."
-  (require (for-syntax racket/syntax racket/struct-info))
-  (define-for-syntax (syntax-local-type syn)
-    (syntax-local-value (format-id #'syn "type:~a" syn)))
-
-  (define-syntax (type-of-constant syn)
-    (syntax-case syn ()
-      [(_ (syn args ...))
-       ;; NB: More resilient to provide/require renaming, but still annoying use of format-id
-       (apply (syntax-local-type (car (extract-struct-info (syntax-local-value #'syn))))
-              (syntax->list #'(args ...)))]))
-
-  (define-syntax (type-of-def syn)
-    (syntax-case syn ()
-      [(_ syn)
-       ;; NB: More resilient to provide/require renaming, but still annoying use of format-id
-       (syntax-local-type (cadr (identifier-binding #'syn)))]))
 
   (chk
    #:t (Type 0)
@@ -203,8 +178,4 @@ Any module that requires a Racket library, rather than a Cur library, is conside
    #:= (elim (z) void (list (z) (lambda (p) (lambda (ih) p)))) (z)
    #:! #:= (elim (s (s (z))) void (list (z) (lambda (p) (lambda (ih) p)))) (z)
    #:= (elim (s (s (z))) void (list (z) (lambda (p) (lambda (ih) p)))) (s (z))
-   #:= (Type 0) (type-of-constant (Nat))
-   #:= (Nat) (type-of-constant (z))
-   #:= (Nat) (type-of-constant (s z))
-   #:= (Nat) (type-of-def two)
    #:= (s (s (s (s (z))))) ((plus (s (s (z)))) (s (s (z))))))
