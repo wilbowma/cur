@@ -87,7 +87,6 @@ Any module that requires a Racket library, rather than a Cur library, is conside
 ; and produces a runtime term as a syntax object representing the type of the constant.
 ; TODO: Should probably also provide constructor-info:i, with other type-checking information.
 (struct constant () #:transparent)
-; TODO: every provided definition def should also define type:def and delta:def.
 
 ;; Target must a constructor, and method-ls must be a list of methods of length equal to the number of
 ;; constructs for the inductive type of target.
@@ -132,7 +131,7 @@ Any module that requires a Racket library, rather than a Cur library, is conside
   (require (for-syntax (except-in racket/base λ)))
 
   ;; TODO PERF: When the type takes no arguments, can we avoid making it a function?
-  (define-syntax type:Nat (lambda () #`(Type 0)))
+  (define-syntax type:struct:Nat (lambda () #`(Type 0)))
 
   (define Nat-dispatch (box #f))
 
@@ -141,27 +140,38 @@ Any module that requires a Racket library, rather than a Cur library, is conside
     #:property prop:dispatch Nat-dispatch
     #:property prop:recursive-index-ls null)
 
-  (define-syntax type:z (lambda () #`(Nat)))
+  (define-syntax type:struct:z (lambda () #`(Nat)))
 
   (struct s constant (pred) #:transparent
     #:property prop:parameter-count 0
     #:property prop:dispatch Nat-dispatch
     #:property prop:recursive-index-ls (list 0))
 
-  (define-syntax type:s (lambda (x) #`(Nat)))
+  (define-syntax type:struct:s (lambda (x) #`(Nat)))
 
   (set-box! Nat-dispatch (build-dispatch (list z? s?)))
+
+  (define two (s (s z)))
+
+  (define-syntax type:def:two #`(Nat))
 
   ;; TODO PERF: When the constant has no fields, optimize into a singleton structure. this can be
   ;; detected at transformer time using struct-info, by a null field-accessor list
   ;; TODO PERF: When we make singletons, should be possible to optimize equality checks into eq?
   ;; instead of equal?.
   ;; "A structure type can override the default equal? definition through the gen:equal+hash generic interface."
-  (require (for-syntax racket/syntax))
-  (define-syntax (type-of syn)
+  (require (for-syntax racket/syntax racket/struct-info))
+  (define-syntax (type-of-constant syn)
     (syntax-case syn ()
       [(_ (syn args ...))
-       (apply (syntax-local-value (format-id #'syn "type:~a" #'syn)) (syntax->list #'(args ...)))]))
+       ;; NB: More resilient to provide/require renaming, but still annoying use of format-id
+       (apply (syntax-local-value (format-id #'syn "type:~a" (car (extract-struct-info (syntax-local-value #'syn))))) (syntax->list #'(args ...)))]))
+
+  (define-syntax (type-of-def syn)
+    (syntax-case syn ()
+      [(_ syn)
+       ;; NB: More resilient to provide/require renaming, but still annoying use of format-id
+       (syntax-local-value (format-id #'syn "type:def:~a" (cadr (identifier-binding #'syn))))]))
 
   (chk
    #:t (Type 0)
@@ -171,11 +181,12 @@ Any module that requires a Racket library, rather than a Cur library, is conside
    #:= (#%plain-app (λ (Type 1) (#%plain-lambda (x) x)) (Type 0)) (Type 0)
    #:? z? (z)
    #:? s? (s z)
-   #:eq constant-equal? (elim (z) void (list (z) (lambda (p) (lambda (ih) p)))) (z)
-   #:! #:eq constant-equal? (elim (s (s (z))) void (list (z) (lambda (p) (lambda (ih) p)))) (z)
-   #:eq constant-equal? (elim (s (s (z))) void (list (z) (lambda (p) (lambda (ih) p)))) (s (z))
-   #:= (Type 0) (type-of (Nat))
-   #:= (Nat) (type-of (z))
-   #:= (Nat) (type-of (s z))
+   #:= (elim (z) void (list (z) (lambda (p) (lambda (ih) p)))) (z)
+   #:! #:= (elim (s (s (z))) void (list (z) (lambda (p) (lambda (ih) p)))) (z)
+   #:= (elim (s (s (z))) void (list (z) (lambda (p) (lambda (ih) p)))) (s (z))
+   #:= (Type 0) (type-of-constant (Nat))
+   #:= (Nat) (type-of-constant (z))
+   #:= (Nat) (type-of-constant (s z))
+   #:= (Nat) (type-of-def two)
    )
   )
