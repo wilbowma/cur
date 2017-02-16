@@ -151,9 +151,24 @@ Any module that requires a Racket library, rather than a Cur library, is conside
 
   (set-box! Nat-dispatch (build-dispatch (list z? s?)))
 
-  (define two (s (s z)))
+  (require (for-syntax syntax/transformer))
+  (define-syntax type:two #`(Nat))
+  (define-syntax delta:two (make-variable-like-transformer #'(s (s (z)))))
+  (define two delta:two)
 
-  (define-syntax type:def:two #`(Nat))
+  ;; TODO PERF: Could we remove λ procedure indirect for certain defines? The type is given
+  ;; separately, so we may not need the annotations we use the λ indirect for.
+  ;; However, the delta: definition has to remain, so it would only be the run-time definition that is
+  ;; optimized, resulting in code duplication. Perhaps should be opt-in
+  (define-syntax type:plus #`(Π (Nat) (#%plain-lambda (x) (Nat))))
+  (define-syntax delta:plus
+    (make-variable-like-transformer #`(λ (Nat)
+      (#%plain-lambda (n1)
+                      (λ (Nat)
+                         (#%plain-lambda (n2)
+                                         (elim n1 void (list n2 (lambda (n1-1) (lambda (ih) (s ih)))))))))))
+
+  (define plus delta:plus)
 
   ;; TODO PERF: When the constant has no fields, optimize into a singleton structure. this can be
   ;; detected at transformer time using struct-info, by a null field-accessor list
@@ -161,17 +176,21 @@ Any module that requires a Racket library, rather than a Cur library, is conside
   ;; instead of equal?.
   ;; "A structure type can override the default equal? definition through the gen:equal+hash generic interface."
   (require (for-syntax racket/syntax racket/struct-info))
+  (define-for-syntax (syntax-local-type syn)
+    (syntax-local-value (format-id #'syn "type:~a" syn)))
+
   (define-syntax (type-of-constant syn)
     (syntax-case syn ()
       [(_ (syn args ...))
        ;; NB: More resilient to provide/require renaming, but still annoying use of format-id
-       (apply (syntax-local-value (format-id #'syn "type:~a" (car (extract-struct-info (syntax-local-value #'syn))))) (syntax->list #'(args ...)))]))
+       (apply (syntax-local-type (car (extract-struct-info (syntax-local-value #'syn))))
+              (syntax->list #'(args ...)))]))
 
   (define-syntax (type-of-def syn)
     (syntax-case syn ()
       [(_ syn)
        ;; NB: More resilient to provide/require renaming, but still annoying use of format-id
-       (syntax-local-value (format-id #'syn "type:def:~a" (cadr (identifier-binding #'syn))))]))
+       (syntax-local-type (cadr (identifier-binding #'syn)))]))
 
   (chk
    #:t (Type 0)
@@ -188,5 +207,4 @@ Any module that requires a Racket library, rather than a Cur library, is conside
    #:= (Nat) (type-of-constant (z))
    #:= (Nat) (type-of-constant (s z))
    #:= (Nat) (type-of-def two)
-   )
-  )
+   #:= (s (s (s (s (z))))) ((plus (s (s (z)))) (s (s (z))))))
