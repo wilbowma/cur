@@ -84,7 +84,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
    (struct-out constant-info)
    (struct-out identifier-info))
 
-  (struct constant-info (type-constr))
+  (struct constant-info (type-constr constructor-index param-count recursive-index-ls))
 
   (struct identifier-info (type delta-def)))
 
@@ -163,9 +163,9 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
   (define-literal-set cur-runtime-literals (cur-Type cur-Π cur-λ cur-apply cur-elim))
   (define cur-runtime-literal? (literal-set->predicate cur-runtime-literals))
 
-  (define-syntax-class/pred cur-runtime-constant #:attributes (name (args 1))
+  (define-syntax-class/pred cur-runtime-constant #:attributes (name (rand-ls 1))
     #:literals (#%plain-app)
-    (pattern (#%plain-app name:id args ...)
+    (pattern (#%plain-app name:id rand-ls ...)
              #:when (not (cur-runtime-literal? #'name))
              ;; NB: We could double check, but since we're assuming all runtime terms are well-typed,
              ;; we need not bother. Also lets us avoid this annoying format-id hack.
@@ -240,7 +240,10 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
   (define-for-syntax Nat
     (constant-info
      ;; TODO PERF: When not a dependent type, can we avoid making it a function?
-     (lambda () #`(cur-Type 0))))
+     (lambda () #`(cur-Type 0))
+     0
+     #f
+     #f))
 
   (define Nat-dispatch (box #f))
 
@@ -251,7 +254,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
     #:property prop:dispatch Nat-dispatch
     #:property prop:recursive-index-ls null)
 
-  (define-for-syntax z (constant-info (lambda () #`(Nat))))
+  (define-for-syntax z (constant-info (lambda () #`(Nat)) 0 0 (list)))
 
   (struct constant:s constant (pred) #:transparent
     #:extra-constructor-name s
@@ -261,7 +264,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
     #:property prop:recursive-index-ls (list 0))
 
   (define-for-syntax s
-    (constant-info (lambda (x) #`(Nat))))
+    (constant-info (lambda (x) #`(Nat)) 0 1 (list 1)))
 
   (set-box! Nat-dispatch (build-dispatch (list constant:z? constant:s?)))
 
@@ -280,7 +283,10 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
          (#%plain-lambda (n1)
            (cur-λ (Nat)
              (#%plain-lambda (n2)
-               (cur-elim n1 void n2 (lambda (n1-1) (lambda (ih) (s ih))))))))))
+                             (cur-elim n1 void n2 (cur-λ (Nat) (#%plain-lambda (n1-1)
+                                                                               (cur-λ (Nat)
+                                                                                      (#%plain-lambda
+                                                                                       (ih) (s ih))))))))))))
 
   (define plus delta:plus)
   (define-for-syntax plus
