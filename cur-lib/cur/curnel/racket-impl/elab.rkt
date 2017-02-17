@@ -21,9 +21,6 @@ This could be done using an extensible function, simulated with parameters perha
 However, we don't really want the type system to be extensible since we desire a small trusted core.
 |#
 
-;; TODO: Implement syntax classes
-;(define-syntax-class )
-
 ; Get the type of a identifier, such as a define or a struct.
 ; Types for these are stored with particular names as transformer bindings.
 (define (identifier-type syn id)
@@ -52,12 +49,18 @@ However, we don't really want the type system to be extensible since we desire a
    (submod "runtime.rkt" test))
 
   (begin-for-syntax
+    ;; TODO: This will just be cur-equal? eventually, I think
     (define (equal-syn? syn1 syn2)
-      (equal? (syntax->datum syn1) (syntax->datum syn2)))
+      (cond
+        [(and (identifier? syn1) (identifier? syn1))
+         (free-identifier=? syn1 syn2)]
+        [(and (syntax? syn1) (syntax? syn2))
+         (equal?/recur (syntax->datum syn1) (syntax->datum syn2) equal-syn?)]
+        [else (equal? syn1 syn2)]))
 
     (chk
      #:eq equal-syn? (type-of-id #'two) #'(Nat)
-     #:eq equal-syn? (type-of-constant #'(Nat)) #'(Type 0)
+     #:eq equal-syn? (type-of-constant #'(Nat)) #'(cur-Type 0)
      #:eq equal-syn? (type-of-constant #'(z)) #'(Nat)
      #:eq equal-syn? (type-of-constant #'(s z)) #'(Nat))))
 
