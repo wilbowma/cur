@@ -6,9 +6,27 @@
  (for-syntax
   racket/base
   syntax/parse))
-(provide (all-defined-out))
+(provide
+ cur-Type
+ cur-Π
+ cur-apply
+ cur-λ
+ cur-elim
+ constant
+ prop:parameter-count
+ parameter-count-ref
+ prop:dispatch
+ dispatch-ref
+ prop:recursive-index-ls
+ recursive-index-ls-ref
+
+ build-dispatch)
+
 #|
 Cur is implemented by type-checking macro expansion into Racket run-time terms.
+
+TODO: Shouldn't these be curnel-terms, not run-time terms? Maybe not, if we're calling the Surface
+language core "Curnel"
 
 The run-time terms are either:
 1. A Racket identifier x, as long as the transformer binding type:x also exist. If the transformer
@@ -123,19 +141,21 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
    cur-runtime-lambda?
    cur-runtime-app?
    cur-runtime-elim?
-   cur-runtime-term?)
+   cur-runtime-term?
+
+   cur-runtime-literals)
 
   (define-syntax-class/pred cur-runtime-identifier
     (pattern name:id))
 
-  (define-literal-set curnel-literals (cur-Type cur-Π cur-λ cur-apply cur-elim))
-  (define curnel-literal? (literal-set->predicate curnel-literals))
+  (define-literal-set cur-runtime-literals (cur-Type cur-Π cur-λ cur-apply cur-elim))
+  (define cur-runtime-literal? (literal-set->predicate cur-runtime-literals))
 
   (define-syntax-class/pred cur-runtime-constant
     #:literals (#%plain-app)
-    #:literal-sets (curnel-literals)
+    #:literal-sets (cur-runtime-literals)
     (pattern (#%plain-app name:id args ...)
-             #:when (not (curnel-literal? #'name))
+             #:when (not (cur-runtime-literal? #'name))
              ;; NB: We could double check, but since we're assuming all runtime terms are well-typed,
              ;; we need not bother. Also lets us avoid this annoying format-id hack.
              #;(let ([v (syntax-local-value (format-id #'name "constant:~a" #'name) (lambda () #f))])
@@ -265,7 +285,8 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
   (begin-for-syntax
     (require
      chk
-     (for-template (rename-in (submod "..") [Type meow])))
+     ; NB: For testing renaming
+     (for-template (rename-in (submod "..") [cur-Type meow] [cur-Type Type])))
 
     (define-values (universe? id? lambda? pi? constant? app? elim? term?)
       (apply
