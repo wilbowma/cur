@@ -68,13 +68,13 @@ However, we don't really want the type system to be extensible since we desire a
      #:with (x ...) (map car ctx)
      #:with (t ...) (map cdr ctx)
      ;; NB: consume arbitrary number of let-values.
-     #:do [(define ns (current-namespace))
-           (define intdef (syntax-local-make-definition-context))
-           (syntax-local-bind-syntaxes (attribute x) #f intdef)
-           (for ([name (attribute x)]
-                 [type (attribute t)])
-             (namespace-set-variable-value! (syntax-e name) (identifier-info type #f) #f ns))]
-     (local-expand syn 'expression null intdef)]))
+     (parameterize ([current-namespace (current-namespace)])
+       (for ([name (attribute x)]
+             [type (attribute t)])
+         (namespace-set-variable-value! (syntax-e name) (identifier-info type #f) #f))
+       (define intdef (syntax-local-make-definition-context))
+       (syntax-local-bind-syntaxes (attribute x) #f intdef)
+       (local-expand syn 'expression null intdef))]))
 
 (module+ test
   (require
