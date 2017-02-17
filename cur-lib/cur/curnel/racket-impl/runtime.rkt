@@ -283,15 +283,21 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
          (#%plain-lambda (n1)
            (cur-λ (Nat)
              (#%plain-lambda (n2)
-                             (cur-elim n1 void n2 (cur-λ (Nat) (#%plain-lambda (n1-1)
-                                                                               (cur-λ (Nat)
-                                                                                      (#%plain-lambda
-                                                                                       (ih) (s ih))))))))))))
+                             (cur-elim n1 (#%plain-app cur-λ (#%plain-app Nat)
+                                                       (#%plain-lambda (n) (#%plain-app Nat)))
+                                       n2
+                                       (cur-λ (Nat) (#%plain-lambda (n1-1)
+                                                                    (cur-λ (Nat)
+                                                                           (#%plain-lambda
+                                                                            (ih) (s ih))))))))))))
 
   (define plus delta:plus)
   (define-for-syntax plus
     (identifier-info
-     #`(cur-Π (Nat) (#%plain-lambda (x) (cur-Π (Nat) (#%plain-lambda (x) (Nat)))))
+     #`(#%plain-app cur-Π (#%plain-app Nat) (#%plain-lambda (x) (#%plain-app cur-Π (#%plain-app Nat)
+                                                                             (#%plain-lambda (y)
+                                                                                             (#%plain-app
+                                                                                              Nat)))))
      #'delta:plus))
 
   ;; TODO PERF: When the constant has no fields, optimize into a singleton structure. this can be

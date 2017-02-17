@@ -25,14 +25,6 @@ However, we don't really want the type system to be extensible since we desire a
 
 ; Evaluation
 ;; TODO: Is there a better way to write this subst?
-(define (cur-subst v x syn)
-  (syntax-parse syn
-    [y:id
-     #:when (free-identifier=? syn x)
-     v]
-    [(e ...)
-     (map (lambda (e) (cur-subst v x e)) (attribute e))]
-    [_ syn]))
 
 (define (cur-α-equal? t1 t2 (fail (lambda _ #f)))
   (let cur-α-equal ([t1 t1] [t2 t2])
@@ -46,7 +38,7 @@ However, we don't really want the type system to be extensible since we desire a
        (eq? (attribute A.level) (attribute B.level))]
       [(e1:cur-runtime-pi e2:cur-runtime-pi)
        (and (cur-α-equal? #'e1.ann #'e2.ann)
-            (cur-α-equal? #'e1.result (cur-subst #'e1.name #'e2.name #'e2.result)))]
+            (cur-α-equal? #'e1.result (subst #'e1.name #'e2.name #'e2.result)))]
       [(e1:cur-runtime-elim e2:cur-runtime-elim)
        (and (cur-α-equal? #'e1.target #'e2.target)
             (cur-α-equal? #'e1.motive #'e2.motive)
@@ -56,7 +48,7 @@ However, we don't really want the type system to be extensible since we desire a
             (cur-α-equal? #'e1.rand #'e2.rand))]
       [(e1:cur-runtime-lambda e2:cur-runtime-lambda)
        (and (cur-α-equal? #'e1.ann #'e2.ann)
-            (cur-α-equal? #'e1.body (cur-subst #'e1.name #'e2.name #'e2.body)))]
+            (cur-α-equal? #'e1.body (subst #'e1.name #'e2.name #'e2.body)))]
       [_ (fail t1 t2)])))
 
 (define cur-elab local-expand-expr)
@@ -64,7 +56,7 @@ However, we don't really want the type system to be extensible since we desire a
 (define (cur-apply* rator rands)
   (if (null? rands)
       rator
-      (cur-apply* #`(cur-apply #,rator #,(car rands)) (cdr rands))))
+      (cur-apply* #`(#%plain-app cur-apply #,rator #,(car rands)) (cdr rands))))
 
 (define (cur-eval syn)
   (syntax-parse syn
@@ -84,7 +76,7 @@ However, we don't really want the type system to be extensible since we desire a
      #:with a (cur-eval #'e.rand)
      (syntax-parse (cur-eval #'e.rator)
        [f:cur-runtime-lambda
-        (cur-eval (cur-subst #'a #'f.name #'f.body))]
+        (cur-eval (subst #'a #'f.name #'f.body))]
        [e1-
         #`(#%plain-app cur-apply e1- a)])]
     [e:cur-runtime-elim
@@ -128,24 +120,20 @@ However, we don't really want the type system to be extensible since we desire a
     [e:cur-runtime-constant
      (type-of-constant #'e.name (attribute e.rand-ls))]
     [e:cur-runtime-universe
-     #`(cur-Type (quote #,(add1 (attribute e.level))))]
+     #`(#%plain-app cur-Type (quote #,(add1 (attribute e.level))))]
     [e:cur-runtime-pi
      ;; TODO: Shouldn't this be the max of the annotation and the result?
      #:with body (cur-elab/ctx #'e.result (list (cons #'e.name #'e.ann)))
      (get-type #'body)]
     [e:cur-runtime-lambda
      #:with body (cur-elab/ctx #'e.body (list (cons #'e.name #'e.ann)))
-     #`(cur-Π e.ann (#%plain-lambda (e.name) #,(get-type #'body)))]
-    #;[e:cur-runtime-app
-       #:with t1:runtime-pi (get-type #'e.rator)
-       (cur-subst #'e.rand #'t1.name #'t1.result)]
-    #;[e:cur-runtime-elim
-       (cur-eval (cur-app* #'e.motive (append index-ls (list #'target.reified))))]))
-;; TODO: Not sure constants have enough information to reconstruct their types... maybe need to store
-;; information in the struct type.
-;; TODO: implement elim, constants.
-;; TODO: Implement subst
-;; TODO: Implement cur-eval
+     #`(#%plain-app cur-Π e.ann (#%plain-lambda (e.name) #,(get-type #'body)))]
+    [e:cur-runtime-app
+     #:with t1:cur-runtime-pi (get-type #'e.rator)
+     (cur-eval (subst #'e.rand #'t1.name #'t1.result))]
+    [e:cur-runtime-elim
+     #:with D:cur-runtime-constant (get-type #'e.target)
+     (cur-eval (cur-apply* #'e.motive (append (attribute D.rand-ls) (list #'e.target))))]))
 
 (define (cur-elab/ctx syn ctx)
   (syntax-parse syn
@@ -234,24 +222,42 @@ However, we don't really want the type system to be extensible since we desire a
      #:eq equal-syn/elab? (get-type/elab #'(z)) #'(Nat)
      ;; TODO: Predicativity rules have changed.
      #:eq equal-syn/elab? (get-type/elab #'(cur-Π (cur-Type 0) (#%plain-lambda (x) (cur-Type 0)))) #'(cur-Type '1)
-     #:eq equal-syn? (cur-elab (get-type/elab #'(cur-λ (cur-Type 0) (#%plain-lambda (x) x))))
-     (cur-elab #'(cur-Π (cur-Type '0) (#%plain-lambda (x) (cur-Type '0))))
-     #:eq equal-syn?
-     (cur-elab (get-type/elab #'(cur-λ (cur-Type 1)
+     #:eq equal-syn/elab? (get-type/elab #'(cur-λ (cur-Type 0) (#%plain-lambda (x) x)))
+     #'(cur-Π (cur-Type '0) (#%plain-lambda (x) (cur-Type '0)))
+     #:eq equal-syn/elab?
+     (get-type/elab #'(cur-λ (cur-Type 1)
                                        (#%plain-lambda (y)
-                                                       (cur-λ (cur-Type 0) (#%plain-lambda (x) x))))))
-     (cur-elab #'(cur-Π (cur-Type '1) (#%plain-lambda (y) (cur-Π (cur-Type '0) (#%plain-lambda (x) (cur-Type '0))))))
+                                                       (cur-λ (cur-Type 0) (#%plain-lambda (x) x)))))
+     #'(cur-Π (cur-Type '1) (#%plain-lambda (y) (cur-Π (cur-Type '0) (#%plain-lambda (x) (cur-Type '0)))))
      ; Tests that nested contexts work fine.
-     #:eq equal-syn?
-     (cur-elab (get-type/elab #'(cur-λ (cur-Type 1)
+     #:eq equal-syn/elab?
+     (get-type/elab #'(cur-λ (cur-Type 1)
                                        (#%plain-lambda (y)
-                                                       (cur-λ (cur-Type 0) (#%plain-lambda (x) y))))))
-     (cur-elab #'(cur-Π (cur-Type '1) (#%plain-lambda (y) (cur-Π (cur-Type '0) (#%plain-lambda (x) (cur-Type '1))))))
+                                                       (cur-λ (cur-Type 0) (#%plain-lambda (x) y)))))
+     #'(cur-Π (cur-Type '1) (#%plain-lambda (y) (cur-Π (cur-Type '0) (#%plain-lambda (x) (cur-Type '1)))))
      ; Tests that reflection inside the Cur elaborator works fine
-     #:eq equal-syn?
-     (cur-elab (get-type/elab #'(surface-λ (y : (cur-Type 1))
-                                           (cur-λ (infer-type y) (#%plain-lambda (x) y)))))
-     (cur-elab #'(cur-Π (cur-Type '1) (#%plain-lambda (y) (cur-Π (cur-Type '1) (#%plain-lambda (x) (cur-Type '1)))))))))
+     #:eq equal-syn/elab?
+     (get-type/elab #'(surface-λ (y : (cur-Type 1))
+                                           (cur-λ (infer-type y) (#%plain-lambda (x) y))))
+     #'(cur-Π (cur-Type '1) (#%plain-lambda (y) (cur-Π (cur-Type '1) (#%plain-lambda (x) (cur-Type '1)))))
+     ; Tests application
+     #:eq equal-syn/elab? (get-type/elab #'plus) #'(cur-Π (Nat) (#%plain-lambda (n1)
+                                                                                (cur-Π (Nat)
+                                                                                       (#%plain-lambda
+                                                                                        (n2)
+                                                                                        (Nat)))))
+     #:eq equal-syn/elab?
+     (get-type/elab #'(cur-apply plus (z)))
+     #'(cur-Π (Nat) (#%plain-lambda (y) (Nat)))
+     #:eq equal-syn/elab?
+     (get-type/elab #'(cur-apply (cur-apply plus (z)) (s (z))))
+     #'(Nat)
+     ; Tests elim
+     #:eq equal-syn/elab? (get-type/elab #`(cur-apply #,(cur-eval #'plus) (s)))
+     #'(cur-Π (Nat) (#%plain-lambda (y) (Nat)))
+
+     ; TODO: Missing dependent application and elim tests
+     )))
 
 ;; TODO: These will be implemented in a separate module
 #;(define-syntax (cur-λ syn)

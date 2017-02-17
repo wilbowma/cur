@@ -30,3 +30,12 @@
      #`(begin
          (define-syntax-class name expr ...)
          (define pred? (syntax-class->pred name)))]))
+
+(define (subst v x syn)
+  (syntax-parse syn
+    [y:id
+     #:when (free-identifier=? syn x)
+     v]
+    [(e ...)
+     (map (lambda (e) (subst v x e)) (attribute e))]
+    [_ syn]))
