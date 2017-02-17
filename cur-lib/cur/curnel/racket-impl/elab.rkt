@@ -4,7 +4,9 @@
  racket/syntax
  syntax/parse
  "stxutils.rkt"
- (for-template "runtime.rkt"))
+ (for-template
+  racket/base
+  "runtime.rkt"))
 
 #|
 The Cur elaborator is also the type-checker, sort of.
@@ -41,9 +43,10 @@ However, we don't really want the type system to be extensible since we desire a
      #`(cur-Type (quote #,(add1 (attribute e.level))))]
     [e:cur-runtime-pi
      ;; TODO: Shouldn't this be the max of the annotation and the result?
-     (get-type #'e.result)]
+     #:with body (cur-elab/ctx #'e.result (list (cons #'e.name #'e.ann)))
+     (get-type #'body)]
     [e:cur-runtime-lambda
-     #:with body (cur-elab/ctx #'e.body (list #'e.name #'e.ann))
+     #:with body (cur-elab/ctx #'e.body (list (cons #'e.name #'e.ann)))
      #`(cur-Π e.ann (#%plain-lambda (e.name) #,(get-type #'body)))]
     #;[e:cur-runtime-app
      #:with t1:runtime-pi (get-type #'e.rator)
@@ -60,19 +63,20 @@ However, we don't really want the type system to be extensible since we desire a
 
 (define (cur-elab/ctx syn ctx)
   (syntax-parse syn
-    #:literals (#%plain-lambda let-values)
+    #:literals (#%plain-lambda let-values begin #%expression begin-for-syntax quote-syntax)
     [_
      #:with (x ...) (map car ctx)
      #:with (t ...) (map cdr ctx)
 ;     #:with (internal-name ...) (map fresh (attribute x))
 ;     #:with (x-type ...) (map (lambda (x) (format-type-id x x)) (attribute x))
      ;; NB: consume arbitrary number of let-values.
-     #:with (#%plain-lambda _ #;(name ...) e:in-let-values)
-     (cur-elab
-      #`(lambda (x ...)
-          (let*-syntax ([x-type (lambda (stx) #'t)] ...)
-                       #,syn)))
-     #`e.body #;((name ...) #'e.body)]))
+     #:do [(syntax-local-eval #`(begin (define-values (x ...) (values #'t ...)) (void)))]
+     #:with meow (cur-elab #`(lambda (x ...) #,syn))
+     #:do [(displayln (syntax->datum #'meow))
+           #;(displayln (eval #'meow))]
+;     #:with (let-values _ (quote-syntax (#%plain-lambda (_) body))) #'meow
+     #:with (#%plain-lambda (_) body) #'meow
+     #`body #;((name ...) #'e.body)]))
 
 (module+ test
   (require
@@ -105,7 +109,11 @@ However, we don't really want the type system to be extensible since we desire a
      #:eq equal-syn? (get-type/elab #'(cur-Type 0)) #'(cur-Type '1)
      #:eq equal-syn? (get-type/elab #'(cur-Type 1)) #'(cur-Type '2)
      #:eq equal-syn? (get-type/elab #'(Nat)) #'(cur-Type 0)
-     #:eq equal-syn? (get-type/elab #'(z)) #'(Nat))))
+     #:eq equal-syn? (get-type/elab #'(z)) #'(Nat)
+     ;; TODO: Predicativity rules have changed.
+     #:eq equal-syn? (get-type/elab #'(cur-Π (cur-Type 0) (#%plain-lambda (x) (cur-Type 0)))) #'(cur-Type '1)
+     #:eq equal-syn? (get-type/elab #'(cur-λ (cur-Type 0) (#%plain-lambda (x) x))) #'(cur-Type '0))
+    ))
 
 ;; TODO: These will be implemented in a separate module
 #;(define-syntax (cur-λ syn)
