@@ -27,8 +27,8 @@ However, we don't really want the type system to be extensible since we desire a
   ; NB: eval is evil, but this is the least bad way I can figured out to store types.
   (apply (constant-info-type-constr (syntax-local-eval name)) args))
 
-(define (type-of-id syn)
-  (identifier-info-type (syntax-local-eval syn)))
+(define (type-of-id name)
+  (identifier-info-type (syntax-local-eval name)))
 
 (provide (all-defined-out))
 
@@ -49,10 +49,10 @@ However, we don't really want the type system to be extensible since we desire a
      #:with body (cur-elab/ctx #'e.body (list (cons #'e.name #'e.ann)))
      #`(cur-Π e.ann (#%plain-lambda (e.name) #,(get-type #'body)))]
     #;[e:cur-runtime-app
-     #:with t1:runtime-pi (get-type #'e.rator)
-     (subst #'e.rand #'t1.name #'t1.result)]
+       #:with t1:runtime-pi (get-type #'e.rator)
+       (subst #'e.rand #'t1.name #'t1.result)]
     #;[e:cur-runtime-elim
-     (cur-eval (cur-app* #'e.motive (append index-ls (list #'target.reified))))]))
+       (cur-eval (cur-app* #'e.motive (append index-ls (list #'target.reified))))]))
 ;; TODO: Not sure constants have enough information to reconstruct their types... maybe need to store
 ;; information in the struct type.
 ;; TODO: implement elim, constants.
@@ -63,20 +63,18 @@ However, we don't really want the type system to be extensible since we desire a
 
 (define (cur-elab/ctx syn ctx)
   (syntax-parse syn
-    #:literals (#%plain-lambda let-values begin #%expression begin-for-syntax quote-syntax)
+    #:literals (#%plain-lambda)
     [_
      #:with (x ...) (map car ctx)
      #:with (t ...) (map cdr ctx)
-;     #:with (internal-name ...) (map fresh (attribute x))
-;     #:with (x-type ...) (map (lambda (x) (format-type-id x x)) (attribute x))
      ;; NB: consume arbitrary number of let-values.
-     #:do [(syntax-local-eval #`(begin (define-values (x ...) (values #'t ...)) (void)))]
-     #:with meow (cur-elab #`(lambda (x ...) #,syn))
-     #:do [(displayln (syntax->datum #'meow))
-           #;(displayln (eval #'meow))]
-;     #:with (let-values _ (quote-syntax (#%plain-lambda (_) body))) #'meow
-     #:with (#%plain-lambda (_) body) #'meow
-     #`body #;((name ...) #'e.body)]))
+     #:do [(define ns (current-namespace))
+           (define intdef (syntax-local-make-definition-context))
+           (syntax-local-bind-syntaxes (attribute x) #f intdef)
+           (for ([name (attribute x)]
+                 [type (attribute t)])
+             (namespace-set-variable-value! (syntax-e name) (identifier-info type #f) #f ns))]
+     (local-expand syn 'expression null intdef)]))
 
 (module+ test
   (require
@@ -87,6 +85,20 @@ However, we don't really want the type system to be extensible since we desire a
     "stxutils.rkt")
    "runtime.rkt"
    (submod "runtime.rkt" test))
+
+  (define-syntax (infer-type stx)
+    (syntax-case stx ()
+      [(_ expr)
+       (get-type #'expr)]))
+
+  (require (for-syntax syntax/parse))
+  (define-syntax (surface-λ stx)
+    (syntax-parse stx
+      #:datum-literals (:)
+      [(_ (x : t) b)
+       #:with type (cur-elab #'t)
+       #`(cur-λ type
+                (#%plain-lambda (x) #,(cur-elab/ctx #'b (list (cons #'x #'type)))))]))
 
   (begin-for-syntax
     ;; TODO: This will just be cur-equal? eventually, I think
@@ -102,8 +114,8 @@ However, we don't really want the type system to be extensible since we desire a
 
     (chk
      #:eq equal-syn? (type-of-id (local-expand-expr #'two)) #'(Nat)
-     #:eq equal-syn? (type-of-constant #'Nat '()) #'(cur-Type 0)
-     #:eq equal-syn? (type-of-constant #'z '()) #'(Nat)
+     ;     #:eq equal-syn? (type-of-constant (local-expand-expr #'(Nat)) '()) #'(cur-Type 0)
+     ;     #:eq equal-syn? (type-of-constant (local-expand-expr #'(z)) '()) #'(Nat)
 
      #:eq equal-syn? (cur-elab #'(cur-Type 0)) #'(#%app cur-Type (quote 0))
      #:eq equal-syn? (get-type/elab #'(cur-Type 0)) #'(cur-Type '1)
@@ -112,18 +124,35 @@ However, we don't really want the type system to be extensible since we desire a
      #:eq equal-syn? (get-type/elab #'(z)) #'(Nat)
      ;; TODO: Predicativity rules have changed.
      #:eq equal-syn? (get-type/elab #'(cur-Π (cur-Type 0) (#%plain-lambda (x) (cur-Type 0)))) #'(cur-Type '1)
-     #:eq equal-syn? (get-type/elab #'(cur-λ (cur-Type 0) (#%plain-lambda (x) x))) #'(cur-Type '0))
-    ))
+     #:eq equal-syn? (cur-elab (get-type/elab #'(cur-λ (cur-Type 0) (#%plain-lambda (x) x))))
+     (cur-elab #'(cur-Π (cur-Type '0) (#%plain-lambda (x) (cur-Type '0))))
+     #:eq equal-syn?
+     (cur-elab (get-type/elab #'(cur-λ (cur-Type 1)
+                                       (#%plain-lambda (y)
+                                                       (cur-λ (cur-Type 0) (#%plain-lambda (x) x))))))
+     (cur-elab #'(cur-Π (cur-Type '1) (#%plain-lambda (y) (cur-Π (cur-Type '0) (#%plain-lambda (x) (cur-Type '0))))))
+     ; Tests that nested contexts work fine.
+     #:eq equal-syn?
+     (cur-elab (get-type/elab #'(cur-λ (cur-Type 1)
+                                       (#%plain-lambda (y)
+                                                       (cur-λ (cur-Type 0) (#%plain-lambda (x) y))))))
+     (cur-elab #'(cur-Π (cur-Type '1) (#%plain-lambda (y) (cur-Π (cur-Type '0) (#%plain-lambda (x) (cur-Type '1))))))
+     ; Tests that reflection inside the Cur elaborator works fine
+     #:eq equal-syn?
+     (cur-elab (get-type/elab #'(surface-λ (y : (cur-Type 1))
+                                           (cur-λ (infer-type y) (#%plain-lambda (x) y)))))
+     (cur-elab #'(cur-Π (cur-Type '1) (#%plain-lambda (y) (cur-Π (cur-Type '1) (#%plain-lambda (x) (cur-Type '1))))))
+     )))
 
 ;; TODO: These will be implemented in a separate module
 #;(define-syntax (cur-λ syn)
-  (syntax-parse syn
-    [(_ (x : type) body)
-     #:with type-lab (cur-elab #'type)
-     #:with x-type (format-id #'x "~a-type" #'x)
-     #:with x-internal (fresh #'x)
-     #`(lambda (x-internal)
-         (let-syntax ([x-type (lambda (x) type-elab)])
-           (let-syntax ([x (make-rename-transformer
-                            (syntax-property #'x-internal 'type #'x-type #t))])
-             body)))]))
+    (syntax-parse syn
+      [(_ (x : type) body)
+       #:with type-lab (cur-elab #'type)
+       #:with x-type (format-id #'x "~a-type" #'x)
+       #:with x-internal (fresh #'x)
+       #`(lambda (x-internal)
+           (let-syntax ([x-type (lambda (x) type-elab)])
+             (let-syntax ([x (make-rename-transformer
+                              (syntax-property #'x-internal 'type #'x-type #t))])
+               body)))]))

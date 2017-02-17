@@ -4,6 +4,8 @@
   racket/base
   syntax/parse
   racket/syntax)
+ (for-template
+  racket/base)
  syntax/parse
  racket/syntax
  syntax/parse/experimental/reflect)
@@ -28,28 +30,3 @@
      #`(begin
          (define-syntax-class name expr ...)
          (define pred? (syntax-class->pred name)))]))
-
-;; Try to make readable fresh names.
-(define fresh
-  (let ([n 0])
-    (lambda ([x #f])
-      (set! n (add1 n))
-      (or (and x (syntax-property x 'reflected-name))
-          (format-id x "~a~a" (or x 'x) n
-                     #:source x
-                     #:props (and x (syntax-property x 'reflected-name x #t)))))))
-
-(define-syntax (let*-syntax syn)
-  (syntax-case syn ()
-    [(_ () e)
-     #`e]
-    [(_ ([x e] r ...) body)
-     #`(let-syntax ([x e])
-         (let*-syntax (r ...) body))]))
-
-(define-syntax-class in-let-values #:attributes (body)
-  #:literals (let-values)
-  (pattern (let-values () e:in-let-values)
-           #:attr body #'e.body)
-
-  (pattern body))

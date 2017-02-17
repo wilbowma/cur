@@ -58,7 +58,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
 
 ; The run-time representation of a function. (cur-λ t f), where t is a type and f is a procedure that
 ; computer the result type given an argument of type t.
-(struct λ (t f) #:property prop:procedure (struct-field-index f) #:extra-constructor-name cur-λ)
+(struct λ (t f) #:property prop:procedure 1 #:extra-constructor-name cur-λ)
 
 ; The parameter-count property is natural number representing the number of fields that are parameters.
 (define-values (prop:parameter-count parameter-count? parameter-count-ref)
@@ -226,10 +226,16 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
   (provide (all-defined-out) (for-syntax (all-defined-out)))
 
   (struct constant:Nat constant () #:transparent
+    #:extra-constructor-name Nat
     #:reflection-name 'Nat
     #:property prop:parameter-count 0)
 
-  (define Nat constant:Nat)
+  (define-for-syntax (id-transformer expr)
+    (lambda (stx)
+      ; NB: For some reason, make-variable-like-transformer doesn't work as expected
+      (syntax-case stx ()
+        [(n args ...) #`(#,expr args ...)]
+        [_ expr])))
 
   (define-for-syntax Nat
     (constant-info
@@ -239,29 +245,30 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
   (define Nat-dispatch (box #f))
 
   (struct constant:z constant () #:transparent
+    #:extra-constructor-name z
     #:reflection-name 'z
     #:property prop:parameter-count 0
     #:property prop:dispatch Nat-dispatch
     #:property prop:recursive-index-ls null)
 
-  (define z constant:z)
   (define-for-syntax z (constant-info (lambda () #`(Nat))))
 
   (struct constant:s constant (pred) #:transparent
+    #:extra-constructor-name s
     #:reflection-name 's
     #:property prop:parameter-count 0
     #:property prop:dispatch Nat-dispatch
     #:property prop:recursive-index-ls (list 0))
 
-  (define s constant:s)
-
-  (define-for-syntax s (constant-info (lambda (x) #`(Nat))))
+  (define-for-syntax s
+    (constant-info (lambda (x) #`(Nat))))
 
   (set-box! Nat-dispatch (build-dispatch (list constant:z? constant:s?)))
 
   (define-syntax delta:two (make-variable-like-transformer #'(s (s (z)))))
   (define two delta:two)
-  (define-for-syntax two (identifier-info #`(Nat) #'delta:two))
+  (define-for-syntax two
+    (identifier-info #`(Nat) #'delta:two))
 
   ;; TODO PERF: Could we remove λ procedure indirect for certain defines? The type is given
   ;; separately, so we may not need the annotations we use the λ indirect for.
@@ -276,7 +283,10 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
                (cur-elim n1 void n2 (lambda (n1-1) (lambda (ih) (s ih))))))))))
 
   (define plus delta:plus)
-  (define-for-syntax plus (identifier-info #`(cur-Π (Nat) (#%plain-lambda (x) (Nat))) #'delta:plus))
+  (define-for-syntax plus
+    (identifier-info
+     #`(cur-Π (Nat) (#%plain-lambda (x) (cur-Π (Nat) (#%plain-lambda (x) (Nat)))))
+     #'delta:plus))
 
   ;; TODO PERF: When the constant has no fields, optimize into a singleton structure. this can be
   ;; detected at transformer time using struct-info, by a null field-accessor list
@@ -295,7 +305,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
    #:= (cur-elim (z) void (z) (lambda (p) (lambda (ih) p))) (z)
    #:! #:= (cur-elim (s (s (z))) void (z) (lambda (p) (lambda (ih) p))) (z)
    #:= (cur-elim (s (s (z))) void (z) (lambda (p) (lambda (ih) p))) (s (z))
-   #:= (s (s (s (s (z))))) ((plus (s (s (z)))) (s (s (z)))))
+   #:= ((plus (s (s (z)))) (s (s (z)))) (s (s (s (s (z))))))
 
   (begin-for-syntax
     (require
@@ -310,6 +320,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
                            cur-runtime-pi? cur-runtime-constant? cur-runtime-app? cur-runtime-elim?
                            cur-runtime-term?)])
          (compose f local-expand-expr))))
+
     (chk
      #:? universe? #'(cur-Type 0)
      #:? universe? #'(meow 0)
