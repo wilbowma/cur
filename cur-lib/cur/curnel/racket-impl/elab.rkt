@@ -3,7 +3,7 @@
 (require
  racket/syntax
  syntax/parse
- racket/struct-info
+ "stxutils.rkt"
  (for-template "runtime.rkt"))
 
 #|
@@ -21,30 +21,66 @@ This could be done using an extensible function, simulated with parameters perha
 However, we don't really want the type system to be extensible since we desire a small trusted core.
 |#
 
-; Get the type of a identifier, such as a define or a struct.
-; Types for these are stored with particular names as transformer bindings.
-(define (identifier-type syn id)
-  (syntax-local-value (format-id syn "type:~a" id)))
-
-(define (type-of-constant syn)
-  (syntax-case syn ()
-    [(syn args ...)
-     ;; NB: More resilient to provide/require renaming, but still annoying use of format-id
-     (apply (identifier-type #'syn (car (extract-struct-info (syntax-local-value #'syn))))
-            (syntax->list #'(args ...)))]))
+(define (type-of-constant name args)
+  ; NB: eval is evil, but this is the least bad way I can figured out to store types.
+  (apply (constant-info-type-constr (syntax-local-eval name)) args))
 
 (define (type-of-id syn)
-  ;; NB: More resilient to provide/require renaming, but still annoying use of format-id
-  (identifier-type syn (cadr (identifier-binding syn))))
+  (identifier-info-type (syntax-local-eval syn)))
 
 (provide (all-defined-out))
+
+;; Takes a runtime term and computes it's type, as a runtime term.
+(define (get-type e)
+  (syntax-parse e
+    [e:cur-runtime-identifier
+     (type-of-id #'e.name)]
+    [e:cur-runtime-constant
+     (type-of-constant #'e.name (attribute e.args))]
+    [e:cur-runtime-universe
+     #`(cur-Type (quote #,(add1 (attribute e.level))))]
+    [e:cur-runtime-pi
+     ;; TODO: Shouldn't this be the max of the annotation and the result?
+     (get-type #'e.result)]
+    [e:cur-runtime-lambda
+     #:with body (cur-elab/ctx #'e.body (list #'e.name #'e.ann))
+     #`(cur-Π e.ann (#%plain-lambda (e.name) #,(get-type #'body)))]
+    #;[e:cur-runtime-app
+     #:with t1:runtime-pi (get-type #'e.rator)
+     (subst #'e.rand #'t1.name #'t1.result)]
+    #;[e:cur-runtime-elim
+     (cur-eval (cur-app* #'e.motive (append index-ls (list #'target.reified))))]))
+;; TODO: Not sure constants have enough information to reconstruct their types... maybe need to store
+;; information in the struct type.
+;; TODO: implement elim, constants.
+;; TODO: Implement subst
+;; TODO: Implement cur-eval
+
+(define cur-elab local-expand-expr)
+
+(define (cur-elab/ctx syn ctx)
+  (syntax-parse syn
+    #:literals (#%plain-lambda let-values)
+    [_
+     #:with (x ...) (map car ctx)
+     #:with (t ...) (map cdr ctx)
+;     #:with (internal-name ...) (map fresh (attribute x))
+;     #:with (x-type ...) (map (lambda (x) (format-type-id x x)) (attribute x))
+     ;; NB: consume arbitrary number of let-values.
+     #:with (#%plain-lambda _ #;(name ...) e:in-let-values)
+     (cur-elab
+      #`(lambda (x ...)
+          (let*-syntax ([x-type (lambda (stx) #'t)] ...)
+                       #,syn)))
+     #`e.body #;((name ...) #'e.body)]))
 
 (module+ test
   (require
    (for-syntax
     chk
     (except-in racket/base λ)
-    (submod ".."))
+    (submod "..")
+    "stxutils.rkt")
    "runtime.rkt"
    (submod "runtime.rkt" test))
 
@@ -58,68 +94,18 @@ However, we don't really want the type system to be extensible since we desire a
          (equal?/recur (syntax->datum syn1) (syntax->datum syn2) equal-syn?)]
         [else (equal? syn1 syn2)]))
 
+    (define get-type/elab (compose get-type cur-elab))
+
     (chk
-     #:eq equal-syn? (type-of-id #'two) #'(Nat)
-     #:eq equal-syn? (type-of-constant #'(Nat)) #'(cur-Type 0)
-     #:eq equal-syn? (type-of-constant #'(z)) #'(Nat)
-     #:eq equal-syn? (type-of-constant #'(s z)) #'(Nat))))
+     #:eq equal-syn? (type-of-id (local-expand-expr #'two)) #'(Nat)
+     #:eq equal-syn? (type-of-constant #'Nat '()) #'(cur-Type 0)
+     #:eq equal-syn? (type-of-constant #'z '()) #'(Nat)
 
-#|
-;; Takes a runtime term and computes it's type, as a runtime term.
-(define (get-type e)
-  (syntax-parse e
-    [e:runtime-identifier
-     (type-of-id #'e)]
-    [e:runtime-constant
-     (type-of-constant #'e)]
-    [e:runtime-universe
-     #`(Type (quote #,(add1 (attribute e.level))))]
-    [e:runtime-pi
-     ;; TODO: Shouldn't this be the max of the annotation and the result?
-     (get-type #'e.result)]
-    [e:runtime-lambda
-     #:with ((x) body) (cur-elab/ctx #'e.body (list #'e.name #'e.ann))
-     #`(Π e.ann (#%plain-lambda (x) #,(get-type #'type)))]
-    [e:runtime-app
-     #:with t1:runtime-pi (get-type #'e.rator)
-     (subst #'e.rand #'t1.name #'t1.result)]
-    #;[e:runtime-elim
-     (cur-eval (cur-app* #'e.motive (append index-ls (list #'target.reified))))]))
-;; TODO: Not sure constants have enough information to reconstruct their types... maybe need to store
-;; information in the struct type.
-;; TODO: implement elim, constants.
-;; TODO: Implement subst
-;; TODO: Implement cur-eval
-
-(define (cur-elab e)
-  (local-expand e 'expression null))
-
-(define-syntax (let*-syntax syn)
-  (syntax-case syn ()
-    [(_ () e)
-     #`e]
-    [(_ ([x e] r ...) body)
-     #`(let-syntax ([x e])
-         (let*-syntax (r ...) body))]))
-
-(define (cur-elab/ctx syn ctx)
-  (syntax-parse syn
-    #:datum-literals (:)
-    #:literals (#%plain-lambda let-values)
-    [_
-     #:with (x ...) (map car ctx)
-     #:with (t ...) (map cdr ctx)
-     #:with (internal-name ...) (map fresh (attribute x))
-     #:with (x-type ...) (map fresh (attribute x))
-     ;; NB: consume arbitrary number of let-values.
-     #:with (#%plain-lambda (name ...) e:in-let-values)
-     (cur-elab
-      #`(lambda (internal-name ...)
-          (let*-syntax ([x-type (lambda (stx) #'t)] ...
-                        [x (make-rename-transformer
-                            (syntax-property #'internal-name 'type-transformer #'x-type))] ...)
-                       #,syn)))
-     #`((name ...) #'e.body)]))
+     #:eq equal-syn? (cur-elab #'(cur-Type 0)) #'(#%app cur-Type (quote 0))
+     #:eq equal-syn? (get-type/elab #'(cur-Type 0)) #'(cur-Type '1)
+     #:eq equal-syn? (get-type/elab #'(cur-Type 1)) #'(cur-Type '2)
+     #:eq equal-syn? (get-type/elab #'(Nat)) #'(cur-Type 0)
+     #:eq equal-syn? (get-type/elab #'(z)) #'(Nat))))
 
 ;; TODO: These will be implemented in a separate module
 #;(define-syntax (cur-λ syn)
@@ -133,5 +119,3 @@ However, we don't really want the type system to be extensible since we desire a
            (let-syntax ([x (make-rename-transformer
                             (syntax-property #'x-internal 'type #'x-type #t))])
              body)))]))
-
-|#

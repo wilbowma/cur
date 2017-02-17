@@ -29,8 +29,7 @@ TODO: Shouldn't these be curnel-terms, not run-time terms? Maybe not, if we're c
 language core "Curnel"
 
 The run-time terms are either:
-1. A Racket identifier x, as long as the transformer binding type:x also exist. If the transformer
-   binding delta:x also exists, the identifer is eligible for delta reduction.
+1. A Racket identifier x, as long as the binding x at one phase higher is bound to an identifier-info.
 2. A transparent struct inheriting from constant, as described below.
 3. The struct (cur-Type i), where i is a natural number
 4. The struct (cur-Π t f), where t is a run-time term and f is a run-time term.
@@ -80,21 +79,34 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
 (define-values (prop:recursive-index-ls recursive-index-ls? recursive-index-ls-ref)
   (make-struct-type-property 'recursive-index-ls))
 
+(begin-for-syntax
+  (provide
+   (struct-out constant-info)
+   (struct-out identifier-info))
+
+  (struct constant-info (type-constr))
+
+  (struct identifier-info (type delta-def)))
+
+; A Cur identifier is any identifier that is bound at phase j to a runtime term and bound at phase j+1
+; to an identifier-info.
+
 ; An inductive type is a transparent struct that inherits constant, and has
 ; prop:parameter-count.
-; For every inductive type (struct i constant ...), where a transformer binding of type:i must also
-; be defined.
-; The binding must be a procedure that takes one argument for every argument to the inductive type,
-; and produces a runtime term as a syntax object representing the type of the inductive type.
-; TODO: Should probably also provide inductive-info:i, with other type-checking information.
+; The sturct should have a constructor D that is not bound in the transformer environment, but is bound
+; as a constructor at phase j and is bound to a constant-info as phase j+1.
+; The constant-info-type-constr must be a procedure that takes one argument for every argument to the
+; inductive type, and produces a runtime term as a syntax object representing the type of the
+; inductive type.
 
 ; A constructor is a transparent struct that inherits constant, and has
 ; prop:parameter-count, prop:dispatch, and prop:recursive-index-ls.
-; For every constant (struct c constant ...), here a transformer binding of type:c must also be
-; defined.
-; The binding must be a procedure that takes one argument for every argument to the inductive type,
-; and produces a runtime term as a syntax object representing the type of the constant.
-; TODO: Should probably also provide constructor-info:i, with other type-checking information.
+; The struct should have a constructor c that is not bound in the transformer environment, but is bound
+; as a constructor at phase j and is bound to a constant-info as phase j+1.
+; The constant-info-type-constr must be a procedure that takes one argument for every argument to the
+; constant, and produces a runtime term as a syntax object representing the type of the
+; constant.
+; The type of the constant must be an inductive type, possibly applied to dependent indices.
 (struct constant () #:transparent)
 
 ;; Target must a constructor, and method-ls must be a list of methods of length equal to the number of
@@ -151,9 +163,8 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
   (define-literal-set cur-runtime-literals (cur-Type cur-Π cur-λ cur-apply cur-elim))
   (define cur-runtime-literal? (literal-set->predicate cur-runtime-literals))
 
-  (define-syntax-class/pred cur-runtime-constant
+  (define-syntax-class/pred cur-runtime-constant #:attributes (name (args 1))
     #:literals (#%plain-app)
-    #:literal-sets (cur-runtime-literals)
     (pattern (#%plain-app name:id args ...)
              #:when (not (cur-runtime-literal? #'name))
              ;; NB: We could double check, but since we're assuming all runtime terms are well-typed,
@@ -212,47 +223,50 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
     (submod "..")
     (except-in racket/base λ)
     syntax/transformer))
-  (provide (all-defined-out))
+  (provide (all-defined-out) (for-syntax (all-defined-out)))
 
-  (struct Nat constant () #:transparent
-    #:extra-constructor-name Nat
+  (struct constant:Nat constant () #:transparent
     #:reflection-name 'Nat
     #:property prop:parameter-count 0)
 
-  ;; TODO PERF: When the type takes no arguments, can we avoid making it a function?
-  (define-syntax type:struct:Nat (lambda () #`(cur-Type 0)))
+  (define Nat constant:Nat)
+
+  (define-for-syntax Nat
+    (constant-info
+     ;; TODO PERF: When not a dependent type, can we avoid making it a function?
+     (lambda () #`(cur-Type 0))))
 
   (define Nat-dispatch (box #f))
 
-  (struct z constant () #:transparent
-    #:extra-constructor-name z
+  (struct constant:z constant () #:transparent
     #:reflection-name 'z
     #:property prop:parameter-count 0
     #:property prop:dispatch Nat-dispatch
     #:property prop:recursive-index-ls null)
 
-  (define-syntax type:struct:z (lambda () #`(Nat)))
+  (define z constant:z)
+  (define-for-syntax z (constant-info (lambda () #`(Nat))))
 
-  (struct s constant (pred) #:transparent
-    #:extra-constructor-name s
+  (struct constant:s constant (pred) #:transparent
     #:reflection-name 's
     #:property prop:parameter-count 0
     #:property prop:dispatch Nat-dispatch
     #:property prop:recursive-index-ls (list 0))
 
-  (define-syntax type:struct:s (lambda (x) #`(Nat)))
+  (define s constant:s)
 
-  (set-box! Nat-dispatch (build-dispatch (list z? s?)))
+  (define-for-syntax s (constant-info (lambda (x) #`(Nat))))
 
-  (define-syntax type:two #`(Nat))
+  (set-box! Nat-dispatch (build-dispatch (list constant:z? constant:s?)))
+
   (define-syntax delta:two (make-variable-like-transformer #'(s (s (z)))))
   (define two delta:two)
+  (define-for-syntax two (identifier-info #`(Nat) #'delta:two))
 
   ;; TODO PERF: Could we remove λ procedure indirect for certain defines? The type is given
   ;; separately, so we may not need the annotations we use the λ indirect for.
   ;; However, the delta: definition has to remain, so it would only be the run-time definition that is
   ;; optimized, resulting in code duplication. Perhaps should be opt-in
-  (define-syntax type:plus #`(cur-Π (Nat) (#%plain-lambda (x) (Nat))))
   (define-syntax delta:plus
     (make-variable-like-transformer
      #`(cur-λ (Nat)
@@ -262,6 +276,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
                (cur-elim n1 void n2 (lambda (n1-1) (lambda (ih) (s ih))))))))))
 
   (define plus delta:plus)
+  (define-for-syntax plus (identifier-info #`(cur-Π (Nat) (#%plain-lambda (x) (Nat))) #'delta:plus))
 
   ;; TODO PERF: When the constant has no fields, optimize into a singleton structure. this can be
   ;; detected at transformer time using struct-info, by a null field-accessor list
@@ -275,8 +290,8 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
    #:t (cur-λ (Type 1) (#%plain-lambda (x) x))
    #:t (cur-Π (Type 1) (#%plain-lambda (x) (cur-Type 1)))
    #:= (#%plain-app (cur-λ (cur-Type 1) (#%plain-lambda (x) x)) (cur-Type 0)) (cur-Type 0)
-   #:? z? (z)
-   #:? s? (s z)
+   #:? constant:z? (z)
+   #:? constant:s? (s (z))
    #:= (cur-elim (z) void (z) (lambda (p) (lambda (ih) p))) (z)
    #:! #:= (cur-elim (s (s (z))) void (z) (lambda (p) (lambda (ih) p))) (z)
    #:= (cur-elim (s (s (z))) void (z) (lambda (p) (lambda (ih) p))) (s (z))
