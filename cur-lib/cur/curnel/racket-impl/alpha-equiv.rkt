@@ -8,6 +8,8 @@
 
 (provide cur-α-equal?)
 
+;; TODO: Eventually, this will just be "equiv"; first need to split tests out into separate package to
+;; get dependencies right.
 ; t1 and t2 must both be cur-runtime-terms?
 (define (cur-α-equal? t1 t2 (fail (lambda _ #f)))
   (let cur-α-equal? ([t1 t1] [t2 t2])

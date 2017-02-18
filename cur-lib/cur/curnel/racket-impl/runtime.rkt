@@ -1,8 +1,8 @@
 #lang racket/base
 
 (require
- racket/list
- racket/struct
+ (only-in racket/list drop)
+ (only-in racket/struct struct->list)
  (for-syntax
   racket/base
   syntax/parse))
@@ -17,10 +17,13 @@
  cur-λ
  cur-elim
  constant
+
  prop:parameter-count
  parameter-count-ref
+
  prop:dispatch
  dispatch-ref
+
  prop:recursive-index-ls
  recursive-index-ls-ref)
 
@@ -204,7 +207,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
     (pattern e:cur-runtime-app)
     (pattern e:cur-runtime-elim)))
 
-;; NB: Non-essential
+;; TODO: Move this into runtime-utils; need to split tests first to get dependencies right.
 ;; TODO PERF: Should be able to do a better job since predicates are mutually exclusive.
 (define (build-dispatch predicates)
   (lambda (ls)
