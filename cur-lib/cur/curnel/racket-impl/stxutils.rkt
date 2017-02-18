@@ -4,8 +4,6 @@
   racket/base
   syntax/parse
   racket/syntax)
- (for-template
-  racket/base)
  syntax/parse
  racket/syntax
  syntax/parse/experimental/reflect)
@@ -39,3 +37,14 @@
     [(e ...)
      (datum->syntax syn (map (lambda (e) (subst v x e)) (attribute e)))]
     [_ syn]))
+
+(define-syntax-class top-level-id #:attributes ()
+  (pattern x:id
+           #:fail-unless (case (syntax-local-context)
+                           [(module top-level module-begin) #t]
+                           [else #f])
+           (raise-syntax-error
+            (syntax->datum #'x)
+            (format "Can only use ~a at the top-level."
+                    (syntax->datum #'x))
+            this-syntax)))
