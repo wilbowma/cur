@@ -37,5 +37,5 @@
      #:when (free-identifier=? syn x)
      v]
     [(e ...)
-     (map (lambda (e) (subst v x e)) (attribute e))]
+     (datum->syntax syn (map (lambda (e) (subst v x e)) (attribute e)))]
     [_ syn]))

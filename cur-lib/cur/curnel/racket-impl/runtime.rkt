@@ -7,6 +7,9 @@
   racket/base
   syntax/parse))
 (provide
+ #%plain-app
+ #%plain-lambda
+
  cur-Type
  cur-Π
  cur-apply
@@ -18,9 +21,7 @@
  prop:dispatch
  dispatch-ref
  prop:recursive-index-ls
- recursive-index-ls-ref
-
- build-dispatch)
+ recursive-index-ls-ref)
 
 #|
 Cur is implemented by type-checking macro expansion into Racket run-time terms.
@@ -230,17 +231,10 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
     #:reflection-name 'Nat
     #:property prop:parameter-count 0)
 
-  (define-for-syntax (id-transformer expr)
-    (lambda (stx)
-      ; NB: For some reason, make-variable-like-transformer doesn't work as expected
-      (syntax-case stx ()
-        [(n args ...) #`(#,expr args ...)]
-        [_ expr])))
-
   (define-for-syntax Nat
     (constant-info
      ;; TODO PERF: When not a dependent type, can we avoid making it a function?
-     (lambda () #`(cur-Type 0))
+     (lambda () #`(#%plain-app cur-Type '0))
      0
      #f
      #f))
@@ -254,7 +248,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
     #:property prop:dispatch Nat-dispatch
     #:property prop:recursive-index-ls null)
 
-  (define-for-syntax z (constant-info (lambda () #`(Nat)) 0 0 (list)))
+  (define-for-syntax z (constant-info (lambda () #`(#%plain-app Nat)) 0 0 (list)))
 
   (struct constant:s constant (pred) #:transparent
     #:extra-constructor-name s
@@ -264,34 +258,41 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
     #:property prop:recursive-index-ls (list 0))
 
   (define-for-syntax s
-    (constant-info (lambda (x) #`(Nat)) 0 1 (list 1)))
+    (constant-info (lambda (x) #`(#%plain-app Nat)) 0 1 (list 1)))
 
   (set-box! Nat-dispatch (build-dispatch (list constant:z? constant:s?)))
 
-  (define-syntax delta:two (make-variable-like-transformer #'(s (s (z)))))
-  (define two delta:two)
+  (require (for-syntax racket/syntax))
+  (define-syntax (define-from-delta stx)
+    (syntax-case stx ()
+      [(_ arg)
+       (syntax-local-eval #'arg)]))
+
+  (define-for-syntax delta:two #'(#%plain-app s (#%plain-app s (#%plain-app z))))
+  (define two (define-from-delta delta:two))
   (define-for-syntax two
-    (identifier-info #`(Nat) #'delta:two))
+    (identifier-info #`(#%plain-app Nat) #'delta:two))
 
   ;; TODO PERF: Could we remove λ procedure indirect for certain defines? The type is given
   ;; separately, so we may not need the annotations we use the λ indirect for.
   ;; However, the delta: definition has to remain, so it would only be the run-time definition that is
   ;; optimized, resulting in code duplication. Perhaps should be opt-in
-  (define-syntax delta:plus
-    (make-variable-like-transformer
-     #`(cur-λ (Nat)
+  (define-for-syntax delta:plus
+    #`(#%plain-app cur-λ (#%plain-app Nat)
          (#%plain-lambda (n1)
-           (cur-λ (Nat)
+           (#%plain-app cur-λ (#%plain-app Nat)
              (#%plain-lambda (n2)
-                             (cur-elim n1 (#%plain-app cur-λ (#%plain-app Nat)
+                             (#%plain-app cur-elim n1 (#%plain-app cur-λ (#%plain-app Nat)
                                                        (#%plain-lambda (n) (#%plain-app Nat)))
                                        n2
-                                       (cur-λ (Nat) (#%plain-lambda (n1-1)
-                                                                    (cur-λ (Nat)
+                                       (#%plain-app cur-λ (#%plain-app Nat) (#%plain-lambda (n1-1)
+                                                                    (#%plain-app cur-λ (#%plain-app Nat)
                                                                            (#%plain-lambda
-                                                                            (ih) (s ih))))))))))))
+                                                                            (ih)
+                                                                            (#%plain-app s ih)))))))))))
 
-  (define plus delta:plus)
+
+  (define plus (define-from-delta delta:plus))
   (define-for-syntax plus
     (identifier-info
      #`(#%plain-app cur-Π (#%plain-app Nat) (#%plain-lambda (x) (#%plain-app cur-Π (#%plain-app Nat)
