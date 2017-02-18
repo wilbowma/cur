@@ -9,6 +9,7 @@
 (provide
  #%plain-app
  #%plain-lambda
+ quote
 
  cur-Type
  cur-Π
