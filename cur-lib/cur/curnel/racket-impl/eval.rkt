@@ -54,31 +54,3 @@
     [e:cur-runtime-lambda
      #`(#%plain-app cur-λ e.ann (#%plain-lambda (e.name) #,(cur-eval #'e.body)))]
     [_ (raise-syntax-error 'cur-eval (format "Something has gone horribly wrong: ~a" (syntax->datum syn)) syn)])))
-
-
-(module+ test
-  (require
-   (for-syntax
-    chk
-    racket/base
-    (submod "..")
-    "alpha-equiv.rkt"
-    "stxutils.rkt")
-   "runtime.rkt"
-   (submod "runtime.rkt" test))
-  (begin-for-syntax
-
-    (chk
-     ; cur-eval tests
-     #:eq cur-α-equal?
-     (cur-eval (local-expand-expr #'(cur-Type 0)))
-     (local-expand-expr #'(cur-Type '0))
-     #:eq cur-α-equal?
-     (cur-eval (local-expand-expr #'two))
-     (local-expand-expr #'(s (s (z))))
-     #:eq cur-α-equal?
-     (cur-eval (local-expand-expr #'(cur-apply (cur-λ (cur-Type 0) (lambda (x) x)) (z))))
-     #'(#%plain-app z)
-     #:eq cur-α-equal?
-     (cur-eval (local-expand-expr #'(cur-apply (cur-apply plus (z)) (s (z)))))
-     (local-expand-expr #'(s (z))))))

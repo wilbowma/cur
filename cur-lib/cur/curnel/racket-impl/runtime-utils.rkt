@@ -55,21 +55,3 @@ Utilities for working with cur-runtime-terms
           (k l))
         ;; NB: This error should be impossible when used with well-typed code.
         (error 'build-dispatch "Something very very bad has happened.")))))
-
-(module+ test
-  (require
-   "runtime.rkt"
-   (submod "runtime.rkt" test)
-   (for-syntax
-    racket/base
-    chk
-    "alpha-equiv.rkt"
-    (submod "..")))
-  (begin-for-syntax
-    (chk
-     #:eq cur-α-equal? (type-of-id #'two) #'(#%plain-app Nat)
-     #:eq cur-α-equal? (type-of-constant #'Nat '()) #'(#%plain-app cur-Type '0)
-     #:eq cur-α-equal? (type-of-constant #'z '()) #'(#%plain-app Nat)
-     #:eq cur-α-equal? (call-with-ctx
-                        (list (cons #'x #'(#%plain-app Nat)))
-                        (lambda () (type-of-id #'x))) #'(#%plain-app Nat))))
