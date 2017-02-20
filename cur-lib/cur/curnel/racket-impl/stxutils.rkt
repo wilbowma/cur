@@ -38,6 +38,14 @@
      (datum->syntax syn (map (lambda (e) (subst v x e)) (attribute e)))]
     [_ syn]))
 
+;; takes a list of values and a list of identifiers, in dependency order, and substitutes them into syn.
+;; TODO PERF: reverse
+(define (subst* v-ls x-ls syn)
+  (for/fold ([syn syn])
+            ([v (reverse v-ls)]
+             [x (reverse x-ls)])
+    (subst v x syn)))
+
 (define-syntax-class top-level-id #:attributes ()
   (pattern x:id
            #:fail-unless (case (syntax-local-context)

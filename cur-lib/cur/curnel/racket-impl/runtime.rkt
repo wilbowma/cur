@@ -90,7 +90,10 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
    (struct-out constant-info)
    (struct-out identifier-info))
 
-  (struct constant-info (type-constr constructor-index param-count recursive-index-ls))
+  ;; TODO PERF: Could use vectors instead of lists; since we store the count anyway... or maybe we won't
+  ;; need to by storing param and index decls separately.
+  (struct constant-info (type-constr param-count param-name-ls param-ann-ls index-name-ls index-ann-ls
+                                     constructor-count constructor-index recursive-index-ls))
 
   (struct identifier-info (type delta-def)))
 
@@ -152,6 +155,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
    cur-runtime-elim
    cur-runtime-term
 
+   make-cur-runtime-constant
    make-cur-runtime-universe
    make-cur-runtime-pi
    make-cur-runtime-lambda
@@ -183,6 +187,10 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
              ;; we need not bother. Also lets us avoid this annoying format-id hack.
              #;(let ([v (syntax-local-value (format-id #'name "constant:~a" #'name) (lambda () #f))])
                  (and v (free-identifier=? #'constant (sixth (extract-struct-info v)))))))
+
+  (define (make-cur-runtime-constant name rand-ls (syn #f))
+    (quasisyntax/loc syn
+      (#%plain-app name #,@rand-ls)))
 
   (define-syntax-class/pred cur-runtime-universe #:attributes (level-syn level)
     #:literals (#%plain-app quote cur-Type)
