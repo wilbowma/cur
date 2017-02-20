@@ -1,5 +1,9 @@
 #lang racket/base
 
+#|
+ | Reconstruct a type from a fully expanded term.
+ |#
+
 (require
  racket/syntax
  syntax/parse
@@ -14,19 +18,19 @@
  get-type/ctx)
 
 ;; Takes a cur-runtime-term? and computes it's type, as a cur-runtime-term?.
-(define (get-type e)
-  (syntax-parse e
+(define (get-type syn)
+  (syntax-parse syn
     [e:cur-runtime-identifier
      (type-of-id #'e.name)]
     [e:cur-runtime-constant
      (type-of-constant #'e.name (attribute e.rand-ls))]
     [e:cur-runtime-universe
-     #`(#%plain-app cur-Type (quote #,(add1 (attribute e.level))))]
+     (make-cur-runtime-universe (add1 (attribute e.level)) syn)]
     [e:cur-runtime-pi
      ;; TODO: Shouldn't this be the max of the annotation and the result?
      (get-type/ctx #'e.result (list (cons #'e.name #'e.ann)))]
     [e:cur-runtime-lambda
-     #`(#%plain-app cur-Π e.ann (#%plain-lambda (e.name) #,(get-type/ctx #'e.body (list (cons #'e.name #'e.ann)))))]
+     (make-cur-runtime-pi #'e.ann #'e.name (get-type/ctx #'e.body (list (cons #'e.name #'e.ann))) syn)]
     [e:cur-runtime-app
      #:with t1:cur-runtime-pi (get-type #'e.rator)
      (subst #'e.rand #'t1.name #'t1.result)]

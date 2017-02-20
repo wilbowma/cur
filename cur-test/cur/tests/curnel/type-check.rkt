@@ -4,9 +4,9 @@
  (for-syntax
   chk
   racket/base
-  cur/curnel/racket-impl/elab
   cur/curnel/racket-impl/equiv
   cur/curnel/racket-impl/stxutils)
+ cur/curnel/racket-impl/type-check
  cur/curnel/racket-impl/runtime
  "runtime.rkt")
 

@@ -6,9 +6,10 @@
   racket/base
   cur/curnel/racket-impl/type-reconstruct
   cur/curnel/racket-impl/eval
-  cur/curnel/racket-impl/elab
   cur/curnel/racket-impl/stxutils
-  cur/curnel/racket-impl/equiv)
+  cur/curnel/racket-impl/equiv
+  syntax/parse)
+ (only-in cur/curnel/racket-impl/type-check cur-elab cur-elab/ctx)
  cur/curnel/racket-impl/runtime
  "runtime.rkt")
 
@@ -17,7 +18,6 @@
     [(_ expr)
      (get-type #'expr)]))
 
-(require (for-syntax syntax/parse))
 (define-syntax (surface-λ stx)
   (syntax-parse stx
     #:datum-literals (:)
