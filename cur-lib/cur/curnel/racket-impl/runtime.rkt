@@ -93,7 +93,8 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
   ;; TODO PERF: Could use vectors instead of lists; since we store the count anyway... or maybe we won't
   ;; need to by storing param and index decls separately.
   (struct constant-info (type-constr param-count param-name-ls param-ann-ls index-name-ls index-ann-ls
-                                     constructor-count constructor-index recursive-index-ls))
+                                     constructor-count constructor-ls constructor-index
+                                     recursive-index-ls))
 
   (struct identifier-info (type delta-def)))
 

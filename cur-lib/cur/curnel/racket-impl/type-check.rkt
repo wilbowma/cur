@@ -8,7 +8,7 @@
   "runtime-utils.rkt"
   racket/base
   racket/syntax
-  (only-in racket/list last drop)
+  (only-in racket/list last drop split-at)
   syntax/parse)
  "runtime.rkt")
 
@@ -109,10 +109,10 @@ However, we don't really want the type system to be extensible since we desire a
              #:with reified (cur-elab/ctx #'e ctx)
              #:with type (get-type #'reified)))
 
-  (define (cur-type-check e t1 t2)
+  (define (cur-type-check syn e t1 t2)
     (unless (cur-subtype? t1 t2)
       (cur-type-error
-       this-syntax
+       syn
        "term of type ~a"
        (syntax->datum e)
        (syntax->datum (cur-reflect t1))
@@ -120,7 +120,7 @@ However, we don't really want the type system to be extensible since we desire a
 
   (define-syntax-class (cur-expr-of-type type) #:attributes (reified)
     (pattern e:cur-expr
-             #:do [(cur-type-check #'e #'e.type type)]
+             #:do [(cur-type-check this-syntax #'e #'e.type type)]
              #:attr reified #'e.reified))
 
   (define-syntax-class cur-kind #:attributes (reified type)
@@ -251,43 +251,6 @@ However, we don't really want the type system to be extensible since we desire a
 ;;   ((s (x : (Nat))) : (Nat)))
 ;; No more pretending these things are functions.
 
-;; TODO: positivity is broken, and hence disabled. here are stubs. see github issue
-;; NB: arg-flag is #f at the "top-level", i.e., when we're analyzing the top-level type of a
-;; constructor, and #t when analyzing an argument to the constructor.
-(define-for-syntax (positive D type arg-flag (fail (lambda _ #f)))
-  (let loop ([type type])
-    (syntax-parse type
-      [e:reified-constant
-       ;; TODO: I mean this makes sense to me now but
-       (not
-        (and
-         (cur-equal? D #'e.constr)
-         arg-flag
-         (fail this-syntax)))]
-      [e:reified-pi
-       (and
-        (syntax-parse #'e.ann
-          [arg:reified-constant
-           #:when (cur-equal? D #'arg.constr)
-           #t]
-          [_
-           (nonpositive D this-syntax fail)])
-        (loop #'e.result))]
-      [_ #t])))
-
-(define-for-syntax (nonpositive D type (fail (lambda _ #f)))
-  (let loop ([type type])
-    (syntax-parse type
-      [e:reified-pi
-       (and (syntax-parse #'e.ann
-              [arg:reified-constant
-               #:when (cur-equal? D #'arg.constr)
-               (fail this-syntax)]
-              [_
-               (positive D this-syntax #t fail)])
-            (loop #'e.result))]
-      [_ #t])))
-
 ;; NB: This macro both type checks the data, and caches a lot of the information about the constant.
 ;; This caching makes typing elim must easier, and faster. We assume eliminating an inductive type is
 ;; at least as usual as introducing one, justifying this decision.
@@ -320,7 +283,7 @@ However, we don't really want the type system to be extensible since we desire a
                       [type (attribute rand-ls.type)]
                       [rand (attribute rand-ls)]
                       [reified (attribute rand-ls.reified)])
-             (cur-type-check rand-ls type (subst* vals names ann))
+             (cur-type-check this-syntax rand type (subst* vals names ann))
              (values (append names (list name)) (append vals (list reified))))
            #`(#%plain-app #,name rand-ls.reified ...))]))))
 
@@ -380,16 +343,13 @@ However, we don't really want the type system to be extensible since we desire a
      #:with dispatch (format-id #'name "~a-dispatch" #'name)
      #:with structD (format-id #'name "constant:~a" #'name)
      #:with (structC ...) (map (lambda (x) (format-id x "constant:~a" x)))
+     #:with (c-name-pred ...) (map (lambda (x) (format-id x "constant:~a?" x)))
      #:with (c-index ...) (build-list constructor-count values)
      #:with d-param-name-ls #'(list #,@d-param-name-ls)
-     #:with d-param-name-ls #'(list #,@d-param-name-ls)
-     #:with d-index-ann-ls #'(list #,@d-index-ann-ls)
+     #:with d-param-ann-ls #'(list #,@d-param-ann-ls)
+     #:with d-index-name-ls #'(list #,@d-index-name-ls)
      #:with d-index-ann-ls #'(list #,@d-index-ann-ls)
      #:with (c-recursive-index-ls ...)
-     #:with (c-param-name-ls ...) (map (lambda (x) #'(list #,@x)) c-param-name-ls-ls)
-     #:with (c-index-name-ls ...) (map (lambda (x) #'(list #,@x)) c-index-name-ls-ls)
-     #:with (c-param-ann-ls ...) (map (lambda (x) #'(list #,@x)) c-param-ann-ls-ls)
-     #:with (c-index-ann-ls ...) (map (lambda (x) #'(list #,@x)) c-index-ann-ls-ls)
      (for/list ([type-ls (attribute atype.reified)])
        (for/list ([type type-ls]
                   [i (in-naturals)]
@@ -397,6 +357,10 @@ However, we don't really want the type system to be extensible since we desire a
                            [e:cur-runtime-constant
                             (free-identifier=? #'e.name #'name)]))
          i))
+     #:with (c-param-name-ls ...) (map (lambda (x) #'(list #,@x)) c-param-name-ls-ls)
+     #:with (c-index-name-ls ...) (map (lambda (x) #'(list #,@x)) c-index-name-ls-ls)
+     #:with (c-param-ann-ls ...) (map (lambda (x) #'(list #,@x)) c-param-ann-ls-ls)
+     #:with (c-index-ann-ls ...) (map (lambda (x) #'(list #,@x)) c-index-ann-ls-ls)
      #`(begin
          (define dispatch (box #f))
          (struct structD constant (i ...) #:transparent
@@ -416,6 +380,7 @@ However, we don't really want the type system to be extensible since we desire a
             d-index-name-ls
             d-index-ann-ls
             '#,constructor-count
+            (list #'runtime-c-name ...)
             #f
             #f))
 
@@ -446,8 +411,7 @@ However, we don't really want the type system to be extensible since we desire a
             c-recursive-index-ls))
          ...
 
-         (define-syntax name (make-typed-constant-transformer #'runtime-c-name)) ...
-         ...)]))
+         (define-syntax name (make-typed-constant-transformer #'runtime-c-name)) ...)]))
 
 ;; Elim
 (begin-for-syntax
@@ -523,7 +487,7 @@ However, we don't really want the type system to be extensible since we desire a
                    (format "Expected type ~a, but found type of ~a while checking method for ~a"
                            (syntax->datum t1)
                            (syntax->datum t2)
-                           (syntax->datum c))
+                           (syntax->datum constr-name))
                    syn
                    method)))))
 
@@ -555,18 +519,17 @@ However, we don't really want the type system to be extensible since we desire a
            (define-values (param-ls index-ls)
              (split-at rand-ls param-count))
            (define method-count (length (attribute method)))
-           (define constructor-count (constant-info-constructor-count info))]
-     #:fail-unless (= (attribute constructor-count) method-count)
+           (define constructor-count (constant-info-constructor-count info))
+           (define constructor-ls (constant-info-constructor-ls info))]
+     #:fail-unless (= constructor-count method-count)
      (raise-syntax-error 'core-type-error
                          (format "Expected one method for each constructor, but found ~a constructors and ~a branches."
                                  constructor-count
                                  method-count)
                          syn)
      #:do [(check-motive #'motive.reified inductive-name param-ls #'motive.type)]
-     #:do [(for ([m (attribute method.type)]
+     #:do [(for ([mtype (attribute method.type)]
                  [method (attribute method)]
-                 [c (dict-ref constructor-dict inductive-name) #;(syntax-property inductive-name 'constructor-ls)])
-             (check-method syn (cur-app* c param-ls) #'motive.reified m method))]
-     (⊢ (elim-name target.reified motive.reified method.reified ...) :
-        ;; TODO: append
-        #,(cur-app* #'motive.reified (append index-ls (list #'target.reified))))]))
+                 [constr-name constructor-ls])
+             (check-method syn constr-name param-ls #'motive.reified mtype method))]
+     (make-cur-runtime-elim #'target.reified #'motive.reified (attribute method.reified))]))
