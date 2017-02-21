@@ -42,7 +42,12 @@ Utilities for working with cur-runtime-terms
     (for ([name (map car ctx)]
           [type (map cdr ctx)])
       (namespace-set-variable-value! (syntax-e name) (identifier-info type #f) #f))
-    (th)))
+    (let ([r (th)])
+      ;; NB TODO: for some reason, parameterize doesn't restore the old namespace? Undefine the ctx
+      ;; manually
+      (for ([name (map car ctx)])
+        (namespace-undefine-variable! (syntax-e name)))
+      r)))
 
 ;; TODO PERF: Should be able to do a better job since predicates are mutually exclusive.
 (define (build-dispatch predicates)
