@@ -313,7 +313,7 @@ However, we don't really want the type system to be extensible since we desire a
 (define-syntax (typed-data syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_:top-level-id (name:id (i:id : itype:cur-expr) ...) : p:nat type:cur-kind
+    [(_:definition-id (name:id (i:id : itype:cur-expr) ...) : p:nat type:cur-kind
                      ((c-name:id (a:id : (~var atype (cur-expr/ctx (list (cons #'name #'type.reified)))))
                                  ...)
                       :
