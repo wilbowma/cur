@@ -20,18 +20,47 @@
    #:eq equal-syn? (cur-elab #'(cur-apply (cur-λ (cur-Type 0) (lambda (x) x)) (z)))
    #'(#%plain-app cur-apply (#%plain-app cur-λ (#%plain-app cur-Type '0) (#%plain-lambda (x) x))
                   (#%plain-app z))
+   ;; TODO syntax class tests
 
-   ))
+   ;; typed macros
+   #:eq equal-syn? (cur-elab #'(typed-Type 0)) (cur-elab #'(cur-Type 0))
+   #:x (cur-elab #'(typed-Type -1)) "expected exact-nonnegative-integer"
+   #:eq equal-syn? (cur-elab #'(typed-Π (x : (typed-Type 0)) (typed-Type 0)))
+   (cur-elab #'(cur-Π (cur-Type 0) (#%plain-lambda (x) (cur-Type 0))))
+   #:x (cur-elab #'(typed-Π (x : y) (typed-Type 0))) "unbound identifier"
+   #:x (cur-elab #'(typed-Π (x : (cur-λ (cur-Type 0) (#%plain-lambda (x) x))) (typed-Type 0)))
+   "Expected a kind"
+   #:x (cur-elab #'(typed-Π (x : (typed-Type 0)) (cur-λ (cur-Type 0) (#%plain-lambda (x) x))))
+   "Expected a kind"
+   #:eq equal-syn? (cur-elab #'(typed-λ (x : (typed-Type 1)) x))
+   (cur-elab #'(cur-λ (cur-Type 1) (#%plain-lambda (x) x)))
+   #:eq equal-syn? (cur-elab #'(typed-app (cur-λ (cur-Type 1) (#%plain-lambda (x) x)) (cur-Type 0)))
+   (cur-elab #'(cur-apply (cur-λ (cur-Type 1) (#%plain-lambda (x) x)) (cur-Type 0)))
+   #:t (cur-elab #'(typed-Π (x : (typed-Type 0))
+                            (typed-app (cur-λ (cur-Type 1) (#%plain-lambda (x) x))
+                                       (cur-Type 0))))
+   #:t (local-expand #'(typed-axiom True : (typed-Type 0)) 'top-level '())
+   #:x (local-expand #'(typed-axiom True : (typed-λ (x : (typed-Type 0)) x)) 'top-level '()) "Expected a kind"
 
-;; TODO: These will be implemented in a separate module
-#;(define-syntax (cur-λ syn)
-    (syntax-parse syn
-      [(_ (x : type) body)
-       #:with type-lab (cur-elab #'type)
-       #:with x-type (format-id #'x "~a-type" #'x)
-       #:with x-internal (fresh #'x)
-       #`(lambda (x-internal)
-           (let-syntax ([x-type (lambda (x) type-elab)])
-             (let-syntax ([x (make-rename-transformer
-                              (syntax-property #'x-internal 'type #'x-type #t))])
-               body)))]))
+   #:t (cur-elab #'(typed-elim (z) (typed-λ (y : (Nat)) (Nat)) (z) (typed-λ (n : (Nat))
+                                                                            (typed-λ (ih : (Nat))
+                                                                                     ih))))
+   #:x (cur-elab #'(typed-elim z (typed-λ (y : (Nat)) (Nat)) (z) (typed-λ (n : (Nat))
+                                                                          (typed-λ (ih : (Nat))
+                                                                                   ih))))
+   "Expected a constant"
+   #:x (cur-elab #'(typed-elim (typed-Type 0) (typed-λ (y : (Nat)) (Nat)) (z) (typed-λ (n : (Nat))
+                                                                          (typed-λ (ih : (Nat))
+                                                                                   ih))))
+   "Expected a constant"
+   #:x (cur-elab #'(typed-elim (z) (cur-Type 0) (z) (typed-λ (n : (Nat))
+                                                             (typed-λ (ih : (Nat))
+                                                                      ih))))
+   "Expected motive of type"
+   #:x (cur-elab #'(typed-elim (z) (typed-λ (x : (cur-Type 0)) x)
+                               (z) (typed-λ (n : (Nat))
+                                            (typed-λ (ih : (Nat))
+                                                     ih))))
+   "Expected motive of type"
+   #:x (cur-elab #'(typed-elim (z) (typed-λ (x : (cur-Type 0)) x) (z)))
+   "Expected 2 methods"))

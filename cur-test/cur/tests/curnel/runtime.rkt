@@ -20,6 +20,9 @@
    ;; TODO PERF: When not a dependent type, can we avoid making it a function?
    (lambda () #`(#%plain-app cur-Type '0))
    0
+   (list) (list) (list) (list)
+   2
+   (list #'z #'s)
    #f
    #f))
 
@@ -32,7 +35,13 @@
   #:property prop:dispatch Nat-dispatch
   #:property prop:recursive-index-ls null)
 
-(define-for-syntax z (constant-info (lambda () #`(#%plain-app Nat)) 0 0 (list)))
+(define-for-syntax z
+  (constant-info
+   (lambda () #`(#%plain-app Nat))
+   0 (list) (list) (list) (list)
+   2 (list #'z #'s)
+   0
+   (list)))
 
 (struct constant:s constant (pred) #:transparent
   #:extra-constructor-name s
@@ -42,7 +51,12 @@
   #:property prop:recursive-index-ls (list 0))
 
 (define-for-syntax s
-  (constant-info (lambda (x) #`(#%plain-app Nat)) 0 1 (list 1)))
+  (constant-info
+   (lambda (x) #`(#%plain-app Nat))
+   0
+   (list) (list) (list #'n) (list #'Nat)
+   2 (list #'z #'s)
+   1 (list 1)))
 
 (set-box! Nat-dispatch (build-dispatch (list constant:z? constant:s?)))
 

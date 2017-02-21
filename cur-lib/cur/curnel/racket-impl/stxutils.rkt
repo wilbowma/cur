@@ -56,3 +56,19 @@
             (format "Can only use ~a at the top-level."
                     (syntax->datum #'x))
             this-syntax)))
+
+(define-syntax-class definition-id #:attributes ()
+  (pattern x:id
+           #:fail-unless (not (eq? (syntax-local-context) 'expression))
+           (raise-syntax-error
+            (syntax->datum #'x)
+            (format "Can only use ~a in definition context."
+                    (syntax->datum #'x))
+            this-syntax)))
+
+;; Try to make readable fresh names.
+  (define fresh
+    (let ([n 0])
+      (lambda ([x #f])
+        (set! n (add1 n))
+        (format-id x "~a~a" (or x 'x) n #:source x))))

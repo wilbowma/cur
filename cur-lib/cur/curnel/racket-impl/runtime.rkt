@@ -195,7 +195,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
 
   (define-syntax-class/pred cur-runtime-universe #:attributes (level-syn level)
     #:literals (#%plain-app quote cur-Type)
-    (pattern (#%plain-app cur-Type ~! (quote level-syn))
+    (pattern (#%plain-app cur-Type (quote level-syn))
              #:attr level (syntax->datum #'level-syn)))
 
   ;; Takes a syntax object matching a natrual number, returns a cur-runtime-universe?
@@ -204,7 +204,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
 
   (define-syntax-class/pred cur-runtime-pi #:attributes (name ann result)
     #:literals (#%plain-app #%plain-lambda cur-Π)
-    (pattern (#%plain-app cur-Π ~! ann (#%plain-lambda (name) result))))
+    (pattern (#%plain-app cur-Π ann (#%plain-lambda (name) result))))
 
   ;; Takes a cur-runtime-term as ann and result, an identifer as name.
   (define (make-cur-runtime-pi ann name result (syn #f))
@@ -213,7 +213,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
 
   (define-syntax-class/pred cur-runtime-lambda #:attributes (name ann body)
     #:literals (#%plain-app #%plain-lambda cur-λ)
-    (pattern (#%plain-app cur-λ ~! ann (#%plain-lambda (name) body))))
+    (pattern (#%plain-app cur-λ ann (#%plain-lambda (name) body))))
 
   (define (make-cur-runtime-lambda ann name body (syn #f))
     (quasisyntax/loc syn
@@ -221,14 +221,14 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
 
   (define-syntax-class/pred cur-runtime-app #:attributes (rator rand)
     #:literals (#%plain-app cur-apply)
-    (pattern (#%plain-app cur-apply ~! rator rand)))
+    (pattern (#%plain-app cur-apply rator rand)))
 
   (define (make-cur-runtime-app rator rand (syn #f))
     (quasisyntax/loc syn (#%plain-app cur-apply #,rator #,rand)))
 
   (define-syntax-class/pred cur-runtime-elim #:attributes (target motive (method-ls 1))
     #:literals (#%plain-app cur-elim)
-    (pattern (#%plain-app cur-elim ~! target motive method-ls ...)))
+    (pattern (#%plain-app cur-elim target motive method-ls ...)))
 
   (define (make-cur-runtime-elim target motive method-ls (syn #f))
     (quasisyntax/loc syn

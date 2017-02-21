@@ -8,15 +8,17 @@
   "runtime-utils.rkt"
   racket/base
   racket/syntax
-  (only-in racket/list last drop split-at)
+  racket/list
+  racket/function
   syntax/parse)
  "runtime.rkt")
 
 (provide
- cur-elab
- cur-elab/ctx
+ (for-syntax
+  cur-elab
+  cur-elab/ctx
 
- cur-reflect
+  cur-reflect)
 
  typed-Type
  typed-Π
@@ -25,7 +27,23 @@
  typed-elim
  typed-data
  typed-axiom
- typed-define)
+ typed-define
+
+ (for-syntax
+  make-cur-runtime-pi*
+  ;; for testing
+  cur-expr
+  cur-expr/ctx
+  cur-expr-of-type
+  cur-kind
+  cur-procedure
+  cur-axiom-telescope
+
+  branch-type
+  motive-type
+  check-motive
+  check-method)
+ )
 
 #|
 The Cur elaborator is also the type-checker, because Type Systems are Macros.
@@ -125,20 +143,18 @@ However, we don't really want the type system to be extensible since we desire a
 
   (define-syntax-class cur-kind #:attributes (reified type)
     (pattern e:cur-expr
-             ;; TODO: A pattern
-             #:with (~or type:cur-runtime-universe) #'e.type
-             #:fail-unless (attribute type)
+             #:fail-unless (cur-runtime-universe? #'e.type)
              (cur-type-error
               #'e
               "a kind (a type whose type is a universe)"
               (syntax->datum #'e)
-              (syntax->datum (last (syntax-property #'e.type 'origin))))
-             #:attr reified #'e.reified))
+              (syntax->datum (cur-reflect #'e.type)))
+             #:attr reified #'e.reified
+             #:attr type #'e.type))
 
   (define-syntax-class cur-procedure #:attributes (reified type ann name result)
     (pattern e:cur-expr
-             #:with (~or type:cur-runtime-pi) #'e.type
-             #:fail-unless (attribute type)
+             #:fail-unless (cur-runtime-pi? #'e.type)
              (raise-syntax-error
               'core-type-error
               (format "Expected function, but found ~a of type ~a"
@@ -155,8 +171,9 @@ However, we don't really want the type system to be extensible since we desire a
                       ;(syntax->datum (last (syntax-property (attribute e) 'origin)))
                       ;(syntax->datum #'e.type)
                       #;(third (syntax-property #'f-type 'origin))
-                      (syntax->datum (last (syntax-property #'e.type 'origin))))
+                      (syntax->datum (cur-reflect #'e.type)))
               #'e)
+             #:with type:cur-runtime-pi #'e.type
              #:attr ann #'type.ann
              #:attr name #'type.name
              #:attr result #'type.result
@@ -169,8 +186,7 @@ However, we don't really want the type system to be extensible since we desire a
              #:attr result #'tmp.result
              #:attr length (add1 (attribute tmp.length))
              #:attr ann-ls (cons #'e.ann (attribute tmp.ann-ls))
-             #:attr name-ls (cons #'e.name (attribute tmp.name-ls))
-             )
+             #:attr name-ls (cons #'e.name (attribute tmp.name-ls)))
 
     (pattern (~and result (~not _:cur-runtime-pi))
              #:attr length 0
@@ -207,8 +223,8 @@ However, we don't really want the type system to be extensible since we desire a
   (syntax-parse syn
     #:datum-literals (:)
     [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
-     #:declare e.type cur-kind
-     (make-cur-runtime-pi #'te.reified #'x #'e.reified syn)]))
+     #:with _:cur-kind #'e.reified
+     (make-cur-runtime-pi #'t1.reified #'x #'e.reified syn)]))
 
 (define-syntax (typed-λ syn)
   (syntax-parse syn
@@ -234,14 +250,15 @@ However, we don't really want the type system to be extensible since we desire a
 (define-syntax (typed-axiom syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_:top-level-id name:id : type:cur-axiom-telescope)
+    [(_:definition-id name:id : type:cur-axiom-telescope)
      #:with c (format-id #'name "constant:~a" #'name)
      #`(begin
          (struct c constant (#,@(attribute type.name-ls)) #:transparent
            #:extra-constructor-name name
-           #:reflection name 'name)
+           #:reflection-name 'name)
          (define-for-syntax name
-           (constant-info (lambda (#,@(attribute type.name-ls)) #'type.reified))))]))
+           (constant-info (lambda (#,@(attribute type.name-ls)) #'type.reified #f #f #f #f #f #f #f #f
+                                  #f))))]))
 
 ;; Inductive types
 
@@ -467,11 +484,20 @@ However, we don't really want the type system to be extensible since we desire a
            [param-name-ls (constant-info-param-name-ls info)]
            [ann-ls (map (curry subst* param-ls param-name-ls) (constant-info-index-ann-ls info))])
       ;; TODO PERF: Many append
-      (make-cur-runtime-pi*
-       (append name-ls recursive-name-ls)
-       (append ann-ls recurisve-ann-ls)
-       (cur-apply* motive (append name-ls (list target)))
-       syn)))
+      (let-values ([(inductive-name-ls inductive-ann-ls)
+                    (for/fold ([ih-name-ls '()]
+                               [ih-ann-ls '()])
+                              ([name name-ls]
+                               [ann ann-ls]
+                               [i (in-naturals)]
+                               ;; TODO PERF: memq over a list of numbers; must be more efficient way
+                               #:when (memq i recursive-index-ls))
+                      (values #'_ (cur-apply* motive (append name-ls name))))])
+        (make-cur-runtime-pi*
+         (append name-ls inductive-name-ls)
+         (append ann-ls inductive-ann-ls)
+         (cur-apply* motive (append name-ls (list target)))
+         syn))))
 
   ;; Check the branch type for the given constructor.
   ;; Expects constr-name, param-ls, motive, br-type to be cur-runtime-terms that are well-typed.
@@ -527,9 +553,10 @@ However, we don't really want the type system to be extensible since we desire a
                                  constructor-count
                                  method-count)
                          syn)
-     #:do [(check-motive #'motive.reified inductive-name param-ls #'motive.type)]
+     #:with (param:cur-expr ...) param-ls
+     #:do [(check-motive #'motive inductive-name (attribute param.reified) #'motive.type)]
      #:do [(for ([mtype (attribute method.type)]
-                 [method (attribute method)]
+                 [method (attribute method.reified)]
                  [constr-name constructor-ls])
-             (check-method syn constr-name param-ls #'motive.reified mtype method))]
+             (check-method syn constr-name (attribute param.reified) #'motive.reified mtype method))]
      (make-cur-runtime-elim #'target.reified #'motive.reified (attribute method.reified))]))
