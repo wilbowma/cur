@@ -18,10 +18,10 @@ Utilities for working with cur-runtime-terms
 
 ; rator must be a cur-runtime-term?, and rands must be a list of cur-runtime-terms?
 ; The result is a cur-runtime-term?
-(define (cur-apply* rator rands)
+(define (cur-apply* syn rator rands)
   (if (null? rands)
       rator
-      (cur-apply* #`(#%plain-app cur-apply #,rator #,(car rands)) (cdr rands))))
+      (cur-apply* syn (make-cur-runtime-app syn rator (car rands)) (cdr rands))))
 
 ; Expects an identifier defined as a Cur constant, and it's argument as cur-runtime-term?s
 ; Returns it's type as a cur-runtime-term?

@@ -54,7 +54,7 @@
   (constant-info
    (lambda (x) #`(#%plain-app Nat))
    0
-   (list) (list) (list #'n) (list #'Nat)
+   (list) (list) (list #'n) (list #'(#%plain-app Nat))
    2 (list #'z #'s)
    1 (list 1)))
 

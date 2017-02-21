@@ -40,27 +40,23 @@
                             (typed-app (cur-λ (cur-Type 1) (#%plain-lambda (x) x))
                                        (cur-Type 0))))
    #:t (local-expand #'(typed-axiom True : (typed-Type 0)) 'top-level '())
-   #:x (local-expand #'(typed-axiom True : (typed-λ (x : (typed-Type 0)) x)) 'top-level '()) "Expected a kind"
+   #:x (local-expand #'(typed-axiom True : (typed-λ (x : (typed-Type 0)) x)) 'top-level '()) "Expected an axiom telescope"
 
    #:t (cur-elab #'(typed-elim (z) (typed-λ (y : (Nat)) (Nat)) (z) (typed-λ (n : (Nat))
                                                                             (typed-λ (ih : (Nat))
                                                                                      ih))))
-   #:x (cur-elab #'(typed-elim z (typed-λ (y : (Nat)) (Nat)) (z) (typed-λ (n : (Nat))
-                                                                          (typed-λ (ih : (Nat))
-                                                                                   ih))))
-   "Expected a constant"
    #:x (cur-elab #'(typed-elim (typed-Type 0) (typed-λ (y : (Nat)) (Nat)) (z) (typed-λ (n : (Nat))
                                                                           (typed-λ (ih : (Nat))
                                                                                    ih))))
-   "Expected a constant"
+   "Expected target to be a constant"
    #:x (cur-elab #'(typed-elim (z) (cur-Type 0) (z) (typed-λ (n : (Nat))
                                                              (typed-λ (ih : (Nat))
                                                                       ih))))
-   "Expected motive of type"
+   #rx"Expected type .* while checking motive"
    #:x (cur-elab #'(typed-elim (z) (typed-λ (x : (cur-Type 0)) x)
                                (z) (typed-λ (n : (Nat))
                                             (typed-λ (ih : (Nat))
                                                      ih))))
-   "Expected motive of type"
+   #rx"Expected type .* while checking motive"
    #:x (cur-elab #'(typed-elim (z) (typed-λ (x : (cur-Type 0)) x) (z)))
-   "Expected 2 methods"))
+   "Expected one method for each constructor, but found 2 constructors and 1 branch"))

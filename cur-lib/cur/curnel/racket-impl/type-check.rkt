@@ -194,7 +194,7 @@ However, we don't really want the type system to be extensible since we desire a
              #:attr name-ls '()))
 
   ;; Axiom telescopes are nested Π types with a universe or constant as the final result
-  (define-syntax-class cur-runtime-axiom-telescope #:attributes (length ann-ls result name-ls)
+  (define-syntax-class/pred cur-runtime-axiom-telescope #:attributes (length ann-ls result name-ls)
     (pattern e:cur-runtime-telescope
              #:with (~and result (~or _:cur-runtime-universe _:cur-runtime-constant)) #'e.result
              #:attr length (attribute e.length)
@@ -203,13 +203,13 @@ However, we don't really want the type system to be extensible since we desire a
 
   (define-syntax-class cur-axiom-telescope #:attributes (reified length ann-ls name-ls)
     (pattern e:cur-expr
-             #:with (~or reified:cur-runtime-axiom-telescope) #'e.reified
-             #:fail-unless (attribute reified)
+             #:fail-unless (cur-runtime-axiom-telescope? #'e.reified)
              (cur-type-error
               #'e
               "an axiom telescope (a nested Π type whose final result is a universe or a constant)"
               (syntax->datum #'e)
-              (syntax->datum (last (syntax-property #'e.type 'origin))))
+              (syntax->datum (cur-reflect #'e.type)))
+             #:with reified:cur-runtime-axiom-telescope #'e.reified
              #:attr length (attribute reified.length)
              #:attr ann-ls (attribute reified.ann-ls)
              #:attr name-ls (attribute reified.name-ls))))
@@ -217,25 +217,25 @@ However, we don't really want the type system to be extensible since we desire a
 (define-syntax (typed-Type syn)
   (syntax-parse syn
     [(_ i:nat)
-     (make-cur-runtime-universe #'i syn)]))
+     (make-cur-runtime-universe syn #'i)]))
 
 (define-syntax (typed-Π syn)
   (syntax-parse syn
     #:datum-literals (:)
     [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
      #:with _:cur-kind #'e.reified
-     (make-cur-runtime-pi #'t1.reified #'x #'e.reified syn)]))
+     (make-cur-runtime-pi syn #'t1.reified #'x #'e.reified)]))
 
 (define-syntax (typed-λ syn)
   (syntax-parse syn
     #:datum-literals (:)
     [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
-     (make-cur-runtime-lambda #'t1.reified #'x #'e.reified syn)]))
+     (make-cur-runtime-lambda syn #'t1.reified #'x #'e.reified)]))
 
 (define-syntax (typed-app syn)
   (syntax-parse syn
     [(_ e1:cur-procedure (~var e2 (cur-expr-of-type #'e1.ann)))
-     (make-cur-runtime-app #'e1.reified #'e2.reified syn)]))
+     (make-cur-runtime-app syn #'e1.reified #'e2.reified)]))
 
 (define-syntax (typed-define syn)
   (syntax-parse syn
@@ -434,13 +434,13 @@ However, we don't really want the type system to be extensible since we desire a
 (begin-for-syntax
   ;; TODO: Where do I belong? runtime.rkt? cur-apply* is in eval.rkt. Hm. Maybe runtime-utils.
   ;; TODO: cur-apply* should be renamed make-cur-runtime-apply*
-  (define (make-cur-runtime-pi* name-ls ann-ls result (syn #f))
+  (define (make-cur-runtime-pi* syn name-ls ann-ls result)
     (for/fold ([result result])
               ;; TODO PERF: By using vectors, could efficiently iterate in reverse. That applies to other
               ;; uses of -ls
               ([name (reverse name-ls)]
                [ann (reverse ann-ls)])
-      (make-cur-runtime-pi ann name result syn)))
+      (make-cur-runtime-pi syn ann name result)))
 
   ;; Construct the expected motive type; expects well-typed cur-runtime-term? inputs and must produce
   ;; well-typed cur-runtime-term? outputs
@@ -451,12 +451,12 @@ However, we don't really want the type system to be extensible since we desire a
            [ann-ls (map (curry subst* param-ls param-name-ls) (constant-info-index-ann-ls info))])
       ;; TODO PERF: Appends... but not in a loop
       (make-cur-runtime-pi*
+       syn
        (append name-ls (list #'_))
-       (append ann-ls (make-cur-runtime-constant D (append param-ls name-ls)))
+       (append ann-ls (list (make-cur-runtime-constant syn D (append param-ls name-ls))))
        ;; NB: (Type 0) is an arbitrary choice here... really, any universe type is valid. Must
        ;; check this is a subtype of motive's type
-       (make-cur-runtime-universe #'0)
-       syn)))
+       (make-cur-runtime-universe syn #'0))))
 
   ;; Check the given motive against the expected motive type.
   ;; Expects D, params, and motive-t to be cur-runtime-terms that are well-typed.
@@ -476,6 +476,7 @@ However, we don't really want the type system to be extensible since we desire a
   ;; Construct the expected branch type for constr; expects well-typed cur-runtime-term? inputs and
   ;; must produce well-typed cur-runtime-term? outputs
   (define (branch-type syn constr-name param-ls target motive)
+    (define/syntax-parse e:cur-runtime-constant target)
     (let* ([info (syntax-local-eval constr-name)]
            [recursive-index-ls (constant-info-recursive-index-ls info)]
            [param-count (constant-info-param-count info)]
@@ -489,22 +490,33 @@ However, we don't really want the type system to be extensible since we desire a
                                [ih-ann-ls '()])
                               ([name name-ls]
                                [ann ann-ls]
-                               [i (in-naturals)]
+                               ;; NB: Start counting *after* the parameters
+                               [i (in-naturals (add1 param-count))]
                                ;; TODO PERF: memq over a list of numbers; must be more efficient way
                                #:when (memq i recursive-index-ls))
-                      (values #'_ (cur-apply* motive (append name-ls name))))])
+                      (define/syntax-parse e:cur-runtime-constant ann)
+                      (values (cons #'_ ih-name-ls)
+                              (cons (cur-apply* syn motive
+                                                ;; NB: Get the indices from the recursive arg
+                                                (append (drop (attribute e.rand-ls) param-count)
+                                                        (list name)))
+                                    ih-ann-ls)))])
         (make-cur-runtime-pi*
+         syn
+         ;; TODO Don't I need to reverse inductive-*-ls
          (append name-ls inductive-name-ls)
          (append ann-ls inductive-ann-ls)
-         (cur-apply* motive (append name-ls (list target)))
-         syn))))
+         (cur-apply* syn motive
+                     ;; NB: Get the indices of the target
+                     ;; TODO PERF: Didn't I already compute those in typed-elim?
+                     (append (drop (attribute e.rand-ls) param-count)
+                             (list target)))))))
 
   ;; Check the branch type for the given constructor.
   ;; Expects constr-name, param-ls, motive, br-type to be cur-runtime-terms that are well-typed.
   ;; Expects method to be be surface term, for error messages only
-  ;; TODO: Need to check above before calling.
-  (define (check-method syn constr-name param-ls motive br-type method)
-    (define expected (branch-type syn constr-name param-ls motive))
+  (define (check-method syn constr-name param-ls target motive br-type method)
+    (define expected (branch-type syn constr-name param-ls target motive))
     (cur-subtype? expected br-type
                 (lambda (t1 t2)
                   (raise-syntax-error
@@ -520,9 +532,8 @@ However, we don't really want the type system to be extensible since we desire a
 (define-syntax (typed-elim syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_ target:cur-expr motive:cur-procedure method:cur-expr ...)
-     #:with (~or type:cur-runtime-constant) #'target.type
-     #:fail-unless (attribute type)
+    [(_ target:cur-expr motive:cur-expr method:cur-expr ...)
+     #:fail-unless (cur-runtime-constant? #'target.type)
      (cur-type-error
       syn
       "target to be a constant"
@@ -538,8 +549,9 @@ However, we don't really want the type system to be extensible since we desire a
       "target to inhabit an inductive type"
       (syntax->datum #'target)
       (syntax->datum (car (syntax-property (attribute target.type) 'origin))))
-     #:do [(define inductive-name #'type.constr)
-           (define info (syntax-local-eval #'type.constr))
+     #:with type:cur-runtime-constant #'target.type
+     #:do [(define inductive-name #'type.name)
+           (define info (syntax-local-eval inductive-name))
            (define param-count (constant-info-param-count info))
            (define rand-ls (attribute type.rand-ls))
            (define-values (param-ls index-ls)
@@ -558,5 +570,5 @@ However, we don't really want the type system to be extensible since we desire a
      #:do [(for ([mtype (attribute method.type)]
                  [method (attribute method.reified)]
                  [constr-name constructor-ls])
-             (check-method syn constr-name (attribute param.reified) #'motive.reified mtype method))]
-     (make-cur-runtime-elim #'target.reified #'motive.reified (attribute method.reified))]))
+             (check-method method constr-name (attribute param.reified) #'target.reified #'motive.reified mtype method))]
+     (make-cur-runtime-elim this-syntax #'target.reified #'motive.reified (attribute method.reified))]))

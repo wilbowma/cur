@@ -189,9 +189,9 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
              #;(let ([v (syntax-local-value (format-id #'name "constant:~a" #'name) (lambda () #f))])
                  (and v (free-identifier=? #'constant (sixth (extract-struct-info v)))))))
 
-  (define (make-cur-runtime-constant name rand-ls (syn #f))
+  (define (make-cur-runtime-constant syn name rand-ls)
     (quasisyntax/loc syn
-      (#%plain-app name #,@rand-ls)))
+      (#%plain-app #,name #,@rand-ls)))
 
   (define-syntax-class/pred cur-runtime-universe #:attributes (level-syn level)
     #:literals (#%plain-app quote cur-Type)
@@ -199,7 +199,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
              #:attr level (syntax->datum #'level-syn)))
 
   ;; Takes a syntax object matching a natrual number, returns a cur-runtime-universe?
-  (define (make-cur-runtime-universe i (syn #f))
+  (define (make-cur-runtime-universe syn i)
     (quasisyntax/loc syn (#%plain-app cur-Type '#,i)))
 
   (define-syntax-class/pred cur-runtime-pi #:attributes (name ann result)
@@ -207,7 +207,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
     (pattern (#%plain-app cur-Π ann (#%plain-lambda (name) result))))
 
   ;; Takes a cur-runtime-term as ann and result, an identifer as name.
-  (define (make-cur-runtime-pi ann name result (syn #f))
+  (define (make-cur-runtime-pi syn ann name result)
     (quasisyntax/loc syn
       (#%plain-app cur-Π #,ann (#%plain-lambda (#,name) #,result))))
 
@@ -215,7 +215,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
     #:literals (#%plain-app #%plain-lambda cur-λ)
     (pattern (#%plain-app cur-λ ann (#%plain-lambda (name) body))))
 
-  (define (make-cur-runtime-lambda ann name body (syn #f))
+  (define (make-cur-runtime-lambda syn ann name body)
     (quasisyntax/loc syn
       (#%plain-app cur-λ #,ann (#%plain-lambda (#,name) #,body))))
 
@@ -223,14 +223,14 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
     #:literals (#%plain-app cur-apply)
     (pattern (#%plain-app cur-apply rator rand)))
 
-  (define (make-cur-runtime-app rator rand (syn #f))
+  (define (make-cur-runtime-app syn rator rand)
     (quasisyntax/loc syn (#%plain-app cur-apply #,rator #,rand)))
 
   (define-syntax-class/pred cur-runtime-elim #:attributes (target motive (method-ls 1))
     #:literals (#%plain-app cur-elim)
     (pattern (#%plain-app cur-elim target motive method-ls ...)))
 
-  (define (make-cur-runtime-elim target motive method-ls (syn #f))
+  (define (make-cur-runtime-elim syn target motive method-ls)
     (quasisyntax/loc syn
       (#%plain-app cur-elim #,target #,motive #,@method-ls)))
 
