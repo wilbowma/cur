@@ -6,7 +6,7 @@
 
 (new-data (Nat) : 0 Type
   ((z) : (Nat))
-  ((s (x : Nat)) : (Nat)))
+  ((s (x : (Nat))) : (Nat)))
 
 (plus . : . (-> (Nat) (Nat) (Nat)))
 (define (plus n m)

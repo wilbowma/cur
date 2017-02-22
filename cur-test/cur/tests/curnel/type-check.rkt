@@ -59,4 +59,8 @@
                                                      ih))))
    #rx"Expected type .* while checking motive"
    #:x (cur-elab #'(typed-elim (z) (typed-λ (x : (cur-Type 0)) x) (z)))
-   "Expected one method for each constructor, but found 2 constructors and 1 branch"))
+   "Expected one method for each constructor, but found 2 constructors and 1 branch"
+   #:t (local-expand #'(typed-data (True) : 0 (typed-Type 0)
+                                   ((I) : (True)))
+                     'top-level
+                     '())))

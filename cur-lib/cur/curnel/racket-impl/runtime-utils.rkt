@@ -38,16 +38,20 @@ Utilities for working with cur-runtime-terms
 ; Adds a binding for each identifier to the identifier-info containing the type, within the scope of
 ; the thunk.
 (define (call-with-ctx ctx th)
-  (parameterize ([current-namespace (current-namespace)])
-    (for ([name (map car ctx)]
-          [type (map cdr ctx)])
-      (namespace-set-variable-value! (syntax-e name) (identifier-info type #f) #f))
-    (let ([r (th)])
-      ;; NB TODO: for some reason, parameterize doesn't restore the old namespace? Undefine the ctx
-      ;; manually
-      (for ([name (map car ctx)])
-        (namespace-undefine-variable! (syntax-e name)))
-      r)))
+  (define name-ls (map car ctx))
+  (define ns (current-namespace))
+  (for ([name name-ls]
+        [type (map cdr ctx)])
+    (namespace-set-variable-value! (syntax-e name) (identifier-info type #f) #f ns))
+  (let ([r (th)])
+    ;; NB: Can't make a copy of of the current namespace, so need to manually clean up.
+    (for ([name name-ls])
+      ;; TODO: Catch or detect the specific error;
+      ;; NB: when dealing with lexical variables, it is normal
+      ;; that a shadowed variable gets undefined multiple tmies.
+      (with-handlers ([(lambda (_) #t) (lambda (_) (void))])
+        (namespace-undefine-variable! (syntax-e name) ns)))
+    r))
 
 ;; TODO PERF: Should be able to do a better job since predicates are mutually exclusive.
 (define (build-dispatch predicates)

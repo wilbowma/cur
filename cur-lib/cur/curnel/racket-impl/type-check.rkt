@@ -125,7 +125,7 @@ However, we don't really want the type system to be extensible since we desire a
   (define-syntax-class (cur-expr/ctx ctx) #:attributes (reified type)
     (pattern e:expr
              #:with reified (cur-elab/ctx #'e ctx)
-             #:with type (get-type #'reified)))
+             #:with type (get-type/ctx #'reified ctx)))
 
   (define (cur-type-check syn e t1 t2)
     (unless (cur-subtype? t1 t2)
@@ -143,6 +143,18 @@ However, we don't really want the type system to be extensible since we desire a
 
   (define-syntax-class cur-kind #:attributes (reified type)
     (pattern e:cur-expr
+             #:fail-unless (cur-runtime-universe? #'e.type)
+             (cur-type-error
+              #'e
+              "a kind (a type whose type is a universe)"
+              (syntax->datum #'e)
+              (syntax->datum (cur-reflect #'e.type)))
+             #:attr reified #'e.reified
+             #:attr type #'e.type))
+
+  ;; TODO: Copy/pasta from cur-kind
+  (define-syntax-class (cur-kind/ctx ctx) #:attributes (reified type)
+    (pattern (~var e (cur-expr/ctx ctx))
              #:fail-unless (cur-runtime-universe? #'e.type)
              (cur-type-error
               #'e
@@ -223,7 +235,7 @@ However, we don't really want the type system to be extensible since we desire a
   (syntax-parse syn
     #:datum-literals (:)
     [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
-     #:with _:cur-kind #'e.reified
+     #:with (~var _ (cur-kind/ctx (list (cons #'x #'t1.reified)))) #'e.reified
      (make-cur-runtime-pi syn #'t1.reified #'x #'e.reified)]))
 
 (define-syntax (typed-λ syn)
@@ -310,7 +322,17 @@ However, we don't really want the type system to be extensible since we desire a
 ;; that type annotation exists before the type-checking macro exists.)
 ;; Could solve that by first generating name and it's constant info, then generating separate macro to
 ;; deal with constructors.
-(define-syntax (typed-data syn)
+(require racket/trace (for-syntax racket/trace))
+(begin-for-syntax
+    (current-trace-print-args
+      (let ([ctpa (current-trace-print-args)])
+        (lambda (s l kw l2 n)
+          (ctpa s (map syntax->datum l) kw l2 n))))
+    (current-trace-print-results
+      (let ([ctpr (current-trace-print-results)])
+        (lambda (s l n)
+         (ctpr s (map syntax->datum l) n)))))
+(trace-define-syntax (typed-data syn)
   (syntax-parse syn
     #:datum-literals (:)
     [(_:definition-id (name:id (i:id : itype:cur-expr) ...) : p:nat type:cur-kind
@@ -357,27 +379,28 @@ However, we don't really want the type system to be extensible since we desire a
              (values
               (reverse ls-ls-ann-param-c)
               (reverse ls-ls-ann-index-c)))]
-     #:with dispatch (format-id #'name "~a-dispatch" #'name)
+     #:with dispatch (format-id this-syntax "~a-dispatch" #'name)
      #:with structD (format-id #'name "constant:~a" #'name)
-     #:with (structC ...) (map (lambda (x) (format-id x "constant:~a" x)))
-     #:with (c-name-pred ...) (map (lambda (x) (format-id x "constant:~a?" x)))
+     #:with (structC ...) (map (lambda (x) (format-id x "constant:~a" x)) (attribute c-name))
+     #:with (c-name-pred ...) (map (lambda (x) (format-id x "constant:~a?" x)) (attribute c-name))
      #:with (c-index ...) (build-list constructor-count values)
-     #:with d-param-name-ls #'(list #,@d-param-name-ls)
-     #:with d-param-ann-ls #'(list #,@d-param-ann-ls)
-     #:with d-index-name-ls #'(list #,@d-index-name-ls)
-     #:with d-index-ann-ls #'(list #,@d-index-ann-ls)
+     #:with d-param-name-ls #`(list #,@d-param-name-ls)
+     #:with d-param-ann-ls #`(list #,@d-param-ann-ls)
+     #:with d-index-name-ls #`(list #,@d-index-name-ls)
+     #:with d-index-ann-ls #`(list #,@d-index-ann-ls)
      #:with (c-recursive-index-ls ...)
      (for/list ([type-ls (attribute atype.reified)])
-       (for/list ([type type-ls]
-                  [i (in-naturals)]
-                  #:when (syntax-parse type
-                           [e:cur-runtime-constant
-                            (free-identifier=? #'e.name #'name)]))
-         i))
-     #:with (c-param-name-ls ...) (map (lambda (x) #'(list #,@x)) c-param-name-ls-ls)
-     #:with (c-index-name-ls ...) (map (lambda (x) #'(list #,@x)) c-index-name-ls-ls)
-     #:with (c-param-ann-ls ...) (map (lambda (x) #'(list #,@x)) c-param-ann-ls-ls)
-     #:with (c-index-ann-ls ...) (map (lambda (x) #'(list #,@x)) c-index-ann-ls-ls)
+       #`(list
+          #,@(for/list ([type type-ls]
+                     [i (in-naturals)]
+                     #:when (syntax-parse type
+                              [e:cur-runtime-constant
+                               (free-identifier=? #'e.name #'name)]))
+            i)))
+     #:with (c-param-name-ls ...) (map (lambda (x) #`(list #,@x)) c-param-name-ls-ls)
+     #:with (c-index-name-ls ...) (map (lambda (x) #`(list #,@x)) c-index-name-ls-ls)
+     #:with (c-param-ann-ls ...) (map (lambda (x) #`(list #,@x)) c-param-ann-ls-ls)
+     #:with (c-index-ann-ls ...) (map (lambda (x) #`(list #,@x)) c-index-ann-ls-ls)
      #`(begin
          (define dispatch (box #f))
          (struct structD constant (i ...) #:transparent
@@ -411,7 +434,7 @@ However, we don't really want the type system to be extensible since we desire a
            #:property prop:recursive-index-ls c-recursive-index-ls)
          ...
 
-         (set-box! dispatch (list c-name-pred ...))
+         (set-box! dispatch (build-dispatch (list c-name-pred ...)))
 
          (define-for-syntax runtime-c-name
            (constant-info
@@ -424,11 +447,12 @@ However, we don't really want the type system to be extensible since we desire a
             c-index-name-ls
             c-index-ann-ls
             '#,constructor-count
+            (list #'runtime-c-name ...)
             c-index
             c-recursive-index-ls))
          ...
 
-         (define-syntax name (make-typed-constant-transformer #'runtime-c-name)) ...)]))
+         (define-syntax c-name (make-typed-constant-transformer #'runtime-c-name)) ...)]))
 
 ;; Elim
 (begin-for-syntax
