@@ -55,11 +55,13 @@ Utilities for working with cur-runtime-terms
   ; NB: eval is evil, but this is the least bad way I can figured out to store types.
   (apply (constant-info-type-constr (syntax-local-eval name)) args))
 
-(define gamma (make-parameter (make-immutable-hash)))
+(require syntax/id-table racket/dict)
+(define gamma (make-parameter (make-immutable-free-id-table #:phase -1)))
+
 ; Expects an identifier defined as a Cur identifier
 ; Returns it's type as a cur-runtime-term?
 (define (type-of-id name)
-  (identifier-info-type (hash-ref (gamma) (syntax-e name) (lambda () (syntax-local-eval name)))))
+  (identifier-info-type (dict-ref (gamma) name (lambda () (syntax-local-eval name)))))
 
 (define (identifier-def name)
   ;; TODO: Catch specific error
@@ -71,9 +73,9 @@ Utilities for working with cur-runtime-terms
 ; the thunk.
 (define (call-with-ctx ctx th)
   (parameterize ([gamma (for/fold ([g (gamma)])
-                                  ([name (map (compose syntax-e car) ctx)]
+                                  ([name (map car ctx)]
                                    [type (map cdr ctx)])
-                          (hash-set g name (identifier-info type #f)))])
+                          (dict-set g name (identifier-info type #f)))])
     (th)))
 #;(define (call-with-ctx ctx th)
   (define name-ls (map car ctx))
@@ -140,7 +142,7 @@ Utilities for working with cur-runtime-terms
            #:with tmp:cur-runtime-telescope #'e.result
            #:attr result #'tmp.result
            #:attr length (add1 (attribute tmp.length))
-           #:attr name-ls (cons #'e.name (attribute tmp.ann-ls))
+           #:attr name-ls (cons #'e.name (attribute tmp.name-ls))
            #:attr ann-ls (cons #'e.ann (attribute tmp.ann-ls)))
 
   (pattern (~and result (~not _:cur-runtime-pi))
@@ -174,6 +176,7 @@ Utilities for working with cur-runtime-terms
            #:attr length (attribute e.length)
            #:attr name-ls (attribute e.name-ls)
            #:attr ann-ls (attribute e.ann-ls)
+           ;; TODO: Is this necessary since we have constant-info now?
            #:attr recursive-index-ls
            (for/list ([t (attribute ann-ls)]
                       [i (attribute length)]
