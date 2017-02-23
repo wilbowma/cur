@@ -45,8 +45,8 @@
 (define-syntax-rule (with-env env e)
   (call-with-env env (thunk e)))
 
-(define (cur-reify/env syn)
-  (cur-elab/ctx syn (env->ctx (current-env))))
+(define (cur-reify/env syn . ls)
+  (apply cur-elab/ctx syn (env->ctx (current-env)) ls))
 
 (define (cur-get-type/env syn)
   (get-type/ctx (cur-reify/env syn) (env->ctx (current-env))))
@@ -99,7 +99,7 @@
 
 ;; Given a constructor, return the number of arguments it takes.
 (define (cur-constructor-telescope-length syn)
-  (let ([info syn])
+  (let ([info (syntax-local-eval syn)])
     ;; TODO PERF: Maybe store this
     (+ (constant-info-param-count info) (length (constant-info-index-name-ls info)))))
 
@@ -113,12 +113,11 @@
 ;; Takes a Cur term syn and an arbitrary number of identifiers ls. The cur term is
 ;; expanded until expansion reaches a Curnel form, or one of the
 ;; identifiers in ls.
+(require racket/trace)
 (define (cur-expand syn #:local-env [env '()] . ls)
-  (local-expand
-   syn
-   'expression
-   (append (syntax-e #'(typed-Type typed-λ typed-app typed-Π typed-data depricated-typed-elim typed-elim))
-           ls)))
+  (with-env env
+    (apply cur-reify/env syn (append (syntax-e #'(typed-Type typed-λ typed-app typed-Π typed-data depricated-typed-elim typed-elim))
+           ls))))
 
 (define (cur->datum syn)
   (syntax->datum (cur-reflect (cur-reify/env syn))))

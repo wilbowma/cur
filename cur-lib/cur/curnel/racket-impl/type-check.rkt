@@ -81,17 +81,18 @@ However, we don't really want the type system to be extensible since we desire a
 (begin-for-syntax
 
   ; Expects a Cur term and produces a cur-runtime-term?, returns a cur-runtime-term? or raises a type error.
-  (define cur-elab local-expand-expr)
+  (define (cur-elab syn)
+    (define/syntax-parse e:in-let-values (local-expand-expr syn))
+    (attribute e.body))
 
   (require racket/trace)
-  (define (cur-elab/ctx syn ctx)
+  (define (cur-elab/ctx syn ctx . ls)
     (call-with-ctx
      ctx
      (lambda ()
        (define intdef (syntax-local-make-definition-context))
        (syntax-local-bind-syntaxes (map car ctx) #f intdef)
-       ;(local-expand syn 'expression null intdef)
-       (internal-definition-context-introduce intdef (local-expand syn 'expression null intdef) 'remove))))
+       (internal-definition-context-introduce intdef (local-expand syn 'expression ls intdef) 'remove))))
 
   (define (cur-reflect syn)
     (syntax-parse syn
