@@ -82,13 +82,15 @@ However, we don't really want the type system to be extensible since we desire a
   ; Expects a Cur term and produces a cur-runtime-term?, returns a cur-runtime-term? or raises a type error.
   (define cur-elab local-expand-expr)
 
-  (define (cur-elab/ctx syn ctx)
+  (require racket/trace)
+  (trace-define (cur-elab/ctx syn ctx)
     (call-with-ctx
      ctx
      (lambda ()
        (define intdef (syntax-local-make-definition-context))
        (syntax-local-bind-syntaxes (map car ctx) #f intdef)
-       (internal-definition-context-introduce intdef (local-expand syn 'expression null intdef)))))
+       #;(local-expand syn 'expression null intdef)
+       (internal-definition-context-introduce intdef (local-expand syn 'expression null intdef) 'remove))))
 
   (define (cur-reflect syn)
     (syntax-parse syn
@@ -335,17 +337,8 @@ However, we don't really want the type system to be extensible since we desire a
 ;; that type annotation exists before the type-checking macro exists.)
 ;; Could solve that by first generating name and it's constant info, then generating separate macro to
 ;; deal with constructors.
-(require racket/trace (for-syntax racket/trace))
-(begin-for-syntax
-    (current-trace-print-args
-      (let ([ctpa (current-trace-print-args)])
-        (lambda (s l kw l2 n)
-          (ctpa s (map syntax->datum l) kw l2 n))))
-    (current-trace-print-results
-      (let ([ctpr (current-trace-print-results)])
-        (lambda (s l n)
-         (ctpr s (map syntax->datum l) n)))))
-(trace-define-syntax (typed-data syn)
+
+(define-syntax (typed-data syn)
   (syntax-parse syn
     #:datum-literals (:)
     [(_:definition-id name:id : p:nat type:cur-inductive-telescope

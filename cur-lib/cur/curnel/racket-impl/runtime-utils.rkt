@@ -54,17 +54,23 @@ Utilities for working with cur-runtime-terms
   ; NB: eval is evil, but this is the least bad way I can figured out to store types.
   (apply (constant-info-type-constr (syntax-local-eval name)) args))
 
+(define gamma (make-parameter (make-immutable-hash)))
 ; Expects an identifier defined as a Cur identifier
 ; Returns it's type as a cur-runtime-term?
 (define (type-of-id name)
-  (identifier-info-type (syntax-local-eval name)))
+  (identifier-info-type (hash-ref (gamma) (syntax-e name) (lambda () (syntax-local-eval name)))))
 
 ; Excepts an ordered list of pairs of an identifier and a type, as a cur-runtime-term, and a thunk.
 ; Adds a binding for each identifier to the identifier-info containing the type, within the scope of
 ; the thunk.
 (define (call-with-ctx ctx th)
+  (parameterize ([gamma (for/fold ([g (gamma)])
+                                  ([name (map (compose syntax-e car) ctx)]
+                                   [type (map cdr ctx)])
+                          (hash-set g name (identifier-info type #f)))])
+    (th)))
+#;(define (call-with-ctx ctx th)
   (define name-ls (map car ctx))
-  (define ns (current-namespace))
   (for ([name name-ls]
         [type (map cdr ctx)])
     (namespace-set-variable-value! (syntax-e name) (identifier-info type #f) #f ns))

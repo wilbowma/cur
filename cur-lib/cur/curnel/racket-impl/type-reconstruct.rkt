@@ -17,8 +17,9 @@
  get-type
  get-type/ctx)
 
+(require racket/trace)
 ;; Takes a cur-runtime-term? and computes it's type, as a cur-runtime-term?.
-(define (get-type syn)
+(trace-define (get-type syn)
   (syntax-parse syn
     [e:cur-runtime-identifier
      (type-of-id #'e.name)]
@@ -38,5 +39,5 @@
      #:with D:cur-runtime-constant (get-type #'e.target)
      (cur-apply* syn #'e.motive (append (attribute D.index-rand-ls) (list #'e.target)))]))
 
-(define (get-type/ctx syn ctx)
+(trace-define (get-type/ctx syn ctx)
   (call-with-ctx ctx (lambda () (get-type syn))))

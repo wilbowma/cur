@@ -5,6 +5,7 @@
  racket/function
  "type-reconstruct.rkt"
  "eval.rkt"
+ "runtime-utils.rkt"
  (rename-in "equiv.rkt" [cur-equal? _cur-equal?])
  "stxutils.rkt"
  (for-template "type-check.rkt")
@@ -48,7 +49,7 @@
   (cur-elab/ctx syn (env->ctx (current-env))))
 
 (define (cur-get-type/env syn)
-  (get-type/ctx syn (env->ctx (current-env))))
+  (get-type/ctx (cur-elab syn) (env->ctx (current-env))))
 
 (define (cur-normalize syn #:local-env [env '()])
   (with-env env
@@ -125,7 +126,7 @@
   (local-expand
    syn
    'expression
-   (append (syntax-e #'(cur-type cur-λ cur-app cur-Π cur-data depricated-cur-elim))
+   (append (syntax-e #'(typed-type typed-λ typed-app typed-Π typed-data depricated-typed-elim))
            ls)))
 
 (define (cur->datum syn)
