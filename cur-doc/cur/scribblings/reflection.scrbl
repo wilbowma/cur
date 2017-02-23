@@ -5,10 +5,7 @@
    scribble/eval
    racket/sandbox
    (for-label
-     (only-in racket local-expand)
-     cur/stdlib/nat
-     cur/stdlib/bool
-     cur/stdlib/list))
+     (only-in racket local-expand)))
 
 @title{Reflection}
 To support the addition of new user-defined language features, @racketmodname[cur] provides access to
