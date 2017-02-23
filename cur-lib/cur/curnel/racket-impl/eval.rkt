@@ -32,7 +32,8 @@
          [e1-
           (make-cur-runtime-app this-syntax #'e1- #'a)])]
       [e:cur-runtime-elim
-       #:with target:cur-runtime-constant #'e.target
+       #:when (cur-runtime-constant? (cur-eval #'e.target))
+       #:with target:cur-runtime-constant (cur-eval #'e.target)
        #:do [(define info (syntax-local-eval #'target.name))]
        #:do [(define recursive-index-ls (constant-info-recursive-index-ls info))]
        ;; TODO PERF: use unsafe version of list operators and such for internal matters

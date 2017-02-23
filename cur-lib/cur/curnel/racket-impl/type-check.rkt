@@ -2,6 +2,7 @@
 
 (require
  (for-syntax
+  "eval.rkt"
   "equiv.rkt"
   "type-reconstruct.rkt"
   "stxutils.rkt"
@@ -271,7 +272,9 @@ However, we don't really want the type system to be extensible since we desire a
      #`(begin
          (define-for-syntax delta #'body.reified)
          (define name body.reified)
-         (define-for-syntax name (identifier-info #'body.type #'delta)))]))
+         ;; TODO: Need a provide transformer to provide only when necessary
+         (provide (for-syntax name delta))
+         (define-for-syntax name (identifier-info #'body.type delta)))]))
 
 (define-syntax (typed-axiom syn)
   (syntax-parse syn
@@ -283,6 +286,7 @@ However, we don't really want the type system to be extensible since we desire a
 ;           #:extra-constructor-name name1
            #:reflection-name 'name)
          (define name ((curry c)))
+         (provide (for-syntax name))
          (define-for-syntax name
            (constant-info #'type.reified #f #f #f #f #f #f #f #f #f)))]))
 
@@ -365,10 +369,10 @@ However, we don't really want the type system to be extensible since we desire a
              (split-at (attribute type.ann-ls) param-count))]
      #:with dispatch (format-id this-syntax "~a-dispatch" #'name #:source #'name)
      #:with structD (format-id #'name "constant:~a" #'name #:source #'name)
-     #:with d-param-name-ls #`(list #,@d-param-name-ls)
-     #:with d-param-ann-ls #`(list #,@d-param-ann-ls)
-     #:with d-index-name-ls #`(list #,@d-index-name-ls)
-     #:with d-index-ann-ls #`(list #,@d-index-ann-ls)
+     #:with (d-param-name ...) d-param-name-ls
+     #:with (d-param-ann ...) d-param-ann-ls
+     #:with (d-index-name ...) d-index-name-ls
+     #:with (d-index-ann ...) d-index-ann-ls
      #`(begin
          (define dispatch (box #f))
          (struct structD constant (#,@(attribute type.name-ls)) #:transparent
@@ -378,16 +382,17 @@ However, we don't really want the type system to be extensible since we desire a
 
          (define name ((curry structD)))
 
+         (provide (for-syntax name))
          (define-for-syntax name
            ;; TODO: Really need inductive-info and constructor-info, inheriting constant-info
            (constant-info
             #'type.reified
             #f
             'p
-            d-param-name-ls
-            d-param-ann-ls
-            d-index-name-ls
-            d-index-ann-ls
+            (list #'d-param-name ...)
+            (list #'d-param-ann ...)
+            (list #'d-index-name ...)
+            (list #'d-index-ann ...)
             '#,constructor-count
             (list #'c-name ...)
             #f
@@ -399,7 +404,7 @@ However, we don't really want the type system to be extensible since we desire a
           dispatch
           (c-name : _c-type) ...))]))
 
-(trace-define-syntax (typed-constructors stx)
+(define-syntax (typed-constructors stx)
   (syntax-parse stx
     [(_ name dispatch (c-name : _c-type:cur-expr) ...)
      #:with ((~var c-type (cur-runtime-constructor-telescope #'name)) ...) #'(_c-type.reified ...)
@@ -452,6 +457,7 @@ However, we don't really want the type system to be extensible since we desire a
 
          (set-box! dispatch (build-dispatch (list c-name-pred ...)))
 
+         (provide (for-syntax c-name ...))
          (define-for-syntax c-name
            (constant-info
             #'c-type
@@ -513,7 +519,9 @@ However, we don't really want the type system to be extensible since we desire a
   ;; Construct the expected branch type for constr; expects well-typed cur-runtime-term? inputs and
   ;; must produce well-typed cur-runtime-term? outputs
   (define (branch-type syn constr-name param-ls target motive)
-    (define/syntax-parse e:cur-runtime-constant (get-type target))
+    ;; TODO: Maybe need get-type/eval, or always return type in normal form?
+    ;; TODO: We already computed the type of target; just pass it in
+    (define/syntax-parse e:cur-runtime-constant (cur-eval (get-type target)))
     (let* ([info (syntax-local-eval constr-name)]
            [recursive-index-ls (constant-info-recursive-index-ls info)]
            [param-count (constant-info-param-count info)]
@@ -531,7 +539,7 @@ However, we don't really want the type system to be extensible since we desire a
                                [i (in-naturals param-count)]
                                ;; TODO PERF: memq over a list of numbers; must be more efficient way
                                #:when (memq i recursive-index-ls))
-                      (define/syntax-parse e:cur-runtime-constant ann)
+                      (define/syntax-parse e:cur-runtime-constant (cur-eval ann))
                       (values (cons #'_ ih-name-ls)
                               (cons (cur-apply* syn motive
                                                 (append (attribute e.index-rand-ls)
@@ -569,14 +577,15 @@ However, we don't really want the type system to be extensible since we desire a
   (syntax-parse syn
     #:datum-literals (:)
     [(_ target:cur-expr motive:cur-expr method:cur-expr ...)
-     #:fail-unless (cur-runtime-constant? #'target.type)
+     #:attr ttype (cur-eval #'target.type)
+     #:fail-unless (cur-runtime-constant? #'ttype)
      (cur-type-error
       syn
       "target to be a constant"
-      "found target ~a"
+      "target ~a"
       "~a"
       (syntax->datum #'target)
-      (syntax->datum #'target.type))
+      (syntax->datum #'ttype))
      ;; TODO: That should now be checked by above, but need to test error messages
      ;#:fail-unless (syntax-property #'type.constr 'inductive?)
      #;(cur-type-error
@@ -585,7 +594,7 @@ However, we don't really want the type system to be extensible since we desire a
       "target to inhabit an inductive type"
       (syntax->datum #'target)
       (syntax->datum (car (syntax-property (attribute target.type) 'origin))))
-     #:with type:cur-runtime-constant #'target.type
+     #:with type:cur-runtime-constant #'ttype
      #:do [(define inductive-name #'type.name)
            (define info (syntax-local-eval inductive-name))
            (define param-count (constant-info-param-count info))

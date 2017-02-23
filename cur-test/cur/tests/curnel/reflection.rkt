@@ -15,7 +15,7 @@
   (chk
    #:eq cur-equal? (cur-type-infer #'a #:local-env (list (cons #'a #'(cur-Type 0))))
    #'(typed-Type 0)
-   #:x (cur-type-infer #'a) "undefined"
+   #:x (cur-type-infer #'a) "a: unbound"
    #:x (cur-type-infer #'a #:local-env (list (cons #'a #'(typed-app
                                                           (cur-λ (cur-Type 0) (#%plain-lambda (x) x))
                                                           (cur-Type 0))))) "Expected term of type"))

@@ -24,7 +24,8 @@
     [(_ (x : t) b)
      #:with type (cur-elab #'t)
      #`(cur-λ type
-              (#%plain-lambda (x) #,(cur-elab/ctx #'b (list (cons #'x #'type)))))]))
+              (#%plain-lambda (#,(syntax-local-identifier-as-binding #'x))
+                              #,(cur-elab/ctx #'b (list (cons #'x #'type)))))]))
 
 (begin-for-syntax
   (define get-type/elab (compose get-type local-expand-expr))

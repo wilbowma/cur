@@ -49,7 +49,7 @@
   (cur-elab/ctx syn (env->ctx (current-env))))
 
 (define (cur-get-type/env syn)
-  (get-type/ctx (cur-elab syn) (env->ctx (current-env))))
+  (get-type/ctx (cur-reify/env syn) (env->ctx (current-env))))
 
 (define (cur-normalize syn #:local-env [env '()])
   (with-env env
@@ -94,7 +94,7 @@
 ;; TODO: Does this work on constructors too? If not, it should.
 (define (cur-data-parameters syn)
   (define/syntax-parse c:cur-expr syn)
-  (define/syntax-parse c^:cur-runtime-constant (attribute c.reified))
+  (define/syntax-parse c^:cur-runtime-constant (cur-eval (attribute c.reified)))
   (constant-info-param-count (syntax-local-eval #'c^.name)))
 
 ;; Given an a target (a constructor applied to parameters) and a motive for eliminating

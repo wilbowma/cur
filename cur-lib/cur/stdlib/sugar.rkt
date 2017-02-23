@@ -300,6 +300,8 @@
      a:curried-application
      #:attr inductive-name
      (attribute a.name)
+     #:do [(displayln (attribute a))
+           (displayln (attribute a.args))]
      #:attr params
      (take (attribute a.args) (cur-data-parameters (attribute a.name)))
      #:attr indices

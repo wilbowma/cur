@@ -40,7 +40,7 @@
                             (typed-app (cur-λ (cur-Type 1) (#%plain-lambda (x) x))
                                        (cur-Type 0))))
    #:t (local-expand #'(typed-axiom True : (typed-Type 0)) 'top-level '())
-   #:x (local-expand #'(typed-axiom True : (typed-λ (x : (typed-Type 0)) x)) 'top-level '()) "Expected an axiom telescope"
+   #:x (local-expand #'(typed-axiom True : (typed-λ (x : (typed-Type 0)) x)) 'module-begin '()) "Expected an axiom telescope"
 
    #:t (cur-elab #'(typed-elim z (typed-λ (y : Nat) Nat) z (typed-λ (n : Nat)
                                                                     (typed-λ (ih : Nat)
@@ -62,5 +62,5 @@
    "Expected one method for each constructor, but found 2 constructors and 1 branch"
    #:t (local-expand #'(typed-data True : 0 (typed-Type 0)
                                    (I : True))
-                     'top-level
+                     'module
                      '())))
