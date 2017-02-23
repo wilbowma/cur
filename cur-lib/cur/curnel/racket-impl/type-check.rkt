@@ -92,7 +92,10 @@ However, we don't really want the type system to be extensible since we desire a
      (lambda ()
        (define intdef (syntax-local-make-definition-context))
        (syntax-local-bind-syntaxes (map car ctx) #f intdef)
-       (internal-definition-context-introduce intdef (local-expand syn 'expression ls intdef) 'remove))))
+       (define/syntax-parse e:in-let-values
+         (internal-definition-context-introduce intdef (local-expand syn 'expression ls intdef)
+                                                'remove))
+       (attribute e.body))))
 
   (define (cur-reflect syn)
     (syntax-parse syn

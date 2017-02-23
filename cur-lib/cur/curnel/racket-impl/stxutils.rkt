@@ -4,6 +4,7 @@
   racket/base
   syntax/parse
   racket/syntax)
+ (for-template (only-in racket/base let-values))
  syntax/parse
  racket/syntax
  syntax/parse/experimental/reflect)
@@ -65,6 +66,12 @@
             (format "Can only use ~a in definition context."
                     (syntax->datum #'x))
             this-syntax)))
+
+(define-syntax-class in-let-values #:attributes (body)
+  #:literals (let-values)
+  (pattern (let-values _ e:in-let-values)
+           #:attr body #'e.body)
+  (pattern body:expr))
 
 ;; Try to make readable fresh names.
   (define fresh
