@@ -43,8 +43,8 @@
    #:x (local-expand #'(typed-axiom True : (typed-λ (x : (typed-Type 0)) x)) 'top-level '()) "Expected an axiom telescope"
 
    #:t (cur-elab #'(typed-elim z (typed-λ (y : Nat) Nat) z (typed-λ (n : Nat)
-                                                                            (typed-λ (ih : Nat)
-                                                                                     ih))))
+                                                                    (typed-λ (ih : Nat)
+                                                                             ih))))
    #:x (cur-elab #'(typed-elim (typed-Type 0) (typed-λ (y : Nat) Nat) z (typed-λ (n : Nat)
                                                                           (typed-λ (ih : Nat)
                                                                                    ih))))

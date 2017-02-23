@@ -13,6 +13,7 @@
  make-cur-runtime-lambda*
 ; type-of-constant
  type-of-id
+ identifier-def
  call-with-ctx
  build-dispatch
 
@@ -59,6 +60,11 @@ Utilities for working with cur-runtime-terms
 ; Returns it's type as a cur-runtime-term?
 (define (type-of-id name)
   (identifier-info-type (hash-ref (gamma) (syntax-e name) (lambda () (syntax-local-eval name)))))
+
+(define (identifier-def name)
+  ;; TODO: Catch specific error
+  (with-handlers ([values (lambda (_) #f)])
+    (identifier-info-delta-def (syntax-local-eval name))))
 
 ; Excepts an ordered list of pairs of an identifier and a type, as a cur-runtime-term, and a thunk.
 ; Adds a binding for each identifier to the identifier-info containing the type, within the scope of
@@ -112,7 +118,10 @@ Utilities for working with cur-runtime-terms
 
   (pattern name:id
            ;; TODO: maybe should have a constant-info attr
-           #:when (constant-info? (syntax-local-eval #'name))
+           ;; TODO: catch proper error
+           ;; TODO: Abstract this syntax-local-eval madness
+           #:when (constant-info? (with-handlers ([values (lambda (_) #f)])
+                                    (syntax-local-eval #'name)))
            #:attr reversed-rand-ls '()
            #:attr constructor-index (constant-info-constructor-index (syntax-local-eval #'name))))
 

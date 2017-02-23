@@ -18,10 +18,10 @@
    (local-expand-expr #'(cur-Type '0))
    #:eq cur-α-equal?
    (cur-eval (local-expand-expr #'two))
-   (local-expand-expr #'(s (s (z))))
+   (local-expand-expr #'(cur-apply s (cur-apply s z)))
    #:eq cur-α-equal?
-   (cur-eval (local-expand-expr #'(cur-apply (cur-λ (cur-Type 0) (lambda (x) x)) (z))))
-   #'(#%plain-app z)
+   (cur-eval (local-expand-expr #'(cur-apply (cur-λ (cur-Type 0) (lambda (x) x)) z)))
+   #'z
    #:eq cur-α-equal?
-   (cur-eval (local-expand-expr #'(cur-apply (cur-apply plus (z)) (s (z)))))
-   (local-expand-expr #'(s (z)))))
+   (cur-eval (local-expand-expr #'(cur-apply (cur-apply plus z) (cur-apply s z))))
+   (local-expand-expr #'(cur-apply s z))))

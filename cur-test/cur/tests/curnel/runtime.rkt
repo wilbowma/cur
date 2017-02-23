@@ -64,7 +64,7 @@
    0
    (list) (list) (list #'n) (list #'Nat)
    2 (list #'z #'s)
-   1 (list 1)))
+   1 (list 0)))
 
 (set-box! Nat-dispatch (build-dispatch (list constant:z? constant:s?)))
 
@@ -77,7 +77,7 @@
 (define-for-syntax delta:two #'(#%plain-app cur-apply s (#%plain-app cur-apply s z)))
 (define two (define-from-delta delta:two))
 (define-for-syntax two
-  (identifier-info #`Nat #'delta:two))
+  (identifier-info #`Nat delta:two))
 
 ;; TODO PERF: Could we remove λ procedure indirect for certain defines? The type is given
 ;; separately, so we may not need the annotations we use the λ indirect for.
@@ -107,7 +107,7 @@
    #`(#%plain-app cur-Π Nat (#%plain-lambda (x) (#%plain-app cur-Π Nat
                                                                            (#%plain-lambda (y)
                                                                                            Nat))))
-   #'delta:plus))
+   delta:plus))
 
 ;; TODO PERF: When the constant has no fields, optimize into a singleton structure. this can be
 ;; detected at transformer time using struct-info, by a null field-accessor list

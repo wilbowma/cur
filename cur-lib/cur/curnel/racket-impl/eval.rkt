@@ -17,13 +17,10 @@
       [_:cur-runtime-universe syn]
       #;[e:cur-runtime-constant
        (make-cur-runtime-constant syn #'e.name (map cur-eval (attribute e.rand-ls)))]
+      [e:cur-runtime-identifier
+       #:do [(define maybe-def (identifier-def #'e.name))]
+       (or (and maybe-def (cur-eval maybe-def)) syn)]
       [_:cur-runtime-identifier
-       ;; NB: Does syn has a phase i+1 binding?
-       #:when (identifier-binding syn (add1 (syntax-local-phase-level)))
-       #:do [(define maybe-def (identifier-info-delta-def (syntax-local-eval syn)))]
-       (or (and maybe-def (cur-eval (local-expand-expr maybe-def))) syn)]
-      [_:cur-runtime-identifier
-       #:when (not (identifier-binding syn (add1 (syntax-local-phase-level))))
        syn]
       [e:cur-runtime-pi
        (make-cur-runtime-pi syn (cur-eval #'e.ann) #'e.name (cur-eval #'e.result))]

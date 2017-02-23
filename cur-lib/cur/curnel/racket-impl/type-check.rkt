@@ -83,7 +83,7 @@ However, we don't really want the type system to be extensible since we desire a
   (define cur-elab local-expand-expr)
 
   (require racket/trace)
-  (trace-define (cur-elab/ctx syn ctx)
+  (define (cur-elab/ctx syn ctx)
     (call-with-ctx
      ctx
      (lambda ()
