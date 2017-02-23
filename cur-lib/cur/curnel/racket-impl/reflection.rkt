@@ -84,18 +84,13 @@
 ;; Given an identifiers representing an inductive type, return a sequence of the constructor names
 ;; (as identifiers) for the inductive type.
 (define (cur-constructors-for syn)
-  ;; TODO: Lots of copy paste with these syntax/parses
-  (define/syntax-parse c:cur-expr syn)
-  (define/syntax-parse c^:cur-runtime-constant (attribute c.reified))
-  (constant-info-constructor-ls (syntax-local-eval #'c^.name)))
+  (constant-info-constructor-ls (syntax-local-eval syn)))
 
 ;; Given an identifier representing an inductive type, return the number of parameters in that
 ;; inductive, as a natural starting from the first argument to the inductive type.
 ;; TODO: Does this work on constructors too? If not, it should.
 (define (cur-data-parameters syn)
-  (define/syntax-parse c:cur-expr syn)
-  (define/syntax-parse c^:cur-runtime-constant (cur-eval (attribute c.reified)))
-  (constant-info-param-count (syntax-local-eval #'c^.name)))
+  (constant-info-param-count (syntax-local-eval syn)))
 
 ;; Given an a target (a constructor applied to parameters) and a motive for eliminating
 ;; it, return the type of the method required for this.
@@ -104,9 +99,7 @@
 
 ;; Given a constructor, return the number of arguments it takes.
 (define (cur-constructor-telescope-length syn)
-  (define/syntax-parse c:cur-expr syn)
-  (define/syntax-parse c^:cur-runtime-constant (attribute c.reified))
-  (let ([info (syntax-local-eval #'c^.name)])
+  (let ([info syn])
     ;; TODO PERF: Maybe store this
     (+ (constant-info-param-count info) (length (constant-info-index-name-ls info)))))
 
@@ -115,9 +108,7 @@
 ;; constructor-telescope-length is 1, and it's recursive-index-ls is '(0)
 ;; `cons : (Π (A : (Type 0)) (Π (a : A) (Π (a : (List A)) (List A))))` = '(2)
 (define (cur-constructor-recursive-index-ls syn)
-  (define/syntax-parse c:cur-expr syn)
-  (define/syntax-parse c^:cur-runtime-constant (attribute c.reified))
-  (constant-info-recursive-index-ls (syntax-local-eval #'c^.name)))
+  (constant-info-recursive-index-ls (syntax-local-eval syn)))
 
 ;; Takes a Cur term syn and an arbitrary number of identifiers ls. The cur term is
 ;; expanded until expansion reaches a Curnel form, or one of the
@@ -126,7 +117,7 @@
   (local-expand
    syn
    'expression
-   (append (syntax-e #'(typed-type typed-λ typed-app typed-Π typed-data depricated-typed-elim))
+   (append (syntax-e #'(typed-Type typed-λ typed-app typed-Π typed-data depricated-typed-elim typed-elim))
            ls)))
 
 (define (cur->datum syn)
