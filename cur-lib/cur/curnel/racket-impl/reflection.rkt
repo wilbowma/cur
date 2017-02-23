@@ -15,6 +15,7 @@
  with-env
  call-with-env
  cur->datum
+ depricated-cur-expand
  cur-expand
  cur-type-infer
  cur-type-check?
@@ -113,6 +114,10 @@
 ;; Takes a Cur term syn and an arbitrary number of identifiers ls. The cur term is
 ;; expanded until expansion reaches a Curnel form, or one of the
 ;; identifiers in ls.
+(define (depricated-cur-expand syn #:local-env [env '()] . ls)
+  (local-expand syn 'expression (append (syntax-e #'(typed-Type typed-λ typed-app typed-Π typed-data depricated-typed-elim typed-elim))
+           ls)))
+
 (define (cur-expand syn #:local-env [env '()] . ls)
   (with-env env
     (apply cur-reify/env syn (append (syntax-e #'(typed-Type typed-λ typed-app typed-Π typed-data depricated-typed-elim typed-elim))
