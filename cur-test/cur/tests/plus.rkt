@@ -4,21 +4,21 @@
  cur/stdlib/sugar
  rackunit)
 
-(new-data (Nat) : 0 Type
-  ((z) : (Nat))
-  ((s (x : (Nat))) : (Nat)))
+(data Nat : 0 Type
+  (z : Nat)
+  (s : (Π (x : Nat) Nat)))
 
-(plus . : . (-> (Nat) (Nat) (Nat)))
+(plus . : . (-> Nat Nat Nat))
 (define (plus n m)
   (match n
     [z m]
-    [(s (x : (Nat)))
+    [(s (x : Nat))
      (s (recur x))]))
 
 (check-equal?
- (plus (z) (z))
- (z))
+ (plus z z)
+ z)
 
 (check-equal?
- (plus (s (z)) (z))
- (s (z)))
+ (plus (s z) z)
+ (s z))

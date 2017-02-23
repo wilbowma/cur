@@ -16,10 +16,10 @@
    ; cur-elab tests
    #:eq equal-syn? (cur-elab #'(cur-Type 0)) #'(#%plain-app cur-Type '0)
    #:eq equal-syn? (cur-elab #'(cur-λ (cur-Type 0) (lambda (x) x))) #'(#%plain-app cur-λ (#%plain-app cur-Type '0) (#%plain-lambda (x) x))
-   #:eq equal-syn? (cur-elab #'(Nat)) #'(#%plain-app Nat)
-   #:eq equal-syn? (cur-elab #'(cur-apply (cur-λ (cur-Type 0) (lambda (x) x)) (z)))
+   #:eq equal-syn? (cur-elab #'Nat) #'Nat
+   #:eq equal-syn? (cur-elab #'(cur-apply (cur-λ (cur-Type 0) (lambda (x) x)) z))
    #'(#%plain-app cur-apply (#%plain-app cur-λ (#%plain-app cur-Type '0) (#%plain-lambda (x) x))
-                  (#%plain-app z))
+                  z)
    ;; TODO syntax class tests
 
    ;; typed macros
@@ -42,25 +42,25 @@
    #:t (local-expand #'(typed-axiom True : (typed-Type 0)) 'top-level '())
    #:x (local-expand #'(typed-axiom True : (typed-λ (x : (typed-Type 0)) x)) 'top-level '()) "Expected an axiom telescope"
 
-   #:t (cur-elab #'(typed-elim (z) (typed-λ (y : (Nat)) (Nat)) (z) (typed-λ (n : (Nat))
-                                                                            (typed-λ (ih : (Nat))
+   #:t (cur-elab #'(typed-elim z (typed-λ (y : Nat) Nat) z (typed-λ (n : Nat)
+                                                                            (typed-λ (ih : Nat)
                                                                                      ih))))
-   #:x (cur-elab #'(typed-elim (typed-Type 0) (typed-λ (y : (Nat)) (Nat)) (z) (typed-λ (n : (Nat))
-                                                                          (typed-λ (ih : (Nat))
+   #:x (cur-elab #'(typed-elim (typed-Type 0) (typed-λ (y : Nat) Nat) z (typed-λ (n : Nat)
+                                                                          (typed-λ (ih : Nat)
                                                                                    ih))))
    "Expected target to be a constant"
-   #:x (cur-elab #'(typed-elim (z) (cur-Type 0) (z) (typed-λ (n : (Nat))
-                                                             (typed-λ (ih : (Nat))
+   #:x (cur-elab #'(typed-elim z (cur-Type 0) z (typed-λ (n : Nat)
+                                                             (typed-λ (ih : Nat)
                                                                       ih))))
    #rx"Expected type .* while checking motive"
-   #:x (cur-elab #'(typed-elim (z) (typed-λ (x : (cur-Type 0)) x)
-                               (z) (typed-λ (n : (Nat))
-                                            (typed-λ (ih : (Nat))
+   #:x (cur-elab #'(typed-elim z (typed-λ (x : (cur-Type 0)) x)
+                               z (typed-λ (n : Nat)
+                                            (typed-λ (ih : Nat)
                                                      ih))))
    #rx"Expected type .* while checking motive"
-   #:x (cur-elab #'(typed-elim (z) (typed-λ (x : (cur-Type 0)) x) (z)))
+   #:x (cur-elab #'(typed-elim z (typed-λ (x : (cur-Type 0)) x) z))
    "Expected one method for each constructor, but found 2 constructors and 1 branch"
-   #:t (local-expand #'(typed-data (True) : 0 (typed-Type 0)
-                                   ((I) : (True)))
+   #:t (local-expand #'(typed-data True : 0 (typed-Type 0)
+                                   (I : True))
                      'top-level
                      '())))

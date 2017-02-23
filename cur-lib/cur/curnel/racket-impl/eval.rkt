@@ -15,7 +15,7 @@
   (let cur-eval ([syn syn])
     (syntax-parse syn
       [_:cur-runtime-universe syn]
-      [e:cur-runtime-constant
+      #;[e:cur-runtime-constant
        (make-cur-runtime-constant syn #'e.name (map cur-eval (attribute e.rand-ls)))]
       [_:cur-runtime-identifier
        ;; NB: Does syn has a phase i+1 binding?

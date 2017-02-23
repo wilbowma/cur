@@ -22,7 +22,7 @@
   (syntax-parse syn
     [e:cur-runtime-identifier
      (type-of-id #'e.name)]
-    [e:cur-runtime-constant
+    #;[e:cur-runtime-constant
      (type-of-constant #'e.name (attribute e.rand-ls))]
     [e:cur-runtime-universe
      (make-cur-runtime-universe syn (add1 (attribute e.level)))]
@@ -36,8 +36,7 @@
      (subst #'e.rand #'t1.name #'t1.result)]
     [e:cur-runtime-elim
      #:with D:cur-runtime-constant (get-type #'e.target)
-     ;; TODO: Need to drop parameters from rand-ls
-     (cur-apply* syn #'e.motive (append (attribute D.rand-ls) (list #'e.target)))]))
+     (cur-apply* syn #'e.motive (append (attribute D.index-rand-ls) (list #'e.target)))]))
 
 (define (get-type/ctx syn ctx)
   (call-with-ctx ctx (lambda () (get-type syn))))

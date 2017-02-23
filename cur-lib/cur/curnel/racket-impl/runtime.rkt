@@ -90,13 +90,13 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
    (struct-out constant-info)
    (struct-out identifier-info))
 
+  (struct identifier-info (type delta-def))
   ;; TODO PERF: Could use vectors instead of lists; since we store the count anyway... or maybe we won't
   ;; need to by storing param and index decls separately.
-  (struct constant-info (type-constr param-count param-name-ls param-ann-ls index-name-ls index-ann-ls
-                                     constructor-count constructor-ls constructor-index
-                                     recursive-index-ls))
-
-  (struct identifier-info (type delta-def)))
+  (struct constant-info identifier-info
+    (param-count param-name-ls param-ann-ls index-name-ls index-ann-ls
+                 constructor-count constructor-ls constructor-index
+                 recursive-index-ls)))
 
 ; A Cur identifier is any identifier that is bound at phase j to a runtime term and bound at phase j+1
 ; to an identifier-info.
@@ -105,18 +105,22 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
 ; prop:parameter-count.
 ; The sturct should have a constructor D that is not bound in the transformer environment, but is bound
 ; as a constructor at phase j and is bound to a constant-info as phase j+1.
-; The constant-info-type-constr must be a procedure that takes one argument for every argument to the
-; inductive type, and produces a runtime term as a syntax object representing the type of the
-; inductive type.
-
+;
 ; A constructor is a transparent struct that inherits constant, and has
 ; prop:parameter-count, prop:dispatch, and prop:recursive-index-ls.
 ; The struct should have a constructor c that is not bound in the transformer environment, but is bound
 ; as a constructor at phase j and is bound to a constant-info as phase j+1.
-; The constant-info-type-constr must be a procedure that takes one argument for every argument to the
-; constant, and produces a runtime term as a syntax object representing the type of the
-; constant.
 ; The type of the constant must be an inductive type, possibly applied to dependent indices.
+
+; TODO:
+; Currently, inductive types and constants are treated as uninterpreted functions. Eventually, I'd
+; like to make them more like records and give the functional nature as a macro. This is backwards
+; incompatible and requires care.
+; The constant-info-type-constr would be a procedure that takes one argument for every argument to the
+; inductive type, and produces a runtime term as a syntax object representing the type of the
+; inductive type.
+; This requires some alternative type for constant identifier, used when e.g. typing a data declaration
+; and adding the identifier to a context. This would be similar to the Πᵤ type I've used in my other work.
 (struct constant () #:transparent)
 
 ;; Target must a constructor, and method-ls must be a list of methods of length equal to the number of
@@ -148,7 +152,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
   (require "stxutils.rkt")
   (provide
    cur-runtime-identifier
-   cur-runtime-constant
+;   cur-runtime-constant
    cur-runtime-universe
    cur-runtime-pi
    cur-runtime-lambda
@@ -156,7 +160,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
    cur-runtime-elim
    cur-runtime-term
 
-   make-cur-runtime-constant
+;   make-cur-runtime-constant
    make-cur-runtime-universe
    make-cur-runtime-pi
    make-cur-runtime-lambda
@@ -164,7 +168,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
    make-cur-runtime-elim
 
    cur-runtime-identifier?
-   cur-runtime-constant?
+;   cur-runtime-constant?
    cur-runtime-universe?
    cur-runtime-pi?
    cur-runtime-lambda?
@@ -180,7 +184,8 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
   (define-literal-set cur-runtime-literals (cur-Type cur-Π cur-λ cur-apply cur-elim))
   (define cur-runtime-literal? (literal-set->predicate cur-runtime-literals))
 
-  (define-syntax-class/pred cur-runtime-constant #:attributes (name (rand-ls 1))
+  ;; For future
+  #;(define-syntax-class/pred cur-runtime-constant #:attributes (name (rand-ls 1))
     #:literals (#%plain-app)
     (pattern (#%plain-app name:id rand-ls ...)
              #:when (not (cur-runtime-literal? #'name))
@@ -189,7 +194,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
              #;(let ([v (syntax-local-value (format-id #'name "constant:~a" #'name) (lambda () #f))])
                  (and v (free-identifier=? #'constant (sixth (extract-struct-info v)))))))
 
-  (define (make-cur-runtime-constant syn name rand-ls)
+  #;(define (make-cur-runtime-constant syn name rand-ls)
     (quasisyntax/loc syn
       (#%plain-app #,name #,@rand-ls)))
 
@@ -236,7 +241,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
 
   (define-syntax-class/pred cur-runtime-term
     (pattern e:cur-runtime-identifier)
-    (pattern e:cur-runtime-constant)
+    ;(pattern e:cur-runtime-constant)
     (pattern e:cur-runtime-universe)
     (pattern e:cur-runtime-pi)
     (pattern e:cur-runtime-lambda)

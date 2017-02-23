@@ -5,20 +5,24 @@
  syntax/parse
  cur/curnel/racket-impl/runtime
  cur/curnel/racket-impl/runtime-utils
+ racket/function
  (for-syntax
   cur/curnel/racket-impl/stxutils
   racket/base))
 (provide (all-defined-out) (for-syntax (all-defined-out)))
 
 (struct constant:Nat constant () #:transparent
-  #:extra-constructor-name Nat
+;  #:extra-constructor-name Nat
   #:reflection-name 'Nat
   #:property prop:parameter-count 0)
+
+(define Nat ((curry constant:Nat)))
 
 (define-for-syntax Nat
   (constant-info
    ;; TODO PERF: When not a dependent type, can we avoid making it a function?
-   (lambda () #`(#%plain-app cur-Type '0))
+   #`(#%plain-app cur-Type '0)
+   #f
    0
    (list) (list) (list) (list)
    2
@@ -29,32 +33,36 @@
 (define Nat-dispatch (box #f))
 
 (struct constant:z constant () #:transparent
-  #:extra-constructor-name z
+;  #:extra-constructor-name z
   #:reflection-name 'z
   #:property prop:parameter-count 0
   #:property prop:dispatch Nat-dispatch
   #:property prop:recursive-index-ls null)
 
+(define z ((curry constant:z)))
 (define-for-syntax z
   (constant-info
-   (lambda () #`(#%plain-app Nat))
+   #`Nat
+   #f
    0 (list) (list) (list) (list)
    2 (list #'z #'s)
    0
    (list)))
 
 (struct constant:s constant (pred) #:transparent
-  #:extra-constructor-name s
+;  #:extra-constructor-name s
   #:reflection-name 's
   #:property prop:parameter-count 0
   #:property prop:dispatch Nat-dispatch
   #:property prop:recursive-index-ls (list 0))
 
+(define s ((curry constant:s)))
 (define-for-syntax s
   (constant-info
-   (lambda (x) #`(#%plain-app Nat))
+   #`(#%plain-app cur-Π Nat (#%plain-lambda (x) Nat))
+   #f
    0
-   (list) (list) (list #'n) (list #'(#%plain-app Nat))
+   (list) (list) (list #'n) (list #'Nat)
    2 (list #'z #'s)
    1 (list 1)))
 
@@ -66,37 +74,39 @@
     [(_ arg)
      (syntax-local-eval #'arg)]))
 
-(define-for-syntax delta:two #'(#%plain-app s (#%plain-app s (#%plain-app z))))
+(define-for-syntax delta:two #'(#%plain-app cur-apply s (#%plain-app cur-apply s z)))
 (define two (define-from-delta delta:two))
 (define-for-syntax two
-  (identifier-info #`(#%plain-app Nat) #'delta:two))
+  (identifier-info #`Nat #'delta:two))
 
 ;; TODO PERF: Could we remove λ procedure indirect for certain defines? The type is given
 ;; separately, so we may not need the annotations we use the λ indirect for.
 ;; However, the delta: definition has to remain, so it would only be the run-time definition that is
 ;; optimized, resulting in code duplication. Perhaps should be opt-in
 (define-for-syntax delta:plus
-  #`(#%plain-app cur-λ (#%plain-app Nat)
+  #`(#%plain-app cur-λ Nat
                  (#%plain-lambda (n1)
-                                 (#%plain-app cur-λ (#%plain-app Nat)
+                                 (#%plain-app cur-λ Nat
                                               (#%plain-lambda (n2)
-                                                              (#%plain-app cur-elim n1 (#%plain-app cur-λ (#%plain-app Nat)
-                                                                                                    (#%plain-lambda (n) (#%plain-app Nat)))
+                                                              (#%plain-app cur-elim n1 (#%plain-app cur-λ Nat
+                                                                                                    (#%plain-lambda (n) Nat))
                                                                            n2
-                                                                           (#%plain-app cur-λ (#%plain-app Nat) (#%plain-lambda (n1-1)
-                                                                                                                                (#%plain-app cur-λ (#%plain-app Nat)
+                                                                           (#%plain-app cur-λ Nat (#%plain-lambda (n1-1)
+                                                                                                                                (#%plain-app cur-λ Nat
                                                                                                                                              (#%plain-lambda
                                                                                                                                               (ih)
-                                                                                                                                              (#%plain-app s ih)))))))))))
+                                                                                                                                              (#%plain-app
+                                                                                                                                               cur-apply
+                                                                                                                                               s
+                                                                                                                                               ih)))))))))))
 
 
 (define plus (define-from-delta delta:plus))
 (define-for-syntax plus
   (identifier-info
-   #`(#%plain-app cur-Π (#%plain-app Nat) (#%plain-lambda (x) (#%plain-app cur-Π (#%plain-app Nat)
+   #`(#%plain-app cur-Π Nat (#%plain-lambda (x) (#%plain-app cur-Π Nat
                                                                            (#%plain-lambda (y)
-                                                                                           (#%plain-app
-                                                                                            Nat)))))
+                                                                                           Nat))))
    #'delta:plus))
 
 ;; TODO PERF: When the constant has no fields, optimize into a singleton structure. this can be
@@ -111,12 +121,12 @@
  #:t (cur-λ (Type 1) (#%plain-lambda (x) x))
  #:t (cur-Π (Type 1) (#%plain-lambda (x) (cur-Type 1)))
  #:= (#%plain-app (cur-λ (cur-Type 1) (#%plain-lambda (x) x)) (cur-Type 0)) (cur-Type 0)
- #:? constant:z? (z)
- #:? constant:s? (s (z))
- #:= (cur-elim (z) void (z) (lambda (p) (lambda (ih) p))) (z)
- #:! #:= (cur-elim (s (s (z))) void (z) (lambda (p) (lambda (ih) p))) (z)
- #:= (cur-elim (s (s (z))) void (z) (lambda (p) (lambda (ih) p))) (s (z))
- #:= ((plus (s (s (z)))) (s (s (z)))) (s (s (s (s (z))))))
+ #:? constant:z? z
+ #:? constant:s? (s z)
+ #:= (cur-elim z void z (lambda (p) (lambda (ih) p))) z
+ #:! #:= (cur-elim (cur-apply s (cur-apply s z)) void z (lambda (p) (lambda (ih) p))) z
+ #:= (cur-elim (cur-apply s (cur-apply s z)) void z (lambda (p) (lambda (ih) p))) (cur-apply s z)
+ #:= ((plus (s (s z))) (s (s z))) (s (s (s (s z)))))
 
 (begin-for-syntax
   (require
@@ -124,11 +134,11 @@
    ; NB: For testing renaming
    (for-template (rename-in cur/curnel/racket-impl/runtime [cur-Type meow] [cur-Type Type])))
 
-  (define-values (universe? id? lambda? pi? constant? app? elim? term?)
+  (define-values (universe? id? lambda? pi? app? elim? term?)
     (apply
      values
      (for/list ([f (list cur-runtime-universe? cur-runtime-identifier? cur-runtime-lambda?
-                         cur-runtime-pi? cur-runtime-constant? cur-runtime-app? cur-runtime-elim?
+                         cur-runtime-pi? cur-runtime-app? cur-runtime-elim?
                          cur-runtime-term?)])
        (compose f local-expand-expr))))
 
@@ -138,14 +148,14 @@
    #:? universe? #'(Type 0)
    #:? term? #'(cur-Type 0)
    #:! #:? identifier? #'(cur-Type 0)
-   #:! #:? constant? #'(cur-Type 0)
+;   #:! #:? constant? #'(cur-Type 0)
    #:! #:? lambda? #'(cur-Type 0)
    #:! #:? pi? #'(cur-Type 0)
    #:! #:? app? #'(cur-Type 0)
    #:! #:? elim? #'(cur-Type 0)
    #:? identifier? #'two
    #:? term? #'two
-   #:! #:? constant? #'two
+;   #:! #:? constant? #'two
    #:! #:? universe? #'two
    #:! #:? pi? #'two
    #:! #:? lambda? #'two
@@ -158,29 +168,30 @@
    #:! #:? elim? #'(cur-Π (cur-Type 0) (lambda (x) x))
    #:! #:? universe? #'(cur-Π (cur-Type 0) (lambda (x) x))
    #:! #:? identifier? #'(cur-Π (cur-Type 0) (lambda (x) x))
-   #:! #:? constant? #'(cur-Π (cur-Type 0) (lambda (x) x))
-   #:? constant? #'(z)
-   #:! #:? identifier? #'(z)
-   #:! #:? app? #'(z)
-   #:! #:? universe? #'(z)
-   #:? constant? #'(s (z))
-   #:! #:? app? #'(s (z))
+;   #:! #:? constant? #'(cur-Π (cur-Type 0) (lambda (x) x))
+;   #:? constant? #'(z)
+;   #:! #:? identifier? #'(z)
+;   #:! #:? app? #'(z)
+;   #:! #:? universe? #'(z)
+;   #:? constant? #'(s (z))
+;   #:! #:? app? #'(s (z))
+   #:? app? #'(cur-apply s z)
    #:? lambda? #'(cur-λ (Type 0) (lambda (x) x))
    #:! #:? pi? #'(cur-λ (Type 0) (lambda (x) x))
    #:! #:? app? #'(cur-λ (Type 0) (lambda (x) x))
-   #:? app? #'(cur-apply plus (z))
-   #:? term? #'(cur-apply plus (z))
-   #:! #:? constant? #'(cur-apply plus (z))
-   #:! #:? elim? #'(cur-apply plus (z))
-   #:! #:? identifier? #'(cur-apply plus (z))
-   #:! #:? universe? #'(cur-apply plus (z))
-   #:! #:? lambda? #'(cur-apply plus (z))
-   #:! #:? pi? #'(cur-apply plus (z))
-   #:? app? #'(cur-apply (cur-apply plus (z)) (z))
-   #:? term? #'(cur-apply (cur-apply plus (z)) (z))
-   #:? elim? #'(cur-elim (z) void (z) (s (z)))
-   #:? term? #'(cur-elim (z) void (z) (s (z)))
-   #:! #:? app? #'(cur-elim (z) void (z) (s (z)))
-   #:! #:? constant? #'(cur-elim (z) void (z) (s (z)))
-   #:! #:? lambda? #'(cur-elim (z) void (z) (s (z)))
-   #:! #:? pi? #'(cur-elim (z) void (z) (s (z)))))
+   #:? app? #'(cur-apply plus z)
+   #:? term? #'(cur-apply plus z)
+;   #:! #:? constant? #'(cur-apply plus (z))
+   #:! #:? elim? #'(cur-apply plus z)
+   #:! #:? identifier? #'(cur-apply plus z)
+   #:! #:? universe? #'(cur-apply plus z)
+   #:! #:? lambda? #'(cur-apply plus z)
+   #:! #:? pi? #'(cur-apply plus z)
+   #:? app? #'(cur-apply (cur-apply plus z) z)
+   #:? term? #'(cur-apply (cur-apply plus z) z)
+   #:? elim? #'(cur-elim z void z (s z))
+   #:? term? #'(cur-elim z void z (s z))
+   #:! #:? app? #'(cur-elim z void z (s z))
+;   #:! #:? constant? #'(cur-elim (z) void (z) (s (z)))
+   #:! #:? lambda? #'(cur-elim z void z (s z))
+   #:! #:? pi? #'(cur-elim z void z (s z))))

@@ -2,15 +2,31 @@
 
 (require
  racket/syntax
+ syntax/parse
+ racket/list
+ "stxutils.rkt"
  (for-template
   "runtime.rkt"))
 
 (provide
  cur-apply*
- type-of-constant
+ make-cur-runtime-lambda*
+; type-of-constant
  type-of-id
  call-with-ctx
- build-dispatch)
+ build-dispatch
+
+ cur-runtime-constant
+ make-cur-runtime-constant
+ cur-runtime-telescope
+ cur-runtime-axiom-telescope
+ cur-runtime-inductive-telescope
+ cur-runtime-constructor-telescope
+
+ cur-runtime-constant?
+ cur-runtime-axiom-telescope?
+
+ )
 
 #|
 Utilities for working with cur-runtime-terms
@@ -23,9 +39,18 @@ Utilities for working with cur-runtime-terms
       rator
       (cur-apply* syn (make-cur-runtime-app syn rator (car rands)) (cdr rands))))
 
+(define (make-cur-runtime-lambda* syn name-ls ann-ls body)
+  (for/fold ([result body])
+            ;; TODO PERF: By using vectors, could efficiently iterate in reverse. That applies to other
+            ;; uses of -ls
+            ([name (reverse name-ls)]
+             [ann (reverse ann-ls)])
+    (make-cur-runtime-lambda syn ann name result)))
+
+;; TODO: For future use
 ; Expects an identifier defined as a Cur constant, and it's argument as cur-runtime-term?s
 ; Returns it's type as a cur-runtime-term?
-(define (type-of-constant name args)
+#;(define (type-of-constant name args)
   ; NB: eval is evil, but this is the least bad way I can figured out to store types.
   (apply (constant-info-type-constr (syntax-local-eval name)) args))
 
@@ -64,3 +89,82 @@ Utilities for working with cur-runtime-terms
           (k l))
         ;; NB: This error should be impossible when used with well-typed code.
         (error 'build-dispatch "Something very very bad has happened.")))))
+
+;;; Composite runtime forms
+
+;; Constants are nested applications with a constructor or inductive type in head position:
+;; refieid-constant ::= Θ[c]
+;; Θ ::= hole (Θ e)
+
+;; NB: Used to prevent append in a loop
+(define-syntax-class _runtime-constant #:attributes (name reversed-rand-ls constructor-index)
+  (pattern app:cur-runtime-app
+           #:with e:_runtime-constant #'app.rator
+           #:attr reversed-rand-ls (cons #'app.rand (attribute e.reversed-rand-ls))
+           #:attr name #'e.name
+           #:attr constructor-index (attribute e.constructor-index))
+
+  (pattern name:id
+           ;; TODO: maybe should have a constant-info attr
+           #:when (constant-info? (syntax-local-eval #'name))
+           #:attr reversed-rand-ls '()
+           #:attr constructor-index (constant-info-constructor-index (syntax-local-eval #'name))))
+
+(define-syntax-class/pred cur-runtime-constant #:attributes (name rand-ls constructor-index index-rand-ls)
+  (pattern e:_runtime-constant
+           #:attr name #'e.name
+           #:attr rand-ls (reverse (attribute e.reversed-rand-ls))
+           #:attr index-rand-ls (drop (attribute rand-ls) (constant-info-param-count (syntax-local-eval #'name)))
+           #:attr constructor-index (attribute e.constructor-index)))
+
+(define make-cur-runtime-constant cur-apply*)
+
+;; Telescopes are nested Π types.
+(define-syntax-class cur-runtime-telescope #:attributes (length name-ls ann-ls result)
+  (pattern e:cur-runtime-pi
+           #:with tmp:cur-runtime-telescope #'e.result
+           #:attr result #'tmp.result
+           #:attr length (add1 (attribute tmp.length))
+           #:attr name-ls (cons #'e.name (attribute tmp.ann-ls))
+           #:attr ann-ls (cons #'e.ann (attribute tmp.ann-ls)))
+
+  (pattern (~and result (~not _:cur-runtime-pi))
+           #:attr length 0
+           #:attr name-ls '()
+           #:attr ann-ls '()))
+
+;; Axiom telescopes are nested Π types with a universe or constant as the final result
+(define-syntax-class/pred cur-runtime-axiom-telescope #:attributes (length name-ls ann-ls result)
+  (pattern e:cur-runtime-telescope
+           #:with (~and result (~or _:cur-runtime-universe _:cur-runtime-constant)) #'e.result
+           #:attr length (attribute e.length)
+           #:attr name-ls (attribute e.name-ls)
+           #:attr ann-ls (attribute e.ann-ls)))
+
+;; Inductive telescopes are nested Π types with a universe as the final result.
+(define-syntax-class cur-runtime-inductive-telescope #:attributes (length name-ls ann-ls result)
+  (pattern e:cur-runtime-telescope
+           #:with result:cur-runtime-universe #'e.result
+           #:attr length (attribute e.length)
+           #:attr name-ls (attribute e.name-ls)
+           #:attr ann-ls (attribute e.ann-ls)))
+
+;; Constructor telescopes are nested Π types that return a constant with the inductive type type in
+;; head position.
+(define-syntax-class (cur-runtime-constructor-telescope inductive)
+  #:attributes (length name-ls ann-ls recursive-index-ls result)
+  (pattern e:cur-runtime-telescope
+           #:with result:cur-runtime-constant #'e.result
+           #:when (free-identifier=? #'result.name inductive)
+           #:attr length (attribute e.length)
+           #:attr name-ls (attribute e.name-ls)
+           #:attr ann-ls (attribute e.ann-ls)
+           #:attr recursive-index-ls
+           (for/list ([t (attribute ann-ls)]
+                      [i (attribute length)]
+                      #:when (syntax-parse t
+                               [e:cur-runtime-constant
+                                (free-identifier=? #'e.name inductive)]
+                               [_ #f]))
+             ;; NB: Would like to return x, but can't rely on names due to alpha-conversion
+             i)))

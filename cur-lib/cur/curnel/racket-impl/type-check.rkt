@@ -11,7 +11,9 @@
   racket/list
   racket/function
   syntax/parse)
- "runtime.rkt")
+ "runtime.rkt"
+ (only-in "runtime-utils.rkt" build-dispatch)
+ (only-in racket/function curry))
 
 (provide
  (for-syntax
@@ -28,6 +30,8 @@
  typed-data
  typed-axiom
  typed-define
+ depricated-typed-elim
+ cur-void
 
  (for-syntax
   make-cur-runtime-pi*
@@ -37,14 +41,26 @@
   cur-expr-of-type
   cur-kind
   cur-procedure
-  cur-axiom-telescope
 
   branch-type
   motive-type
   check-motive
   check-method)
  )
-
+(require racket/trace (for-syntax racket/trace))
+(begin-for-syntax
+  (define (maybe-syntax->datum syn)
+    (if (syntax? syn)
+        (syntax->datum syn)
+        syn))
+  (current-trace-print-args
+   (let ([ctpa (current-trace-print-args)])
+     (lambda (s l kw l2 n)
+       (ctpa s (map maybe-syntax->datum l) kw l2 n))))
+  (current-trace-print-results
+   (let ([ctpr (current-trace-print-results)])
+     (lambda (s l n)
+       (ctpr s (map maybe-syntax->datum l) n)))))
 #|
 The Cur elaborator is also the type-checker, because Type Systems are Macros.
 
@@ -191,29 +207,7 @@ However, we don't really want the type system to be extensible since we desire a
              #:attr result #'type.result
              #:attr reified #'e.reified))
 
-  ;; Telescopes are nested Π types.
-  (define-syntax-class cur-runtime-telescope #:attributes (length ann-ls result name-ls)
-    (pattern e:cur-runtime-pi
-             #:with tmp:cur-runtime-telescope #'e.result
-             #:attr result #'tmp.result
-             #:attr length (add1 (attribute tmp.length))
-             #:attr ann-ls (cons #'e.ann (attribute tmp.ann-ls))
-             #:attr name-ls (cons #'e.name (attribute tmp.name-ls)))
-
-    (pattern (~and result (~not _:cur-runtime-pi))
-             #:attr length 0
-             #:attr ann-ls '()
-             #:attr name-ls '()))
-
-  ;; Axiom telescopes are nested Π types with a universe or constant as the final result
-  (define-syntax-class/pred cur-runtime-axiom-telescope #:attributes (length ann-ls result name-ls)
-    (pattern e:cur-runtime-telescope
-             #:with (~and result (~or _:cur-runtime-universe _:cur-runtime-constant)) #'e.result
-             #:attr length (attribute e.length)
-             #:attr ann-ls (attribute e.ann-ls)
-             #:attr name-ls (attribute e.name-ls)))
-
-  (define-syntax-class cur-axiom-telescope #:attributes (reified length ann-ls name-ls)
+  (define-syntax-class cur-axiom-telescope #:attributes (reified type name-ls ann-ls result)
     (pattern e:cur-expr
              #:fail-unless (cur-runtime-axiom-telescope? #'e.reified)
              (cur-type-error
@@ -222,9 +216,26 @@ However, we don't really want the type system to be extensible since we desire a
               (syntax->datum #'e)
               (syntax->datum (cur-reflect #'e.type)))
              #:with reified:cur-runtime-axiom-telescope #'e.reified
-             #:attr length (attribute reified.length)
+             #:attr type #'e.type
+             #:attr name-ls (attribute reified.name-ls)
              #:attr ann-ls (attribute reified.ann-ls)
-             #:attr name-ls (attribute reified.name-ls))))
+             #:attr result #'reified.result))
+
+  (define-syntax-class cur-inductive-telescope #:attributes (reified length name-ls ann-ls result)
+    (pattern e:cur-expr
+             #:with (~or reified:cur-runtime-inductive-telescope) #'e.reified
+             #:fail-unless (attribute reified)
+             (cur-type-error
+              #'e
+              "an inductive telescope (a nested Π type whose final result is a universe)"
+              (syntax->datum #'e)
+              (syntax->datum (cur-reflect #'e.type)))
+             #:attr name-ls (attribute reified.name-ls)
+             #:attr result (attribute reified.result)
+             #:attr length (attribute reified.length)
+             #:attr ann-ls (attribute reified.ann-ls)))
+
+  )
 
 (define-syntax (typed-Type syn)
   (syntax-parse syn
@@ -253,28 +264,29 @@ However, we don't really want the type system to be extensible since we desire a
   (syntax-parse syn
     #:datum-literals (:)
     [(_:top-level-id name:id body:cur-expr)
-     #:with delta (format-id #'name "delta:~a" #'name)
+     #:with delta (format-id #'name "delta:~a" #'name #:source #'name)
+     ;; TODO: Can we avoid duplicating the syntax of the body?
      #`(begin
-         (define-syntax delta (make-variable-like-transformer body.reified))
-         (define name delta)
+         (define-for-syntax delta #'body.reified)
+         (define name body.reified)
          (define-for-syntax name (identifier-info #'body.type #'delta)))]))
 
 (define-syntax (typed-axiom syn)
   (syntax-parse syn
     #:datum-literals (:)
     [(_:definition-id name:id : type:cur-axiom-telescope)
-     #:with c (format-id #'name "constant:~a" #'name)
+     #:with c (format-id this-syntax "constant:~a" #'name #:source #'name)
      #`(begin
          (struct c constant (#,@(attribute type.name-ls)) #:transparent
-           #:extra-constructor-name name
+;           #:extra-constructor-name name1
            #:reflection-name 'name)
+         (define name ((curry c)))
          (define-for-syntax name
-           (constant-info (lambda (#,@(attribute type.name-ls)) #'type.reified #f #f #f #f #f #f #f #f
-                                  #f))))]))
+           (constant-info #'type.reified #f #f #f #f #f #f #f #f #f)))]))
 
 ;; Inductive types
 
-;; New syntax:
+;; TODO: Eventually,New syntax:
 ;; (data (Nat) : 0 (Type 0)
 ;;   ((z) : (Nat))
 ;;   ((s (x : (Nat))) : (Nat)))
@@ -286,6 +298,7 @@ However, we don't really want the type system to be extensible since we desire a
 ;; TODO PERF: It might be good to expose two different kinds of data/elim forms, and let users (macros)
 ;; decide which to generate.
 
+;; TODO: For future
 ;; NB: Alternative to this method of checking constants: constant could be checked only when used. A
 ;; constant can only be used:
 ;; 1. as an annotation
@@ -335,8 +348,9 @@ However, we don't really want the type system to be extensible since we desire a
 (trace-define-syntax (typed-data syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_:definition-id (name:id (i:id : itype:cur-expr) ...) : p:nat type:cur-kind
-                     ((c-name:id (a:id : (~var atype (cur-expr/ctx (list (cons #'name #'type.reified)))))
+    [(_:definition-id name:id : p:nat type:cur-inductive-telescope
+                      (c-name:id : _c-type)
+                     #;((c-name:id (a:id : (~var atype (cur-expr/ctx (list (cons #'name #'type.reified)))))
                                  ...)
                       :
                       ((~and cD (~fail #:unless (free-identifier=? #'cD #'name)
@@ -346,19 +360,62 @@ However, we don't really want the type system to be extensible since we desire a
                                                #'cD)))
                        (~var r (cur-expr/ctx (list (map cons (attribute a) (attribute atype.reified))))) ...))
                      ...)
+;     #:with ((~var c-type (cur-runtime-constructor-telescope #'name)) ...) #'(_c-type ...)
      #:with runtime-name (fresh #'name)
      #:with (runtime-c-name ...) (map fresh (attribute c-name))
      ;; TODO: Abstract and pull all this out for separate testing.
-     #:do [(define constructor-count (length (attribute c-name)))
-           (define param-count (syntax->datum #'p))
+     #:do [(define param-count (syntax->datum #'p))
+           (define constructor-count (length (attribute c-name)))
            (define-values (d-param-name-ls d-index-name-ls)
-             (split-at (attribute i) param-count))
+             (split-at (attribute type.name-ls) param-count))
            (define-values (d-param-ann-ls d-index-ann-ls)
-             (split-at (attribute itype) param-count))
+             (split-at (attribute type.ann-ls) param-count))]
+     #:with dispatch (format-id this-syntax "~a-dispatch" #'name #:source #'name)
+     #:with structD (format-id #'name "constant:~a" #'name #:source #'name)
+     #:with d-param-name-ls #`(list #,@d-param-name-ls)
+     #:with d-param-ann-ls #`(list #,@d-param-ann-ls)
+     #:with d-index-name-ls #`(list #,@d-index-name-ls)
+     #:with d-index-ann-ls #`(list #,@d-index-ann-ls)
+     #`(begin
+         (define dispatch (box #f))
+         (struct structD constant (#,@(attribute type.name-ls)) #:transparent
+;           #:extra-constructor-name runtime-name
+           #:reflection-name 'name
+           #:property prop:parameter-count 'p)
+
+         (define name ((curry structD)))
+
+         (define-for-syntax name
+           ;; TODO: Really need inductive-info and constructor-info, inheriting constant-info
+           (constant-info
+            #'type.reified
+            #f
+            'p
+            d-param-name-ls
+            d-param-ann-ls
+            d-index-name-ls
+            d-index-ann-ls
+            '#,constructor-count
+            (list #'c-name ...)
+            #f
+            #f))
+;         (define-syntax name (make-typed-constant-transformer #'runtime-name))
+
+         (typed-constructors
+          name
+          dispatch
+          (c-name : _c-type) ...))]))
+
+(trace-define-syntax (typed-constructors stx)
+  (syntax-parse stx
+    [(_ name dispatch (c-name : _c-type:cur-expr) ...)
+     #:with ((~var c-type (cur-runtime-constructor-telescope #'name)) ...) #'(_c-type.reified ...)
+     #:do [(define constructor-count (length (attribute c-name)))
+           (define param-count (constant-info-param-count (syntax-local-eval #'name)))
            (define-values (ls-ls-name-param-c ls-ls-name-index-c)
              (for/fold ([ls-param '()]
                         [ls-index '()])
-                       ([name-ls (attribute a)])
+                       ([name-ls (attribute c-type.name-ls)])
                (let-values ([(param index) (split-at name-ls param-count)])
                  (values
                   (cons param ls-param)
@@ -370,7 +427,7 @@ However, we don't really want the type system to be extensible since we desire a
            (define-values (ls-ls-ann-param-c ls-ls-ann-index-c)
              (for/fold ([ls-param '()]
                         [ls-index '()])
-                       ([ann-ls (attribute a)])
+                       ([ann-ls (attribute c-type.ann-ls)])
                (let-values ([(param index) (split-at ann-ls param-count)])
                  (values
                   (cons param ls-param)
@@ -379,80 +436,43 @@ However, we don't really want the type system to be extensible since we desire a
              (values
               (reverse ls-ls-ann-param-c)
               (reverse ls-ls-ann-index-c)))]
-     #:with dispatch (format-id this-syntax "~a-dispatch" #'name)
-     #:with structD (format-id #'name "constant:~a" #'name)
-     #:with (structC ...) (map (lambda (x) (format-id x "constant:~a" x)) (attribute c-name))
-     #:with (c-name-pred ...) (map (lambda (x) (format-id x "constant:~a?" x)) (attribute c-name))
+     #:with p param-count
+     #:with (structC ...) (map (lambda (x) (format-id x "constant:~a" x #:source x)) (attribute c-name))
+     #:with (c-name-pred ...) (map (lambda (x) (format-id x "constant:~a?" x #:source x)) (attribute c-name))
      #:with (c-index ...) (build-list constructor-count values)
-     #:with d-param-name-ls #`(list #,@d-param-name-ls)
-     #:with d-param-ann-ls #`(list #,@d-param-ann-ls)
-     #:with d-index-name-ls #`(list #,@d-index-name-ls)
-     #:with d-index-ann-ls #`(list #,@d-index-ann-ls)
-     #:with (c-recursive-index-ls ...)
-     (for/list ([type-ls (attribute atype.reified)])
-       #`(list
-          #,@(for/list ([type type-ls]
-                     [i (in-naturals)]
-                     #:when (syntax-parse type
-                              [e:cur-runtime-constant
-                               (free-identifier=? #'e.name #'name)]))
-            i)))
-     #:with (c-param-name-ls ...) (map (lambda (x) #`(list #,@x)) c-param-name-ls-ls)
-     #:with (c-index-name-ls ...) (map (lambda (x) #`(list #,@x)) c-index-name-ls-ls)
-     #:with (c-param-ann-ls ...) (map (lambda (x) #`(list #,@x)) c-param-ann-ls-ls)
-     #:with (c-index-ann-ls ...) (map (lambda (x) #`(list #,@x)) c-index-ann-ls-ls)
+     #:with ((c-recursive-index ...) ...) (attribute c-type.recursive-index-ls)
+     #:with ((c-param-name ...) ...) c-param-name-ls-ls
+     #:with ((c-index-name ...) ...) c-index-name-ls-ls
+     #:with ((c-param-ann ...) ...) c-param-ann-ls-ls
+     #:with ((c-index-ann ...) ...) c-index-ann-ls-ls
+     #:with ((i ...) ...) (attribute c-type.name-ls)
      #`(begin
-         (define dispatch (box #f))
-         (struct structD constant (i ...) #:transparent
-           #:extra-constructor-name runtime-name
-           #:reflection-name 'name
-           #:property prop:parameter-count 'p)
-
-         (define-for-syntax runtime-name
-           ;; TODO: Really need inductive-info and constructor-info, inheriting constant-info
-           (constant-info
-            (lambda (i ...)
-              (with-syntax ([i i] ...)
-                #'type.reified))
-            'p
-            d-param-name-ls
-            d-param-ann-ls
-            d-index-name-ls
-            d-index-ann-ls
-            '#,constructor-count
-            (list #'runtime-c-name ...)
-            #f
-            #f))
-
-         (define-syntax name (make-typed-constant-transformer #'runtime-name))
-
-         (struct structC constant (a ...) #:transparent
-           #:extra-constructor-name runtime-c-name
+         (struct structC constant (i ...) #:transparent
+;           #:extra-constructor-name runtime-c-name
            #:reflection-name 'c-name
            #:property prop:parameter-count 'p
            #:property prop:dispatch dispatch
-           #:property prop:recursive-index-ls c-recursive-index-ls)
+           #:property prop:recursive-index-ls (list 'c-recursive-index ...))
          ...
+
+         (define c-name ((curry structC))) ...
 
          (set-box! dispatch (build-dispatch (list c-name-pred ...)))
 
-         (define-for-syntax runtime-c-name
+         (define-for-syntax c-name
            (constant-info
-            (lambda (a ...)
-              (with-syntax ([a a] ...)
-                #'(#%plain-app name r.reified ...)))
+            #'c-type
+            #f
             'p
-            c-param-name-ls
-            c-param-ann-ls
-            c-index-name-ls
-            c-index-ann-ls
+            (list #'c-param-name ...)
+            (list #'c-param-ann ...)
+            (list #'c-index-name ...)
+            (list #'c-index-ann ...)
             '#,constructor-count
-            (list #'runtime-c-name ...)
-            c-index
-            c-recursive-index-ls))
-         ...
-
-         (define-syntax c-name (make-typed-constant-transformer #'runtime-c-name)) ...)]))
+            (list #'c-name ...)
+            'c-index
+            (list 'c-recursive-index ...)))
+         ...)]))
 
 ;; Elim
 (begin-for-syntax
@@ -500,7 +520,7 @@ However, we don't really want the type system to be extensible since we desire a
   ;; Construct the expected branch type for constr; expects well-typed cur-runtime-term? inputs and
   ;; must produce well-typed cur-runtime-term? outputs
   (define (branch-type syn constr-name param-ls target motive)
-    (define/syntax-parse e:cur-runtime-constant target)
+    (define/syntax-parse e:cur-runtime-constant (get-type target))
     (let* ([info (syntax-local-eval constr-name)]
            [recursive-index-ls (constant-info-recursive-index-ls info)]
            [param-count (constant-info-param-count info)]
@@ -515,14 +535,13 @@ However, we don't really want the type system to be extensible since we desire a
                               ([name name-ls]
                                [ann ann-ls]
                                ;; NB: Start counting *after* the parameters
-                               [i (in-naturals (add1 param-count))]
+                               [i (in-naturals param-count)]
                                ;; TODO PERF: memq over a list of numbers; must be more efficient way
                                #:when (memq i recursive-index-ls))
                       (define/syntax-parse e:cur-runtime-constant ann)
                       (values (cons #'_ ih-name-ls)
                               (cons (cur-apply* syn motive
-                                                ;; NB: Get the indices from the recursive arg
-                                                (append (drop (attribute e.rand-ls) param-count)
+                                                (append (attribute e.index-rand-ls)
                                                         (list name)))
                                     ih-ann-ls)))])
         (make-cur-runtime-pi*
@@ -533,7 +552,7 @@ However, we don't really want the type system to be extensible since we desire a
          (cur-apply* syn motive
                      ;; NB: Get the indices of the target
                      ;; TODO PERF: Didn't I already compute those in typed-elim?
-                     (append (drop (attribute e.rand-ls) param-count)
+                     (append (attribute e.index-rand-ls)
                              (list target)))))))
 
   ;; Check the branch type for the given constructor.
@@ -596,3 +615,12 @@ However, we don't really want the type system to be extensible since we desire a
                  [constr-name constructor-ls])
              (check-method method constr-name (attribute param.reified) #'target.reified #'motive.reified mtype method))]
      (make-cur-runtime-elim this-syntax #'target.reified #'motive.reified (attribute method.reified))]))
+
+;; Backward compatible elimination syntax
+(define-syntax (depricated-typed-elim syn)
+  (syntax-case syn ()
+    [(_ _ motive (methods ...) target)
+     (quasisyntax/loc syn (typed-elim target motive methods ...))]))
+
+(define-syntax-rule (cur-void)
+  (#%plain-app void))

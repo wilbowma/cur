@@ -18,7 +18,7 @@
     (syntax-parse #`(#,t1 #,t2)
       [(x:cur-runtime-identifier y:cur-runtime-identifier)
        (free-identifier=? #'x #'y)]
-      [(e1:cur-runtime-constant e2:cur-runtime-constant)
+      #;[(e1:cur-runtime-constant e2:cur-runtime-constant)
        (and (cur-α-equal? #'e1.name #'e2.name)
             (andmap cur-α-equal? (attribute e1.rand-ls) (attribute e2.rand-ls)))]
       [(A:cur-runtime-universe B:cur-runtime-universe)
