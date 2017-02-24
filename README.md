@@ -108,6 +108,18 @@ Try it out: open up DrRacket and put the following in the definition area:
 
 Nat-0
 Nat-5
+
+;; Of course, you could just define #%datum to do the right thing:
+(require (only-in cur [#%datum old-datum]))
+(define-syntax (#%datum syn)
+  (syntax-parse syn
+    [(_ . x:nat)
+     (nat->unary (syntax->datum #'x))]
+    [(_ . e)
+     #`(old-datum e)]))
+
+0
+5
 ```
 
 Try entering the following in the interaction area:
