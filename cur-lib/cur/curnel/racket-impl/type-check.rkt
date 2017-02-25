@@ -31,7 +31,7 @@
  typed-data
  typed-axiom
  typed-define
- depricated-typed-elim
+ deprecated-typed-elim
  cur-void
 
  (for-syntax
@@ -623,7 +623,7 @@ However, we don't really want the type system to be extensible since we desire a
      (make-cur-runtime-elim this-syntax #'target.reified #'motive.reified (attribute method.reified))]))
 
 ;; Backward compatible elimination syntax
-(define-syntax (depricated-typed-elim syn)
+(define-syntax (deprecated-typed-elim syn)
   (syntax-case syn ()
     [(_ _ motive (methods ...) target)
      (quasisyntax/loc syn (typed-elim target motive methods ...))]))

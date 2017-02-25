@@ -22,7 +22,7 @@
   [typed-axiom axiom]
   [typed-data data]
   [typed-elim new-elim]
-  [depricated-typed-elim elim]
+  [deprecated-typed-elim elim]
   [cur-void void])
  begin
  ;; TODO: Don't export these by default; export in library or so
