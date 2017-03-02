@@ -276,8 +276,6 @@ However, we don't really want the type system to be extensible since we desire a
      #`(begin
          (define-for-syntax delta #'body.reified)
          (define name body.reified)
-         ;; TODO: Need a provide transformer to provide only when necessary
-         (provide (for-syntax name delta))
          (define-for-syntax name (identifier-info #'body.type delta)))]))
 
 (define-syntax (typed-axiom syn)
@@ -290,7 +288,6 @@ However, we don't really want the type system to be extensible since we desire a
 ;           #:extra-constructor-name name1
            #:reflection-name 'name)
          (define name ((curry c)))
-         (provide (for-syntax name))
          (define-for-syntax name
            (constant-info #'type.reified #f #f #f #f #f #f #f #f #f)))]))
 
@@ -386,7 +383,6 @@ However, we don't really want the type system to be extensible since we desire a
 
          (define name ((curry structD)))
 
-         (provide (for-syntax name))
          (define-for-syntax name
            ;; TODO: Really need inductive-info and constructor-info, inheriting constant-info
            (constant-info
@@ -461,7 +457,6 @@ However, we don't really want the type system to be extensible since we desire a
 
          (set-box! dispatch (build-dispatch (list c-name-pred ...)))
 
-         (provide (for-syntax c-name ...))
          (define-for-syntax c-name
            (constant-info
             #'c-type
