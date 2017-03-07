@@ -1,5 +1,5 @@
 #lang s-exp "../main.rkt"
-(require "sugar.rkt")
+(require "sugar.rkt" (for-syntax racket/base "../reflection.rkt"))
 (provide
   True T
   thm:anything-implies-true

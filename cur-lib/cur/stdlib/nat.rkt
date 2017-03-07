@@ -3,6 +3,12 @@
  "sugar.rkt"
  "bool.rkt"
  (only-in
+  racket/base
+  begin-for-syntax)
+ (for-syntax
+  syntax/parse
+  (except-in racket/base or and not))
+ (only-in
   "../main.rkt"
   [#%datum old-datum]))
 ;; TODO: override (all-defined-out) to enable exporting all these

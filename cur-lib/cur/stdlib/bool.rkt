@@ -1,5 +1,5 @@
 #lang s-exp "../main.rkt"
-(require "sugar.rkt")
+(require "sugar.rkt" (for-syntax racket/base))
 (provide Bool true false if not and or)
 
 (data Bool : 0 Type

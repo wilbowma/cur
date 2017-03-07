@@ -32,6 +32,7 @@
    cur-match))
 
 (require
+ "../easy-extension.rkt"
   (only-in "../main.rkt"
     [#%app real-app]
     [λ real-lambda]

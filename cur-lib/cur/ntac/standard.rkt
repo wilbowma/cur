@@ -1,7 +1,8 @@
 #lang s-exp "../main.rkt"
 (require
  "../stdlib/sugar.rkt"
- "base.rkt")
+ "base.rkt"
+ "../easy-extension.rkt")
 
 (begin-for-syntax
   (require racket/exn)

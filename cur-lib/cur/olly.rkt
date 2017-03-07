@@ -2,6 +2,7 @@
 ;; Olly: The OTT-Like LibrarY
 ;; TODO: Automagically create a parser from bnf grammar
 (require
+ (except-in "easy-extension.rkt" sub1 odd? exp even? add1)
   "stdlib/sugar.rkt"
   "stdlib/nat.rkt")
 

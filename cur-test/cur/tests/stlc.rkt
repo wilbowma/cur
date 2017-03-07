@@ -7,7 +7,13 @@
  cur/olly
  cur/stdlib/maybe
  cur/stdlib/bool
- cur/stdlib/prop)
+ cur/stdlib/prop
+ racket/require
+ (only-in racket/base begin-for-syntax)
+ (for-syntax
+  syntax/parse
+  (subtract-in racket cur/stdlib/nat cur/stdlib/bool cur/stdlib/prop cur/stdlib/list)
+  (only-in racket #%datum)))
 
 (define-language stlc
   #:vars (x)

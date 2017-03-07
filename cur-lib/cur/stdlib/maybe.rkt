@@ -1,5 +1,5 @@
 #lang s-exp "../main.rkt"
-(require "sugar.rkt")
+(require "sugar.rkt" (for-syntax racket/base "../reflection.rkt"))
 (provide Maybe none some some/i)
 
 (data Maybe : 1 (forall (A : Type) Type)

@@ -4,8 +4,7 @@
  racket/require-syntax
  racket/provide-syntax
  (for-syntax
-  ;; imported for export
-  (except-in racket import export)
+  racket/base
   racket/syntax
   syntax/parse
   ;racket/require-transform
@@ -29,22 +28,12 @@
   [deprecated-typed-elim elim]
   [cur-void void]
   #;[cur-require require]
-  [cur-provide provide])
- begin
- ;; TODO: Don't export these by default; export in library or so
-;; DYI syntax extension
-  define-syntax
-  begin-for-syntax
-  define-for-syntax
-  syntax-case
-  syntax-rules
-  define-syntax-rule
-  (for-syntax
-   (all-from-out syntax/parse)
-   (all-from-out racket)
-   (all-from-out racket/syntax)
-   (all-from-out "reflection.rkt"))
-  require
+  [cur-provide provide]
+  [cur-datum #%datum])
+ define-syntax
+ syntax-rules
+ define-syntax-rule
+ begin require
  only-in except-in prefix-in rename-in combine-in relative-in only-meta-in for-syntax
  for-template for-label for-meta submod lib file planet
 
@@ -54,6 +43,9 @@
 
  #%top #%top-interaction
  #%module-begin)
+
+(define-syntax (cur-datum syn)
+  (raise-syntax-error '#%datum "Literal datum not supported"))
 
 #;(define-syntax (cur-require syn)
   (syntax-parse syn

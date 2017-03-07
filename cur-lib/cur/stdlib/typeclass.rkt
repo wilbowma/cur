@@ -1,8 +1,7 @@
 #lang s-exp "../main.rkt"
 (require
-  "nat.rkt"
-  "bool.rkt"
   "sugar.rkt"
+  "../easy-extension.rkt"
   (for-syntax
     racket/syntax
     racket/dict

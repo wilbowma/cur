@@ -8,7 +8,12 @@
  cur/stdlib/sugar
  cur/stdlib/nat
  cur/stdlib/bool
- cur/olly)
+ cur/olly
+ (only-in racket/base begin-for-syntax)
+ racket/require
+ (for-syntax
+  (subtract-in racket cur/stdlib/nat cur/stdlib/bool)
+  (only-in racket/base #%datum)))
 
 (begin-for-syntax
   (require rackunit))

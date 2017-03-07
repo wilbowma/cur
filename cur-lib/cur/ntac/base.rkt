@@ -2,9 +2,12 @@
 ;; Proof tree representation and top-level syntax
 
 (require
- "../stdlib/sugar.rkt")
+ "../stdlib/sugar.rkt"
+ "../easy-extension.rkt")
 
 (provide
+ (for-syntax
+  #%app)
  define-theorem
  ntac)
 
