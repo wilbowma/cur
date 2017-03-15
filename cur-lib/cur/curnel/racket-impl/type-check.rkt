@@ -289,7 +289,7 @@ However, we don't really want the type system to be extensible since we desire a
            #:reflection-name 'name)
          (define name ((curry c)))
          (define-for-syntax name
-           (constant-info #'type.reified #f #f #f #f #f #f #f #f #f #f)))]))
+           (constant-info #'type.reified #f 0 #f #f #f #f #f #f #f #f)))]))
 
 ;; Inductive types
 
