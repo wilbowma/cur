@@ -189,7 +189,7 @@ However, we don't really want the type system to be extensible since we desire a
 
   (define-syntax-class cur-procedure #:attributes (reified type ann name result)
     (pattern e:cur-expr
-             #:fail-unless (cur-runtime-pi? #'e.type)
+             #:fail-unless (cur-runtime-pi? (cur-eval #'e.type))
              (raise-syntax-error
               'core-type-error
               (format "Expected function, but found ~a of type ~a"
@@ -208,7 +208,7 @@ However, we don't really want the type system to be extensible since we desire a
                       #;(third (syntax-property #'f-type 'origin))
                       (syntax->datum (cur-reflect #'e.type)))
               #'e)
-             #:with type:cur-runtime-pi #'e.type
+             #:with type:cur-runtime-pi (cur-eval #'e.type)
              #:attr ann #'type.ann
              #:attr name #'type.name
              #:attr result #'type.result
