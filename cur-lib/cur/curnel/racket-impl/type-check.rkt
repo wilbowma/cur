@@ -189,7 +189,7 @@ However, we don't really want the type system to be extensible since we desire a
 
   (define-syntax-class cur-procedure #:attributes (reified type ann name result)
     (pattern e:cur-expr
-             #:fail-unless (cur-runtime-pi? (cur-eval #'e.type))
+             #:fail-unless (cur-runtime-pi? #'e.type)
              (raise-syntax-error
               'core-type-error
               (format "Expected function, but found ~a of type ~a"
@@ -208,7 +208,7 @@ However, we don't really want the type system to be extensible since we desire a
                       #;(third (syntax-property #'f-type 'origin))
                       (syntax->datum (cur-reflect #'e.type)))
               #'e)
-             #:with type:cur-runtime-pi (cur-eval #'e.type)
+             #:with type:cur-runtime-pi #'e.type
              #:attr ann #'type.ann
              #:attr name #'type.name
              #:attr result #'type.result
@@ -520,7 +520,7 @@ However, we don't really want the type system to be extensible since we desire a
   (define (branch-type syn constr-name param-ls target motive)
     ;; TODO: Maybe need get-type/eval, or always return type in normal form?
     ;; TODO: We already computed the type of target; just pass it in
-    (define/syntax-parse e:cur-runtime-constant (cur-eval (get-type target)))
+    (define/syntax-parse e:cur-runtime-constant (get-type target))
     (let* ([info (syntax-local-eval constr-name)]
            [recursive-index-ls (constant-info-recursive-index-ls info)]
            [param-count (constant-info-param-count info)]
@@ -576,7 +576,7 @@ However, we don't really want the type system to be extensible since we desire a
   (syntax-parse syn
     #:datum-literals (:)
     [(_ target:cur-expr motive:cur-expr method:cur-expr ...)
-     #:attr ttype (cur-eval #'target.type)
+     #:attr ttype #'target.type
      #:fail-unless (cur-runtime-constant? #'ttype)
      (cur-type-error
       syn

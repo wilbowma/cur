@@ -20,7 +20,8 @@
 (require racket/trace)
 ;; Takes a cur-runtime-term? and computes it's type, as a cur-runtime-term?.
 (define (get-type syn)
-  (syntax-parse syn
+  (cur-eval
+   (syntax-parse syn
     [e:cur-runtime-identifier
      (type-of-id #'e.name)]
     #;[e:cur-runtime-constant
@@ -33,11 +34,11 @@
     [e:cur-runtime-lambda
      (make-cur-runtime-pi syn #'e.ann #'e.name (get-type/ctx #'e.body (list (cons #'e.name #'e.ann))))]
     [e:cur-runtime-app
-     #:with t1:cur-runtime-pi (cur-eval (get-type #'e.rator))
+     #:with t1:cur-runtime-pi (get-type #'e.rator)
      (subst #'e.rand #'t1.name #'t1.result)]
     [e:cur-runtime-elim
-     #:with D:cur-runtime-constant (cur-eval (get-type #'e.target))
-     (cur-apply* syn #'e.motive (append (attribute D.index-rand-ls) (list #'e.target)))]))
+     #:with D:cur-runtime-constant (get-type #'e.target)
+     (cur-apply* syn #'e.motive (append (attribute D.index-rand-ls) (list #'e.target)))])))
 
 (define (get-type/ctx syn ctx)
   (call-with-ctx ctx (lambda () (get-type syn))))
