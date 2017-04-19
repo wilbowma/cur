@@ -254,13 +254,21 @@ However, we don't really want the type system to be extensible since we desire a
     #:datum-literals (:)
     [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
      #:with (~var _ (cur-kind/ctx (list (cons #'x #'t1.reified)))) #'e.reified
-     (make-cur-runtime-pi syn #'t1.reified #'x #'e.reified)]))
+     (make-cur-runtime-pi
+      syn
+      #'t1.reified
+      (syntax-local-identifier-as-binding (syntax-local-introduce #'x))
+      (syntax-local-introduce #'e.reified))]))
 
 (define-syntax (typed-λ syn)
   (syntax-parse syn
     #:datum-literals (:)
     [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
-     (make-cur-runtime-lambda syn #'t1.reified #'x #'e.reified)]))
+     (make-cur-runtime-lambda
+      syn
+      #'t1.reified
+      (syntax-local-identifier-as-binding (syntax-local-introduce #'x))
+      (syntax-local-introduce #'e.reified))]))
 
 (define-syntax (typed-app syn)
   (syntax-parse syn

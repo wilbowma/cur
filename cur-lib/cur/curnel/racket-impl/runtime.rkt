@@ -214,7 +214,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
   ;; Takes a cur-runtime-term as ann and result, an identifer as name.
   (define (make-cur-runtime-pi syn ann name result)
     (quasisyntax/loc syn
-      (#%plain-app cur-Π #,ann (#%plain-lambda (#,(syntax-local-identifier-as-binding name)) #,result))))
+      (#%plain-app cur-Π #,ann (#%plain-lambda (#,name) #,result))))
 
   (define-syntax-class/pred cur-runtime-lambda #:attributes (name ann body)
     #:literals (#%plain-app #%plain-lambda cur-λ)
@@ -222,7 +222,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
 
   (define (make-cur-runtime-lambda syn ann name body)
     (quasisyntax/loc syn
-      (#%plain-app cur-λ #,ann (#%plain-lambda (#,(syntax-local-identifier-as-binding name)) #,body))))
+      (#%plain-app cur-λ #,ann (#%plain-lambda (#,name) #,body))))
 
   (define-syntax-class/pred cur-runtime-app #:attributes (rator rand)
     #:literals (#%plain-app cur-apply)
