@@ -24,11 +24,27 @@
 (:: (pair0 Nat (λ (x : Nat) (== Nat x 5)) 5 (refl Nat 5)) (Σ (x : Nat) (== Nat x 5)))
 
 (define (fst0 (A : (Type 0)) (P : (-> A (Type 0))) (p : (Σ0 A P)))
+  (new-elim p (λ (x : (Σ0 A P)) A)
+            (λ (a : A) (b : (P a)) a)))
+
+(define (snd0 (A : (Type 0)) (P : (-> A (Type 0))) (p : (Σ0 A P)))
+  (new-elim p (λ (x : (Σ0 A P)) (P (run (fst0 A P x))))
+            (λ (a : A) (b : (P a)) b)))
+
+(define (fst1 (A : (Type 0)) (P : (-> A (Type 0))) (p : (Σ1 A P)))
+  (new-elim p (λ (x : (Σ1 A P)) A)
+            (λ (a : A) (b : (P a)) a)))
+
+(define (snd1 (A : (Type 0)) (P : (-> A (Type 0))) (p : (Σ1 A P)))
+  (new-elim p (λ (x : (Σ1 A P)) (P (run (fst1 A P x))))
+            (λ (a : A) (b : (P a)) b)))
+
+#;(define (fst0 (A : (Type 1)) (P : (-> A (Type 1))) (p : (Σ0 A P)))
   (match p
     #:return A
-    [(pair0 a _) a]))
+    [(pair1 a _) a]))
 
-(define (fst1 (A : (Type 1)) (P : (-> A (Type 1))) (p : (Σ1 A P)))
+#;(define (fst1 (A : (Type 1)) (P : (-> A (Type 1))) (p : (Σ1 A P)))
   (match p
     #:return A
     [(pair1 a _) a]))
