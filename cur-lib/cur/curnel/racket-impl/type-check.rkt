@@ -561,7 +561,7 @@ However, we don't really want the type system to be extensible since we desire a
                      ;; NB: Get the indices of the target
                      ;; TODO PERF: Didn't I already compute those in typed-elim?
                      (append (attribute e.index-rand-ls)
-                             (list target)))))))
+                             (list (cur-apply* syn constr-name (append param-ls (attribute e.index-rand-ls))))))))))
 
   ;; Check the branch type for the given constructor.
   ;; Expects constr-name, param-ls, motive, br-type to be cur-runtime-terms that are well-typed.

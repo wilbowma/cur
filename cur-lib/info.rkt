@@ -3,5 +3,5 @@
 (define deps '("base"))
 (define build-deps '())
 (define pkg-desc "implementation (no documentation, tests) part of \"cur\".")
-(define version "0.31")
+(define version "0.32")
 (define pkg-authors '(wilbowma))
