@@ -28,7 +28,15 @@
  cur-rename
  cur-reflect-id
  cur-step
- cur-equal?)
+ cur-equal?
+ cur-syntax-local-context)
+
+(define current-cur-context (make-parameter #f))
+(define (cur-syntax-local-context) (current-cur-context))
+
+(define-syntax-rule (in-refl-context syn)
+  (parameterize ([current-cur-context 'reflection])
+    syn))
 
 (define (env->ctx env)
   (for/fold ([ctx '()])
@@ -53,9 +61,10 @@
   (get-type/ctx (cur-reify/env syn) (env->ctx (current-env))))
 
 (define (cur-normalize syn #:local-env [env '()])
-  (with-env env
+  (in-refl-context
+   (with-env env
     (cur-reflect
-     (cur-eval (cur-reify/env syn)))))
+     (cur-eval (cur-reify/env syn))))))
 
 (define (cur-step syn #:local-env [env '()])
   (printf "Warning: cur-step is not yet supported.~n")
@@ -63,8 +72,9 @@
 
 ;; Are these two terms equivalent in type-systems internal equational reasoning?
 (define (cur-equal? e1 e2 #:local-env [env '()])
-  (with-env env
-    (_cur-equal? (cur-reify/env e1) (cur-reify/env e2))))
+  (in-refl-context
+   (with-env env
+     (_cur-equal? (cur-reify/env e1) (cur-reify/env e2)))))
 
 (define (cur-rename new old term)
   (subst new old term))
@@ -73,43 +83,50 @@
   id)
 
 (define (cur-type-infer syn #:local-env [env '()])
-  (with-env env
-    (with-handlers (#;[values (λ _ #f)])
-      (let ([t (cur-get-type/env syn)])
-        (cur-reflect t)))))
+  (in-refl-context
+   (with-env env
+     (with-handlers (#;[values (λ _ #f)])
+       (let ([t (cur-get-type/env syn)])
+         (cur-reflect t))))))
 
 (define (cur-type-check? syn type #:local-env [env '()])
-  (with-env env
-    (cur-subtype? (cur-get-type/env syn) (cur-reify/env type))))
+  (in-refl-context
+   (with-env env
+     (cur-subtype? (cur-get-type/env syn) (cur-reify/env type)))))
 
 ;; Given an identifiers representing an inductive type, return a sequence of the constructor names
 ;; (as identifiers) for the inductive type.
 (define (cur-constructors-for syn)
-  (constant-info-constructor-ls (syntax-local-eval syn)))
+  (in-refl-context
+   (constant-info-constructor-ls (syntax-local-eval syn))))
 
 ;; Given an identifier representing an inductive type, return the number of parameters in that
 ;; inductive, as a natural starting from the first argument to the inductive type.
 ;; TODO: Does this work on constructors too? If not, it should.
 (define (cur-data-parameters syn)
-  (constant-info-param-count (syntax-local-eval syn)))
+  (in-refl-context
+   (constant-info-param-count (syntax-local-eval syn))))
 
 ;; Given an a target (a constructor applied to parameters) and a motive for eliminating
 ;; it, return the type of the method required for this.
 (define (cur-method-type syn motive)
-  (cur-reflect (branch-type syn syn motive)))
+  (in-refl-context
+   (cur-reflect (branch-type syn syn motive))))
 
 ;; Given a constructor, return the number of arguments it takes.
 (define (cur-constructor-telescope-length syn)
-  (let ([info (syntax-local-eval syn)])
+  (in-refl-context
+   (let ([info (syntax-local-eval syn)])
     ;; TODO PERF: Maybe store this
-    (+ (constant-info-param-count info) (length (constant-info-index-name-ls info)))))
+    (+ (constant-info-param-count info) (length (constant-info-index-name-ls info))))))
 
 ;; Given a constructor, return a 0-indexed list of the positions of its recursive arguments.
 ;; E.g. for the constructor `s : (Π (x : Nat) Nat)` of the natural numbers, its
 ;; constructor-telescope-length is 1, and it's recursive-index-ls is '(0)
 ;; `cons : (Π (A : (Type 0)) (Π (a : A) (Π (a : (List A)) (List A))))` = '(2)
 (define (cur-constructor-recursive-index-ls syn)
-  (constant-info-recursive-index-ls (syntax-local-eval syn)))
+  (in-refl-context
+   (constant-info-recursive-index-ls (syntax-local-eval syn))))
 
 ;; Takes a Cur term syn and an arbitrary number of identifiers ls. The cur term is
 ;; expanded until expansion reaches a Curnel form, or one of the
@@ -119,9 +136,11 @@
            ls)))
 
 (define (cur-expand syn #:local-env [env '()] . ls)
-  (with-env env
+  (in-refl-context
+   (with-env env
     (apply cur-reify/env syn (append (syntax-e #'(typed-Type typed-λ typed-app typed-Π typed-data deprecated-typed-elim typed-elim))
-           ls))))
+           ls)))))
 
 (define (cur->datum syn)
-  (syntax->datum (cur-reflect (cur-reify/env syn))))
+  (in-refl-context
+   (syntax->datum (cur-reflect (cur-reify/env syn)))))
