@@ -10,14 +10,19 @@
 (provide
  cur-α-equal?
  cur-equal?
- cur-subtype?)
+ cur-subtype?
+ (rename-out
+  [cur-current-identifier=?
+  unsafe-I-promise-I-know-what-I-am-doing-please-give-me-the-ability-to-introduce-bugs-by-using-cur-current-identifier=?]))
+
+(define cur-current-identifier=? (make-parameter free-identifier=?))
 
 ; t1 and t2 must both be cur-runtime-terms?
 (define (cur-α-equal? t1 t2 (fail (lambda _ #f)))
   (let cur-α-equal? ([t1 t1] [t2 t2])
     (syntax-parse #`(#,t1 #,t2)
       [(x:cur-runtime-identifier y:cur-runtime-identifier)
-       (free-identifier=? #'x #'y)]
+       ((cur-current-identifier=?) #'x #'y)]
       #;[(e1:cur-runtime-constant e2:cur-runtime-constant)
        (and (cur-α-equal? #'e1.name #'e2.name)
             (andmap cur-α-equal? (attribute e1.rand-ls) (attribute e2.rand-ls)))]
