@@ -153,7 +153,7 @@ Utilities for working with cur-runtime-terms
 ;; Axiom telescopes are nested Π types with a universe or constant as the final result
 (define-syntax-class/pred cur-runtime-axiom-telescope #:attributes (length name-ls ann-ls result)
   (pattern e:cur-runtime-telescope
-           #:with (~and result (~or _:cur-runtime-universe _:cur-runtime-constant)) #'e.result
+           #:with (~and result (~or _:cur-runtime-universe _:cur-runtime-constant _:cur-runtime-identifier)) #'e.result
            #:attr length (attribute e.length)
            #:attr name-ls (attribute e.name-ls)
            #:attr ann-ls (attribute e.ann-ls)))
