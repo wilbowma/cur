@@ -141,11 +141,13 @@ However, we don't really want the type system to be extensible since we desire a
      syn))
 
   (define-syntax-class cur-expr #:attributes (reified type)
+    #:commit
     (pattern e:expr
              #:attr reified (cur-elab #'e)
              #:attr type (get-type #'reified)))
 
   (define-syntax-class (cur-expr/ctx ctx) #:attributes (reified type)
+    #:commit
     (pattern e:expr
              #:with reified (cur-elab/ctx #'e ctx)
              #:with type (get-type/ctx #'reified ctx)))
@@ -160,11 +162,13 @@ However, we don't really want the type system to be extensible since we desire a
        (syntax->datum (cur-reflect t2)))))
 
   (define-syntax-class (cur-expr-of-type type) #:attributes (reified)
+    #:commit
     (pattern e:cur-expr
              #:do [(cur-type-check this-syntax #'e #'e.type type)]
              #:attr reified #'e.reified))
 
   (define-syntax-class cur-kind #:attributes (reified type)
+    #:commit
     (pattern e:cur-expr
              #:fail-unless (cur-runtime-universe? #'e.type)
              (cur-type-error
@@ -177,6 +181,7 @@ However, we don't really want the type system to be extensible since we desire a
 
   ;; TODO: Copy/pasta from cur-kind
   (define-syntax-class (cur-kind/ctx ctx) #:attributes (reified type)
+    #:commit
     (pattern (~var e (cur-expr/ctx ctx))
              #:fail-unless (cur-runtime-universe? #'e.type)
              (cur-type-error
@@ -188,6 +193,7 @@ However, we don't really want the type system to be extensible since we desire a
              #:attr type #'e.type))
 
   (define-syntax-class cur-procedure #:attributes (reified type ann name result)
+    #:commit
     (pattern e:cur-expr
              #:fail-unless (cur-runtime-pi? #'e.type)
              (raise-syntax-error
@@ -215,6 +221,7 @@ However, we don't really want the type system to be extensible since we desire a
              #:attr reified #'e.reified))
 
   (define-syntax-class cur-axiom-telescope #:attributes (reified type name-ls ann-ls result)
+    #:commit
     (pattern e:cur-expr
              #:fail-unless (cur-runtime-axiom-telescope? #'e.reified)
              (cur-type-error
@@ -229,6 +236,7 @@ However, we don't really want the type system to be extensible since we desire a
              #:attr result #'reified.result))
 
   (define-syntax-class cur-inductive-telescope #:attributes (reified length name-ls ann-ls result)
+    #:commit
     (pattern e:cur-expr
              #:with (~or reified:cur-runtime-inductive-telescope) #'e.reified
              #:fail-unless (attribute reified)

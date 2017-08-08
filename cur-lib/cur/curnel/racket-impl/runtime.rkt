@@ -200,6 +200,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
 
   (define-syntax-class/pred cur-runtime-universe #:attributes (level-syn level)
     #:literals (#%plain-app quote cur-Type)
+    #:commit
     (pattern (#%plain-app cur-Type (quote level-syn))
              #:attr level (syntax->datum #'level-syn)))
 
@@ -209,6 +210,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
 
   (define-syntax-class/pred cur-runtime-pi #:attributes (name ann result)
     #:literals (#%plain-app #%plain-lambda cur-Π)
+    #:commit
     (pattern (#%plain-app cur-Π ann (#%plain-lambda (name) result))))
 
   ;; Takes a cur-runtime-term as ann and result, an identifer as name.
@@ -218,6 +220,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
 
   (define-syntax-class/pred cur-runtime-lambda #:attributes (name ann body)
     #:literals (#%plain-app #%plain-lambda cur-λ)
+    #:commit
     (pattern (#%plain-app cur-λ ann (#%plain-lambda (name) body))))
 
   (define (make-cur-runtime-lambda syn ann name body)
@@ -226,6 +229,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
 
   (define-syntax-class/pred cur-runtime-app #:attributes (rator rand)
     #:literals (#%plain-app cur-apply)
+    #:commit
     (pattern (#%plain-app cur-apply rator rand)))
 
   (define (make-cur-runtime-app syn rator rand)
@@ -233,6 +237,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
 
   (define-syntax-class/pred cur-runtime-elim #:attributes (target motive (method-ls 1))
     #:literals (#%plain-app cur-elim)
+    #:commit
     (pattern (#%plain-app cur-elim target motive method-ls ...)))
 
   (define (make-cur-runtime-elim syn target motive method-ls)

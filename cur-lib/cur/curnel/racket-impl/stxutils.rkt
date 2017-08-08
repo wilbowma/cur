@@ -48,6 +48,7 @@
     (subst v x syn)))
 
 (define-syntax-class top-level-id #:attributes ()
+  #:commit
   (pattern x:id
            #:fail-unless (case (syntax-local-context)
                            [(module top-level module-begin) #t]
@@ -59,6 +60,7 @@
             this-syntax)))
 
 (define-syntax-class definition-id #:attributes ()
+  #:commit
   (pattern x:id
            #:fail-unless (not (eq? (syntax-local-context) 'expression))
            (raise-syntax-error
@@ -69,6 +71,7 @@
 
 (define-syntax-class in-let-values #:attributes (body)
   #:literals (let-values)
+  #:commit
   (pattern (let-values _ e:in-let-values)
            #:attr body #'e.body)
   (pattern body:expr))
