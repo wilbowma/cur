@@ -34,3 +34,25 @@
 (check-equal? 0 z)
 (check-equal? 1 (s z))
 (check-equal? 2 (s (s z)))
+(check-equal? 3 (s (s (s z))))
+(check-equal? 4 (s (s (s (s z)))))
+
+(define (fact (n : Nat))
+  (match n
+    [z 1]
+    [(s n-1)
+     (mult (s n-1) (fact n-1))]))
+#;(define (fact (n : Nat))
+  (elim
+   (λ (x : Nat) Nat)
+   (1
+    (lambda (n : Nat)
+      (lambda (n-1 : Nat)
+        (mult n (fact n-1)))))))
+
+(check-equal? (mult 2 (mult 1 1)) 2)
+
+(check-equal? (fact 1) 1)
+(check-equal? (fact 2) 2)
+(check-equal? (fact 3) 6)
+(check-equal? (fact 5) 120)
