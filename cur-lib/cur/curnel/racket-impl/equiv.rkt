@@ -22,12 +22,12 @@
   (let cur-α-equal? ([t1 t1] [t2 t2])
     (syntax-parse #`(#,t1 #,t2)
       [(x:cur-runtime-identifier y:cur-runtime-identifier)
-       ((cur-current-identifier=?) #'x #'y)]
+       (or ((cur-current-identifier=?) #'x #'y) (fail t1 t2))]
       #;[(e1:cur-runtime-constant e2:cur-runtime-constant)
        (and (cur-α-equal? #'e1.name #'e2.name)
             (andmap cur-α-equal? (attribute e1.rand-ls) (attribute e2.rand-ls)))]
       [(A:cur-runtime-universe B:cur-runtime-universe)
-       (eq? (attribute A.level) (attribute B.level))]
+       (or (eq? (attribute A.level) (attribute B.level)) (fail t1 t2))]
       [(e1:cur-runtime-pi e2:cur-runtime-pi)
        (and (cur-α-equal? #'e1.ann #'e2.ann)
             (cur-α-equal? #'e1.result (subst #'e1.name #'e2.name #'e2.result)))]

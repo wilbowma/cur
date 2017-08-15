@@ -630,7 +630,9 @@ However, we don't really want the type system to be extensible since we desire a
      #:do [(for ([mtype (attribute method.type)]
                  [method (attribute method.reified)]
                  [constr-name constructor-ls])
-             (check-method method constr-name (attribute param.reified) #'target.reified #'motive.reified mtype method))]
+             (or (check-method method constr-name (attribute param.reified) #'target.reified
+                               #'motive.reified mtype method)
+                 (raise 'internal-error "An internal error occurred in typed-elim. Please report this bug.")))]
      (make-cur-runtime-elim this-syntax #'target.reified #'motive.reified (attribute method.reified))]))
 
 ;; Backward compatible elimination syntax
