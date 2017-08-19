@@ -538,6 +538,7 @@ However, we don't really want the type system to be extensible since we desire a
     ;; TODO: We already computed the type of target; just pass it in
     (define/syntax-parse e:cur-runtime-constant (get-type target))
     (let* ([info (syntax-local-eval constr-name)]
+           [constr-type (get-type constr-name)]
            [recursive-index-ls (constant-info-recursive-index-ls info)]
            [param-count (constant-info-param-count info)]
            [name-ls (constant-info-index-name-ls info)]
@@ -560,16 +561,18 @@ However, we don't really want the type system to be extensible since we desire a
                                                 (append (attribute e.index-rand-ls)
                                                         (list name)))
                                     ih-ann-ls)))])
+        (define/syntax-parse t:cur-runtime-telescope constr-type)
+        (define/syntax-parse r:cur-runtime-constant (subst* (append param-ls (attribute e.index-rand-ls)) (attribute t.name-ls) (attribute t.result)))
         (make-cur-runtime-pi*
-         syn
-         ;; TODO Don't I need to reverse inductive-*-ls
-         (append name-ls inductive-name-ls)
-         (append ann-ls inductive-ann-ls)
-         (cur-apply* syn motive
-                     ;; NB: Get the indices of the target
-                     ;; TODO PERF: Didn't I already compute those in typed-elim?
-                     (append (attribute e.index-rand-ls)
-                             (list (cur-apply* syn constr-name (append param-ls (attribute e.index-rand-ls))))))))))
+           syn
+           ;; TODO Don't I need to reverse inductive-*-ls
+           (append name-ls inductive-name-ls)
+           (append ann-ls inductive-ann-ls)
+           (cur-apply* syn motive
+                       ;; NB: Get the indices of the target
+                       ;; TODO PERF: Didn't I already compute those in typed-elim?
+                       (append (attribute r.index-rand-ls)
+                               (list (cur-apply* syn constr-name (append param-ls name-ls)))))))))
 
   ;; Check the branch type for the given constructor.
   ;; Expects constr-name, param-ls, motive, br-type to be cur-runtime-terms that are well-typed.
@@ -581,7 +584,7 @@ However, we don't really want the type system to be extensible since we desire a
                   (raise-syntax-error
                    'core-type-error
                    ;; TODO: Resugar
-                   (format "Expected type ~a, but found type of ~a while checking method for ~a"
+                   (format "Expected type ~a, but found type ~a while checking method for ~a"
                            (syntax->datum t1)
                            (syntax->datum t2)
                            (syntax->datum constr-name))

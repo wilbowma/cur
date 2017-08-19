@@ -18,5 +18,5 @@
                              (λ (x : Nat2) (λ (ih : Nat2) ih)))
                  'expression
                  '())
-   "Expected type Nat, but found type of Nat2 while checking method for z"))
+   "Expected type Nat, but found type Nat2 while checking method for z"))
 
