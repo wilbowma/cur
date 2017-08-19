@@ -42,7 +42,7 @@
         (cur-apply*
          syn
          (list-ref (attribute e.method-ls) (constant-info-constructor-index info))
-         (append (attribute target.rand-ls)
+         (append (attribute target.index-rand-ls)
                  (for/fold ([m-args '()])
                            ([arg (attribute target.rand-ls)]
                             [i (in-naturals (constant-info-param-count info))]
