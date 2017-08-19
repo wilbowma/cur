@@ -2,9 +2,7 @@
 
 (require
  (only-in "../main.rkt" [Type typed-Type] [#%app typed-app])
- "sugar.rkt"
- "prop.rkt"
- "nat.rkt")
+ "sugar.rkt")
 
 (provide
  Σ0
