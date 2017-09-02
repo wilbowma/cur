@@ -179,6 +179,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
    cur-runtime-literals)
 
   (define-syntax-class/pred cur-runtime-identifier
+    #:commit
     (pattern name:id))
 
   (define-literal-set cur-runtime-literals (cur-Type cur-Π cur-λ cur-apply cur-elim))
@@ -245,6 +246,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
       (#%plain-app cur-elim #,target #,motive #,@method-ls)))
 
   (define-syntax-class/pred cur-runtime-term
+    #:commit
     (pattern e:cur-runtime-identifier)
     ;(pattern e:cur-runtime-constant)
     (pattern e:cur-runtime-universe)

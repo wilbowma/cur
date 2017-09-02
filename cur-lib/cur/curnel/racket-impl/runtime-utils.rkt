@@ -112,6 +112,7 @@ Utilities for working with cur-runtime-terms
 
 ;; NB: Used to prevent append in a loop
 (define-syntax-class _runtime-constant #:attributes (name reversed-rand-ls constructor-index)
+  #:commit
   (pattern app:cur-runtime-app
            #:with e:_runtime-constant #'app.rator
            #:attr reversed-rand-ls (cons #'app.rand (attribute e.reversed-rand-ls))
@@ -128,6 +129,7 @@ Utilities for working with cur-runtime-terms
            #:attr constructor-index (constant-info-constructor-index (syntax-local-eval #'name))))
 
 (define-syntax-class/pred cur-runtime-constant #:attributes (name rand-ls constructor-index index-rand-ls)
+  #:commit
   (pattern e:_runtime-constant
            #:attr name #'e.name
            #:attr rand-ls (reverse (attribute e.reversed-rand-ls))
@@ -138,6 +140,7 @@ Utilities for working with cur-runtime-terms
 
 ;; Telescopes are nested Π types.
 (define-syntax-class cur-runtime-telescope #:attributes (length name-ls ann-ls result)
+  #:commit
   (pattern e:cur-runtime-pi
            #:with tmp:cur-runtime-telescope #'e.result
            #:attr result #'tmp.result
@@ -152,6 +155,7 @@ Utilities for working with cur-runtime-terms
 
 ;; Axiom telescopes are nested Π types with a universe or constant as the final result
 (define-syntax-class/pred cur-runtime-axiom-telescope #:attributes (length name-ls ann-ls result)
+  #:commit
   (pattern e:cur-runtime-telescope
            #:with (~and result (~or _:cur-runtime-universe _:cur-runtime-constant _:cur-runtime-identifier)) #'e.result
            #:attr length (attribute e.length)
@@ -160,6 +164,7 @@ Utilities for working with cur-runtime-terms
 
 ;; Inductive telescopes are nested Π types with a universe as the final result.
 (define-syntax-class cur-runtime-inductive-telescope #:attributes (length name-ls ann-ls result)
+  #:commit
   (pattern e:cur-runtime-telescope
            #:with result:cur-runtime-universe #'e.result
            #:attr length (attribute e.length)
@@ -170,6 +175,7 @@ Utilities for working with cur-runtime-terms
 ;; head position.
 (define-syntax-class (cur-runtime-constructor-telescope inductive)
   #:attributes (length name-ls ann-ls recursive-index-ls result)
+  #:commit
   (pattern e:cur-runtime-telescope
            #:with result:cur-runtime-constant #'e.result
            #:when (free-identifier=? #'result.name inductive)
