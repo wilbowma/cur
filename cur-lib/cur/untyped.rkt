@@ -9,8 +9,21 @@
   "curnel/racket-impl/runtime.rkt")
  "curnel/racket-impl/runtime.rkt"
  "curnel/racket-impl/runtime-utils.rkt"
-
  )
+
+(provide
+ Type
+ Π
+ data
+ (rename-out
+  [app #%app])
+ λ
+ #%module-begin
+ #%top
+ #%top-interaction
+ require
+ provide
+ submod)
 
 (define-syntax (Type syn)
   (raise-syntax-error "Type doesn't make sense in a unityped setting" syn))
