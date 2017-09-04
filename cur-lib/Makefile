@@ -1,4 +1,4 @@
-PACKAGE-NAME=cur-lib
+PACKAGE-NAME=cur-lib-scratch
 
 DEPS-FLAGS=--check-pkg-deps --unused-pkg-deps
 
