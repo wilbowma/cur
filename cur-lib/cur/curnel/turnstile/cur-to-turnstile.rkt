@@ -65,44 +65,55 @@
  provide-with-types)
 
 
-(define-syntax (turn-Type stx)
-  stx)
+(define-syntax (turn-Type syn)
+   (syntax-parse syn
+    [(_ i:exact-nonnegative-integer)
+     syn]))
 
-(define-syntax (turn-define stx)
-  stx)
+(define-syntax (turn-define syn)
+  (syntax-parse syn
+    #:datum-literals (:)
+    [(_:top-level-id name:id body:cur-expr)
+     #:with delta (format-id #'name "delta:~a" #'name #:source #'name)
+
+     #'(define name (~datum :) τ body)]))
 
  (define-syntax (turn-λ syn)
    (syntax-parse syn
     #:datum-literals (:)
     [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
 
+     #'(λ ([x : t1]) e)])) 
+ 
+(define-syntax (turn-Π syn)
+  syn)
 
-     (make-cur-runtime-lambda
-      syn
-      #'t1.reified
-      (syntax-local-identifier-as-binding (syntax-local-introduce #'x))
-      (syntax-local-introduce #'e.reified))]))
+#;(define-syntax (turn-Π syn)
+    #:datum-literals (:)
+    [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
+     #:with (~var _ (cur-kind/ctx (list (cons #'x #'t1.reified)))) #'e.reified
+     #'(Π ([x : t1]) e)])
  
- (define-syntax (turn-Π stx)
-   stx)
- 
-(define-syntax (turn-app stx)
-  stx)
+(define-syntax (turn-app syn)
+  (syntax-parse syn
+    [(_ e1:cur-procedure (~var e2 (cur-expr-of-type #'e1.ann)))
+     
+      (make-cur-runtime-app syn #'e1.reified #'e2.reified)]))
 
- (define-syntax (turn-axiom stx)
-   stx)
+ (define-syntax (turn-axiom syn)
+   syn)
  
- (define-syntax (turn-data stx)
-   stx)
+ (define-syntax (turn-data syn)
+   syn)
  
- (define-syntax (turn-new-elim stx)
-   stx)
+ (define-syntax (turn-new-elim syn)
+   syn)
  
- (define-syntax (turn-elim stx)
-   stx)
+ (define-syntax (turn-elim syn)
+   syn)
  
- (define-syntax (turn-void stx)
-   stx)
+ (define-syntax (turn-void syn)
+   syn)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 #| (define-syntax (typed-Type syn)
   (syntax-parse syn
