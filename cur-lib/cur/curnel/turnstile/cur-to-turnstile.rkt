@@ -177,6 +177,7 @@
 |#
 (module+ test
   (require
+   chk
    (only-in (submod "..")
             [turn-Type Type]
             [turn-define define]
@@ -186,38 +187,59 @@
 ;            [turn-axiom axiom]
 ;            [turn-data data]
 #;            [turn-new-elim elim]))
-(Type 1)
+  (chk
+   ;; #:t means "doesn't error"
+   #:t (Type 1)
 
-;; Should fail with good error, does
-;(Type z)
+   ;; #:exn means "throws an exception"; takes a predicate or string to detect the right error
+   ;; message.
+   ;; The particular error messages here probably aren't right.
+   ;; As long as the error produced is sort of close, change the expected string to make the test pass.
+   #:exn #rx"expected universe level but found|unbound identifier z"
+   (Type z)
 
-(define x (Type 1))
+   ;; These three may not work, since define may need to be at top-level
+   #:t (define x (Type 1))
 
-; Should fail with good error, does
-;(define y (define z (Type 1)) z)
-;(define y (define z (Type 1) x) z)
+   #:exn #rx"expected exactly one expression in the body of define but found two"
+   (define y (define z (Type 1)) z)
 
-(λ (y : x) x))
+   #:exn #rx"expected exactly one expression in the body of define but found two"
+   (define y (define z (Type 1) x) z)
+
+   #:exn #rx"invalid syntax Type"
+   (define x Type)
+
+   #:exn #rx"expected exactly one expression in the body of define but found two"
+   (define x (Type 1) (Type 1)))
+
+  ;; Uncomment this if the earlier defines don't work inside a (chk) block
+  #;(define x (Type 1))
+  (chk
+
+   #:t x
+   #:t (λ (y : x) x)
+   #:t (Π (x : (Type 1)) (Type 1))
+   #:t (Π (x : (Type 1)) (Type 2))
+
+   #:exn #rx"expected function but found x"
+   (Π (x : (x (Type 1))) (Type 1))
+
+   #:exn #rx"expected function but found x"
+   (Π (x : (Type 1)) (x (Type 1)))
+
+   #:exn #rx"expected function but found x"
+   (Π (y : (Type 1)) (x (Type 1)))
+
+   #:exn #rx"expected a kind (a term whose type is a universe) but found a term of type (Π (x : (Type 0)) (Type 0))"
+   (Π (y : (λ (x : (Type 0)) x)) (x (Type 1)))
+
+   #:t (define id (λ (x : (Type 2)) x))
+   #:t ((λ (x : (Type 2)) x) (Type 1))))
 
 #;(module+ test
-
-;; Should fail with good error, do
-; (define x Type)
-; (define x (Type 1) (Type 1))
-
-x
-
-(Π (x : (Type 1)) (Type 1))
-
-(Π (x : (Type 1)) (Type 2))
-
 ;; Should fail with good error, do (TODO Ish. Error messages still need polish)
-;(Π (x : (x (Type 1))) (Type 1))
-;(Π (x : (Type 1)) (x (Type 1)))
-;(Π (y : (Type 1)) (x (Type 1)))
-;(Π (y : (λ (x : (Type 0)) x)) (x (Type 1)))
 
-(define id (λ (x : (Type 2)) x))
 ((λ (x : (Type 2)) x) (Type 1))
 
 ;; Should fail with good error, do (ish; see above)
