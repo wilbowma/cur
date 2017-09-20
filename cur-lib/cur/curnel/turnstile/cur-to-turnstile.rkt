@@ -99,52 +99,6 @@
 
  (define-syntax (turn-void syn)
    syn)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#|
-(define-syntax (typed-Π syn)
-  (syntax-parse syn
-    #:datum-literals (:)
-    [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
-     #:with (~var _ (cur-kind/ctx (list (cons #'x #'t1.reified)))) #'e.reified
-     (make-cur-runtime-pi
-      syn
-      #'t1.reified
-      (syntax-local-identifier-as-binding (syntax-local-introduce #'x))
-      (syntax-local-introduce #'e.reified))]))
-
-(define-syntax (typed-λ syn)
-  (syntax-parse syn
-    #:datum-literals (:)
-    [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
-     (make-cur-runtime-lambda
-      syn
-      #'t1.reified
-      (syntax-local-identifier-as-binding (syntax-local-introduce #'x))
-      (syntax-local-introduce #'e.reified))]))
-
-(define-syntax (typed-app syn)
-  (syntax-parse syn
-    [(_ e1:cur-procedure (~var e2 (cur-expr-of-type #'e1.ann)))
-     (make-cur-runtime-app syn #'e1.reified #'e2.reified)]))
-
-(define-syntax (typed-axiom syn)
-  (syntax-parse syn
-    #:datum-literals (:)
-    [(_:definition-id name:id : type:cur-axiom-telescope)
-     #:with c (format-id this-syntax "constant:~a" #'name #:source #'name)
-     #`(begin
-         (struct c constant (#,@(attribute type.name-ls)) #:transparent
-;           #:extra-constructor-name name1
-           #:reflection-name 'name)
-         (define name ((curry c)))
-         (define-for-syntax name
-           (constant-info #'type.reified #f 0 #f #f #f #f #f #f #f #f)))]))
-
-
-
-
-
-|#
 
 
 
@@ -473,3 +427,34 @@ z2
       rest)
      syn))
 
+;;;;;;;;;;;;;;;;;for reference, from type-check.rkt;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+#|
+(define-syntax (typed-Π syn)
+  (syntax-parse syn
+    #:datum-literals (:)
+    [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
+     #:with (~var _ (cur-kind/ctx (list (cons #'x #'t1.reified)))) #'e.reified
+     (make-cur-runtime-pi
+      syn
+      #'t1.reified
+      (syntax-local-identifier-as-binding (syntax-local-introduce #'x))
+      (syntax-local-introduce #'e.reified))]))
+
+(define-syntax (typed-axiom syn)
+  (syntax-parse syn
+    #:datum-literals (:)
+    [(_:definition-id name:id : type:cur-axiom-telescope)
+     #:with c (format-id this-syntax "constant:~a" #'name #:source #'name)
+     #`(begin
+         (struct c constant (#,@(attribute type.name-ls)) #:transparent
+;           #:extra-constructor-name name1
+           #:reflection-name 'name)
+         (define name ((curry c)))
+         (define-for-syntax name
+           (constant-info #'type.reified #f 0 #f #f #f #f #f #f #f #f)))]))
+
+
+
+
+
+|#
