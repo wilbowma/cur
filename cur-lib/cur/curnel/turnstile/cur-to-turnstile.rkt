@@ -86,7 +86,8 @@
       #'(dep-#%app e1 e2 ...)]))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;
+;------------------------------------------------------------------------------------------;
+;------------------------------- not implemented yet -------------------------------;
  (define-syntax (turn-axiom syn)
    syn)
  
@@ -101,7 +102,9 @@
    syn)
 
 
-
+;------------------------------------------------------------------------------------------;
+;------------------------------- Testing: -------------------------------;
+;------------------------------------------------------------------------------------------;
 (module+ test
   (require
    chk
@@ -120,55 +123,74 @@
 
   ;;;;;;;;;define should succeed;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   (define x (Type 1)) ;OK
-
+  (define puppies (Type 2)) ;OK
   (define kittens (Type 3)) ;OK
+  (define id (λ (x : (Type 2)) x)) ;OK
 
-  (define id (λ (x : (Type 2)) x)) ;OK 
-
-  (define id2 (λ (A : (Type 3)) (λ (a : A) a))) ;OK? (is this supposed to work?  it does.  came from original tests)
+  (define id2 (λ (A : (Type 3)) (λ (a : A) a))) ;OK? 
 
     ;;;;;;;;;define should fail;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; "unexpected term z at..." OK
-;;;   (define y (define z (Type 1)) z)
+;;; "unexpected term z at..." ;;TODO better error here or is this ok?
+;;;   (define y (define z (Type 1)) z) ;OK
 
-;;; "unexpected term z at..." OK
-;;;   (define y (define z (Type 1) x) z)
+;;; "unexpected term z at..." 
+;;;   (define y (define z (Type 1) x) z) ;OK
 
-;;;"invalid syntax Type" OK
-;;;   (define x Type)
+;;;"invalid syntax Type" 
+;;;   (define x Type) ;OK
 
-;;;"unexpected term..." OK
-;;;   (define x (Type 1) (Type 1))
+;;;"unexpected term..." 
+;;;   (define x (Type 1) (Type 1)) ;OK
 
   
   (chk
+   ;;;;;;;;;;;;;;checking above definitions;;;;;
+   #:= x (Type 1) ;OK
+   #:= puppies (Type 2) ;OK
+   #:= kittens (Type 3) ;OK
+   #:= id (λ (x : (Type 2)) x) ;OK
+   #:= id2 (λ (A : (Type 3)) (λ (a : A) a)) ;OK
+   
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Type should succeed;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-   ;;note: x here previously defined as (Type 1)
-   #:t x ;OK
+   ;(mine)
+   #:t (Type 0) ;OK
    
    #:t (Type 1) ;OK
-
    #:t (Type 3) ;OK
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Type should fail;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     
-;;   #:x #rx""expected universe level but found|unbound identifier z" ;;TODO currently gives Racket type error for z, do better?
-;;  (Type z) ;OK
+;;;TODO Fix this (and other) expected-to-fail tests so they can be uncommented
+;;;   #:x (Type z) "exact-nonnegative-integer" ;OK
 
   
 
 ;;;;;;;;;;;;;;;;;;;; λ should succeed ;;;;;;;;;;;;;;;;;;;;
+;;;(next 3 are mine)
+   #:t (λ (x : (Type 3)) x) ;OK
+   #:t (λ (x : (Type 2)) (λ (y : (Type 0)) y)) ;OK
+   #:t (λ (z : (Type 0)) id2) ;OK
 
-;;;   #:t (λ (y : x) x) ;FIXME #%datum error, unusable
+;FIXME gives "?: literal data is not allowed; no #%datum syntax transformer is bound in: #f"
+;Can't seem to refer to previously-defined types in a λ? (previously-defined λ's are fine...)   
+;;;   #:t (λ (y : x) x)
+
+   
 ;;;;;;;;;;;;;;;;;;;; λ should fail;;;;;;;;;;;;;;;;;;;;
 
  ;;;(mine) (note: should fail b/c id is a λ, not a type)
 ;;;#x #rx"Expected type"   
-;;;(λ (x : id) x)
+;;; (λ (x : id) x) ;OK
 
 ;;;;;;;;;;;;;;;;;;;; app should succeed;;;;;;;;;;;;;;;
-#:t ((λ (x : (Type 2)) x) (Type 1)) ;OK
+#:= ((λ (x : (Type 2)) x) (Type 1)) (Type 1) ;OK?
+
+;;;(mine) (note: puppes is (Type 2))
+#:= ((λ (A : (Type 3)) (λ (a : (Type 2)) a)) puppies) (λ (a : (Type 2)) a) ;OK
+
+;;;(mine) (note: puppies is (Type 2), x is (Type 1))
+#:= (((λ (A : (Type 3)) (λ (a : (Type 2)) a)) puppies) x) x ;OK
 
 ;;;;;;;;;;;;;;;;;;;; app should fail;;;;;;;;;;;;;;;;;;;
 
