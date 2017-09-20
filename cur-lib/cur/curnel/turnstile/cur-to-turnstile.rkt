@@ -50,9 +50,15 @@
 
 
 (define-syntax (turn-Type syn)
-   (syntax-parse syn
+   (syntax-parse syn                 
     [(_ i:exact-nonnegative-integer)
-     #'(dep-Type i)]))
+     #'(dep-Type i)]
+
+     ;;where/how to add a helpful error?  right now it's "expected exact-nonnegative-integer"
+     #;[_ (raise-syntax-error
+     'core-type-error
+     "helpful Type error here")]
+     ))
 
 (define-syntax (turn-define syn)
   (syntax-parse syn
@@ -60,8 +66,8 @@
      #'(dep-define name body)]))
 
 
- (define-syntax (turn-λ syn)
-   (syntax-parse syn
+(define-syntax (turn-λ syn)
+  (syntax-parse syn
     #:datum-literals (:)
     [(_ (x:id : t1:expr) e:expr)
      ;;used to be t1:cur-kind
@@ -72,7 +78,7 @@
     #:datum-literals (:)
     [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
      #:with (~var _ (cur-kind/ctx (list (cons #'x #'t1.reified)))) #'e.reified
-     #'(dep-Π ([X:id : τ_in] ...) τ_out)])
+     #'(dep-Π ([x:id : t1] ...) τ_out)])
 
 (define-syntax (turn-app syn)
   (syntax-parse syn
@@ -90,9 +96,7 @@
  (define-syntax (turn-new-elim syn)
    syn)
  
- (define-syntax (turn-elim syn)
-   syn)
- 
+
  (define-syntax (turn-void syn)
    syn)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -163,11 +167,11 @@
   ;;;;;;;;;define should succeed;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   (define x (Type 1)) ;OK
 
-  (define z (Type 3)) ;OK
+  (define kittens (Type 3)) ;OK
 
   (define id (λ (x : (Type 2)) x)) ;OK 
 
-  (define id2 (λ (A : (Type 3)) (λ (a : A) a))) ;OK
+  (define id2 (λ (A : (Type 3)) (λ (a : A) a))) ;OK? (is this supposed to work?  it does.  came from original tests)
 
     ;;;;;;;;;define should fail;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -186,25 +190,47 @@
   
   (chk
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Type should succeed;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+   ;;note: x here previously defined as (Type 1)
+   #:t x ;OK
+   
    #:t (Type 1) ;OK
 
    #:t (Type 3) ;OK
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Type should fail;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-   
-;;;;;Fails (with unhelpful error): "expected exact-nonnegative-integer at:... "  
-;;;   #:x #rx"expected universe level but found|unbound identifier z"
-;;;  (Type z) ;OK
-   )
-#; (chk
+    
+;;   #:x #rx""expected universe level but found|unbound identifier z" ;;TODO currently gives Racket type error for z, do better?
+;;  (Type z) ;OK
 
-;;;   #:t x
-;;;   #:t (λ (y : x) x)
+  
 
+;;;;;;;;;;;;;;;;;;;; λ should succeed ;;;;;;;;;;;;;;;;;;;;
 
+;;;   #:t (λ (y : x) x) ;FIXME #%datum error, unusable
+;;;;;;;;;;;;;;;;;;;; λ should fail;;;;;;;;;;;;;;;;;;;;
+
+ ;;;(mine) (note: should fail b/c id is a λ, not a type)
+;;;#x #rx"Expected type"   
+;;;(λ (x : id) x)
+
+;;;;;;;;;;;;;;;;;;;; app should succeed;;;;;;;;;;;;;;;
+#:t ((λ (x : (Type 2)) x) (Type 1)) ;OK
+
+;;;;;;;;;;;;;;;;;;;; app should fail;;;;;;;;;;;;;;;;;;;
+
+;;;#:x #rx"type mismatch" ;;TODO rewrite this test it matches, but does fail!
+;;;((λ (x : (Type 2)) x) (Type 3)) ;OK
+
+;;;(mine) (note: should fail because id is (Type 2)→(Type 2), kittens is (Type 3)
+;;;#x #rx"type mismatch" ;;TODO same as above    
+;;;(id kittens) ;OK
+)
+;------------------------------------------------------------------------------------------;
+;------------------------------- Below: not implemented yet -------------------------------;
+#;(chk
 ;;;;;;;;;;;;;;;;;;;; Π should succeed ;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;   #:t (Π (x : (Type 1)) (Type 1))
-;;;   #:t (Π (x : (Type 1)) (Type 2))
+   #:t (Π (x : (Type 1)) (Type 1))
+   #:t (Π (x : (Type 1)) (Type 2))
 
 
    
@@ -221,12 +247,24 @@
 ;;;   #:x #rx"expected a kind (a term whose type is a universe) but found a term of type (Π (x : (Type 0)) (Type 0))"
 ;;;   (Π (y : (λ (x : (Type 0)) x)) (x (Type 1)))
 
-
-;;;;;;;;;;;;;;;;;;;; λ should succeed ;;;;;;;;;;;;;;;;;;;;
-
-
-;;;;;;;;;;;;;;;;;;;; λ should fail;;;;;;;;;;;;;;;;;;;;
   )
+#;(chk
+;;;;;;;;;;;;;;;;;;;; axiom should succeed ;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;; axiom should fail ;;;;;;;;;;;;;;;;;;;;;;;;;   
+   )
+#;(chk
+;;;;;;;;;;;;;;;;;;;; data should succeed ;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;; data should fail ;;;;;;;;;;;;;;;;;;;;;;;;;   
+   )
+  #;(chk
+
+;;;;;;;;;;;;;;;;;;;; elim should succeed ;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;; elim should fail ;;;;;;;;;;;;;;;;;;;;;;;;;   
+
+     )
 )
 
 
@@ -239,7 +277,7 @@
 #;(module+ test
 ;; Should fail with good error, do (TODO Ish. Error messages still need polish)
 
-((λ (x : (Type 2)) x) (Type 1))
+((λ (x : (Type 2)) x) (Type 1))  
 
 ;; Should fail with good error, do (ish; see above)
 ;((λ (x : (Type 2)) x) (Type 2))
@@ -403,37 +441,35 @@ z2
 
 
 
- ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;;;;;;;;;;;;;;;;;;;;;;;;copypasta stuff;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-#;(define-syntax (cur-require syn)
-  (syntax-parse syn
-    [(_ specs ...)
-     #'(require (require-with-type spec) ...)]))
-
+;;;not sure why this is here;;;
 (define-syntax (cur-provide syn)
   (syntax-parse syn
     [(_ spec ...)
      #'(provide (provide-with-types spec) ...)]))
 
-;(define-require-syntax (require-with-type stx)
-;  (syntax-case stx ()
-;    [(_ spec)
-;     (let-values ([(imports _) (expand-import #'spec))]
-;       #`(combine-in
-;          spec
-;          (for-syntax
-;           #,@(for/list ([i (in-list imports)])
-;                (import-src-sym i))))
-;       )]))
+;;;taken from type-check.rkt to maybe throw cur type errors at some point?  
 
-#;(define-provide-syntax (provide-with-types stx)
-  (syntax-case stx ()
-    [(_ spec)
-     (let ([exports (expand-export #'spec '())])
-       #`(combine-out
-          spec
-          (for-syntax
-           #,@(for/list ([i (in-list exports)]
-                         #:when (with-handlers ([values (lambda _ #f)])
-                                  (identifier-info? (syntax-local-eval (export-local-id i)))))
-                #`(rename-out [#,(export-local-id i) #,(export-out-sym i)])))))]))
+;; TODO: Should be catchable; maybe should have hierarchy. See current Curnel
+  ;; TODO: Should be in separate module
+
+  ;; syn: the source syntax of the error
+  ;; expected: a format string describing the expected type or term.
+  ;; term: a datum or format string describing the term that did not match the expected property. If a
+  ;;       format string, remaining args must be given as rest.
+  ;; type: a datum or format string describing the type that did not match the expected property. If a
+  ;;       format string, remaining args must be given as rest.
+  ;; rest: more datums
+  (define (cur-type-error syn expected term type . rest)
+    (raise-syntax-error
+     'core-type-error
+     (apply
+      format
+      (format "Expected ~a, but found ~a of type ~a."
+              expected
+              term
+              type)
+      rest)
+     syn))
+
