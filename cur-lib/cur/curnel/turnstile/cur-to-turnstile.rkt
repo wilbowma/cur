@@ -131,7 +131,7 @@
 
     ;;;;;;;;;define should fail;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; "unexpected term z at..." ;;TODO better error here or is this ok?
+;;; "unexpected term z at..." ;;TODO better error here or is this fine?
 ;;;   (define y (define z (Type 1)) z) ;OK
 
 ;;; "unexpected term z at..." 
@@ -153,8 +153,7 @@
    #:= id2 (λ (A : (Type 3)) (λ (a : A) a)) ;OK
    
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Type should succeed;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-   ;(mine)
-   #:t (Type 0) ;OK
+   #:t (Type 0) ;OK?
    
    #:t (Type 1) ;OK
    #:t (Type 3) ;OK
@@ -167,39 +166,51 @@
   
 
 ;;;;;;;;;;;;;;;;;;;; λ should succeed ;;;;;;;;;;;;;;;;;;;;
-;;;(next 3 are mine)
-   #:t (λ (x : (Type 3)) x) ;OK
-   #:t (λ (x : (Type 2)) (λ (y : (Type 0)) y)) ;OK
-   #:t (λ (z : (Type 0)) id2) ;OK
 
-;FIXME gives "?: literal data is not allowed; no #%datum syntax transformer is bound in: #f"
-;Can't seem to refer to previously-defined types in a λ? (previously-defined λ's are fine...)   
-;;;   #:t (λ (y : x) x)
+;;;FIXME: gives "?: literal data is not allowed; no #%datum syntax transformer is bound in: #f"
+;λs cannot return a type
+;;;All these tests give that error (written in equivalent pairs to rule out previous defines):
+;;;   #:t (λ (y : x) x) ;;this one was supposed to succeed, the rest are mine
+;;;   #:t (λ (y : (Type 1)) (Type 1)) 
+   
+;;;   #:t (λ (y : (Type 2)) kittens)
+;;;   #:t (λ (y : (Type 2)) (Type 3)) 
+   
+;;;   #:t (λ (z : (Type 0)) x)
+;;;   #:t (λ (z : (Type 0)) (Type 1))
+
+  
+
+;;but these do not:
+ #:t (λ (z : x) z) ;OK?
+ #:t (λ (x : (Type 3)) x) ;OK?
+ #:t (λ (x : (Type 2)) (λ (y : (Type 0)) y)) ;OK?
+   
 
    
 ;;;;;;;;;;;;;;;;;;;; λ should fail;;;;;;;;;;;;;;;;;;;;
 
- ;;;(mine) (note: should fail b/c id is a λ, not a type)
+ ;;;(note: should fail b/c id is a λ, not a type)
 ;;;#x #rx"Expected type"   
-;;; (λ (x : id) x) ;OK
+;;; (λ (x : id) x) ;OK?
 
 ;;;;;;;;;;;;;;;;;;;; app should succeed;;;;;;;;;;;;;;;
 #:= ((λ (x : (Type 2)) x) (Type 1)) (Type 1) ;OK?
 
-;;;(mine) (note: puppes is (Type 2))
-#:= ((λ (A : (Type 3)) (λ (a : (Type 2)) a)) puppies) (λ (a : (Type 2)) a) ;OK
+;;;(note: puppes is (Type 2))
+#:= ((λ (A : (Type 3)) (λ (a : (Type 2)) a)) puppies) (λ (a : (Type 2)) a) ;OK?
 
-;;;(mine) (note: puppies is (Type 2), x is (Type 1))
-#:= (((λ (A : (Type 3)) (λ (a : (Type 2)) a)) puppies) x) x ;OK
+;;;(note: puppies is (Type 2), x is (Type 1))
+#:= (((λ (A : (Type 3)) (λ (a : (Type 2)) a)) puppies) x) x ;OK?
 
 ;;;;;;;;;;;;;;;;;;;; app should fail;;;;;;;;;;;;;;;;;;;
 
 ;;;#:x #rx"type mismatch" ;;TODO rewrite this test it matches, but does fail!
 ;;;((λ (x : (Type 2)) x) (Type 3)) ;OK
 
-;;;(mine) (note: should fail because id is (Type 2)→(Type 2), kittens is (Type 3)
+;;;(note: should fail because id is (Type 2)→(Type 2), kittens is (Type 3)
 ;;;#x #rx"type mismatch" ;;TODO same as above    
-;;;(id kittens) ;OK
+;;;(id kittens) ;OK?
 )
 ;------------------------------------------------------------------------------------------;
 ;------------------------------- Below: not implemented yet -------------------------------;
