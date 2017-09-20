@@ -10,9 +10,10 @@
   ;racket/require-transform
   racket/provide-transform
   "stxutils.rkt"
-  "runtime-utils.rkt"
+  "runtime-utils.rkt")
 
   (rename-in turnstile/examples/dep-ind
+             [Type dep-Type]
              [* dep-*]
              [ Π dep-Π]
              [→ dep-→]
@@ -28,27 +29,9 @@
          [define-type-alias dep-define-type-alias])
   
   "reflection.rkt")
- (rename-in "runtime.rkt"
-             [cur-Type run-Type]
-             [cur-Π run-Π]
-             [cur-apply run-apply]
-             [cur-λ run-λ]
-             [cur-elim run-elim])
-            
- (rename-in "type-check.rkt"
-           [typed-Type typecheck-Type]
-           [typed-define typecheck-define]
-           [typed-λ typecheck-λ]
-           [typed-Π typecheck-Π]
-           [typed-app typecheck-app]
-           [typed-axiom typecheck-axiom]
-           [typed-data typecheck-data]
-           [typed-elim typecheck-new-elim]
-           [deprecated-typed-elim typecheck-elim]
-           [cur-void typecheck-void])
- )
+; )
 (provide
- (rename-out [run-Type turn-Type])
+ turn-Type
  turn-define
  turn-λ
 ; turn-Π
@@ -62,44 +45,42 @@
   
   (rename-out [cur-provide turn-provide]
   )
- provide-with-types)
+ ;provide-with-types
+  )
 
 
 (define-syntax (turn-Type syn)
    (syntax-parse syn
     [(_ i:exact-nonnegative-integer)
-     syn]))
+     #'(dep-Type i)]))
 
 (define-syntax (turn-define syn)
   (syntax-parse syn
-    #:datum-literals (:)
-    [(_:top-level-id name:id body:cur-expr)
-     #:with delta (format-id #'name "delta:~a" #'name #:source #'name)
+    [(_:top-level-id name:id body:expr)
+     #'(dep-define name body)]))
 
-     #'(define name (~datum :) τ body)]))
 
  (define-syntax (turn-λ syn)
    (syntax-parse syn
     #:datum-literals (:)
-    [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
+    [(_ (x:id : t1:expr) e)
+     ;;used to be t1:cur-kind
+     #'(dep-λ ([x : t1]) e)]))
 
-     #'(λ ([x : t1]) e)]))
-
-(define-syntax (turn-Π syn)
-  syn)
 
 #;(define-syntax (turn-Π syn)
     #:datum-literals (:)
     [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
      #:with (~var _ (cur-kind/ctx (list (cons #'x #'t1.reified)))) #'e.reified
-     #'(Π ([x : t1]) e)])
- 
+     #'(dep-Π ([X:id : τ_in] ...) τ_out)])
+
 (define-syntax (turn-app syn)
   (syntax-parse syn
-    [(_ e1:cur-procedure (~var e2 (cur-expr-of-type #'e1.ann)))
-     
-      (make-cur-runtime-app syn #'e1.reified #'e2.reified)]))
+    [(_ e1:expr e2:expr ...)
+      #'(dep-#%app e1 e2 ...)]))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;
  (define-syntax (turn-axiom syn)
    syn)
  
@@ -195,43 +176,51 @@
    ;; message.
    ;; The particular error messages here probably aren't right.
    ;; As long as the error produced is sort of close, change the expected string to make the test pass.
-   #:exn #rx"expected universe level but found|unbound identifier z"
-   (Type z)
 
-   ;; These three may not work, since define may need to be at top-level
-   #:t (define x (Type 1))
 
-   #:exn #rx"expected exactly one expression in the body of define but found two"
-   (define y (define z (Type 1)) z)
+   ;;;;;Currently: "expected exact-nonnegative-integer at: "
+;;;   #:x #rx"expected universe level but found|unbound identifier z"
+;;;  (Type z)
 
-   #:exn #rx"expected exactly one expression in the body of define but found two"
-   (define y (define z (Type 1) x) z)
 
-   #:exn #rx"invalid syntax Type"
-   (define x Type)
+   )
+;;;;;;;;;define stuff;;;;;;;;;;;;;;;;;;;;;;;
+  ;;; defines don't work in chk, here are some defines to comment/uncomment
 
-   #:exn #rx"expected exactly one expression in the body of define but found two"
-   (define x (Type 1) (Type 1)))
+  ;;;works OK
+  (define x (Type 1))
 
-  ;; Uncomment this if the earlier defines don't work inside a (chk) block
-  #;(define x (Type 1))
-  (chk
+  (define z (Type 3))
+;;; "unexpected term z at..." OK
+;;;   (define y (define z (Type 1)) z)
+
+;;; "unexpected term z at..." OK
+;;;   (define y (define z (Type 1) x) z)
+
+;;;"invalid syntax Type" OK
+;;;   (define x Type)
+
+;;;"unexpected term" OK
+;;;   (define x (Type 1) (Type 1))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  
+  #;(chk
 
    #:t x
    #:t (λ (y : x) x)
    #:t (Π (x : (Type 1)) (Type 1))
    #:t (Π (x : (Type 1)) (Type 2))
 
-   #:exn #rx"expected function but found x"
+   #:x #rx"expected function but found x"
    (Π (x : (x (Type 1))) (Type 1))
 
-   #:exn #rx"expected function but found x"
+   #:x #rx"expected function but found x"
    (Π (x : (Type 1)) (x (Type 1)))
 
-   #:exn #rx"expected function but found x"
+   #:x #rx"expected function but found x"
    (Π (y : (Type 1)) (x (Type 1)))
 
-   #:exn #rx"expected a kind (a term whose type is a universe) but found a term of type (Π (x : (Type 0)) (Type 0))"
+   #:x #rx"expected a kind (a term whose type is a universe) but found a term of type (Π (x : (Type 0)) (Type 0))"
    (Π (y : (λ (x : (Type 0)) x)) (x (Type 1)))
 
    #:t (define id (λ (x : (Type 2)) x))
@@ -427,7 +416,7 @@ z2
 ;                (import-src-sym i))))
 ;       )]))
 
-(define-provide-syntax (provide-with-types stx)
+#;(define-provide-syntax (provide-with-types stx)
   (syntax-case stx ()
     [(_ spec)
      (let ([exports (expand-export #'spec '())])
