@@ -35,7 +35,7 @@
  turn-define
  turn-λ
 ; turn-Π
-; turn-app
+ turn-app
 ; turn-axiom
 ; turn-data
 ; turn-new-elim
@@ -63,7 +63,7 @@
  (define-syntax (turn-λ syn)
    (syntax-parse syn
     #:datum-literals (:)
-    [(_ (x:id : t1:expr) e)
+    [(_ (x:id : t1:expr) e:expr)
      ;;used to be t1:cur-kind
      #'(dep-λ ([x : t1]) e)]))
 
@@ -96,11 +96,7 @@
  (define-syntax (turn-void syn)
    syn)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#| (define-syntax (typed-Type syn)
-  (syntax-parse syn
-    [(_ i:nat)
-     (make-cur-runtime-universe syn #'i)]))
-
+#|
 (define-syntax (typed-Π syn)
   (syntax-parse syn
     #:datum-literals (:)
@@ -127,17 +123,6 @@
     [(_ e1:cur-procedure (~var e2 (cur-expr-of-type #'e1.ann)))
      (make-cur-runtime-app syn #'e1.reified #'e2.reified)]))
 
-(define-syntax (typed-define syn)
-  (syntax-parse syn
-    #:datum-literals (:)
-    [(_:top-level-id name:id body:cur-expr)
-     #:with delta (format-id #'name "delta:~a" #'name #:source #'name)
-     ;; TODO: Can we avoid duplicating the syntax of the body?
-     #`(begin
-         (define-for-syntax delta #'body.reified)
-         (define name body.reified)
-         (define-for-syntax name (identifier-info #'body.type delta)))]))
-
 (define-syntax (typed-axiom syn)
   (syntax-parse syn
     #:datum-literals (:)
@@ -156,6 +141,9 @@
 
 
 |#
+
+
+
 (module+ test
   (require
    chk
@@ -164,33 +152,25 @@
             [turn-define define]
             [turn-λ λ]
 ;            [turn-Π Π]
-;            [turn-app #%app]
+            [turn-app #%app]
 ;            [turn-axiom axiom]
 ;            [turn-data data]
 #;            [turn-new-elim elim]))
-  (chk
-   ;; #:t means "doesn't error"
-   #:t (Type 1)
-
-   ;; #:exn means "throws an exception"; takes a predicate or string to detect the right error
-   ;; message.
-   ;; The particular error messages here probably aren't right.
-   ;; As long as the error produced is sort of close, change the expected string to make the test pass.
 
 
-   ;;;;;Currently: "expected exact-nonnegative-integer at: "
-;;;   #:x #rx"expected universe level but found|unbound identifier z"
-;;;  (Type z)
-
-
-   )
-;;;;;;;;;define stuff;;;;;;;;;;;;;;;;;;;;;;;
   ;;; defines don't work in chk, here are some defines to comment/uncomment
 
-  ;;;works OK
-  (define x (Type 1))
+  ;;;;;;;;;define should succeed;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  (define x (Type 1)) ;OK
 
-  (define z (Type 3))
+  (define z (Type 3)) ;OK
+
+  (define id (λ (x : (Type 2)) x)) ;OK 
+
+  (define id2 (λ (A : (Type 3)) (λ (a : A) a))) ;OK
+
+    ;;;;;;;;;define should fail;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ;;; "unexpected term z at..." OK
 ;;;   (define y (define z (Type 1)) z)
 
@@ -200,32 +180,62 @@
 ;;;"invalid syntax Type" OK
 ;;;   (define x Type)
 
-;;;"unexpected term" OK
+;;;"unexpected term..." OK
 ;;;   (define x (Type 1) (Type 1))
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
   
-  #;(chk
+  (chk
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Type should succeed;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+   #:t (Type 1) ;OK
 
-   #:t x
-   #:t (λ (y : x) x)
-   #:t (Π (x : (Type 1)) (Type 1))
-   #:t (Π (x : (Type 1)) (Type 2))
+   #:t (Type 3) ;OK
 
-   #:x #rx"expected function but found x"
-   (Π (x : (x (Type 1))) (Type 1))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Type should fail;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+   
+;;;;;Fails (with unhelpful error): "expected exact-nonnegative-integer at:... "  
+;;;   #:x #rx"expected universe level but found|unbound identifier z"
+;;;  (Type z) ;OK
+   )
+#; (chk
 
-   #:x #rx"expected function but found x"
-   (Π (x : (Type 1)) (x (Type 1)))
+;;;   #:t x
+;;;   #:t (λ (y : x) x)
 
-   #:x #rx"expected function but found x"
-   (Π (y : (Type 1)) (x (Type 1)))
 
-   #:x #rx"expected a kind (a term whose type is a universe) but found a term of type (Π (x : (Type 0)) (Type 0))"
-   (Π (y : (λ (x : (Type 0)) x)) (x (Type 1)))
+;;;;;;;;;;;;;;;;;;;; Π should succeed ;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;   #:t (Π (x : (Type 1)) (Type 1))
+;;;   #:t (Π (x : (Type 1)) (Type 2))
 
-   #:t (define id (λ (x : (Type 2)) x))
-   #:t ((λ (x : (Type 2)) x) (Type 1))))
 
+   
+;;;;;;;;;;;;;;;;;;;; Π should fail ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;   #:x #rx"expected function but found x"
+;;;   (Π (x : (x (Type 1))) (Type 1))
+
+;;;   #:x #rx"expected function but found x"
+;;;   (Π (x : (Type 1)) (x (Type 1)))
+
+;;;   #:x #rx"expected function but found x"
+;;;   (Π (y : (Type 1)) (x (Type 1)))
+
+;;;   #:x #rx"expected a kind (a term whose type is a universe) but found a term of type (Π (x : (Type 0)) (Type 0))"
+;;;   (Π (y : (λ (x : (Type 0)) x)) (x (Type 1)))
+
+
+;;;;;;;;;;;;;;;;;;;; λ should succeed ;;;;;;;;;;;;;;;;;;;;
+
+
+;;;;;;;;;;;;;;;;;;;; λ should fail;;;;;;;;;;;;;;;;;;;;
+  )
+)
+
+
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;original tests;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 #;(module+ test
 ;; Should fail with good error, do (TODO Ish. Error messages still need polish)
 
