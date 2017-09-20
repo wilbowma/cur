@@ -166,7 +166,7 @@
 
 ;;;;;;;;;;;;;;;;;;;; λ should succeed ;;;;;;;;;;;;;;;;;;;;
 
-;;;FIXME: gives "?: literal data is not allowed; no #%datum syntax transformer is bound in: #f"
+;;;FIXME?: gives "?: literal data is not allowed; no #%datum syntax transformer is bound in: #f"
 ;λs cannot return a type
 ;;;All these tests give that error (written in equivalent pairs to rule out previous defines):
 ;;;   #:t (λ (y : x) x) ;;this one was definitely supposed to succeed, the rest are mine
@@ -211,14 +211,10 @@
 ;;;#x #rx"type mismatch" ;;TODO same as above    
 ;;;(id kittens) ;OK?
 )
-;------------------------------------------------------------------------------------------;
-;------------------------------- Below: not implemented yet -------------------------------;
 (chk
 ;;;;;;;;;;;;;;;;;;;; Π should succeed ;;;;;;;;;;;;;;;;;;;;;;;;;
    #:t (Π (x : (Type 1)) (Type 1)) ;OK
    #:t (Π (x : (Type 1)) (Type 2)) ;OK
-
-
    
 ;;;;;;;;;;;;;;;;;;;; Π should fail ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -237,6 +233,8 @@
 ;;;   (Π (y : (λ (x : (Type 0)) x)) (x (Type 1))) ;OK
 
   )
+;------------------------------------------------------------------------------------------;
+;------------------------------- Below: not implemented yet -------------------------------;
 #;(chk
 ;;;;;;;;;;;;;;;;;;;; axiom should succeed ;;;;;;;;;;;;;;;;;;;;;;;;;
 
