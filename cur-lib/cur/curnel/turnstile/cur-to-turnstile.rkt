@@ -34,7 +34,7 @@
  turn-Type
  turn-define
  turn-λ
-; turn-Π
+ turn-Π
  turn-app
 ; turn-axiom
 ; turn-data
@@ -74,11 +74,10 @@
      #'(dep-λ ([x : t1]) e)]))
 
 
-#;(define-syntax (turn-Π syn)
-    #:datum-literals (:)
-    [(_ (x:id : t1:cur-kind) (~var e (cur-expr/ctx (list (cons #'x #'t1.reified)))))
-     #:with (~var _ (cur-kind/ctx (list (cons #'x #'t1.reified)))) #'e.reified
-     #'(dep-Π ([x:id : t1] ...) τ_out)])
+(define-syntax (turn-Π syn)
+    (syntax-parse syn #:datum-literals (:)
+    [(_ (x:id : t1:expr)... e:expr)
+     #'(dep-Π ([x:id : t1] ...) e)]))
 
 (define-syntax (turn-app syn)
   (syntax-parse syn
@@ -112,7 +111,7 @@
             [turn-Type Type]
             [turn-define define]
             [turn-λ λ]
-;            [turn-Π Π]
+            [turn-Π Π]
             [turn-app #%app]
 ;            [turn-axiom axiom]
 ;            [turn-data data]
@@ -170,7 +169,7 @@
 ;;;FIXME: gives "?: literal data is not allowed; no #%datum syntax transformer is bound in: #f"
 ;λs cannot return a type
 ;;;All these tests give that error (written in equivalent pairs to rule out previous defines):
-;;;   #:t (λ (y : x) x) ;;this one was supposed to succeed, the rest are mine
+;;;   #:t (λ (y : x) x) ;;this one was definitely supposed to succeed, the rest are mine
 ;;;   #:t (λ (y : (Type 1)) (Type 1)) 
    
 ;;;   #:t (λ (y : (Type 2)) kittens)
@@ -214,25 +213,28 @@
 )
 ;------------------------------------------------------------------------------------------;
 ;------------------------------- Below: not implemented yet -------------------------------;
-#;(chk
+(chk
 ;;;;;;;;;;;;;;;;;;;; Π should succeed ;;;;;;;;;;;;;;;;;;;;;;;;;
-   #:t (Π (x : (Type 1)) (Type 1))
-   #:t (Π (x : (Type 1)) (Type 2))
+   #:t (Π (x : (Type 1)) (Type 1)) ;OK
+   #:t (Π (x : (Type 1)) (Type 2)) ;OK
 
 
    
 ;;;;;;;;;;;;;;;;;;;; Π should fail ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;TODO these all actually say eg: 
+ ;;;                   dep-#%app: expected the identifier `#%plain-app' at: Type- in: (dep-#%app x1 (Type 1))
 ;;;   #:x #rx"expected function but found x"
-;;;   (Π (x : (x (Type 1))) (Type 1))
+;;;   (Π (x : (x (Type 1))) (Type 1)) ;OK
 
 ;;;   #:x #rx"expected function but found x"
-;;;   (Π (x : (Type 1)) (x (Type 1)))
+;;;   (Π (x : (Type 1)) (x (Type 1))) ;OK
 
 ;;;   #:x #rx"expected function but found x"
-;;;   (Π (y : (Type 1)) (x (Type 1)))
+;;;   (Π (y : (Type 1)) (x (Type 1))) ;OK
 
 ;;;   #:x #rx"expected a kind (a term whose type is a universe) but found a term of type (Π (x : (Type 0)) (Type 0))"
-;;;   (Π (y : (λ (x : (Type 0)) x)) (x (Type 1)))
+;;;   (Π (y : (λ (x : (Type 0)) x)) (x (Type 1))) ;OK
 
   )
 #;(chk
