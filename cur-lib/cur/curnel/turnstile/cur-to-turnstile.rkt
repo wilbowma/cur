@@ -117,8 +117,36 @@
 ;            [turn-data data]
 #;            [turn-new-elim elim]))
 
+  ;; test defines and syntax failures manually by local expansion
+  (begin-for-syntax
+    (require chk)
 
-  ;;; defines don't work in chk, here are some defines to comment/uncomment
+    (define (expand/def syn)
+      (local-expand syn 'top-level '()))
+    (define (expand/term syn)
+      (local-expand syn 'expression '()))
+
+    (chk
+     #:t (expand/def #'(define x (Type 1)))
+     #:t (expand/def #'(define puppies (Type 2)))
+     #:t (expand/def #'(define kittens (Type 3)))
+     #:t (expand/def #'(define id (λ (x : (Type 2)) x)))
+     #:t (expand/def #'(define id2 (λ (A : (Type 3)) (λ (a : A) a))))
+
+     #:x (expand/def #'(define y (define z (Type 1)) z))
+     "define: unexpected term\n  at: z"
+
+     #:x (expand/def #'(define y (define z (Type 1) x) z))
+     "define: unexpected term\n  at: z"
+
+     #:x (expand/def #'(define x Type))
+     "Type: bad syntax\n  in: Type"
+
+     #:x (expand/def #'(define x (Type 1) (Type 1)))
+     "define: unexpected term\n  at: (Type 1)"
+
+     #:x (expand/term #'(Type z))
+     "Type: expected exact-nonnegative-integer"))
 
   ;;;;;;;;;define should succeed;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   (define x (Type 1)) ;OK
@@ -126,21 +154,7 @@
   (define kittens (Type 3)) ;OK
   (define id (λ (x : (Type 2)) x)) ;OK
 
-  (define id2 (λ (A : (Type 3)) (λ (a : A) a))) ;OK? 
-
-    ;;;;;;;;;define should fail;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;; "unexpected term z at..." ;;TODO better error here or is this fine?
-;;;   (define y (define z (Type 1)) z) ;OK
-
-;;; "unexpected term z at..." 
-;;;   (define y (define z (Type 1) x) z) ;OK
-
-;;;"invalid syntax Type" 
-;;;   (define x Type) ;OK
-
-;;;"unexpected term..." 
-;;;   (define x (Type 1) (Type 1)) ;OK
+  (define id2 (λ (A : (Type 3)) (λ (a : A) a))) ;OK?
 
   (chk
    ;;;;;;;;;;;;;;checking above definitions;;;;;
@@ -155,13 +169,6 @@
 
    #:t (Type 1) ;OK
    #:t (Type 3) ;OK
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Type should fail;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    
-;;;TODO Fix this (and other) expected-to-fail tests so they can be uncommented
-;;;   #:x (Type z) "exact-nonnegative-integer" ;OK
-
-  
 
 ;;;;;;;;;;;;;;;;;;;; λ should succeed ;;;;;;;;;;;;;;;;;;;;
 
