@@ -27,7 +27,7 @@
          [define-datatype dep-define-datatype]
          [define dep-define]
          [define-type-alias dep-define-type-alias])
-  
+
   "reflection.rkt")
 ; )
 (provide
@@ -42,7 +42,7 @@
 ; turn-elim
 ; turn-void
   #;[cur-require require]
-  
+
   (rename-out [cur-provide turn-provide]
   )
  ;provide-with-types
@@ -50,7 +50,7 @@
 
 
 (define-syntax (turn-Type syn)
-   (syntax-parse syn                 
+   (syntax-parse syn
     [(_ i:exact-nonnegative-integer)
      #'(dep-Type i)]
 
@@ -89,13 +89,13 @@
 ;------------------------------- not implemented yet -------------------------------;
  (define-syntax (turn-axiom syn)
    syn)
- 
+
  (define-syntax (turn-data syn)
    syn)
- 
+
  (define-syntax (turn-new-elim syn)
    syn)
- 
+
 
  (define-syntax (turn-void syn)
    syn)
@@ -142,7 +142,6 @@
 ;;;"unexpected term..." 
 ;;;   (define x (Type 1) (Type 1)) ;OK
 
-  
   (chk
    ;;;;;;;;;;;;;;checking above definitions;;;;;
    #:= x (Type 1) ;OK
@@ -150,10 +149,10 @@
    #:= kittens (Type 3) ;OK
    #:= id (λ (x : (Type 2)) x) ;OK
    #:= id2 (λ (A : (Type 3)) (λ (a : A) a)) ;OK
-   
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Type should succeed;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
    #:t (Type 0) ;OK?
-   
+
    #:t (Type 1) ;OK
    #:t (Type 3) ;OK
 
@@ -170,27 +169,27 @@
 ;λs cannot return a type
 ;;;All these tests give that error (written in equivalent pairs to rule out previous defines):
 ;;;   #:t (λ (y : x) x) ;;this one was definitely supposed to succeed, the rest are mine
-;;;   #:t (λ (y : (Type 1)) (Type 1)) 
-   
+;;;   #:t (λ (y : (Type 1)) (Type 1))
+
 ;;;   #:t (λ (y : (Type 2)) kittens)
-;;;   #:t (λ (y : (Type 2)) (Type 3)) 
-   
+;;;   #:t (λ (y : (Type 2)) (Type 3))
+
 ;;;   #:t (λ (z : (Type 0)) x)
 ;;;   #:t (λ (z : (Type 0)) (Type 1))
 
-  
+
 
 ;;but these do not:
  #:t (λ (z : x) z) ;OK?
  #:t (λ (x : (Type 3)) x) ;OK?
  #:t (λ (x : (Type 2)) (λ (y : (Type 0)) y)) ;OK?
-   
 
-   
+
+
 ;;;;;;;;;;;;;;;;;;;; λ should fail;;;;;;;;;;;;;;;;;;;;
 
  ;;;(note: should fail b/c id is a λ, not a type)
-;;;#x #rx"Expected type"   
+;;;#x #rx"Expected type"
 ;;; (λ (x : id) x) ;OK?
 
 ;;;;;;;;;;;;;;;;;;;; app should succeed;;;;;;;;;;;;;;;
@@ -208,17 +207,17 @@
 ;;;((λ (x : (Type 2)) x) (Type 3)) ;OK
 
 ;;;(note: should fail because id is (Type 2)→(Type 2), kittens is (Type 3)
-;;;#x #rx"type mismatch" ;;TODO same as above    
+;;;#x #rx"type mismatch" ;;TODO same as above
 ;;;(id kittens) ;OK?
 )
 (chk
 ;;;;;;;;;;;;;;;;;;;; Π should succeed ;;;;;;;;;;;;;;;;;;;;;;;;;
    #:t (Π (x : (Type 1)) (Type 1)) ;OK
    #:t (Π (x : (Type 1)) (Type 2)) ;OK
-   
+
 ;;;;;;;;;;;;;;;;;;;; Π should fail ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;;;;TODO these all actually say eg: 
+;;;;;TODO these all actually say eg:
  ;;;                   dep-#%app: expected the identifier `#%plain-app' at: Type- in: (dep-#%app x1 (Type 1))
 ;;;   #:x #rx"expected function but found x"
 ;;;   (Π (x : (x (Type 1))) (Type 1)) ;OK
@@ -238,18 +237,18 @@
 #;(chk
 ;;;;;;;;;;;;;;;;;;;; axiom should succeed ;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;;;;;;;;;;;;;;;;;;; axiom should fail ;;;;;;;;;;;;;;;;;;;;;;;;;   
+;;;;;;;;;;;;;;;;;;;; axiom should fail ;;;;;;;;;;;;;;;;;;;;;;;;;
    )
 #;(chk
 ;;;;;;;;;;;;;;;;;;;; data should succeed ;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;;;;;;;;;;;;;;;;;;; data should fail ;;;;;;;;;;;;;;;;;;;;;;;;;   
+;;;;;;;;;;;;;;;;;;;; data should fail ;;;;;;;;;;;;;;;;;;;;;;;;;
    )
   #;(chk
 
 ;;;;;;;;;;;;;;;;;;;; elim should succeed ;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;;;;;;;;;;;;;;;;;;; elim should fail ;;;;;;;;;;;;;;;;;;;;;;;;;   
+;;;;;;;;;;;;;;;;;;;; elim should fail ;;;;;;;;;;;;;;;;;;;;;;;;;
 
      )
 )
@@ -264,7 +263,7 @@
 #;(module+ test
 ;; Should fail with good error, do (TODO Ish. Error messages still need polish)
 
-((λ (x : (Type 2)) x) (Type 1))  
+((λ (x : (Type 2)) x) (Type 1))
 
 ;; Should fail with good error, do (ish; see above)
 ;((λ (x : (Type 2)) x) (Type 2))
@@ -436,7 +435,7 @@ z2
     [(_ spec ...)
      #'(provide (provide-with-types spec) ...)]))
 
-;;;taken from type-check.rkt to maybe throw cur type errors at some point?  
+;;;taken from type-check.rkt to maybe throw cur type errors at some point?
 
 ;; TODO: Should be catchable; maybe should have hierarchy. See current Curnel
   ;; TODO: Should be in separate module
