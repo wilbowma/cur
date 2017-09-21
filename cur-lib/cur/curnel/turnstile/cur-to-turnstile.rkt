@@ -146,7 +146,16 @@
      "define: unexpected term\n  at: (Type 1)"
 
      #:x (expand/term #'(Type z))
-     "Type: expected exact-nonnegative-integer"))
+     "Type: expected exact-nonnegative-integer"
+
+     ;; Consider this one failing as the error message produces is not good.
+     #:x (expand/term #'(λ (x : (λ (x : (Type 2)) x)) x))
+     "λ: Expected term of type Type"
+
+     #:x (expand/term #'((λ (x : (Type 2)) x) (Type 3)))
+     "app: type mismatch: expected (Type 2), given (Type 4)"
+
+     ))
 
   ;;;;;;;;;define should succeed;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   (define x (Type 1)) ;OK
@@ -192,13 +201,6 @@
  #:t (λ (x : (Type 2)) (λ (y : (Type 0)) y)) ;OK?
 
 
-
-;;;;;;;;;;;;;;;;;;;; λ should fail;;;;;;;;;;;;;;;;;;;;
-
- ;;;(note: should fail b/c id is a λ, not a type)
-;;;#x #rx"Expected type"
-;;; (λ (x : id) x) ;OK?
-
 ;;;;;;;;;;;;;;;;;;;; app should succeed;;;;;;;;;;;;;;;
 #:= ((λ (x : (Type 2)) x) (Type 1)) (Type 1) ;OK?
 
@@ -209,9 +211,6 @@
 #:= (((λ (A : (Type 3)) (λ (a : (Type 2)) a)) puppies) x) x ;OK?
 
 ;;;;;;;;;;;;;;;;;;;; app should fail;;;;;;;;;;;;;;;;;;;
-
-;;;#:x #rx"type mismatch" ;;TODO rewrite this test it matches, but does fail!
-;;;((λ (x : (Type 2)) x) (Type 3)) ;OK
 
 ;;;(note: should fail because id is (Type 2)→(Type 2), kittens is (Type 3)
 ;;;#x #rx"type mismatch" ;;TODO same as above
