@@ -117,7 +117,17 @@
 ;            [turn-data data]
 #;            [turn-new-elim elim]))
 
-  ;; test defines and syntax failures manually by local expansion
+
+  ; -------------------- Top-level and Failure tests --------------------
+  ; Test that top-level code, like define, data, and axiom expand successfully.
+  ; Also test that failure tests, i.e. ill-typed code, produces the right error messages.
+  ; These test must be run during the dynamic extent of the macro expansion in order to use
+  ; local-expand.
+  ; Using local-expand is necessary so that we can:
+  ; 1. expand top-level code, like define, in an expression context, i.e. in a unit test
+  ; 2. catch type errors produced by the macros during macro expansion, before a run-time unit test
+  ;    can catch them.
+  ; ---------------------------------------------------------------------
   (begin-for-syntax
     (require chk)
 
@@ -127,12 +137,24 @@
       (local-expand syn 'expression '()))
 
     (chk
+     ;; --------------- Top-level should succeed ---------------
+     ;;; Defines
      #:t (expand/def #'(define x (Type 1)))
      #:t (expand/def #'(define puppies (Type 2)))
      #:t (expand/def #'(define kittens (Type 3)))
      #:t (expand/def #'(define id (λ (x : (Type 2)) x)))
      #:t (expand/def #'(define id2 (λ (A : (Type 3)) (λ (a : A) a))))
 
+     ;;; Axioms
+     #:t (expand/def #'(axiom Nat : (Type 0)))
+     #:t (expand/def #'(axiom z : Nat))
+     #:t (expand/def #'(axiom s : (Π (y : Nat) Nat)))
+     #:t (expand/def #'(axiom meow : (Π (x : (Type 1)) (Type 0))))
+
+
+
+     ;; --------------- Top-level should fail ------------------
+     ;;; Defines
      #:x (expand/def #'(define y (define z (Type 1)) z))
      "define: unexpected term\n  at: z"
 
@@ -145,27 +167,60 @@
      #:x (expand/def #'(define x (Type 1) (Type 1)))
      "define: unexpected term\n  at: (Type 1)"
 
+
+     ;;; Axioms
+     #:x (expand/def #'(axiom meow2 : ((Type 1) (Type 2))))
+     "meow"
+
+     #:x (expand/def #'(axiom meow3 : (λ (x : (Type 0)) x)))
+     "meow"
+
+     #:x (expand/def #'(define y (axiom Nat : (Type 0))))
+     "meow"
+
+     ;; --------------- Type should fail ------------------
      #:x (expand/term #'(Type z))
      "Type: expected exact-nonnegative-integer"
 
+     #:x (expand/term #'(Type -1))
+     "Type: expected exact-nonnegative-integer"
+
+
+
+     ;; --------------- λ should fail --------------------
      ;; Consider this one failing as the error message produces is not good.
      #:x (expand/term #'(λ (x : (λ (x : (Type 2)) x)) x))
      "λ: Expected term of type Type"
 
+
+
+     ;; --------------- app should fail ------------------
      #:x (expand/term #'((λ (x : (Type 2)) x) (Type 3)))
      "app: type mismatch: expected (Type 2), given (Type 4)"
 
+     #:x (expand/term #'((λ (x : (Type 2)) x) (Type 2)))
+     "app: type mismatch: expected (Type 2), given (Type 3)"
+
+     ;; Bad error; bug in turnstile?
+     #:x (expand/term #'((Type 1) (Type 2)))
+     "app: expected term of function type"
+
+     ;; Bad error; bug in turnstile? Should probably instantiate A in error message
+     #:x (expand/term #'(((λ (A : (Type 3)) (λ (a : A) a)) (Type 2)) (Type 2)))
+     "app: type mismatch: expected (Type 2), given (Type 3)"
      ))
 
   ;;;;;;;;;define should succeed;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; NB: These defines copy-pasted from above.
   (define x (Type 1)) ;OK
   (define puppies (Type 2)) ;OK
   (define kittens (Type 3)) ;OK
   (define id (λ (x : (Type 2)) x)) ;OK
 
-  (define id2 (λ (A : (Type 3)) (λ (a : A) a))) ;OK?
+  (define id2 (λ (A : (Type 3)) (λ (a : A) a))) ;OK
 
   (chk
+   ;; ---------------  Test that definition evaluate ---------------
    ;;;;;;;;;;;;;;checking above definitions;;;;;
    #:= x (Type 1) ;OK
    #:= puppies (Type 2) ;OK
@@ -173,8 +228,8 @@
    #:= id (λ (x : (Type 2)) x) ;OK
    #:= id2 (λ (A : (Type 3)) (λ (a : A) a)) ;OK
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Type should succeed;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-   #:t (Type 0) ;OK?
+   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Type should succeed;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+   #:t (Type 0) ;OK
 
    #:t (Type 1) ;OK
    #:t (Type 3) ;OK
@@ -202,7 +257,7 @@
 
 
 ;;;;;;;;;;;;;;;;;;;; app should succeed;;;;;;;;;;;;;;;
-#:= ((λ (x : (Type 2)) x) (Type 1)) (Type 1) ;OK?
+#:= ((λ (x : (Type 2)) x) (Type 1)) (Type 1) ;OK
 
 ;;;(note: puppes is (Type 2))
 #:= ((λ (A : (Type 3)) (λ (a : (Type 2)) a)) puppies) (λ (a : (Type 2)) a) ;OK?
@@ -210,11 +265,17 @@
 ;;;(note: puppies is (Type 2), x is (Type 1))
 #:= (((λ (A : (Type 3)) (λ (a : (Type 2)) a)) puppies) x) x ;OK?
 
-;;;;;;;;;;;;;;;;;;;; app should fail;;;;;;;;;;;;;;;;;;;
+#:= (id (Type 1)) (Type 1)
+#:= ((id2 (Type 2)) (Type 1)) (Type 1)
 
-;;;(note: should fail because id is (Type 2)→(Type 2), kittens is (Type 3)
-;;;#x #rx"type mismatch" ;;TODO same as above
-;;;(id kittens) ;OK?
+#:t (((λ (Nat : (Type 3))
+        (λ (z : Nat)
+          (λ (s : (Π (n : Nat) Nat))
+            z)))
+      (Type 2))
+     (Type 1))
+
+
 )
 (chk
 ;;;;;;;;;;;;;;;;;;;; Π should succeed ;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -268,41 +329,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;original tests;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 #;(module+ test
 ;; Should fail with good error, do (TODO Ish. Error messages still need polish)
-
-((λ (x : (Type 2)) x) (Type 1))
-
-;; Should fail with good error, do (ish; see above)
-;((λ (x : (Type 2)) x) (Type 2))
-;((Type 1) (Type 2))
-
-(id (Type 1))
-
-(define id2 (λ (A : (Type 3)) (λ (a : A) a)))
-((id2 (Type 2)) (Type 1))
-
-; Should fail with good error, does
-;((id2 (Type 2)) (Type 2))
-
-(((λ (Nat : (Type 3))
-     (λ (z : Nat)
-       (λ (s : (Π (n : Nat) Nat))
-         z)))
-  (Type 2))
- (Type 1))
-
-(axiom Nat : (Type 0))
-(axiom z : Nat)
-(axiom s : (Π (y : Nat) Nat))
-(axiom meow : (Π (x : (Type 1)) (Type 0)))
-
-;; should fail with good error, does
-;(axiom meow2 : ((Type 1) (Type 2)))
-
-;; should fail, does
-;(axiom meow3 : (λ (x : (Type 0)) x))
-
-; Should fail with good error, does
-;(define y (axiom Nat : (Type 0)))
 
 z
 ; should fail with good error, does
