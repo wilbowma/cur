@@ -533,24 +533,17 @@ However, we don't really want the type system to be extensible since we desire a
 
   ;; Construct the expected branch type for constr; expects well-typed cur-runtime-term? inputs and
   ;; must produce well-typed cur-runtime-term? outputs
-  (define (branch-type syn constr-name param-ls target motive)
-    ;; TODO: Maybe need get-type/eval, or always return type in normal form?
-    ;; TODO: We already computed the type of target; just pass it in
-    (define/syntax-parse e:cur-runtime-constant (get-type target))
+  (define (branch-type syn constr-name param-ls motive)
+    (define/syntax-parse t:cur-runtime-telescope (get-type (cur-apply* syn constr-name param-ls)))
+    (define/syntax-parse d:cur-runtime-constant (attribute t.result))
     (let* ([info (syntax-local-eval constr-name)]
-           [constr-type (get-type constr-name)]
            [recursive-index-ls (constant-info-recursive-index-ls info)]
-           [param-count (constant-info-param-count info)]
-           [name-ls (constant-info-index-name-ls info)]
-           ;; TODO: copy/pasta from motive-type
-           [param-name-ls (constant-info-param-name-ls info)]
-           [ann-ls (map (curry subst* param-ls param-name-ls) (constant-info-index-ann-ls info))])
-      ;; TODO PERF: Many append
+           [param-count (constant-info-param-count info)])
       (let-values ([(inductive-name-ls inductive-ann-ls)
                     (for/fold ([ih-name-ls '()]
                                [ih-ann-ls '()])
-                              ([name name-ls]
-                               [ann ann-ls]
+                              ([name (attribute t.name-ls)]
+                               [ann (attribute t.ann-ls)]
                                ;; NB: Start counting *after* the parameters
                                [i (in-naturals param-count)]
                                ;; TODO PERF: memq over a list of numbers; must be more efficient way
@@ -561,24 +554,22 @@ However, we don't really want the type system to be extensible since we desire a
                                                 (append (attribute e.index-rand-ls)
                                                         (list name)))
                                     ih-ann-ls)))])
-        (define/syntax-parse t:cur-runtime-telescope constr-type)
-        (define/syntax-parse r:cur-runtime-constant (subst* (append param-ls (attribute e.index-rand-ls)) (attribute t.name-ls) (attribute t.result)))
+
+
         (make-cur-runtime-pi*
-           syn
-           ;; TODO Don't I need to reverse inductive-*-ls
-           (append name-ls inductive-name-ls)
-           (append ann-ls inductive-ann-ls)
-           (cur-apply* syn motive
-                       ;; NB: Get the indices of the target
-                       ;; TODO PERF: Didn't I already compute those in typed-elim?
-                       (append (attribute r.index-rand-ls)
-                               (list (cur-apply* syn constr-name (append param-ls name-ls)))))))))
+         syn
+         (append (attribute t.name-ls) inductive-name-ls)
+         (append (attribute t.ann-ls) inductive-ann-ls)
+         (cur-apply* syn motive
+                     (append (attribute d.index-rand-ls)
+                             (list (cur-apply* syn constr-name
+                                               (append param-ls (attribute t.name-ls))))))))))
 
   ;; Check the branch type for the given constructor.
   ;; Expects constr-name, param-ls, motive, br-type to be cur-runtime-terms that are well-typed.
   ;; Expects method to be be surface term, for error messages only
-  (define (check-method syn constr-name param-ls target motive br-type method)
-    (define expected (branch-type syn constr-name param-ls target motive))
+  (define (check-method syn constr-name param-ls motive br-type method)
+    (define expected (branch-type syn constr-name param-ls motive))
     (cur-subtype? expected br-type
                 (lambda (t1 t2)
                   (raise-syntax-error
@@ -633,7 +624,7 @@ However, we don't really want the type system to be extensible since we desire a
      #:do [(for ([mtype (attribute method.type)]
                  [method (attribute method.reified)]
                  [constr-name constructor-ls])
-             (or (check-method method constr-name (attribute param.reified) #'target.reified
+             (or (check-method method constr-name (attribute param.reified)
                                #'motive.reified mtype method)
                  (raise 'internal-error "An internal error occurred in typed-elim. Please report this bug.")))]
      (make-cur-runtime-elim this-syntax #'target.reified #'motive.reified (attribute method.reified))]))
