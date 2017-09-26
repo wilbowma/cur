@@ -45,14 +45,14 @@
        (λ [e : (== A x y)]
          (new-elim e
                    (λ (a : A) (λ (b : A) (λ (e : (== A a b)) (== A b a))))
-                   (λ (c : A) (refl A y)))))))
+                   (λ (c : A) (refl A c)))))))
  : (Π (A : (Type 0))
       (Π (x : A)
          (Π (y : A)
             (-> (== A x y)
                 (== A y x))))))
 
-;; == transitive
+;; == transitive (partial)
 (check-type
  (λ [A : (Type 0)]
    (λ [x : A] [y : A] [z : A]
@@ -61,18 +61,36 @@
           e1
           (λ [a : A] [b : A]
              (λ [e : (== A a b)]
-               (== A a z)))
-          (λ [c : A]
-            (new-elim
-             e2
-             (λ [a : A] [b : A]
-                (λ [e : (== A a b)]
-                  (== A a z)))
-             (λ [c : A]
-               (refl A z))))))))
+               (Π [c : A] (→ (== A b c) (== A a c)))))
+          (λ [a : A]
+            (λ [c : A]
+              (λ [e : (== A a c)] e)))))))
  : (Π (A : (Type 0))
       (Π [x : A] [y : A] [z : A]
-         (→ (== A x y) (== A y z) (== A x z)))))
+         (→ (== A x y)
+            (== A y z)
+            (Π [a : A]
+               (→ (== A y a) (== A x a)))))))
+
+;; == transitive
+(check-type
+ (λ [A : (Type 0)]
+   (λ [x : A] [y : A] [z : A]
+      (λ [e1 : (== A x y)] [e2 : (== A y z)]
+         ((new-elim
+           e1
+           (λ [a : A] [b : A]
+              (λ [e : (== A a b)]
+                (Π [c : A] (→ (== A b c) (== A a c)))))
+           (λ [a : A]
+             (λ [c : A]
+               (λ [e : (== A a c)] e))))
+          z e2))))
+ : (Π (A : (Type 0))
+      (Π [x : A] [y : A] [z : A]
+         (→ (== A x y)
+            (== A y z)
+            (== A x z)))))
 
 ;; plus 0 (left)
 (check-type (λ [x : Nat] (refl Nat x)) : (Π [x : Nat] (== Nat (plus 0 x) x)))
@@ -93,7 +111,7 @@
             (λ [e : (== Nat a b)]
               (== Nat (s a) (s b))))
          (λ [c : Nat]
-           (refl Nat (s x-1))))))))
+           (refl Nat (s c))))))))
  : (Π [x : Nat] (== Nat (plus x 0) x)))
 
 ;; new my= equality
@@ -117,7 +135,7 @@
              (λ [e : (my= A a b)]
                (my= A b a)))
           (λ [c : A]
-            (my-refl A y))))))
+            (my-refl A c))))))
  : (Π [A : (Type 0)]
       (Π [x : A] [y : A]
          (→ (my= A x y) (my= A y x)))))
@@ -127,19 +145,18 @@
  (λ [A : (Type 0)]
    (λ [x : A] [y : A] [z : A]
       (λ [e1 : (my= A x y)] [e2 : (my= A y z)]
-         (new-elim
-          e1
-          (λ [a : A] [b : A]
-             (λ [e : (my= A a b)]
-               (my= A a z)))
-          (λ [c : A]
-            (new-elim
-             e2
-             (λ [a : A] [b : A]
-                (λ [e : (my= A a b)]
-                  (my= A a z)))
+         ((new-elim
+           e1
+           (λ [a : A] [b : A]
+              (λ [e : (my= A a b)]
+                (Π [c : A] (→ (my= A b c) (my= A a c)))))
+           (λ [a : A]
              (λ [c : A]
-               (my-refl A z))))))))
+               (λ [e : (my= A a c)] e))))
+          z e2))))
  : (Π (A : (Type 0))
       (Π [x : A] [y : A] [z : A]
-         (→ (my= A x y) (my= A y z) (my= A x z)))))
+         (→ (my= A x y)
+            (my= A y z)
+            (my= A x z)))))
+
