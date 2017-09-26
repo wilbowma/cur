@@ -151,7 +151,12 @@
      #:t (expand/def #'(axiom s : (Π (y : Nat) Nat)))
      #:t (expand/def #'(axiom meow : (Π (x : (Type 1)) (Type 0))))
 
-
+     #:t (expand/def #'(data Nat2 : 0 (Type 0)
+                             (z2 : Nat2)
+                             (s2 : (Π (x : Nat2) Nat2))))
+     #:t (expand/def #'(data Maybe : 1 (Π (A : (Type 0)) (Type 0))
+                             (none : (Π (A : (Type 0)) (Maybe A)))
+                             (just : (Π (A : (Type 0)) (Π (a : A) (Maybe A))))))
 
      ;; --------------- Top-level should fail ------------------
      ;;; Defines
@@ -177,6 +182,27 @@
 
      #:x (expand/def #'(define y (axiom Nat : (Type 0))))
      "meow"
+
+     ;;; Inductives
+     #:x (expand/def #'(data Nat : 0 (Type 0)
+                             (z : Nat)
+                             (s : (Π (x : Nat) Nat))))
+     "Nat already defined"
+
+     #:x (expand/def #'(data Nat2 : 0 (Type 0)
+                             (z : Nat2)
+                             (s : (Π (x : Nat) Nat))))
+     "z already defined"
+
+     #:x (expand/def #'(data Nat2 : 0 (Type 0)
+                             (z2 : Nat2)
+                             (s2 : (Π (x : Nat) Nat))))
+     "expected constructor for inductive definition Nat2 to return Nat2, but found Nat"
+
+     #:x (expand/def #'(data Nat2 : 0 (id (Type 1))
+                             (z2 : Nat2)
+                             (s2 : (Π (x : Nat) Nat))))
+     "expected telescope but found (id (Type 1))"
 
      ;; --------------- Type should fail ------------------
      #:x (expand/term #'(Type z))
@@ -208,7 +234,19 @@
      ;; Bad error; bug in turnstile? Should probably instantiate A in error message
      #:x (expand/term #'(((λ (A : (Type 3)) (λ (a : A) a)) (Type 2)) (Type 2)))
      "app: type mismatch: expected (Type 2), given (Type 3)"
-     ))
+
+     ;; --------------- Π should fail ------------------
+     #:x (expand/term #'(Π (x : (x (Type 1))) (Type 1)))
+     "expected function but found x"
+
+     #:x (expand/term #'(Π (x : (Type 1)) (x (Type 1))))
+     "expected function but found x"
+
+     #:x (expand/term #'(Π (y : (Type 1)) (x (Type 1))))
+     "expected function but found x"
+
+     #:x (expand/term #'(Π (y : (λ (x : (Type 0)) x)) (x (Type 1))))
+     "expected a kind (a term whose type is a universe) but found a term of type (Π (x : (Type 0)) (Type 0))"))
 
   ;;;;;;;;;define should succeed;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; NB: These defines copy-pasted from above.
@@ -219,9 +257,91 @@
 
   (define id2 (λ (A : (Type 3)) (λ (a : A) a))) ;OK
 
+  ;; -------------------- axioms should succeed --------------------
+  (axiom Nat : (Type 0))
+  (axiom z : Nat)
+  (axiom s : (Π (y : Nat) Nat))
+  (axiom meow : (Π (x : (Type 1)) (Type 0)))
+  (axiom Vec : (Π (A : (Type 0)) (Π (n : Nat) (Type 0))))
+  (axiom nil : (Π (A : (Type 0)) ((Vec A) z)))
+  (axiom NotVec : (Π (A : (Type 0)) (Π (n : Nat) (Type 0))))
+
+  (define test1 (λ (a : (Π (x : Nat) Nat)) (a z)))
+
+  ;; -------------------- inductives should succeed ----------------
+  (data Nat2 : 0 (Type 0)
+        (z2 : Nat2)
+        (s2 : (Π (x : Nat2) Nat2)))
+  (data Maybe : 1 (Π (A : (Type 0)) (Type 0))
+        (none : (Π (A : (Type 0)) (Maybe A)))
+        (just : (Π (A : (Type 0)) (Π (a : A) (Maybe A)))))
+
+  ; -------------------- Failing δ reduction and Γ tests --------------------
+  ; These tests are specifically for δ reduction and typing that assume top-level definitions.
+  ; They must remain after the phase 0 definitions and axioms that currently preceed them, but still
+  ; must be run at phase 1.
+  ; -----------------------------------------------------------------
+  (begin-for-syntax
+    (chk
+     ;; --------------- Test definitions ---------------
+     ;;; TODO: should add some that only give good errors when δ reduction occurs. Probably needs
+     ;;; equality type for that
+     #:x (expand/term #'(id id))
+     "expected term of type (Type 2) but found term of type (Π (x : (Type 2)) (Type 2))"
+
+     ;; --------------- Test axiomns -------------------
+     #:x (expand/term #'(z (Type 0)))
+     "expected function but found term of type Nat"
+
+     #:x (expand/term #'(meow z))
+     "expected term of type (Type 1) but found term of type Nat"
+
+     ;; tests that inductives are generative, not structural.
+     #:x (expand/term #'((λ (a : ((NotVec Nat) z)) z) (nil Nat)))
+     "expected term of type NotVec but found term of type Vec"
+
+     #:x (expand/term #'(test1 z))
+     "expected term of type (Π (x : Nat) Nat) but found term of type Nat"
+
+     ;; --------------- Test inductives ---------------
+     #:x (expand/term #'(new-elim z (λ (x : Nat) Nat) (z (λ (n : Nat) n))))
+     "expected target of inductive type, but found z of type Nat, which is not inductively defined"
+
+     #:x (expand/term #'(new-elim z2 (λ (x : Nat2) Nat2)
+                     (z2 (λ (n : Nat2) n))))
+     "expected term of type (Π (x : Nat2) (Π (ih : Nat2) Nat)) when checking method"
+
+     #:x (expand/term #'(new-elim (s2 z2) Nat2
+                                  (z2 (λ (n : Nat2) n))))
+     "expected function but found Nat2 when checking motive"
+
+     #:x (expand/term #'(new-elim (s2 z2) (λ (x : Nat2) Nat2)
+                                  (z2)))
+     "expected 2 methods, one for each constructor, but found 1"
+
+     #:x (expand/term #'(new-elim (s2 z2) (λ (x : Nat) Nat2)
+                                  (z2)))
+     "expected 2 methods, one for each constructor, but found 1"
+
+     #:x (expand/term #'(new-elim (s2 z2) (λ (x : Nat) Nat2)
+                                  (z2 (λ (n : Nat2) (λ (ih : Nat2)) n))))
+     "expected type Nat2 but found type Nat when checking motive"
+
+     #:x (expand/term #'(new-elim (s2 z2) (λ (x : Nat2) (λ (y : Nat) (Type 0)))
+                                  (z2 (λ (x : Nat2) (λ (IH : Nat) IH)))))
+     "expected kind but found (λ (y : Nat) (Type 0)) while checking motive"
+
+     #:x (expand/term #'(new-elim (s2 z2) (λ (x : Nat2) Nat)
+                                  (z2 (λ (x : Nat2) (λ (IH : Nat) IH)))))
+     "expected type Nat2 but found type Nat when checking method"
+
+     #:x (expand/term #'((λ (x : (new-elim z2 (λ (x : Nat2) (Type 1))
+                                           ((Type 0) (λ (x : Nat2) (Type 0))))) x) Nat))
+     "expected function but found (Type 0) when checking method"))
+
   (chk
    ;; ---------------  Test that definition evaluate ---------------
-   ;;;;;;;;;;;;;;checking above definitions;;;;;
+   ;;;;;;;;;;;;;; define should succeed and δ reduction ;;;;;
    #:= x (Type 1) ;OK
    #:= puppies (Type 2) ;OK
    #:= kittens (Type 3) ;OK
@@ -267,6 +387,8 @@
 
 #:= (id (Type 1)) (Type 1)
 #:= ((id2 (Type 2)) (Type 1)) (Type 1)
+#:= (id x)
+
 
 #:t (((λ (Nat : (Type 3))
         (λ (z : Nat)
@@ -276,187 +398,43 @@
      (Type 1))
 
 
-)
-(chk
 ;;;;;;;;;;;;;;;;;;;; Π should succeed ;;;;;;;;;;;;;;;;;;;;;;;;;
-   #:t (Π (x : (Type 1)) (Type 1)) ;OK
-   #:t (Π (x : (Type 1)) (Type 2)) ;OK
+#:t (Π (x : (Type 1)) (Type 1)) ;OK
+#:t (Π (x : (Type 1)) (Type 2)) ;OK
 
-;;;;;;;;;;;;;;;;;;;; Π should fail ;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;;;;TODO these all actually say eg:
- ;;;                   dep-#%app: expected the identifier `#%plain-app' at: Type- in: (dep-#%app x1 (Type 1))
-;;;   #:x #rx"expected function but found x"
-;;;   (Π (x : (x (Type 1))) (Type 1)) ;OK
-
-;;;   #:x #rx"expected function but found x"
-;;;   (Π (x : (Type 1)) (x (Type 1))) ;OK
-
-;;;   #:x #rx"expected function but found x"
-;;;   (Π (y : (Type 1)) (x (Type 1))) ;OK
-
-;;;   #:x #rx"expected a kind (a term whose type is a universe) but found a term of type (Π (x : (Type 0)) (Type 0))"
-;;;   (Π (y : (λ (x : (Type 0)) x)) (x (Type 1))) ;OK
-
-  )
 ;------------------------------------------------------------------------------------------;
 ;------------------------------- Below: not implemented yet -------------------------------;
-#;(chk
 ;;;;;;;;;;;;;;;;;;;; axiom should succeed ;;;;;;;;;;;;;;;;;;;;;;;;;
+#:t z
+#:t meow
+#:t (nil Nat)
+#:t ((λ (a : ((Vec Nat) z)) z) (nil Nat))
+#:t s
+#:t (test1 s)
 
-;;;;;;;;;;;;;;;;;;;; axiom should fail ;;;;;;;;;;;;;;;;;;;;;;;;;
-   )
-#;(chk
-;;;;;;;;;;;;;;;;;;;; data should succeed ;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;;;;;;;;;;;;;;;;;;; data should fail ;;;;;;;;;;;;;;;;;;;;;;;;;
-   )
-  #;(chk
+;; -------------------- inductives should succeed --------------------
+#:t z2
+#:t ((just Nat) z)
+#:t ((λ (f : (Π (A : (Type 0)) (Type 0))) z) Maybe)
 
 ;;;;;;;;;;;;;;;;;;;; elim should succeed ;;;;;;;;;;;;;;;;;;;;;;;;;
+#:= (new-elim (s2 z2) (λ (x : Nat2) Nat2)
+              ((s2 z2) (λ (n : Nat2) (λ (IH : Nat2) (s2 IH)))))
+(s2 z2)
 
-;;;;;;;;;;;;;;;;;;;; elim should fail ;;;;;;;;;;;;;;;;;;;;;;;;;
-
-     )
-)
-
-
-
-
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;original tests;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#;(module+ test
-;; Should fail with good error, do (TODO Ish. Error messages still need polish)
-
+#:= (new-elim (none Nat) (λ (x : (Maybe Nat)) Nat)
+              (z (λ (a : Nat) a)))
 z
-; should fail with good error, does
-;(z (Type 0))
-(meow (Type 0))
-; Should fail with good error, does
-;(meow 1)
-meow
 
-(axiom Vec : (Π (A : (Type 0)) (Π (n : Nat) (Type 0))))
-(axiom nil : (Π (A : (Type 0)) ((Vec A) z)))
-(nil Nat)
-;
-((λ (a : ((Vec Nat) z)) z) (nil Nat))
-(axiom NotVec : (Π (A : (Type 0)) (Π (n : Nat) (Type 0))))
-;; Should fail, does
-;;((λ (a : ((NotVec Nat) z)) z) (nil Nat))
-;
-(define test1 (λ (a : (Π (x : Nat) Nat)) (a z)))
-s
-; should fail; does, with good error
-;(test1 z)
-(test1 s)
+#:= (new-elim ((just Nat) (s z)) (λ (x : (Maybe Nat)) Nat)
+              (z (λ (a : Nat) a)))
+z
 
-; TODO this is bad:
-; (require racket/base)
-; looks like #%app gets redefined by racket/base...
-; but this behavior is consistent with typed/racket... redefine require to emit warnings when base
-; forms are redefined
+#:= ((λ (x : (new-elim (s2 z2) (λ (x : Nat2) (Type 1))
+                       ((Type 0) (λ (x : Nat2) (λ (IH : (Type 1)) IH))))) x) Nat)
+Nat
 
-;; should fail with good error, does
-;(require (only-in racket/base list))
-;(meow (list 1))
-
-;; Should fail with good error, does
-#;(data Nat : 0 (Type 0)
-      (z : Nat)
-      (s : (Π (x : Nat) Nat)))
-
-#;(data Nat2 : 0 (Type 0)
-      (z : Nat2)
-      (s : (Π (x : Nat) Nat)))
-
-;; TODO: goodish error: types need resugaring
-#;(data Nat2 : 0 (Type 0)
-      (z2 : Nat2)
-      (s2 : (Π (x : Nat) Nat)))
-
-;; TODO: Should fail, does but with wrong error.
-#;(data Nat2 : 0 (id (Type 1))
-      (z2 : Nat2)
-      (s2 : (Π (x : Nat) Nat)))
-
-(data Nat2 : 0 (Type 0)
-      (z2 : Nat2)
-      (s2 : (Π (x : Nat2) Nat2)))
-
-z2
-
-;; should fail with good error, does
-#;(new-elim z (λ (x : Nat) Nat)
-      (z (λ (n : Nat) n)))
-
-;; TODO Should fail with type error, does, but needs improvement
-#;(new-elim z2 (λ (x : Nat2) Nat2)
-      (z2 (λ (n : Nat2) n)))
-
-#;(require (only-in racket displayln [#%app unsafe-racket-apply]))
-#;(unsafe-racket-apply displayln "mark")
-(new-elim (s2 z2) (λ (x : Nat2) Nat2)
-      ((s2 z2) (λ (n : Nat2) (λ (IH : Nat2) (s2 IH)))))
-
-;; should fail with good error, does
-#;(new-elim (s2 z2) Nat2
-      (z2 (λ (n : Nat2) n)))
-
-;; should fail with good error, does
-#;(new-elim (s2 z2) (λ (x : Nat2) Nat2)
-      (z2))
-
-;; TODO: should fail with good error, doish. needs resugaring/syntax->datum
-#;(new-elim (s2 z2) (λ (x : Nat) Nat2)
-      (z2))
-
-;; Should fail with good error, does
-#;(new-elim (s2 z2) (λ (x : Nat2) (λ (y : Nat) (Type 0)))
-      (z2 (λ (x : Nat2) (λ (IH : Nat) IH))))
-
-;; TODO: Should fail with good error, does ish
-#;(new-elim (s2 z2) (λ (x : Nat2) Nat)
-      (z2 (λ (x : Nat2) (λ (IH : Nat) IH))))
-
-(data Maybe : 1 (Π (A : (Type 0)) (Type 0))
-      (none : (Π (A : (Type 0)) (Maybe A)))
-      (just : (Π (A : (Type 0)) (Π (a : A) (Maybe A)))))
-
-((just Nat) z)
-
-((λ (f : (Π (A : (Type 0)) (Type 0))) z) Maybe)
-
-(new-elim (none Nat) (λ (x : (Maybe Nat)) Nat)
-      (z (λ (a : Nat) a)))
-
-(new-elim ((just Nat) (s z)) (λ (x : (Maybe Nat)) Nat)
-      (z (λ (a : Nat) a)))
-
-;; TODO Should fail with type error, does but needs improvement
-#;((λ (x : (new-elim z2 (λ (x : Nat2) (Type 1))
-               ((Type 0) (λ (x : Nat2) (Type 0))))) x) Nat)
-
-((λ (x : (new-elim (s2 z2) (λ (x : Nat2) (Type 1))
-               ((Type 0) (λ (x : Nat2) (λ (IH : (Type 1)) IH))))) x) Nat)
-  )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+))
 
 
  ;;;;;;;;;;;;;;;;;;;;;;;;copypasta stuff;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
