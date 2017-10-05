@@ -76,8 +76,8 @@
 
 (define-syntax (turn-Π syn)
     (syntax-parse syn #:datum-literals (:)
-    [(_ (x:id : t1:expr)... e:expr)
-     #'(dep-Π ([x:id : t1] ...) e)]))
+    [(_ (x:id : t1:expr) ... e:expr)
+     #'(dep-Π ([x : t1] ...) e)]))
 
 (define-syntax (turn-app syn)
   (syntax-parse syn
