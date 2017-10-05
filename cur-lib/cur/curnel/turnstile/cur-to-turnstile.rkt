@@ -387,7 +387,7 @@
 
 #:= (id (Type 1)) (Type 1)
 #:= ((id2 (Type 2)) (Type 1)) (Type 1)
-#:= (id x)
+#:= (id x) x
 
 
 #:t (((λ (Nat : (Type 3))
