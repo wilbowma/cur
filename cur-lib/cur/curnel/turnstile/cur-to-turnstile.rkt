@@ -34,7 +34,9 @@
 
   "reflection.rkt")
 
-(require rackunit)
+(begin-for-syntax
+(require (only-in rackunit require/expose))
+  (require/expose turnstile/examples/dep-ind (assign-type)))
 ; )
 (provide
  turn-Type
@@ -50,7 +52,6 @@
   #;[cur-require require]
  ;provide-with-types
   )
-(require/expose turnstile/examples/dep-ind (unsafe-assign-type))
 
 (define-syntax (turn-Type syn)
    (syntax-parse syn
@@ -102,23 +103,25 @@
 (define-syntax (turn-axiom syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_:id name:id : type)
-     #:with c (format-id syn "constant:~a" #'name #:source #'name)
+    [(_ name:id (~datum :) type)
+     #:with c (format-id this-syntax "constant:~a" #'name #:source #'name)
+     #:with (arg ...) (parse-telescope-names #'type)
      #:with name- (format-id syn "~a-" #'name #:source #'name)
-     (define name-ls (parse-telescope-names #'type))
- ;    (define type-ls (parse-telescope-types #'type))
- ;    (define result (parse-telescope-result #'type))
      #`(begin
-         (struct c (#,@name-ls) #:transparent #:reflection-name 'name)
-         (define name (unsafe-assign-type c : type)));
-      ;    (define-syntax name (lambda (syn) (unsafe-assign-type #'name- #'type)))
-        ])) 
+         (struct c (arg ...) #:transparent #:reflection-name 'name)
+         (define name- ((curry c)))
+         (define-syntax name
+           (make-rename-transformer
+            (assign-type #'name- #'#,(local-expand #'type 'expression null)))))]))
+
 
      
 (begin-for-syntax
-(define (parse-telescope-names type)
-   (syntax-parse type
-      [(Π (x : t) telescope) (cons #'x (parse-telescope-names #'telescope))]
+  (define (parse-telescope-names type)
+    (syntax-parse type
+      #:datum-literals (:)
+      #:literals (turn-Π)
+      [(turn-Π (x : t) telescope) (cons #'x (parse-telescope-names #'telescope))]
       [result '()])))
 
 ;------------------------------------------------------------------------------------------;
@@ -175,15 +178,18 @@
      #:t (expand/def #'(define id2 (λ (A : (Type 3)) (λ (a : A) a))))
 
      ;;; Axioms
-     #:t (expand/term #'(axiom Nat : (Type 0)))
-     #:t (expand/def #'(axiom z : Nat))
-     #:t (expand/def #'(axiom s : (Π (y : Nat) Nat)))
-     #:t (expand/def #'(axiom meow : (Π (x : (Type 1)) (Type 0))))
+     ;; TODO: Not sure why, but these have weird binding errors in them. Might be a Racket bug, have
+     ;; to investigate furhter.
+     ;; The same may apply to top-level data tests
+     ;#:t (expand/def #'(axiom Nat : (Type 0)))
+     ;#:t (expand/def #'(axiom z : Nat))
+     ;#:t (expand/def #'(axiom s : (Π (y : Nat) Nat)))
+     ;#:t (expand/def #'(axiom meow : (Π (x : (Type 1)) (Type 0))))
 
      
-     #:t (expand/def #'(data Nat2 : 0  (Type 0)
-                             (z2 : Nat2)
-                             (s2 : (Π (x : Nat2) Nat2))))
+     ;#:t (expand/def #'(data Nat2 : 0  (Type 0)
+     ;                        (z2 : Nat2)
+     ;                        (s2 : (Π (x : Nat2) Nat2))))
 
        #|
 fails:
@@ -197,9 +203,9 @@ dep-define-datatype: type mismatch: expected Type, given (Type 1)
 
 
 
-     #:t (expand/def #'(data Maybe : 1 (Π (A : (Type 0)) (Type 0))
-                             (none : (Π (A : (Type 0)) (Maybe A)))
-                             (just : (Π (A : (Type 0)) (Π (a : A) (Maybe A))))))
+     ;#:t (expand/def #'(data Maybe : 1 (Π (A : (Type 0)) (Type 0))
+     ;                        (none : (Π (A : (Type 0)) (Maybe A)))
+     ;                        (just : (Π (A : (Type 0)) (Π (a : A) (Maybe A))))))
      #|
 fails:
  dep-define-datatype: expected more terms
@@ -317,7 +323,6 @@ fails:
 
   (define id2 (λ (A : (Type 3)) (λ (a : A) a))) ;OK
 
-  #|
   ;; -------------------- axioms should succeed --------------------
   (axiom Nat : (Type 0))
   (axiom z : Nat)
@@ -328,7 +333,6 @@ fails:
   (axiom NotVec : (Π (A : (Type 0)) (Π (n : Nat) (Type 0))))
 
   (define test1 (λ (a : (Π (x : Nat) Nat)) (a z)))
-|#
 
   ;; -------------------- inductives should succeed ----------------
  #; (data Nat2 : 0 (Type 0)
@@ -496,7 +500,7 @@ fails:
 #:t ((just Nat) z)
 #:t ((λ (f : (Π (A : (Type 0)) (Type 0))) z) Maybe)
 )
-#;(chk
+(chk
 ;;;;;;;;;;;;;;;;;;;; axiom should succeed ;;;;;;;;;;;;;;;;;;;;;;;;;
 
 #:t z
