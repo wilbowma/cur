@@ -14,7 +14,7 @@
   
   )
 
- (only-in turnstile/lang define- )
+ (only-in turnstile/lang define- infer)
   (rename-in
    turnstile/examples/dep-ind
              [Type dep-Type]
@@ -82,22 +82,33 @@
     [(_ e1:expr e2:expr ...)
       #'(dep-#%app e1 e2 ...)]))
 
- (define-syntax (turn-data syn)
-   (syntax-parse syn #:datum-literals (:)
-   [  (_ name:id : p:nat type 
-                      (c-name:id : c-type)              
-                     ...)
-      #'(dep-define-datatype name : type
-         [c-name : c-type] ...)]))
+ 
+(define-syntax (turn-data syn)
+  (syntax-parse syn #:datum-literals (:)
+    [(_ Name:id : p:nat type
+        (c-name:id : c-type) ...)
+     #:with telescope-anns  (parse-telescope-annotations #'type)
+     #:with Result (parse-telescope-result #'type)
+     #:with ([A : AT] ...) (take (syntax->list #'telescope-anns) (syntax->datum #'p))
+     #:with ([I : IT] ...) (drop (syntax->list #'telescope-anns) (syntax->datum #'p))
+     #:with (([Ic : ITc] ...) ...) (for/list ([t (syntax->list #'(c-type ...))])
+                                (drop (parse-telescope-annotations t) (syntax->datum #'p)))
+     #:with c_result (parse-telescope-result #'(c-type ...))
+     #:with (([args : t_args]...)...) (for/list ([c-t (syntax->list #'(c-type ...))])
+                                        (parse-telescope-annotations c-t))
+     #'(dep-define-datatype Name : (dep-Π ([A : AT]...) (dep-Π ([I : IT] ...) Result))
+         [c-name : (dep-Π ([A : AT] ...
+                           [Ic : ITc] ...
+                                    )
+                          (dep-Π ([args : t_args] ...) c_result))]
+         ...)    
+ ]))
 
 #;(define-syntax (turn-new-elim syn)
   (syntax-parse syn
-      [(_ target:expr motive:expr (method:expr ...))
-       ;;elim-Name is a stx property now, infer type and get its 'elim-Name 
-       (define elim-name (get-elim-name target))
-      #`elim-name ]))
-
-
+    [(_ target:expr motive:expr (method:expr ...))
+     (define elim-name (syntax-property #'(first (fourth (infer (list #'target) #:ctx '()))) 'elim-Name))
+     #'(elim-name target motive method ...)]))
 
 
 (define-syntax (turn-axiom syn)
@@ -122,7 +133,20 @@
       #:datum-literals (:)
       #:literals (turn-Π)
       [(turn-Π (x : t) telescope) (cons #'x (parse-telescope-names #'telescope))]
-      [result '()])))
+      [result '()]))
+  (define (parse-telescope-annotations type)
+    (syntax-parse type
+      #:datum-literals (:)
+      #:literals (turn-Π)
+      [(turn-Π (x : t) telescope) (cons #'[x : t] (parse-telescope-annotations #'telescope))]
+      [result '()]))
+  (define (parse-telescope-result type)
+    (syntax-parse type
+      #:datum-literals (:)
+      #:literals (turn-Π)
+      [(turn-Π (x : t) telescope) (parse-telescope-result #'telescope)]
+      [result #'result]))
+  )
 
 ;------------------------------------------------------------------------------------------;
 ;------------------------------- not implemented yet -------------------------------;
@@ -147,7 +171,7 @@
             [turn-app #%app]
             [turn-axiom axiom]
             [turn-data data]
-#;            [turn-new-elim new-elim]))
+  #;          [turn-new-elim new-elim]))
 
 
   ; -------------------- Top-level and Failure tests --------------------
@@ -162,7 +186,8 @@
   ; ---------------------------------------------------------------------
   (begin-for-syntax
     (require chk)
-
+    (require (only-in rackunit require/expose))
+    (require/expose turnstile/examples/dep-ind (assign-type))
     (define (expand/def syn)
       (local-expand syn 'top-level '()))
     (define (expand/term syn)
@@ -215,16 +240,16 @@ fails:
      ;; --------------- Top-level should fail ------------------ 4 ok
      ;;; Defines
      #:x (expand/def #'(define y (define z (Type 1)) z))
-     "define: unexpected term\n  at: z"
+     "define: unexpected term";\n  at: z"
 
      #:x (expand/def #'(define y (define z (Type 1) x) z))
-     "define: unexpected term\n  at: z"
+     "define: unexpected term";\n  at: z"
 
      #:x (expand/def #'(define x Type))
-     "Type: bad syntax\n  in: Type"
+     "Type: bad syntax";\n  in: Type"
 
      #:x (expand/def #'(define x (Type 1) (Type 1)))
-     "define: unexpected term\n  at: (Type 1)"
+     "define: unexpected term";\n  at: (Type 1)"
 
 #|
      ;;; Axioms
@@ -335,7 +360,7 @@ fails:
   (define test1 (λ (a : (Π (x : Nat) Nat)) (a z)))
 
   ;; -------------------- inductives should succeed ----------------
- #; (data Nat2 : 0 (Type 0)
+  (data Nat2 : 0 (Type 0)
         (z2 : Nat2)
         (s2 : (Π (x : Nat2) Nat2)))
   #|
