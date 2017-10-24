@@ -13,7 +13,7 @@
   "runtime-utils.rkt"
   
   )
-
+ 
  (only-in turnstile/lang define- infer)
   (rename-in
    turnstile/examples/dep-ind
@@ -46,7 +46,7 @@
  turn-app
  turn-axiom
  turn-data
-; turn-new-elim
+ turn-new-elim
 ; turn-elim
 ; turn-void
   #;[cur-require require]
@@ -91,23 +91,25 @@
      #:with Result (parse-telescope-result #'type)
      #:with ([A : AT] ...) (take (syntax->list #'telescope-anns) (syntax->datum #'p))
      #:with ([I : IT] ...) (drop (syntax->list #'telescope-anns) (syntax->datum #'p))
+     #:with num-indices  (length (syntax->list #'([I : IT] ...)))
      #:with (([Ic : ITc] ...) ...) (for/list ([t (syntax->list #'(c-type ...))])
-                                (drop (parse-telescope-annotations t) (syntax->datum #'p)))
-     #:with c_result (parse-telescope-result #'(c-type ...))
-     #:with (([args : t_args]...)...) (for/list ([c-t (syntax->list #'(c-type ...))])
-                                        (parse-telescope-annotations c-t))
+                                     ;  (drop (parse-telescope-annotations t) (syntax->datum #'p))) ;makes args seem like indices
+                                     (take (drop (parse-telescope-annotations t) (syntax->datum #'p)) (syntax->datum #'num-indices))) ;not quite                                  
+     #:with (c_result ...) (for/list ([t (syntax->list #'(c-type ...))])
+                             (parse-telescope-result t))
+     #:with (([args : t_args]...)...) (for/list ([t (syntax->list #'(c-type ...))])
+                                        (drop (parse-telescope-annotations t) (syntax->datum #'p)));;this will make indices seem like args in general
      #'(dep-define-datatype Name : (dep-Π ([A : AT]...) (dep-Π ([I : IT] ...) Result))
          [c-name : (dep-Π ([A : AT] ...
-                           [Ic : ITc] ...
-                                    )
+                           [Ic : ITc] ...) 
                           (dep-Π ([args : t_args] ...) c_result))]
          ...)    
  ]))
 
-#;(define-syntax (turn-new-elim syn)
+(define-syntax (turn-new-elim syn)
   (syntax-parse syn
     [(_ target:expr motive:expr (method:expr ...))
-     (define elim-name (syntax-property #'(first (fourth (infer (list #'target) #:ctx '()))) 'elim-Name))
+     #:with  elim-name #'(syntax-property #'(first (fourth (infer (list #'target) #:ctx '()))) 'elim-Name)
      #'(elim-name target motive method ...)]))
 
 
@@ -171,7 +173,7 @@
             [turn-app #%app]
             [turn-axiom axiom]
             [turn-data data]
-  #;          [turn-new-elim new-elim]))
+            [turn-new-elim new-elim]))
 
 
   ; -------------------- Top-level and Failure tests --------------------
@@ -360,7 +362,7 @@ fails:
   (define test1 (λ (a : (Π (x : Nat) Nat)) (a z)))
 
   ;; -------------------- inductives should succeed ----------------
-  (data Nat2 : 0 (Type 0)
+#;  (data Nat2 : 0 (Type 0)
         (z2 : Nat2)
         (s2 : (Π (x : Nat2) Nat2)))
   #|
@@ -371,7 +373,7 @@ dep-define-datatype: type mismatch: expected Type, given (Type 1)
   in: (dep-define-datatype Nat2 : (Type 0) (z2 : Nat2) (s2 : (Π (x : Nat2) Nat2)))
 
 |#
- #; (data Maybe : 1 (Π (A : (Type 0)) (Type 0))
+  (data Maybe : 1 (Π (A : (Type 0)) (Type 0))
         (none : (Π (A : (Type 0)) (Maybe A)))
         (just : (Π (A : (Type 0)) (Π (a : A) (Maybe A)))))
 #|
@@ -518,12 +520,12 @@ fails:
 #:t (Π (x : (Type 1)) (Type 1)) ;OK
 #:t (Π (x : (Type 1)) (Type 2)) ;OK
 )
-#;  (chk
+  (chk
 
 ;; -------------------- inductives should succeed --------------------
-#:t z2
+;#:t z2
 #:t ((just Nat) z)
-#:t ((λ (f : (Π (A : (Type 0)) (Type 0))) z) Maybe)
+;#:t ((λ (f : (Π (A : (Type 0)) (Type 0))) z) Maybe)
 )
 (chk
 ;;;;;;;;;;;;;;;;;;;; axiom should succeed ;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -536,12 +538,12 @@ fails:
 #:t (test1 s)
 
 )
-#;  (chk
+  (chk
 
 ;;;;;;;;;;;;;;;;;;;; elim should succeed ;;;;;;;;;;;;;;;;;;;;;;;;;
-#:= (new-elim (s2 z2) (λ (x : Nat2) Nat2)
-              ((s2 z2) (λ (n : Nat2) (λ (IH : Nat2) (s2 IH)))))
-(s2 z2)
+;#:= (new-elim (s2 z2) (λ (x : Nat2) Nat2)
+;              ((s2 z2) (λ (n : Nat2) (λ (IH : Nat2) (s2 IH)))))
+;(s2 z2)
 
 #:= (new-elim (none Nat) (λ (x : (Maybe Nat)) Nat)
               (z (λ (a : Nat) a)))
@@ -551,9 +553,9 @@ z
               (z (λ (a : Nat) a)))
 z
 
-#:= ((λ (x : (new-elim (s2 z2) (λ (x : Nat2) (Type 1))
-                       ((Type 0) (λ (x : Nat2) (λ (IH : (Type 1)) IH))))) x) Nat)
-Nat
+;#:= ((λ (x : (new-elim (s2 z2) (λ (x : Nat2) (Type 1))
+;                       ((Type 0) (λ (x : Nat2) (λ (IH : (Type 1)) IH))))) x) Nat)
+;Nat
 
 ))
 
