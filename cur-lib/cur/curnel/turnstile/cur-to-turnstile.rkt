@@ -103,7 +103,8 @@
 (define-syntax (turn-new-elim syn)
   (syntax-parse syn
     [(_ target:expr motive:expr (method:expr ...))
-     #:with  elim-name #'(syntax-property #'(first (fourth (infer (list #'target) #:ctx '()))) 'elim-Name)
+     #:with elim-name (syntax-property (first (fourth (infer (list #'target) #:ctx '())))
+                                       'elim-name)
      #'(elim-name target motive method ...)]))
 
 
