@@ -93,12 +93,22 @@
      #:with ([I : IT] ...) (drop (syntax->list #'telescope-anns) (syntax->datum #'p))
      #:with (([Ic : ITc] ...) ...) (for/list ([t (syntax->list #'(c-type ...))])
                                      (parse-telescope-annotations t))
+     #:do [(define index-count (length (syntax->list #'(I ...))))
+           (define param-count (syntax->datum #'p))]
+     #:with (([cA : cAT] ...) ...) (for/list ([as (syntax->list #'(((Ic : ITc) ...) ...))])
+                                     (take (syntax->list as) param-count))
+     #:with (([cI : cIT] ...) ...) (for/list ([as (syntax->list #'(((Ic : ITc) ...) ...))])
+                                     (take (syntax->list as) index-count))
+     #:with (([r : rT] ...) ...) (for/list ([as (syntax->list #'(((Ic : ITc) ...) ...))])
+                                   (drop (syntax->list as) (+ param-count index-count)))
      #:with (c_result ...) (for/list ([t (syntax->list #'(c-type ...))])
                              (parse-telescope-result t))
-     (quasisyntax/loc syn
-       (dep-define-datatype Name (A : AT) ... : (I : IT) ... -> Result
-         [c-name : (dep-Π ([Ic : ITc] ...) c_result)]
-         ...))]))
+     #`(dep-define-datatype Name (A : AT) ... : (I : IT) ... -> Result
+                            [c-name : (dep-Π ([cA : cAT] ...)
+                                             (dep-Π ([cI : cIT] ...)
+                                                    (dep-Π ([r : rT] ...)
+                                                           c_result)))]
+                            ...)]))
 
 (define-syntax (turn-new-elim syn)
   (syntax-parse syn
