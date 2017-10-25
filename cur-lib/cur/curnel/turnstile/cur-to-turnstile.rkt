@@ -16,7 +16,7 @@
  
  (only-in turnstile/lang define- infer)
   (rename-in
-   turnstile/examples/dep-ind
+   turnstile/examples/dep-ind-fixed
              [Type dep-Type]
              [* dep-*]
              [ Π dep-Π]
@@ -36,7 +36,7 @@
 
 (begin-for-syntax
 (require (only-in rackunit require/expose))
-  (require/expose turnstile/examples/dep-ind (assign-type)))
+  (require/expose turnstile/examples/dep-ind-fixed (assign-type)))
 ; )
 (provide
  turn-Type
@@ -91,20 +91,14 @@
      #:with Result (parse-telescope-result #'type)
      #:with ([A : AT] ...) (take (syntax->list #'telescope-anns) (syntax->datum #'p))
      #:with ([I : IT] ...) (drop (syntax->list #'telescope-anns) (syntax->datum #'p))
-     #:with num-indices  (length (syntax->list #'([I : IT] ...)))
      #:with (([Ic : ITc] ...) ...) (for/list ([t (syntax->list #'(c-type ...))])
-                                     ;  (drop (parse-telescope-annotations t) (syntax->datum #'p))) ;makes args seem like indices
-                                     (take (drop (parse-telescope-annotations t) (syntax->datum #'p)) (syntax->datum #'num-indices))) ;not quite                                  
+                                     (parse-telescope-annotations t))
      #:with (c_result ...) (for/list ([t (syntax->list #'(c-type ...))])
                              (parse-telescope-result t))
-     #:with (([args : t_args]...)...) (for/list ([t (syntax->list #'(c-type ...))])
-                                        (drop (parse-telescope-annotations t) (syntax->datum #'p)));;this will make indices seem like args in general
-     #'(dep-define-datatype Name : (dep-Π ([A : AT]...) (dep-Π ([I : IT] ...) Result))
-         [c-name : (dep-Π ([A : AT] ...
-                           [Ic : ITc] ...) 
-                          (dep-Π ([args : t_args] ...) c_result))]
-         ...)    
- ]))
+     (quasisyntax/loc syn
+       (dep-define-datatype Name (A : AT) ... : (I : IT) ... -> Result
+         [c-name : (dep-Π ([Ic : ITc] ...) c_result)]
+         ...))]))
 
 (define-syntax (turn-new-elim syn)
   (syntax-parse syn
