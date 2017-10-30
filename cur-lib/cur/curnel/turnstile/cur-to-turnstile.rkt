@@ -91,24 +91,20 @@
            (define telescope-anns (parse-telescope-annotations (attribute type)))]
      #:with ([A : AT] ...) (take telescope-anns param-count)
      #:with ([I : IT] ...) (drop telescope-anns param-count)
-     #:do [(define index-count (length (syntax->list #'(I ...))))
-           (define c-telescope-anns
+     #:do [(define c-telescope-anns
              (for/list ([t (attribute c-type)])
                (parse-telescope-annotations t)))]
      #:with (([cA : cAT] ...) ...) (for/list ([as c-telescope-anns])
                                      (take as param-count))
-     #:with (([cI : cIT] ...) ...) (for/list ([as c-telescope-anns])
-                                     (take as index-count))
      #:with (([r : rT] ...) ...) (for/list ([as c-telescope-anns])
-                                   (drop as (+ param-count index-count)))
+                                   (drop as param-count))
      #:with (c_result ...) (for/list ([t (attribute c-type)])
                              (parse-telescope-result t))
      (quasisyntax/loc syn
        (dep-define-datatype Name (A : AT) ... : (I : IT) ... -> Result
                             [c-name : (dep-Π ([cA : cAT] ...)
-                                             (dep-Π ([cI : cIT] ...)
-                                                    (dep-Π ([r : rT] ...)
-                                                           c_result)))]
+                                             (dep-Π ([r : rT] ...)
+                                                    c_result))]
                             ...))
     ]
    [(_ Name:id : 0 type
@@ -539,7 +535,7 @@ fails
 
 ;; -------------------- inductives should succeed --------------------
 ;#:t z2
-#:t (((just Nat)) z)
+#:t ((just Nat) z)
 ;#:t ((λ (f : (Π (A : (Type 0)) (Type 0))) z) Maybe)
 )
 (chk
@@ -560,13 +556,16 @@ fails
 ;              ((s2 z2) (λ (n : Nat2) (λ (IH : Nat2) (s2 IH)))))
 ;(s2 z2)
 
-#:= (new-elim (((none Nat))) (λ (x : ((Maybe Nat))) Nat)
-              ((λ () z) (λ () (λ (a : Nat) a))))
+#:= (new-elim ((none Nat))
+              (λ (λ (x : (Maybe Nat)) Nat))
+              ((λ (λ (λ z)))
+               (λ (λ (a : Nat) (λ a)))))
 z
 
-#:= (new-elim (((just Nat)) (s z)) (λ (x : ((Maybe Nat))) Nat)
-              ((λ () z) (λ () (λ (a : Nat) a))))
-z
+#:= (new-elim ((just Nat) (s z)) (λ (λ (x : (Maybe Nat)) Nat))
+              ((λ (λ (λ z)))
+               (λ (λ (a : Nat) (λ a)))))
+(s z)
 
 ;#:= ((λ (x : (new-elim (s2 z2) (λ (x : Nat2) (Type 1))
 ;                       ((Type 0) (λ (x : Nat2) (λ (IH : (Type 1)) IH))))) x) Nat)
