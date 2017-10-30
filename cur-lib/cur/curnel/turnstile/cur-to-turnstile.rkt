@@ -56,60 +56,60 @@
 (define-syntax (turn-Type syn)
    (syntax-parse syn
     [(_ i:exact-nonnegative-integer)
-     #'(dep-Type i)]
-     ))
+     (quasisyntax/loc syn (dep-Type i))]))
 
 (define-syntax (turn-define syn)
   (syntax-parse syn
     [(_:top-level-id name:id body:expr)
-     #'(dep-define name body)]))
+     (quasisyntax/loc syn (dep-define name body))]))
 
 
 (define-syntax (turn-λ syn)
   (syntax-parse syn
     #:datum-literals (:)
     [(_ (x:id : t1:expr) e:expr)
-     #'(dep-λ ([x : t1]) e)]))
-
+     (quasisyntax/loc syn (dep-λ ([x : t1]) e))]))
 
 (define-syntax (turn-Π syn)
     (syntax-parse syn #:datum-literals (:)
     [(_ (x:id : t1:expr) ... e:expr)
-     #'(dep-Π ([x : t1] ...) e)]))
+     (quasisyntax/loc syn (dep-Π ([x : t1] ...) e))]))
 
 (define-syntax (turn-app syn)
   (syntax-parse syn
     [(_ e1:expr e2:expr ...)
-      #'(dep-#%app e1 e2 ...)]))
+      (quasisyntax/loc syn (dep-#%app e1 e2 ...))]))
 
- 
+
 (define-syntax (turn-data syn)
   (syntax-parse syn #:datum-literals (:)
     [(_ Name:id : p:nat (turn-Π (x : ty) body)
         (c-name:id : c-type) ...)
-     #:with type #'(turn-Π (x : ty) body) 
-     #:with telescope-anns  (parse-telescope-annotations #'type)
-     #:with Result (parse-telescope-result #'type)
-     #:with ([A : AT] ...) (take (syntax->list #'telescope-anns) (syntax->datum #'p))
-     #:with ([I : IT] ...) (drop (syntax->list #'telescope-anns) (syntax->datum #'p))
-     #:with (([Ic : ITc] ...) ...) (for/list ([t (syntax->list #'(c-type ...))])
-                                     (parse-telescope-annotations t))
+     #:with type #'(turn-Π (x : ty) body)
+     #:with Result (parse-telescope-result (attribute type))
+     #:do [(define param-count (syntax->datum #'p))
+           (define telescope-anns (parse-telescope-annotations (attribute type)))]
+     #:with ([A : AT] ...) (take telescope-anns param-count)
+     #:with ([I : IT] ...) (drop telescope-anns param-count)
      #:do [(define index-count (length (syntax->list #'(I ...))))
-           (define param-count (syntax->datum #'p))]
-     #:with (([cA : cAT] ...) ...) (for/list ([as (syntax->list #'(((Ic : ITc) ...) ...))])
-                                     (take (syntax->list as) param-count))
-     #:with (([cI : cIT] ...) ...) (for/list ([as (syntax->list #'(((Ic : ITc) ...) ...))])
-                                     (take (syntax->list as) index-count))
-     #:with (([r : rT] ...) ...) (for/list ([as (syntax->list #'(((Ic : ITc) ...) ...))])
-                                   (drop (syntax->list as) (+ param-count index-count)))
-     #:with (c_result ...) (for/list ([t (syntax->list #'(c-type ...))])
+           (define c-telescope-anns
+             (for/list ([t (attribute c-type)])
+               (parse-telescope-annotations t)))]
+     #:with (([cA : cAT] ...) ...) (for/list ([as c-telescope-anns])
+                                     (take as param-count))
+     #:with (([cI : cIT] ...) ...) (for/list ([as c-telescope-anns])
+                                     (take as index-count))
+     #:with (([r : rT] ...) ...) (for/list ([as c-telescope-anns])
+                                   (drop as (+ param-count index-count)))
+     #:with (c_result ...) (for/list ([t (attribute c-type)])
                              (parse-telescope-result t))
-     #`(dep-define-datatype Name (A : AT) ... : (I : IT) ... -> Result
+     (quasisyntax/loc syn
+       (dep-define-datatype Name (A : AT) ... : (I : IT) ... -> Result
                             [c-name : (dep-Π ([cA : cAT] ...)
                                              (dep-Π ([cI : cIT] ...)
                                                     (dep-Π ([r : rT] ...)
                                                            c_result)))]
-                            ...)
+                            ...))
     ]
    [(_ Name:id : 0 type
         (c-name:id : c-type) ...)
@@ -117,10 +117,11 @@
                                    (parse-telescope-annotations t))
      #:with (c_result ...) (for/list ([t (syntax->list #'(c-type ...))])
                              (parse-telescope-result t))
-    #'(dep-define-datatype Name : dep-*
+     (quasisyntax/loc syn
+       (dep-define-datatype Name : dep-*
                             [c-name :  (dep-Π ([r : rT] ...)
-                                             c_result)] ...)
- 
+                                             c_result)] ...))
+
      ]))
 
 (define-syntax (turn-new-elim syn)
@@ -128,7 +129,7 @@
     [(_ target:expr motive:expr (method:expr ...))
      #:with elim-name (syntax-property (first (fourth (infer (list #'target) #:ctx '())))
                                        'elim-name)
-     #'(elim-name target motive method ...)]))
+     (quasisyntax/loc syn (elim-name target motive method ...))]))
 
 
 (define-syntax (turn-axiom syn)
@@ -138,34 +139,35 @@
      #:with c (format-id this-syntax "constant:~a" #'name #:source #'name)
      #:with (arg ...) (parse-telescope-names #'type)
      #:with name- (format-id syn "~a-" #'name #:source #'name)
-     #`(begin
+     (quasisyntax/loc syn
+       (begin
          (struct c (arg ...) #:transparent #:reflection-name 'name)
          (define name- ((curry c)))
          (define-syntax name
            (make-rename-transformer
-            (assign-type #'name- #'#,(local-expand #'type 'expression null)))))]))
+            (assign-type #'name- #'#,(local-expand #'type 'expression null))))))]))
 
 
-     
+
 (begin-for-syntax
   (define (parse-telescope-names type)
     (syntax-parse type
       #:datum-literals (:)
       #:literals (turn-Π)
-      [(turn-Π (x : t) telescope) (cons #'x (parse-telescope-names #'telescope))]
+      [(turn-Π (x : t) telescope) (cons (quasisyntax/loc type x) (parse-telescope-names #'telescope))]
       [result '()]))
   (define (parse-telescope-annotations type)
     (syntax-parse type
       #:datum-literals (:)
       #:literals (turn-Π)
-      [(turn-Π (x : t) telescope) (cons #'[x : t] (parse-telescope-annotations #'telescope))]
+      [(turn-Π (x : t) telescope) (cons (quasisyntax/loc type [x : t]) (parse-telescope-annotations #'telescope))]
       [result '()]))
   (define (parse-telescope-result type)
     (syntax-parse type
       #:datum-literals (:)
       #:literals (turn-Π)
       [(turn-Π (x : t) telescope) (parse-telescope-result #'telescope)]
-      [result #'result]))
+      [result type]))
   )
 
 ;------------------------------------------------------------------------------------------;
@@ -537,7 +539,7 @@ fails
 
 ;; -------------------- inductives should succeed --------------------
 ;#:t z2
-#:t ((just Nat) z)
+#:t (((just Nat)) z)
 ;#:t ((λ (f : (Π (A : (Type 0)) (Type 0))) z) Maybe)
 )
 (chk
@@ -558,12 +560,12 @@ fails
 ;              ((s2 z2) (λ (n : Nat2) (λ (IH : Nat2) (s2 IH)))))
 ;(s2 z2)
 
-#:= (new-elim (none Nat) (λ (x : (Maybe Nat)) Nat)
-              (z (λ (a : Nat) a)))
+#:= (new-elim (((none Nat))) (λ (x : ((Maybe Nat))) Nat)
+              ((λ () z) (λ () (λ (a : Nat) a))))
 z
 
-#:= (new-elim ((just Nat) (s z)) (λ (x : (Maybe Nat)) Nat)
-              (z (λ (a : Nat) a)))
+#:= (new-elim (((just Nat)) (s z)) (λ (x : ((Maybe Nat))) Nat)
+              ((λ () z) (λ () (λ (a : Nat) a))))
 z
 
 ;#:= ((λ (x : (new-elim (s2 z2) (λ (x : Nat2) (Type 1))
