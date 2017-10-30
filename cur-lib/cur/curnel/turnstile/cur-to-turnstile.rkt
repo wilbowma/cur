@@ -11,7 +11,7 @@
   racket/provide-transform
   "stxutils.rkt"
   "runtime-utils.rkt"
-  
+  syntax/to-string
   )
  
  (only-in turnstile/lang define- infer)
@@ -85,8 +85,9 @@
  
 (define-syntax (turn-data syn)
   (syntax-parse syn #:datum-literals (:)
-    [(_ Name:id : p:nat type
+    [(_ Name:id : p:nat (turn-Π (x : ty) body)
         (c-name:id : c-type) ...)
+     #:with type #'(turn-Π (x : ty) body) 
      #:with telescope-anns  (parse-telescope-annotations #'type)
      #:with Result (parse-telescope-result #'type)
      #:with ([A : AT] ...) (take (syntax->list #'telescope-anns) (syntax->datum #'p))
@@ -108,7 +109,19 @@
                                              (dep-Π ([cI : cIT] ...)
                                                     (dep-Π ([r : rT] ...)
                                                            c_result)))]
-                            ...)]))
+                            ...)
+    ]
+   [(_ Name:id : 0 type
+        (c-name:id : c-type) ...)
+     #:with (([r : rT] ...) ...) (for/list ([t (syntax->list #'(c-type ...))])
+                                   (parse-telescope-annotations t))
+     #:with (c_result ...) (for/list ([t (syntax->list #'(c-type ...))])
+                             (parse-telescope-result t))
+    #'(dep-define-datatype Name : dep-*
+                            [c-name :  (dep-Π ([r : rT] ...)
+                                             c_result)] ...)
+ 
+     ]))
 
 (define-syntax (turn-new-elim syn)
   (syntax-parse syn
@@ -367,25 +380,20 @@ fails:
   (define test1 (λ (a : (Π (x : Nat) Nat)) (a z)))
 
   ;; -------------------- inductives should succeed ----------------
-#;  (data Nat2 : 0 (Type 0)
-        (z2 : Nat2)
-        (s2 : (Π (x : Nat2) Nat2)))
-  #|
-fails:
-dep-define-datatype: type mismatch: expected Type, given (Type 1)
-  expression: (Type 0)
-  at: (Type 0)
-  in: (dep-define-datatype Nat2 : (Type 0) (z2 : Nat2) (s2 : (Π (x : Nat2) Nat2)))
-
-|#
   (data Maybe : 1 (Π (A : (Type 0)) (Type 0))
         (none : (Π (A : (Type 0)) (Maybe A)))
         (just : (Π (A : (Type 0)) (Π (a : A) (Maybe A)))))
-#|
-fails:
- dep-define-datatype: expected more terms
-  at: ()
+
+  (data Nat2 : 0 (Type 0)
+        (z2 : Nat2)       
+        (s2 : (Π (x : Nat2) Nat2)))
+      
+  #|
+fails
+
+
 |#
+  
 
 
   ; -------------------- Failing δ reduction and Γ tests --------------------
