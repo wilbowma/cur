@@ -67,8 +67,8 @@
 (define-syntax (turn-λ syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_ (x:id : t1:expr) e:expr)
-     (quasisyntax/loc syn (dep-λ ([x : t1]) e))]))
+    [(_ (x:id : t1:expr) ... e:expr)
+     (quasisyntax/loc syn (dep-λ ([x : t1] ...) e))]))
 
 (define-syntax (turn-Π syn)
     (syntax-parse syn #:datum-literals (:)
