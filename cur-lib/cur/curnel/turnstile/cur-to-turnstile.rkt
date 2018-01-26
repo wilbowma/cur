@@ -35,9 +35,9 @@
   "reflection.rkt")
 
 (begin-for-syntax
-(require (only-in rackunit require/expose))
-  (require/expose turnstile/examples/dep-ind-fixed (assign-type)))
-; )
+  (require (only-in rackunit require/expose))
+  (require/expose turnstile/examples/dep-ind-cur (assign-type)))
+
 (provide
  turn-Type
  turn-define
@@ -339,13 +339,10 @@ fails:
 
      ;; --------------- Π should fail ------------------ 
      #:x (expand/term #'(Π (x : (x (Type 1))) (Type 1)))
-     "expected function but found x"  ;;currently
-   ;  "unexpected term" ;in (x (Type 1)) 
+     "expected function but found x"
 
-
-     #:x (expand/term #'(Π (x : (Type 1)) (x (Type 1)))) 
-     "expected function but found x" ;currently  
-  ;   "unexpected term"
+     #:x (expand/term #'(Π (x : (Type 1)) (x (Type 1))))
+     "Expected ∀ type, got: (Type 1)"
 
 ;     #:x (expand/term #'(Π (y : (Type 1)) (y (Type 1)))) 
     ; "expected function but found y" ;currently
@@ -464,11 +461,14 @@ fails:
   (chk
    ;; ---------------  Test that definition evaluate ---------------
    ;;;;;;;;;;;;;; define should succeed and δ reduction ;;;;;
-   #:= x (Type 1) 
-   #:= puppies (Type 2) 
-   #:= kittens (Type 3) 
-   #:= id (λ (x : (Type 2)) x) 
-   #:= id2 (λ (A : (Type 3)) (λ (a : A) a)) 
+   #:= x (Type 1)
+   #:= puppies (Type 2)
+   #:= kittens (Type 3)
+   ;; NB: Can't compare function values for equality; must test function equality indirectly.
+;   #:= id (λ (x : (Type 2)) x)
+   #:= (id (Type 1)) ((λ (x : (Type 2)) x) (Type 1))
+;   #:= id2 (λ (A : (Type 3)) (λ (a : A) a))
+   #:= ((id2 (Type 2)) (Type 1)) (((λ (A : (Type 3)) (λ (a : A) a)) (Type 2)) (Type 1))
 
    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Type should succeed;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
    #:t (Type 0) 
@@ -502,7 +502,9 @@ fails:
 #:= ((λ (x : (Type 2)) x) (Type 1)) (Type 1) ;OK
 
 ;;;(note: puppes is (Type 2))
-#:= ((λ (A : (Type 3)) (λ (a : (Type 2)) a)) puppies) (λ (a : (Type 2)) a) ;???
+; NB: Can't test function equality directly
+;#:= ((λ (A : (Type 3)) (λ (a : (Type 2)) a)) puppies) (λ (a : (Type 2)) a) ;???
+#:= (((λ (A : (Type 3)) (λ (a : (Type 2)) a)) puppies) (Type 1)) ((λ (a : (Type 2)) a) (Type 1)) ;???
 
 ;;;(note: puppies is (Type 2), x is (Type 1))
 #:= (((λ (A : (Type 3)) (λ (a : (Type 2)) a)) puppies) x) x ;???
