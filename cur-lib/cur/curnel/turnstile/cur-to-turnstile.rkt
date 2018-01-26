@@ -13,7 +13,7 @@
   "runtime-utils.rkt"
   syntax/to-string
   )
- 
+
  (only-in turnstile/lang define- infer)
   (rename-in
    turnstile/examples/dep-ind-cur
@@ -105,8 +105,7 @@
                             [c-name : (dep-Π [cA : cAT] ...
                                              (dep-Π [r : rT] ...
                                                     c_result))]
-                            ...))
-    ]
+                            ...))]
     [(_ Name:id : 0 type ;;per dep-ind-cur-tests, still need special case for (Type 0): must use * or Type?
         (c-name:id : c-type) ...)
      #:with (([r : rT] ...) ...) (for/list ([t (syntax->list #'(c-type ...))])
@@ -116,9 +115,7 @@
      (quasisyntax/loc syn
        (dep-define-datatype Name : dep-*
                             [c-name :  (dep-Π [r : rT] ...
-                                             c_result)] ...))
-
-     ]))
+                                             c_result)] ...))]))
 
 (define-syntax (turn-new-elim syn)
   (syntax-parse syn
@@ -212,13 +209,13 @@
       (local-expand syn 'expression '()))
 
     (chk
-     ;; --------------- Top-level should succeed --------------- 
+     ;; --------------- Top-level should succeed ---------------
      ;;; Defines
-     #:t (expand/def #'(define x (Type 1)))  
+     #:t (expand/def #'(define x (Type 1)))
      #:t (expand/def #'(define puppies (Type 2)))
      #:t (expand/def #'(define kittens (Type 3)))
-     #:t (expand/def #'(define id (λ (x : (Type 2)) x))) 
-     #:t (expand/def #'(define id2 (λ (A : (Type 3)) (λ (a : A) a)))) 
+     #:t (expand/def #'(define id (λ (x : (Type 2)) x)))
+     #:t (expand/def #'(define id2 (λ (A : (Type 3)) (λ (a : A) a))))
 
      ;;; Axioms
      ;; TODO: Not sure why, but these have weird binding errors in them. Might be a Racket bug, have
@@ -229,7 +226,7 @@
      ;#:t (expand/def #'(axiom s : (Π (y : Nat) Nat)))
      ;#:t (expand/def #'(axiom meow : (Π (x : (Type 1)) (Type 0))))
 
-     
+
      ;#:t (expand/def #'(data Nat2 : 0  (Type 0)
      ;                        (z2 : Nat2)
      ;                        (s2 : (Π (x : Nat2) Nat2))))
@@ -255,7 +252,7 @@ fails:
   at: ()
 |#
 
-     ;; --------------- Top-level should fail ------------------ 
+     ;; --------------- Top-level should fail ------------------
      ;;; Defines
      #:x (expand/def #'(define y (define z (Type 1)) z))
      "define: unexpected term";\n  at: z"
@@ -283,7 +280,7 @@ fails:
 |#
 #|
      ;;; Inductives !!!
-    
+
      #:x (expand/def #'(data Nat : 0 (Type 0)
                              (z : Nat)
                              (s : (Π (x : Nat) Nat))))
@@ -305,7 +302,7 @@ fails:
      "expected telescope but found (id (Type 1))"
 
 |#
-     ;; --------------- Type should fail ------------------ 
+     ;; --------------- Type should fail ------------------
      #:x (expand/term #'(Type z))
      "Type: expected exact-nonnegative-integer"
 
@@ -314,22 +311,22 @@ fails:
 
 
 
-     ;; --------------- λ should fail -------------------- 
-     ;; Consider this one failing as the error message produces is not good. 
+     ;; --------------- λ should fail --------------------
+     ;; Consider this one failing as the error message produces is not good.
 ;     #:x (expand/term #'(λ (x : (λ (x : (Type 2)) x)) x)) ;fails: expected id
    ;  "λ: Expected term of type Type"
  ;    "Π: Expected Type type, got: (Π ((x : (Type 2))) (Type 2))" ;current error
 
 
- 
-     ;; --------------- app should fail ------------------ 
+
+     ;; --------------- app should fail ------------------
    ;  #:x (expand/term #'((λ (x : (Type 2)) x) (Type 3))) ;fails: expected id
     ; "app: type mismatch: expected (Type 2), given (Type 4)"
 
    ;  #:x (expand/term #'((λ (x : (Type 2)) x) (Type 2))) ;fails: expected id
     ; "app: type mismatch: expected (Type 2), given (Type 3)"
 
-     ;; Bad error; bug in turnstile? 
+     ;; Bad error; bug in turnstile?
   ;   #:x (expand/term #'((Type 1) (Type 2)))
    ;  "app: expected term of function type" ;;current error: dep-#%app: expected the identifier `#%plain-app'
 
@@ -337,14 +334,14 @@ fails:
  ;    #:x (expand/term #'(((λ (A : (Type 3)) (λ (a : A) a)) (Type 2)) (Type 2)))
  ;    "app: type mismatch: expected (Type 2), given (Type 3)"
 
-     ;; --------------- Π should fail ------------------ 
+     ;; --------------- Π should fail ------------------
      #:x (expand/term #'(Π (x : (x (Type 1))) (Type 1)))
      "expected function but found x"
 
      #:x (expand/term #'(Π (x : (Type 1)) (x (Type 1))))
      "Expected ∀ type, got: (Type 1)"
 
-;     #:x (expand/term #'(Π (y : (Type 1)) (y (Type 1)))) 
+;     #:x (expand/term #'(Π (y : (Type 1)) (y (Type 1))))
     ; "expected function but found y" ;currently
  ;    "unexpected term"
 
@@ -355,9 +352,9 @@ fails:
 
   ;;;;;;;;;define should succeed;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; NB: These defines copy-pasted from above.
-  (define x (Type 1)) 
-  (define puppies (Type 2)) 
-  (define kittens (Type 3)) 
+  (define x (Type 1))
+  (define puppies (Type 2))
+  (define kittens (Type 3))
   (define id (λ (x : (Type 2)) x)) ;^
   (define id2 (λ (A : (Type 3)) (λ (a : A) a))) ;^
 
@@ -378,10 +375,10 @@ fails:
         (just : (Π (A : (Type 0)) (Π (a : A) (Maybe A)))))
 
   (data Nat2 : 0 (Type 0)
-        (z2 : Nat2)       
+        (z2 : Nat2)
         (s2 : (Π (x : Nat2) Nat2)))
-      
-  
+
+
 
 
   ; -------------------- Failing δ reduction and Γ tests --------------------
@@ -471,10 +468,10 @@ fails:
    #:= ((id2 (Type 2)) (Type 1)) (((λ (A : (Type 3)) (λ (a : A) a)) (Type 2)) (Type 1))
 
    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Type should succeed;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-   #:t (Type 0) 
+   #:t (Type 0)
 
-   #:t (Type 1) 
-   #:t (Type 3) 
+   #:t (Type 1)
+   #:t (Type 3)
 
 ;;;;;;;;;;;;;;;;;;;; λ should succeed ;;;;;;;;;;;;;;;;;;;;
 
@@ -493,8 +490,8 @@ fails:
 
 
 ;;but these do not:
- #:t (λ (z : x) z) 
- #:t (λ (x : (Type 3)) x) 
+ #:t (λ (z : x) z)
+ #:t (λ (x : (Type 3)) x)
  #:t (λ (x : (Type 2)) (λ (y : (Type 0)) y))
 
 
@@ -567,4 +564,3 @@ z
 ;Nat
 
 ))
-
