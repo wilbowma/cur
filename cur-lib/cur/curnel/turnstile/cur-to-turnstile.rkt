@@ -81,6 +81,27 @@
       (quasisyntax/loc syn (dep-#%app e1 e2 ...))]))
 
 
+(begin-for-syntax
+  (define (parse-telescope-names type)
+    (syntax-parse type
+      #:datum-literals (:)
+      #:literals (turn-Π)
+      [(turn-Π (x : t) telescope) (cons (quasisyntax/loc type x) (parse-telescope-names #'telescope))]
+      [result '()]))
+  (define (parse-telescope-annotations type)
+    (syntax-parse type
+      #:datum-literals (:)
+      #:literals (turn-Π)
+      [(turn-Π (x : t) telescope) (cons (quasisyntax/loc type [x : t]) (parse-telescope-annotations #'telescope))]
+      [result '()]))
+  (define (parse-telescope-result type)
+    (syntax-parse type
+      #:datum-literals (:)
+      #:literals (turn-Π)
+      [(turn-Π (x : t) telescope) (parse-telescope-result #'telescope)]
+      [result type]))
+  )
+
 (define-syntax (turn-data syn)
   (syntax-parse syn #:datum-literals (:)
     [(_ Name:id : p:nat (turn-Π (x : ty) body)
@@ -142,26 +163,6 @@
 
 
 
-(begin-for-syntax
-  (define (parse-telescope-names type)
-    (syntax-parse type
-      #:datum-literals (:)
-      #:literals (turn-Π)
-      [(turn-Π (x : t) telescope) (cons (quasisyntax/loc type x) (parse-telescope-names #'telescope))]
-      [result '()]))
-  (define (parse-telescope-annotations type)
-    (syntax-parse type
-      #:datum-literals (:)
-      #:literals (turn-Π)
-      [(turn-Π (x : t) telescope) (cons (quasisyntax/loc type [x : t]) (parse-telescope-annotations #'telescope))]
-      [result '()]))
-  (define (parse-telescope-result type)
-    (syntax-parse type
-      #:datum-literals (:)
-      #:literals (turn-Π)
-      [(turn-Π (x : t) telescope) (parse-telescope-result #'telescope)]
-      [result type]))
-  )
 
 ;------------------------------------------------------------------------------------------;
 ;------------------------------- not implemented yet -------------------------------;
