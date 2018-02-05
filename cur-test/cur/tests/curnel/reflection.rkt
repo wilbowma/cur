@@ -4,18 +4,27 @@
  (for-syntax
   chk
   racket/base
-  (except-in cur/curnel/racket-impl/equiv cur-equal?)
-  cur/curnel/racket-impl/stxutils
-  cur/curnel/racket-impl/reflection)
- cur/curnel/racket-impl/type-check
- cur/curnel/racket-impl/runtime
- "runtime.rkt")
+  (except-in "../../../../cur-lib/cur/curnel/turnstile/equiv.rkt" cur-equal?)
+  "../../../../cur-lib/cur/curnel/turnstile/stxutils.rkt"
+ ; "../../../../cur-lib/cur/curnel/racket-impl/reflection.rkt"
+  "../../../../cur-lib/cur/curnel/turnstile/reflection.rkt"
+  )
+ "../../../../cur-lib/cur/curnel/turnstile/cur-to-turnstile.rkt"
+; "../../../../cur-lib/cur/curnel/racket-impl/type-check.rkt"
+ ;"../../../../cur-lib/cur/curnel/racket-impl/runtime.rkt"
+ ;"runtime.rkt"
+ turnstile/examples/dep-ind-cur )
 
 (begin-for-syntax
-  (chk
-   #:eq cur-equal? (cur-type-infer #'a #:local-env (list (cons #'a #'(cur-Type 0))))
-   #'(typed-Type 0)
+ (chk 
+   #:= (cur-type-infer #'(turn-Type 0)) #'(Type 1) 
+   #:= (cur-type-infer #'(turn-λ (x : (turn-Type 0)) x)) #'(Π (x : (Type 0)) (Type 0))
    #:x (cur-type-infer #'a) "a: unbound"
-   #:x (cur-type-infer #'a #:local-env (list (cons #'a #'(typed-app
-                                                          (cur-λ (cur-Type 0) (#%plain-lambda (x) x))
-                                                          (cur-Type 0))))) "Expected term of type"))
+   
+ ;  #:t (cur-type-check? #'(turn-λ (x : (turn-Type 0) x)) #'(Π (x : (Type 0)) (Type 0)))
+ ;  #:t (cur-type-check? #'(turn-Type 0) #'(Type 1))
+     
+;   #:= (cur->datum #'(turn-Type 0)) '(Type 0)
+;   #:= (cur->datum #'(turn-λ (a : (turn-Type 0)) a)) '(λ (a : (Type 0)) a) ;?
+
+#;#;#;   #:= (cur-normalize #'(turn-app (turn-λ (x : turn-Type) x) Bool)) #'Bool ))
