@@ -61,7 +61,7 @@
      #'x]
     [(turn-Type i:exact-nonnegative-integer)
      #'(Type i)]
-    [(turn-λ (x : type) body:id)
+    [(turn-λ (x : type) body)
      #`(λ (#,(cur-reflect #'x) : #,(cur-reflect #'type)) #,(cur-reflect #'body))]
     [(_ _ (_ () _ (_ _ (quote i:exact-nonnegative-integer))))
      #'(Type i)]
