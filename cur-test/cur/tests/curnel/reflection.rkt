@@ -25,11 +25,17 @@
    #:eq cur-equal? (cur-type-infer #'(turn-λ (x : (turn-Type 0)) x)) #'(Π (x : (Type 0)) (Type 0))
    #:eq cur-equal? (cur-type-infer #'(turn-λ (x : (turn-Π (x : (turn-Type 0)) (turn-Type 0))) x)) #'(Π (x : (Π (x : (Type 0)) (Type 0))) (Π (x : (Type 0)) (Type 0)))
    #:x (cur-type-infer #'a) "a: unbound"
-   
- ;  #:t (cur-type-check? #'(turn-λ (x : (turn-Type 0) x)) #'(Π (x : (Type 0)) (Type 0)))
+   #:eq cur-equal? (cur-type-infer #'(turn-app (turn-λ (x : (turn-Type 1)) x) (turn-Type 0))) #'(Type 1)
+   )
+#; (chk
+   #:t (cur-type-check? #'(turn-λ (x : (turn-Type 0)) x)  #'(Π (x : (Type 0)) (Type 0))) ;fails typecheck?
    #:t (cur-type-check? #'(turn-Type 0) #'(Type 1))
-     
-;   #:= (cur->datum #'(turn-Type 0)) '(Type 0)
-;   #:= (cur->datum #'(turn-λ (a : (turn-Type 0)) a)) '(λ (a : (Type 0)) a) ;?
-
-#;#;#;   #:= (cur-normalize #'(turn-app (turn-λ (x : turn-Type) x) Bool)) #'Bool ))
+   )
+ (chk
+  #:= (cur->datum #'a) 'a
+  #:= (cur->datum #'(turn-Type 0)) '(Type 0)
+  #:= (cur->datum #'(turn-λ (a : (turn-Type 0)) a)) '(λ (a : (Type 0)) a)
+  ;#:= (cur->datum #'(turn-Π (a : (turn-Type 0)) (turn-Type 0))) '(Π (a : (Type 0)) (Type 0))
+  )
+ #;(chk
+  #:eq cur-equal? (cur-normalize #'(turn-app (turn-λ (x : (turn-Type 1)) x) (turn-Type 0))) #'(Type 0)))
