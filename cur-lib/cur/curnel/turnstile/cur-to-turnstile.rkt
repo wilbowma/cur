@@ -30,9 +30,7 @@
          [ann dep-ann]
          [define-datatype dep-define-datatype]
          [define dep-define]
-         [define-type-alias dep-define-type-alias])
-
-  "reflection.rkt")
+         [define-type-alias dep-define-type-alias]))
 
 (begin-for-syntax
   (require (only-in rackunit require/expose))
