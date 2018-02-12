@@ -11,10 +11,10 @@
  "stxutils.rkt"
 ; (for-template "type-check.rkt")
  ;(for-template "runtime.rkt")
- (for-template (only-in turnstile/lang infer typecheck? current-type-eval))
- (for-template  turnstile/examples/dep-ind-cur )
+ (for-template (only-in turnstile/lang infer typecheck? current-type-eval ))
+ (for-template turnstile/examples/dep-ind-cur)
  (for-template "cur-to-turnstile.rkt")
- (for-template (only-in racket/base quote ))
+ (for-template (only-in racket/base quote #%expression void #%plain-lambda #%plain-app list))
  )
 
 (provide
@@ -30,7 +30,7 @@
  ;;cur-method-type
  ;;cur-constructor-recursive-index-ls
  ;;cur-constructor-telescope-length
- cur-normalize 
+ cur-normalize
  ;;cur-rename
  ;;cur-reflect-id
  ;;cur-step
@@ -43,12 +43,12 @@
   (let ([t   (car (cadddr (infer (list syn) #:ctx '())))])
    (cur-reflect t)))
 
-(define (cur-type-check? term expected-type) 
-  (let ([inferred-type (cur-type-infer term)])
-   ; (displayln (format "(inferred: ~a \n expected: ~a" inferred-type expected-type))
-    (typecheck? inferred-type expected-type)))
+(define (cur-type-check? term expected-type)
+  (let ([inferred-type (car (cadddr (infer (list term))))])
+    #;(displayln (format "inferred: ~a\nexpected: ~a" (syntax->datum inferred-type) (syntax->datum expected-type)))
+    (typecheck? inferred-type (cur-expand expected-type))))
 
-(define (cur->datum syn) ;write special case for each core turn- form instead? 
+(define (cur->datum syn) ;write special case for each core turn- form instead?
   (let ([expanded (cur-expand syn)])
     ;(displayln (format "expanded: ~a" expanded))
     (let ([reflected (cur-reflect expanded)])
@@ -59,23 +59,77 @@
   (let ([evaled ((current-type-eval) syn)])
     (cur-reflect evaled)))
 
-(define (cur-reflect syn) 
-  (syntax-parse syn #:literals ( quote λ Type)
-    [x:id
-     #'x]
-    [(Type i:exact-nonnegative-integer)
-     syn]
-    [(_ _ (_ () _ (_ _ (quote i:exact-nonnegative-integer))))
-     #'(Type i)]
-    [(λ (x : type) body)  ;dep-ind-cur throws away the arg type, never reaches this case in cur-normalize or cur->datum
-     #`(λ (#,(cur-reflect #'x) : #,(cur-reflect #'type)) #,(cur-reflect #'body))]
-    [(_  _ (_ (x)
-             _ (_  _  (_ _
-                (_ ()
-                  _
-                  (_ _  arg-type body-type))))))
-     #`(Π (x : #,(cur-reflect #'arg-type)) #,(cur-reflect #'body-type))]
-    ))
+;; TODO: ~Π and ~Type should just be imported from dep-ind-cur, but they aren't exported yet.
+(require (for-syntax racket/base syntax/parse))
+(define-syntax ~Π
+  (pattern-expander
+   (lambda (stx)
+     (syntax-parse stx
+       #:datum-literals (:)
+       ;#:literals (quote #%expression void #%plain-lambda #%plain-app list)
+       [(_ ([x : τ_arg]) τ_res)
+        #'(_
+           _
+           (_
+            (x)
+            _
+            (_ _
+               (_ _
+                  (_ ()
+                     _
+                     (_ _ τ_arg τ_res))))))
+        #;#'(#%plain-app
+           _
+           (#%plain-lambda
+            (x)
+            (#%expression void)
+            (#%plain-app list
+                         (#%plain-app _
+                                      (#%plain-lambda ()
+                                                      (#%expression void)
+                                                      (#%plain-app list τ_arg τ_res))))))]))))
+(define-syntax ~Type
+  (pattern-expander
+   (lambda (stx)
+     (syntax-parse stx
+       ;#:literals (quote #%expression void #%plain-lambda #%plain-app list)
+       #:literals (quote)
+       [(_ i)
+        #'(_
+           _
+           (_ () _ (_ _ (quote i))))
+        #;#'(#%plain-app
+           _
+           (#%plain-lambda () (#%expression void) (#%plain-app list (quote i))))]))))
 
-(define (cur-expand syn) 
+(define (cur-reflect syn)
+  ;; NB: must be called on fully expanded code;
+  ;; TODO: Would be better to enforce that to avoid quadratic expansion cost
+  (syntax-parse (cur-expand syn)
+    #:literals (quote #%expression void #%plain-lambda #%plain-app list)
+    #:datum-literals (:)
+    [x:id #'x]
+    ;; Type case;
+    #;[t:runtime-type
+     #'(turn-Type t.i)]
+    [(~Type i:exact-nonnegative-integer)
+     #'(turn-Type i)]
+    [(#%plain-lambda (x:id) body)
+     #:with (~Π ([y : t]) _) (syntax-property syn ':)
+     #`(turn-λ (x : #,(cur-reflect #'t)) #,(cur-reflect #'body))]
+    [(~Π ([x : arg-type]) body-type)
+     #`(turn-Π (x : #,(cur-reflect #'arg-type)) #,(cur-reflect #'body-type))]
+    #;[(#%plain-app
+      _:id ;; ought to test that this is the fully expanded Π constructor, but that's hard
+      (#%plain-lambda
+       (x)
+       (#%expression void)
+       (#%plain-app list
+                    (#%plain-app _:id ;; ought to test that this is the function constructor, etc
+                       (#%plain-lambda ()
+                         (#%expression void)
+                         (#%plain-app list arg-type body-type))))))
+     #`(turn-Π (x : #,(cur-reflect #'arg-type)) #,(cur-reflect #'body-type))]))
+
+(define (cur-expand syn)
   (local-expand syn 'expression null))
