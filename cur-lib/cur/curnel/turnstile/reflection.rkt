@@ -4,6 +4,7 @@
  syntax/parse
  racket/function
  syntax/to-string
+ syntax/stx
  ;"type-reconstruct.rkt"
  "eval.rkt"
 ; "runtime-utils.rkt"
@@ -11,7 +12,7 @@
  "stxutils.rkt"
 ; (for-template "type-check.rkt")
  ;(for-template "runtime.rkt")
- (for-template (only-in turnstile/lang infer typecheck? current-type-eval ))
+ (for-template (only-in turnstile/lang infer typecheck? current-type-eval ~and ~parse expand/df ~literal ~fail))
  (for-template turnstile/examples/dep-ind-cur)
  (for-template "cur-to-turnstile.rkt")
  (for-template (only-in racket/base quote #%expression void #%plain-lambda #%plain-app list))
@@ -40,19 +41,20 @@
 
 
 (define (cur-type-infer syn)
-  (let ([t   (car (cadddr (infer (list syn) #:ctx '())))])
+  (let ([t   (car (cadddr (infer (list syn) )))])
+    ;(displayln (format "inferred stx: ~a\n type: ~a\n\n" (syntax->datum syn) (syntax->datum t)))
    (cur-reflect t)))
 
 (define (cur-type-check? term expected-type)
   (let ([inferred-type (car (cadddr (infer (list term))))])
-    #;(displayln (format "inferred: ~a\nexpected: ~a" (syntax->datum inferred-type) (syntax->datum expected-type)))
+    ;(displayln (format "inferred: ~a\nexpected: ~a" (syntax->datum inferred-type) (syntax->datum expected-type)))
     (typecheck? inferred-type (cur-expand expected-type))))
 
 (define (cur->datum syn) ;write special case for each core turn- form instead?
   (let ([expanded (cur-expand syn)])
     ;(displayln (format "expanded: ~a" expanded))
     (let ([reflected (cur-reflect expanded)])
-     ; (displayln (format "reflected: ~a" reflected))
+      ;(displayln (format "reflected: ~a" reflected))
       (syntax->datum reflected))))
 
 (define (cur-normalize syn)
@@ -101,17 +103,42 @@
         #;#'(#%plain-app
            _
            (#%plain-lambda () (#%expression void) (#%plain-app list (quote i))))]))))
+   
 
+
+(define-syntax ~Cons
+  (pattern-expander
+   (lambda (stx)
+     (syntax-parse stx
+       [(_ (C x ...))
+        #'(_ _
+              (_ (_ _ x ...) (_ _))
+              (_ (_ _ . _) (expand/df #'(C)))
+              (_ (_ _ _)))
+        #;#'(~and TMP
+                (~parse (~plain-app/c C-:id x ...) (expand/df #'TMP))
+                (~parse (_ C+ . _) (expand/df #'(C)))
+                (~fail #:unless (free-id=? #'C- #'C+)))]))))
+
+#;(begin-for-syntax
+  (define-syntax ~plain-app/c
+    (pattern-expander
+     (lambda (stx)
+       (syntax-parse stx
+         [(_ f) #'f]
+         [(_ f e . rst)
+          #'(_ ((_ _) f e) . rst)
+          #;#'(~plain-app/c ((~literal #%plain-app) f e) . rst)]))))) ;
+  
 (define (cur-reflect syn)
   ;; NB: must be called on fully expanded code;
-  ;; TODO: Would be better to enforce that to avoid quadratic expansion cost
+  ;; TODO: Would be better to enforce that to avoid quadratic expansion cost... 
   (syntax-parse (cur-expand syn)
-    #:literals (quote #%expression void #%plain-lambda #%plain-app list)
+    #:literals (quote #%expression void #%plain-lambda #%plain-app list )
     #:datum-literals (:)
-    [x:id #'x]
-    ;; Type case;
-    #;[t:runtime-type
-     #'(turn-Type t.i)]
+    [x:id ;if id is a constructor name ,get c-ref-name
+     (let ([c-name (syntax-property #'x 'c-ref-name)])
+       (if c-name c-name #'x))] 
     [(~Type i:exact-nonnegative-integer)
      #'(turn-Type i)]
     [(#%plain-lambda (x:id) body)
@@ -119,17 +146,14 @@
      #`(turn-λ (x : #,(cur-reflect #'t)) #,(cur-reflect #'body))]
     [(~Π ([x : arg-type]) body-type)
      #`(turn-Π (x : #,(cur-reflect #'arg-type)) #,(cur-reflect #'body-type))]
-    #;[(#%plain-app
-      _:id ;; ought to test that this is the fully expanded Π constructor, but that's hard
-      (#%plain-lambda
-       (x)
-       (#%expression void)
-       (#%plain-app list
-                    (#%plain-app _:id ;; ought to test that this is the function constructor, etc
-                       (#%plain-lambda ()
-                         (#%expression void)
-                         (#%plain-app list arg-type body-type))))))
-     #`(turn-Π (x : #,(cur-reflect #'arg-type)) #,(cur-reflect #'body-type))]))
+    ;app
+    [(#%plain-app fn arg)
+     #`(turn-app #,(cur-reflect #'fn) #,(cur-reflect #'arg))]
+    ;special case for expanded Nat2 to test 'data-ref-name, still need to match on constructor types more generally
+    [(#%plain-app datatype)
+     #:with ref-name (syntax-property syn 'data-ref-name)
+     (stx-car #'ref-name)]))
+        
 
 (define (cur-expand syn)
   (local-expand syn 'expression null))
