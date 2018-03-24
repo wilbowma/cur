@@ -67,7 +67,7 @@
   (pattern-expander
    (lambda (stx)
      (syntax-parse stx
-       #:datum-literals (:)
+       #:datum-literals (: list)
        ;#:literals (quote #%expression void #%plain-lambda #%plain-app list)
        [(_ ([x : τ_arg]) τ_res)
         #'(_
@@ -79,7 +79,7 @@
                (_ _
                   (_ ()
                      _
-                     (_ _ τ_arg τ_res))))))
+                     (_ list τ_arg τ_res))))))
         #;#'(#%plain-app
            _
            (#%plain-lambda
@@ -120,15 +120,6 @@
                 (~parse (_ C+ . _) (expand/df #'(C)))
                 (~fail #:unless (free-id=? #'C- #'C+)))]))))
 
-#;(begin-for-syntax
-  (define-syntax ~plain-app/c
-    (pattern-expander
-     (lambda (stx)
-       (syntax-parse stx
-         [(_ f) #'f]
-         [(_ f e . rst)
-          #'(_ ((_ _) f e) . rst)
-          #;#'(~plain-app/c ((~literal #%plain-app) f e) . rst)]))))) ;
   
 (define (cur-reflect syn)
   ;; NB: must be called on fully expanded code;
@@ -136,9 +127,10 @@
   (syntax-parse (cur-expand syn)
     #:literals (quote #%expression void #%plain-lambda #%plain-app list )
     #:datum-literals (:)
-    [x:id ;if id is a constructor name ,get c-ref-name
-     (let ([c-name (syntax-property #'x 'c-ref-name)])
-       (if c-name c-name #'x))] 
+    [c:constructor-id ;get original constructor names
+     #'c.name]
+    [x:id ;id's that aren't constructors
+     #'x] 
     [(~Type i:exact-nonnegative-integer)
      #'(turn-Type i)]
     [(#%plain-lambda (x:id) body)
@@ -146,14 +138,23 @@
      #`(turn-λ (x : #,(cur-reflect #'t)) #,(cur-reflect #'body))]
     [(~Π ([x : arg-type]) body-type)
      #`(turn-Π (x : #,(cur-reflect #'arg-type)) #,(cur-reflect #'body-type))]
-    ;app
-    [(#%plain-app fn arg)
-     #`(turn-app #,(cur-reflect #'fn) #,(cur-reflect #'arg))]
-    ;special case for expanded Nat2 to test 'data-ref-name, still need to match on constructor types more generally
-    [(#%plain-app datatype)
+    [(#%plain-app fn arg) ;matches on actual applications *and* datatypes with params that expand to applications
+     (let ([datatype (syntax-property syn 'data-ref-name)])
+       (if datatype datatype #`(turn-app #,(cur-reflect #'fn) #,(cur-reflect #'arg))))]
+    [(#%plain-app type) ;matches "simple" datatypes without params (ie Nat)
      #:with ref-name (syntax-property syn 'data-ref-name)
-     (stx-car #'ref-name)]))
-        
+     (stx-car #'ref-name)]
+    ;would prefer to disambiguate as:
+    #;[d:expanded-datatype ;expanded datatypes with or without params
+     #'d.unexpanded]
+    #;[(#%plain-app fn arg) ;actual application
+      #`(turn-app #,(cur-reflect #'fn) #,(cur-reflect #'arg))]))
+
+(define-syntax-class constructor-id #:attributes (name)
+  #:commit
+  (pattern c:id 
+           #:fail-unless (syntax-property #'c 'c-ref-name) (format "error: ~a has no property 'c-ref-name" #'c)
+           #:attr name (syntax-property #'c 'c-ref-name)))
 
 (define (cur-expand syn)
   (local-expand syn 'expression null))

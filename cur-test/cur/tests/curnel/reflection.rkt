@@ -28,16 +28,17 @@
     (equal? (syntax->datum term1) (syntax->datum term2)))
   ;(displayln (format "testing data-ref-name for z2's type: ~a\n\n" (syntax-property (car (cadddr (infer (list #'z2) ))) 'data-ref-name)))
   ;(displayln (format "testing c-ref-name for z2 id: ~a, ref-name: ~a\n\n" (local-expand #'z2 'expression null) (syntax-property (local-expand #'z2 'expression null) 'c-ref-name)))
-  (displayln (format "inferring none: ~a\n\n" (syntax->datum (car (cadddr (infer (list #'none) ))))))
+  ;(displayln (format "inferring none: ~a\n\n" (syntax->datum (car (cadddr (infer (list #'none) ))))))
   (chk
    #:eq cur-equal? (cur-type-infer #'(turn-Type 0)) #'(turn-Type 1)
    #:eq cur-equal? (cur-type-infer #'(turn-λ (x : (turn-Type 0)) x)) #'(turn-Π (x : (turn-Type 0)) (turn-Type 0))
    #:eq cur-equal? (cur-type-infer #'(turn-λ (x : (turn-Π (x : (turn-Type 0)) (turn-Type 0))) x)) #'(turn-Π (x : (turn-Π (x : (turn-Type 0)) (turn-Type 0))) (turn-Π (x : (turn-Type 0)) (turn-Type 0)))
    #:x (cur-type-infer #'a) "a: unbound"
    #:eq cur-equal? (cur-type-infer #'(turn-app (turn-λ (x : (turn-Type 1)) x) (turn-Type 0))) #'(turn-Type 1)
-   #:eq cur-equal? (cur-type-infer #'z2) #'Nat2 ;succeeds only because of special case in cur-reflect...
-   #:eq cur-equal? (cur-type-infer #'s2) #'(turn-Π (x : Nat2) Nat2)  ;same ^
-   #:eq cur-equal? (cur-type-infer #'none) #'(turn-Π (A : (turn-Type 0)) (Maybe A)) ;fails, no cur-reflect case for expanded return type (Maybe A) yet
+   #:eq cur-equal? (cur-type-infer #'z2) #'Nat2 
+   #:eq cur-equal? (cur-type-infer #'s2) #'(turn-Π (x : Nat2) Nat2)  
+   #:eq cur-equal? (cur-type-infer #'none) #'(turn-Π (A : (turn-Type 0)) (Maybe A)) 
+   #:eq cur-equal? (cur-type-infer #'just) #'(turn-Π (A : (turn-Type 0)) (turn-Π (a : A) (Maybe A)))
    #:eq cur-equal? (cur-type-infer #'Kittens) #'(turn-Type 0)
    )
  (chk
@@ -54,6 +55,7 @@
   ;#:= (cur->datum #'(turn-app (turn-λ (x : (turn-Type 1)) x) (turn-Type 0))) '(turn-app (turn-λ (x : (turn-Type 1)) x) (turn-Type 0)) ;fails bc evaluation
   #:= (cur->datum #'(turn-app s2 z2)) '(turn-app s2 z2)
   #:= (cur->datum #'(turn-app s2 (turn-app s2 z2))) '(turn-app s2 (turn-app s2 z2))
+  #:= (cur->datum #'(turn-app just Nat2)) '(turn-app just Nat2)
   )
  (chk
   #:eq cur-equal? (cur-normalize #'(turn-Type 1)) #'(turn-Type 1)
