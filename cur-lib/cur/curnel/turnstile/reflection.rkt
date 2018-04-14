@@ -50,7 +50,7 @@
     ;(displayln (format "inferred: ~a\nexpected: ~a" (syntax->datum inferred-type) (syntax->datum expected-type)))
     (typecheck? inferred-type (cur-expand expected-type))))
 
-(define (cur->datum syn) ;write special case for each core turn- form instead?
+(define (cur->datum syn) 
   (let ([expanded (cur-expand syn)])
     ;(displayln (format "expanded: ~a" expanded))
     (let ([reflected (cur-reflect expanded)])
@@ -138,16 +138,9 @@
      #`(turn-λ (x : #,(cur-reflect #'t)) #,(cur-reflect #'body))]
     [(~Π ([x : arg-type]) body-type)
      #`(turn-Π (x : #,(cur-reflect #'arg-type)) #,(cur-reflect #'body-type))]
-    [(#%plain-app fn arg) ;matches on actual applications *and* datatypes with params that expand to applications
-     (let ([datatype (syntax-property syn 'data-ref-name)])
-       (if datatype datatype #`(turn-app #,(cur-reflect #'fn) #,(cur-reflect #'arg))))]
-    [(#%plain-app type) ;matches "simple" datatypes without params (ie Nat)
-     #:with ref-name (syntax-property syn 'data-ref-name)
-     (stx-car #'ref-name)]
-    ;would prefer to disambiguate as:
-    #;[d:expanded-datatype ;expanded datatypes with or without params
+    [d:expanded-datatype 
      #'d.unexpanded]
-    #;[(#%plain-app fn arg) ;actual application
+    [(#%plain-app fn arg) ;actual application
       #`(turn-app #,(cur-reflect #'fn) #,(cur-reflect #'arg))]))
 
 (define-syntax-class constructor-id #:attributes (name)
@@ -155,6 +148,16 @@
   (pattern c:id 
            #:fail-unless (syntax-property #'c 'c-ref-name) (format "error: ~a has no property 'c-ref-name" #'c)
            #:attr name (syntax-property #'c 'c-ref-name)))
+
+(define-syntax-class expanded-datatype #:attributes (unexpanded) #:literals (#%plain-app)
+  #:commit
+  (pattern (#%plain-app type arg)
+           #:fail-unless (syntax-property this-syntax 'data-ref-name) (format "error: ~a has no property 'data-ref-name" this-syntax)
+           #:attr unexpanded (syntax-property this-syntax 'data-ref-name))
+  (pattern (#%plain-app type)
+           #:fail-unless (syntax-property this-syntax 'data-ref-name) (format "error: ~a has no property 'data-ref-name" this-syntax)
+           #:attr unexpanded (stx-car (syntax-property this-syntax 'data-ref-name))))
+           
 
 (define (cur-expand syn)
   (local-expand syn 'expression null))
