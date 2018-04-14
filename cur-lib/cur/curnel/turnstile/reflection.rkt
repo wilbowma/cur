@@ -59,6 +59,7 @@
 
 (define (cur-normalize syn)
   (let ([evaled ((current-type-eval) syn)])
+    ;(displayln (format "evaled: ~a" evaled))
     (cur-reflect evaled)))
 
 ;; TODO: ~Π and ~Type should just be imported from dep-ind-cur, but they aren't exported yet.
@@ -131,6 +132,8 @@
      #'c.name]
     [x:defined-id ;get original names of defined id's
      #'x.name]
+    [x:axiom-id ;get original names of axioms
+     #'x.name]
     [x:id ;id's that aren't constructors or defined id's
      #'x] 
     [(~Type i:exact-nonnegative-integer)
@@ -165,6 +168,12 @@
   (pattern x:id
            #:fail-unless (syntax-property #'x 'def-ref-name) (format "error: ~a has no property 'def-ref-name" #'x)
            #:attr name (syntax-property #'x 'def-ref-name)))
+
+(define-syntax-class axiom-id #:attributes (name)
+  #:commit
+  (pattern x:id
+           #:fail-unless (syntax-property #'x 'axiom-ref-name) (format "error: ~a has no property 'axiom-ref-name" #'x)
+           #:attr name (syntax-property #'x 'axiom-ref-name)))
            
 
 (define (cur-expand syn)
