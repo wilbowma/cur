@@ -139,8 +139,10 @@
 (define-syntax (turn-new-elim syn)
   (syntax-parse syn
     [(_ target:expr motive:expr (method:expr ...))
-     #:with elim-name (syntax-property (first (fourth (infer (list #'target) #:ctx '())))
-                                       'elim-name)
+     #:with elim-name (let ([possible-pair (syntax-property (first (fourth (infer (list #'target) #:ctx '())))
+                                       'elim-name)])
+                        (if (pair? possible-pair) (car possible-pair) possible-pair))
+     ;#:do [(displayln (format "elim-name in cur-to-turnstile: ~a" #'elim-name))]
      (quasisyntax/loc syn (elim-name target motive method ...))]))
 
 
