@@ -129,7 +129,9 @@
     #:datum-literals (:)
     [c:constructor-id ;get original constructor names
      #'c.name]
-    [x:id ;id's that aren't constructors
+    [x:defined-id ;get original names of defined id's
+     #'x.name]
+    [x:id ;id's that aren't constructors or defined id's
      #'x] 
     [(~Type i:exact-nonnegative-integer)
      #'(turn-Type i)]
@@ -157,6 +159,12 @@
   (pattern (#%plain-app type)
            #:fail-unless (syntax-property this-syntax 'data-ref-name) (format "error: ~a has no property 'data-ref-name" this-syntax)
            #:attr unexpanded (stx-car (syntax-property this-syntax 'data-ref-name))))
+
+(define-syntax-class defined-id #:attributes (name)
+  #:commit
+  (pattern x:id
+           #:fail-unless (syntax-property #'x 'def-ref-name) (format "error: ~a has no property 'def-ref-name" #'x)
+           #:attr name (syntax-property #'x 'def-ref-name)))
            
 
 (define (cur-expand syn)
