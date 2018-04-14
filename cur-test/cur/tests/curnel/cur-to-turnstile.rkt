@@ -203,8 +203,15 @@ fails:
         (z2 : Nat2)
         (s2 : (Π (x : Nat2) Nat2)))
 
-
-
+  (data Vec2 : 1 (Π (A : (Type 0)) (Π (n : Nat2) (Type 0)))
+        (empty : (Π (A : (Type 0)) (Vec2 A z2)))
+        (cons : (Π (A : (Type 0))
+                 (Π (k : Nat2)
+                    (Π (x : A) (Π (xs : (Vec2 A k))
+                                      (Vec2 A (s2 k))))))))
+  (data Bool : 0 (Type 0)
+        (True : Bool)
+        (False : Bool))
 
   ; -------------------- Failing δ reduction and Γ tests --------------------
   ; These tests are specifically for δ reduction and typing that assume top-level definitions.
@@ -364,6 +371,7 @@ fails:
 #:t ((λ (a : ((Vec Nat) z)) z) (nil Nat))
 #:t s
 #:t (test1 s)
+#:t (empty Bool)
 
 )
   (chk
@@ -373,19 +381,27 @@ fails:
 ;              ((s2 z2) (λ (n : Nat2) (λ (IH : Nat2) (s2 IH)))))
 ;(s2 z2)
 
-#:= (new-elim ((none Nat))
-              (λ (λ (x : (Maybe Nat)) Nat))
-              ((λ (λ (λ z)))
-               (λ (λ (a : Nat) (λ a)))))
-z
+#:= (new-elim ((none Nat2))
+              (λ (x : (Maybe Nat2)) Nat2)
+              (z2
+               (λ (a : Nat2)  a)))
+z2
 
-#:= (new-elim ((just Nat) (s z)) (λ (λ (x : (Maybe Nat)) Nat))
-              ((λ (λ (λ z)))
-               (λ (λ (a : Nat) (λ a)))))
-(s z)
+#:= (new-elim ((just Nat2) (s2 z2)) (λ (x : (Maybe Nat2)) Nat2)
+              (z2
+               (λ (a : Nat2)  a)))
+(s2 z2)
 
 ;#:= ((λ (x : (new-elim (s2 z2) (λ (x : Nat2) (Type 1))
 ;                       ((Type 0) (λ (x : Nat2) (λ (IH : (Type 1)) IH))))) x) Nat)
 ;Nat
 
+
+#:= (new-elim (s2 z2) (λ (x : Nat2) Nat2)
+        (z2 (λ (n : Nat2) (λ (IH : Nat2) n))))
+z2
+
+#:= (new-elim False (λ (x : Bool) Nat2) ((s2 z2) z2)) z2
+
+#:= (new-elim False (λ (x : Bool) Bool) (False True)) True 
 )
