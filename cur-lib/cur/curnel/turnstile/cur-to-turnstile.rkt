@@ -152,7 +152,7 @@
     [(_ name:id (~datum :) type)
      #:with c (format-id this-syntax "constant:~a" #'name #:source #'name)
      #:with (arg ...) (parse-telescope-names #'type)
-     #:with name- (format-id syn "~a-" #'name #:source #'name)
+     #:with name- (syntax-property (format-id syn "~a-" #'name #:source #'name) 'axiom-ref-name #'name)
      (quasisyntax/loc syn
        (begin
          (struct c (arg ...) #:transparent #:reflection-name 'name)
