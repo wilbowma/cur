@@ -9,11 +9,12 @@
  "eval.rkt"
 ; "runtime-utils.rkt"
  (rename-in "equiv.rkt" [cur-equal? _cur-equal?])
- "stxutils.rkt"
+ ;"stxutils.rkt"
 ; (for-template "type-check.rkt")
  ;(for-template "runtime.rkt")
- (for-template (only-in turnstile/lang infer typecheck? current-type-eval ~and ~parse expand/df ~literal ~fail))
+ (for-template (only-in turnstile/lang infer typecheck? current-type-eval ~and ~parse expand/df ~literal ~fail type=? subst))
  (for-template turnstile/examples/dep-ind-cur)
+ (for-template macrotypes/stx-utils)
  (for-template "cur-to-turnstile.rkt")
  (for-template (only-in racket/base quote #%expression void #%plain-lambda #%plain-app list))
  )
@@ -23,19 +24,19 @@
 ;; call-with-env
  cur->datum
  ;;deprecated-cur-expand
- ;;cur-expand
+ cur-expand
  cur-type-infer
  cur-type-check?
- ;;cur-constructors-for
- ;;cur-data-parameters
+ cur-constructors-for
+ cur-data-parameters
  ;;cur-method-type
  ;;cur-constructor-recursive-index-ls
  ;;cur-constructor-telescope-length
  cur-normalize
- ;;cur-rename
- ;;cur-reflect-id
+ cur-rename
+ cur-reflect-id
  ;;cur-step
-; cur-equal?
+ cur-equal?
  )
 
 
@@ -61,6 +62,33 @@
   (let ([evaled ((current-type-eval) syn)])
     ;(displayln (format "evaled: ~a" evaled))
     (cur-reflect evaled)))
+
+(define (cur-equal? term1 term2) ;bound variables fail the free-id=? test
+  (type=? ((current-type-eval) term1) ((current-type-eval) term2)))
+
+(define (cur-constructors-for syn) ;doesn't return = in tests
+  (syntax->list (car (syntax-property (cur-expand syn) 'constructors))))
+
+(define (cur-rename new old term) ;doesn't respect bound variables
+  (subst new old term))
+
+(define (cur-data-parameters syn)
+  (let ([num-params (syntax-property (cur-expand syn) 'num-parameters)])
+    (if (pair? num-params)
+        (car num-params)
+        num-params)))
+  
+
+(define (cur-reflect-id syn)
+  (syntax-parse syn
+    [c:constructor-id 
+     #'c.name]
+    [x:defined-id 
+     #'x.name]
+    [x:axiom-id 
+     #'x.name]
+    [x:id 
+     #'x])) 
 
 ;; TODO: ~Π and ~Type should just be imported from dep-ind-cur, but they aren't exported yet.
 (require (for-syntax racket/base syntax/parse))
@@ -128,14 +156,8 @@
   (syntax-parse (cur-expand syn)
     #:literals (quote #%expression void #%plain-lambda #%plain-app list )
     #:datum-literals (:)
-    [c:constructor-id ;get original constructor names
-     #'c.name]
-    [x:defined-id ;get original names of defined id's
-     #'x.name]
-    [x:axiom-id ;get original names of axioms
-     #'x.name]
-    [x:id ;id's that aren't constructors or defined id's
-     #'x] 
+    [x:id 
+     (cur-reflect-id syn)] 
     [(~Type i:exact-nonnegative-integer)
      #'(turn-Type i)]
     [(#%plain-lambda (x:id) body)
