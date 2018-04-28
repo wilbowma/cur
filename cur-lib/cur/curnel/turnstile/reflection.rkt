@@ -37,14 +37,14 @@
  cur-reflect-id
  ;;cur-step
  cur-equal?
- )
+ cur-eval)
 
 
 
 (define (cur-type-infer syn)
   (let ([t   (car (cadddr (infer (list syn) )))])
-    ;(displayln (format "inferred stx: ~a\n type: ~a\n\n" (syntax->datum syn) (syntax->datum t)))
-   (cur-reflect t)))
+    ;(displayln (format "inferred stx: ~a\n inferred type: ~a\n\n" (syntax->datum syn) (syntax->datum t)))
+    (cur-reflect t)))
 
 (define (cur-type-check? term expected-type)
   (let ([inferred-type (car (cadddr (infer (list term))))])
@@ -59,17 +59,22 @@
       (syntax->datum reflected))))
 
 (define (cur-normalize syn)
-  (let ([evaled ((current-type-eval) syn)])
+  (let ([evaled (cur-eval syn)])
     ;(displayln (format "evaled: ~a" evaled))
     (cur-reflect evaled)))
 
-(define (cur-equal? term1 term2) ;bound variables fail the free-id=? test
-  (type=? ((current-type-eval) term1) ((current-type-eval) term2)))
+(define (cur-equal? term1 term2)
+  (let ([term1-evaled (cur-eval term1)] ;fails on inferred types of constructors with params, param isn't bound in body
+        [term2-evaled (cur-eval term2)])
+    (type=? term1-evaled term2-evaled)))
 
-(define (cur-constructors-for syn) ;doesn't return = in tests
-  (syntax->list (car (syntax-property (cur-expand syn) 'constructors))))
+(define (cur-constructors-for syn)
+  (let ([constructor-ls (syntax-property (cur-expand syn) 'constructors)])
+    (if (pair? constructor-ls)
+        (syntax->list (car constructor-ls))
+        (syntax->list constructor-ls))))
 
-(define (cur-rename new old term) ;doesn't respect bound variables
+(define (cur-rename new old term) ;bound variables?
   (subst new old term))
 
 (define (cur-data-parameters syn)
@@ -88,7 +93,10 @@
     [x:axiom-id 
      #'x.name]
     [x:id 
-     #'x])) 
+     #'x]))
+
+(define (cur-eval syn)
+  ((current-type-eval) syn))
 
 ;; TODO: ~Π and ~Type should just be imported from dep-ind-cur, but they aren't exported yet.
 (require (for-syntax racket/base syntax/parse))
