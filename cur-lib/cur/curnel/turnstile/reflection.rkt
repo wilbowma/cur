@@ -38,7 +38,7 @@
  ;;cur-step
  cur-equal?
  cur-eval)
-
+(define debug-reflect? #f)
 
 
 (define (cur-type-infer syn)
@@ -98,85 +98,61 @@
 (define (cur-eval syn)
   ((current-type-eval) syn))
 
-;; TODO: ~Π and ~Type should just be imported from dep-ind-cur, but they aren't exported yet.
-(require (for-syntax racket/base syntax/parse))
-(define-syntax ~Π
-  (pattern-expander
-   (lambda (stx)
-     (syntax-parse stx
-       #:datum-literals (: list)
-       ;#:literals (quote #%expression void #%plain-lambda #%plain-app list)
-       [(_ ([x : τ_arg]) τ_res)
-        #'(_
-           _
-           (_
-            (x)
-            _
-            (_ _
-               (_ _
-                  (_ ()
-                     _
-                     (_ list τ_arg τ_res))))))
-        #;#'(#%plain-app
-           _
-           (#%plain-lambda
-            (x)
-            (#%expression void)
-            (#%plain-app list
-                         (#%plain-app _
-                                      (#%plain-lambda ()
-                                                      (#%expression void)
-                                                      (#%plain-app list τ_arg τ_res))))))]))))
-(define-syntax ~Type
-  (pattern-expander
-   (lambda (stx)
-     (syntax-parse stx
-       ;#:literals (quote #%expression void #%plain-lambda #%plain-app list)
-       #:literals (quote)
-       [(_ i)
-        #'(_
-           _
-           (_ () _ (_ _ (quote i))))
-        #;#'(#%plain-app
-           _
-           (#%plain-lambda () (#%expression void) (#%plain-app list (quote i))))]))))
-   
-
-
-(define-syntax ~Cons
-  (pattern-expander
-   (lambda (stx)
-     (syntax-parse stx
-       [(_ (C x ...))
-        #'(_ _
-              (_ (_ _ x ...) (_ _))
-              (_ (_ _ . _) (expand/df #'(C)))
-              (_ (_ _ _)))
-        #;#'(~and TMP
-                (~parse (~plain-app/c C-:id x ...) (expand/df #'TMP))
-                (~parse (_ C+ . _) (expand/df #'(C)))
-                (~fail #:unless (free-id=? #'C- #'C+)))]))))
-
-  
+ 
 (define (cur-reflect syn)
   ;; NB: must be called on fully expanded code;
   ;; TODO: Would be better to enforce that to avoid quadratic expansion cost... 
   (syntax-parse (cur-expand syn)
     #:literals (quote #%expression void #%plain-lambda #%plain-app list )
     #:datum-literals (:)
-    [x:id 
+    [x:id
+     #:do [(when debug-reflect? (displayln (format "id: ~a" (syntax->datum this-syntax))))]
      (cur-reflect-id syn)] 
-    [(~Type i:exact-nonnegative-integer)
+    [Type:expanded-Type
+     #:with i #'Type.n
+     #:do [(when debug-reflect? (displayln (format "Type stx class: ~a" (syntax->datum this-syntax))))]
      #'(turn-Type i)]
     [(#%plain-lambda (x:id) body)
      #:with (~Π ([y : t]) _) (syntax-property syn ':)
+     #:do [(when debug-reflect?(displayln (format "lambda: ~a" (syntax->datum this-syntax))))]
      #`(turn-λ (x : #,(cur-reflect #'t)) #,(cur-reflect #'body))]
-    [(~Π ([x : arg-type]) body-type)
-     #`(turn-Π (x : #,(cur-reflect #'arg-type)) #,(cur-reflect #'body-type))]
-    [d:expanded-datatype 
+    [pi:expanded-Π
+     #:with arg #'pi.arg
+     #:with τ_arg #'pi.τ_arg
+     #:with body #'pi.body
+     #:do [(when debug-reflect? (displayln (format "Π stx class: ~a" (syntax->datum this-syntax))))]
+     #`(turn-Π (arg : #,(cur-reflect #'τ_arg)) #,(cur-reflect #'body))]
+    [d:expanded-datatype
+      #:do [(when debug-reflect? (displayln (format "expanded-datatype: ~a" (syntax->datum this-syntax))))]
      #'d.unexpanded]
-    [(#%plain-app fn arg) ;actual application
-      #`(turn-app #,(cur-reflect #'fn) #,(cur-reflect #'arg))]))
+    [e:expanded-app
+     #:with fn #'e.rator
+     #:with arg #'e.rand
+     #:do [(when debug-reflect? (displayln (format "app stx class: ~a" (syntax->datum this-syntax))))]
+     #`(turn-app #,(cur-reflect #'fn) #,(cur-reflect #'arg))]))
+
+(define-syntax-class expanded-app #:attributes (rator rand) #:literals (#%plain-app)
+  #:commit
+  (pattern (#%plain-app fn arg)
+           #:fail-unless (syntax-property this-syntax 'app) (format "not an app: ~a" (datum->syntax this-syntax))
+           #:attr rator #'fn
+           #:attr rand #'arg))
+
+(define-syntax-class expanded-Π #:attributes (arg τ_arg body) 
+  #:commit
+  (pattern (~Π ([x : arg-type]) body-type)
+           #:fail-unless (syntax-property this-syntax 'Π) (format "not a Π: ~a" (datum->syntax this-syntax))
+           #:attr arg #'x
+           #:attr τ_arg #'arg-type
+           #:attr body #'body-type))
+
+(define-syntax-class expanded-Type #:attributes (n) #:literals (#%plain-app #%plain-lambda #%expression list void quote)
+  #:commit
+  (pattern (#%plain-app
+           _
+           (#%plain-lambda () (#%expression void) (#%plain-app list (quote i))))
+           #:fail-unless (syntax-property this-syntax 'Type) (format "error: not Type: ~a" this-syntax)
+           #:attr n #'i))
 
 (define-syntax-class constructor-id #:attributes (name)
   #:commit
