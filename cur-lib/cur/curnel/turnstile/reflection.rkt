@@ -41,6 +41,7 @@
 (define debug-reflect? #f)
 
 
+
 (define (cur-type-infer syn)
   (let ([t   (car (cadddr (infer (list syn) )))])
     ;(displayln (format "inferred stx: ~a\n inferred type: ~a\n\n" (syntax->datum syn) (syntax->datum t)))
@@ -106,42 +107,42 @@
     #:literals (quote #%expression void #%plain-lambda #%plain-app list )
     #:datum-literals (:)
     [x:id
-     #:do [(when debug-reflect? (displayln (format "id: ~a" (syntax->datum this-syntax))))]
+     #:do [(when debug-reflect? (displayln (format "id: ~a\n\n" (syntax->datum this-syntax))))]
      (cur-reflect-id syn)] 
     [Type:expanded-Type
      #:with i #'Type.n
-     #:do [(when debug-reflect? (displayln (format "Type stx class: ~a" (syntax->datum this-syntax))))]
+     #:do [(when debug-reflect? (displayln (format "Type stx class: ~a\n\n" (syntax->datum this-syntax))))]
      #'(turn-Type i)]
     [(#%plain-lambda (x:id) body)
      #:with (~Π ([y : t]) _) (syntax-property syn ':)
-     #:do [(when debug-reflect?(displayln (format "lambda: ~a" (syntax->datum this-syntax))))]
+     #:do [(when debug-reflect?(displayln (format "lambda: ~a\n\n" (syntax->datum this-syntax))))]
      #`(turn-λ (x : #,(cur-reflect #'t)) #,(cur-reflect #'body))]
     [pi:expanded-Π
      #:with arg #'pi.arg
      #:with τ_arg #'pi.τ_arg
      #:with body #'pi.body
-     #:do [(when debug-reflect? (displayln (format "Π stx class: ~a" (syntax->datum this-syntax))))]
+     #:do [(when debug-reflect? (displayln (format "Π stx class: ~a\n\n" (syntax->datum this-syntax))))]
      #`(turn-Π (arg : #,(cur-reflect #'τ_arg)) #,(cur-reflect #'body))]
     [d:expanded-datatype
-      #:do [(when debug-reflect? (displayln (format "expanded-datatype: ~a" (syntax->datum this-syntax))))]
+      #:do [(when debug-reflect? (displayln (format "expanded-datatype case: ~a\n\n" (syntax->datum this-syntax))))]
      #'d.unexpanded]
     [e:expanded-app
      #:with fn #'e.rator
      #:with arg #'e.rand
-     #:do [(when debug-reflect? (displayln (format "app stx class: ~a" (syntax->datum this-syntax))))]
+     #:do [(when debug-reflect? (displayln (format "app stx class: ~a\n\n" (syntax->datum this-syntax))))]
      #`(turn-app #,(cur-reflect #'fn) #,(cur-reflect #'arg))]))
 
 (define-syntax-class expanded-app #:attributes (rator rand) #:literals (#%plain-app)
   #:commit
   (pattern (#%plain-app fn arg)
-           #:fail-unless (syntax-property this-syntax 'app) (format "not an app: ~a" (datum->syntax this-syntax))
+           #:fail-unless (syntax-property this-syntax 'app) (format "not an app: ~a" (syntax->datum this-syntax))
            #:attr rator #'fn
            #:attr rand #'arg))
 
 (define-syntax-class expanded-Π #:attributes (arg τ_arg body) 
   #:commit
   (pattern (~Π ([x : arg-type]) body-type)
-           #:fail-unless (syntax-property this-syntax 'Π) (format "not a Π: ~a" (datum->syntax this-syntax))
+           #:fail-unless (syntax-property this-syntax 'Π) (format "not a Π: ~a" (syntax->datum this-syntax))
            #:attr arg #'x
            #:attr τ_arg #'arg-type
            #:attr body #'body-type))
@@ -160,14 +161,17 @@
            #:fail-unless (syntax-property #'c 'c-ref-name) (format "error: ~a has no property 'c-ref-name" #'c)
            #:attr name (syntax-property #'c 'c-ref-name)))
 
-(define-syntax-class expanded-datatype #:attributes (unexpanded) #:literals (#%plain-app)
+(define-syntax-class expanded-datatype #:attributes (unexpanded args) #:literals (#%plain-app #%expression void list #%plain-lambda) 
   #:commit
-  (pattern (#%plain-app type arg)
+  (pattern (#%plain-app TY (#%plain-lambda () (#%expression void) (plain-#%app list A+i+x ... )))
            #:fail-unless (syntax-property this-syntax 'data-ref-name) (format "error: ~a has no property 'data-ref-name" this-syntax)
+           #:attr args #'(A+i+x ...)
+           #:do [(displayln (format "args in expanded-datatype stx class: ~a\n\n types of args: ~a" #'(A+i+x ...) (map (λ (a) (syntax->datum (car (cadddr (infer (list  a )))))) (syntax->list #'(A+i+x ...)))))]
            #:attr unexpanded (syntax-property this-syntax 'data-ref-name))
   (pattern (#%plain-app type)
            #:fail-unless (syntax-property this-syntax 'data-ref-name) (format "error: ~a has no property 'data-ref-name" this-syntax)
-           #:attr unexpanded (stx-car (syntax-property this-syntax 'data-ref-name))))
+           #:attr unexpanded (stx-car (syntax-property this-syntax 'data-ref-name))
+           #:attr args #f))
 
 (define-syntax-class defined-id #:attributes (name)
   #:commit
