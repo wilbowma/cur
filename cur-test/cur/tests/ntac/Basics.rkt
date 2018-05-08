@@ -2,8 +2,6 @@
 
 (require
  rackunit
- cur/stdlib/nat
- cur/stdlib/bool
  cur/stdlib/prop
  cur/stdlib/sugar
  cur/ntac/base
@@ -12,7 +10,7 @@
 
 ;; examples from SF Ch 1: Basics
 
-(data day : 0 (Type 0)
+(data day : 0 Type
       (mon : day)
       (tues : day)
       (wed : day)
@@ -36,6 +34,291 @@
 (check-equal? (next-weekday fri) mon)
 (check-equal? (next-weekday (next-weekday sat)) tues)
 
-(ntac (== day (next-weekday (next-weekday sat)) tues)
-      simpl
-      reflexivity)
+(define-theorem test-next-weekday
+  (== day (next-weekday (next-weekday sat)) tues)
+  simpl
+  reflexivity)
+
+(data bool : 0 Type
+      (true : bool)
+      (false : bool))
+
+(define negb
+  (λ [b : bool]
+    (new-elim b (λ [b : bool] bool) false true)))
+
+(define andb
+  (λ [b1 : bool] [b2 : bool]
+     (new-elim b1 (λ [b : bool] bool) b2 false)))
+
+(define orb
+  (λ [b1 : bool] [b2 : bool]
+     (new-elim b1 (λ [b : bool] bool) true b2)))
+
+(define-theorem test-orb1
+  (== bool (orb true false) true)
+  simpl
+  reflexivity)
+      
+(define-theorem test-orb2
+  (== bool (orb false false) false)
+  simpl
+  reflexivity)
+
+(define-theorem test-orb3
+  (== bool (orb false true) true)
+  simpl
+  reflexivity)
+
+(define-theorem test-orb4
+  (== bool (orb true true) true)
+  simpl
+  reflexivity)
+
+(define-syntax ||
+  (syntax-parser
+    [(_) #'true]
+    [(_ x . rst) #'(orb x (|| . rst))]))
+
+(define-syntax &&
+  (syntax-parser
+    [(_) #'false]
+    [(_ x . rst) #'(andb x (&& . rst))]))
+
+(define-theorem test-orb5
+  (== bool (|| false false true) true)
+  simpl
+  reflexivity)
+
+(define nandb
+  (λ [b1 : bool] [b2 : bool]
+     (negb (andb b1 b2))))
+
+(define-theorem test-nanb1
+  (== bool (nandb true false) true)
+  simpl
+  reflexivity)
+(define-theorem test-nanb2
+  (== bool (nandb false false) true)
+  simpl
+  reflexivity)
+(define-theorem test-nanb3
+  (== bool (nandb false true) true)
+  simpl
+  reflexivity)
+(define-theorem test-nanb4
+  (== bool (nandb true true) false)
+  simpl
+  reflexivity)
+
+(define andb3
+  (λ [b1 : bool] [b2 : bool] [b3 : bool]
+     (andb b1 (andb b2 b3))))
+
+(define-theorem test-andb31
+  (== bool (andb3 true true true) true)
+  simpl
+  reflexivity)
+(define-theorem test-andb32
+  (== bool (andb3 false true true) false)
+  simpl
+  reflexivity)
+(define-theorem test-andb33
+  (== bool (andb3 true false true) false)
+  simpl
+  reflexivity)
+(define-theorem test-andb34
+  (== bool (andb3 true true false) false)
+  simpl
+  reflexivity)
+
+(:: true bool)
+(:: (negb true) bool)
+(:: negb (-> bool bool))
+
+(data rgb : 0 Type
+      (red : rgb)
+      (green : rgb)
+      (blue : rgb))
+
+(data color : 0 Type
+      (black : color)
+      (white : color)
+      (primary : (-> rgb color)))
+
+(define monochrome
+  (λ [c : color]
+    (new-elim c
+              (λ [c : color] bool)
+              true
+              true
+              (λ [p : rgb] false))))
+
+(define isred
+  (λ [c : color]
+    (new-elim c (λ [c : color] bool)
+              false
+              false
+              (λ [r : rgb]
+                (new-elim r (λ [r : rgb] bool)
+                          true
+                          false
+                          false)))))
+(check-equal? (isred black) false)
+(check-equal? (isred white) false)
+(check-equal? (isred (primary red)) true)
+(check-equal? (isred (primary blue)) false)
+
+(data nat : 0 Type
+      (O : nat) ; letter capital "O"
+      (S : (-> nat nat)))
+(data nat* : 0 Type
+      (stop : nat*)
+      (tick : nat*))
+
+(define pred
+  (λ [n : nat]
+    (new-elim n (λ [n : nat] nat)
+              O
+              (λ [n* : nat] [ih : nat] n*))))
+
+;; re-define #%datum to use the new `nat`
+(define-syntax #%datum
+  (syntax-parser
+    [(_ . n:exact-nonnegative-integer)
+     #:when (zero? (syntax-e #'n))
+     #'O]
+    [(_ . n:exact-nonnegative-integer)
+     #`(S (#%datum . #,(- (syntax-e #'n) 1)))]))
+
+(check-equal? (S (S (S (S O)))) 4)
+
+(define minustwo
+  (λ [n : nat]
+    (new-elim n (λ [n : nat] nat)
+              O
+              (λ [n* : nat] [ih : nat]
+                 (new-elim n*
+                           (λ [n : nat] nat)
+                           O
+                           (λ [n* : nat] [ih : nat]
+                              n*))))))
+
+(check-equal? (minustwo 4) 2)
+(:: S (-> nat nat))
+(:: pred (-> nat nat))
+(:: minustwo (-> nat nat))
+
+(define evenb
+  (λ [n : nat]
+    (new-elim n (λ [n : nat] bool)
+              true
+              (λ [n* : nat] [ih : bool]
+                 (new-elim n* (λ [n : nat] bool)
+                           false
+                           (λ [n** : nat] [ih* : bool] 
+                              (negb ih*)))))))
+                                      
+
+(define oddb (λ [n : nat] (negb (evenb n))))
+
+(define-theorem test-oddb1
+  (== bool (oddb 1) true)
+  simpl
+  reflexivity)
+
+(define-theorem test-oddb2
+  (== bool (oddb 4) false)
+  simpl
+  reflexivity)
+
+(ntac (== bool (oddb 0) false) reflexivity)
+(ntac (== bool (oddb 2) false) reflexivity)
+(ntac (== bool (oddb 3) true) reflexivity)
+(ntac (== bool (oddb 5) true) reflexivity)
+
+(define plus
+  (λ [n : nat] [m : nat]
+     (new-elim n
+               (λ [n : nat] nat)
+               m
+               (λ [n* : nat] [ih : nat]
+                  (S ih)))))
+
+(check-equal? (plus 2 3) 5)
+
+(define mult
+  (λ [n : nat]
+    (λ [m : nat]
+      (new-elim n
+                (λ [x : nat] nat)
+                O
+                (λ [n* : nat] [ih : nat]
+                   (plus m ih))))))
+
+(check-equal? (mult 1 1) 1)
+(check-equal? (mult 2 1) 2)
+(check-equal? (mult 3 2) 6)
+(check-equal? (mult 4 6) 24)
+(check-equal? (mult 5 24) 120)
+
+(define-theorem test-mult1
+  (== nat (mult 3 3) 9)
+  simpl
+  reflexivity)
+
+(define minus
+  (λ [n : nat] [m : nat]
+     (new-elim n (λ [n : nat] nat)
+               O
+               (λ [m* : nat][ih : nat]
+                  (new-elim m
+                            (λ [n : nat] nat)
+                            n
+                            (λ [m* : nat] [ih* : nat]
+                               (new-elim ih*
+                                         (λ [n : nat] nat)
+                                         O
+                                         (λ [n* : nat] [ih : nat]
+                                            n*))))))))
+(check-equal? (minus 4 1) 3)
+(check-equal? (minus 0 0) 0)
+(check-equal? (minus 1 1) 0)
+(check-equal? (minus 1 0) 1)
+(check-equal? (minus 2 0) 2)
+(check-equal? (minus 2 1) 1)
+(check-equal? (minus 3 1) 2)
+
+(define exp
+  (λ [base : nat] [power : nat]
+     (new-elim power
+               (λ [n : nat] nat)
+               1
+               (λ [p : nat][ih : nat]
+                  (mult base ih)))))
+(define factorial
+  (λ [n : nat]
+    (new-elim n
+              (λ [n : nat] nat)
+              (S O)
+              (λ [n* : nat] [ih : nat]
+                 (mult (S n*) ih)))))
+
+(check-equal? (mult (S (S O)) (S O)) (S (S O)))
+
+(check-equal? (factorial 0) 1)
+(check-equal? (factorial 1) 1)
+(check-equal? 2 (S (S O)))
+(check-equal? (factorial 2) 2)
+(check-equal? (factorial (S (S O))) (S (S O)))
+(check-equal? (factorial 3) 6)
+(check-equal? (factorial 5) 120)
+(define-theorem test-factorial1
+  (== nat (factorial 3) 6)
+  simpl
+  reflexivity)
+
+(define-theorem test-factorial2
+  (== nat (factorial 5) 120)
+  simpl
+  reflexivity)
