@@ -14,6 +14,4 @@
   (ntac-match goal
    ;; TODO: use pattern expanders to abstract away these #%app's?
    [(_ (_ (_ (~literal ==) ty) a) b)
-      (next
-       (struct-copy nttz ptz
-        [focus (make-ntt-exact goal #'(refl ty a))]))]))
+    ((fill (exact #'(refl ty a))) ptz)]))

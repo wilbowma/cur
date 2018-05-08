@@ -1,7 +1,7 @@
 #lang cur
 
 (require
- rackunit
+ "rackunit-ntac.rkt"
  cur/stdlib/nat
  cur/stdlib/bool
  cur/stdlib/prop
@@ -42,5 +42,14 @@
 (:: (refl day (next-weekday (next-weekday sat)))
     (== day (next-weekday (next-weekday sat)) tues))
 
+; fail, tues \neq mon
+#;(:: (refl day (next-weekday (next-weekday sat)))
+    (== day (next-weekday (next-weekday sat)) mon))
+
 (ntac (== day (next-weekday (next-weekday sat)) tues)
-      reflexivity)
+       reflexivity)
+
+(check-ntac-fail ; mon \new tues
+ (ntac (== day (next-weekday (next-weekday sat)) mon)
+       reflexivity)
+ "does not have type")
