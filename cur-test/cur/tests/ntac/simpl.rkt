@@ -36,6 +36,12 @@
 (check-equal? (next-weekday fri) mon)
 (check-equal? (next-weekday (next-weekday sat)) tues)
 
+(:: (refl day tues)
+    (== day (next-weekday (next-weekday sat)) tues))
+
+(:: (refl day (next-weekday (next-weekday sat)))
+    (== day (next-weekday (next-weekday sat)) tues))
+
 (ntac (== day (next-weekday (next-weekday sat)) tues)
       simpl
       reflexivity)

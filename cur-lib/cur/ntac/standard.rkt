@@ -1,6 +1,7 @@
 #lang s-exp "../main.rkt"
 (require
  "../stdlib/sugar.rkt"
+ "../curnel/racket-impl/reflection.rkt" ; simpl needs cur-normalize
  "base.rkt")
 
 (begin-for-syntax
@@ -165,3 +166,11 @@
   (if (nttz-done? nptz)
       nptz
       (by-obvious nptz)))
+
+(define-for-syntax (simpl ptz)
+  (match-define (ntt-hole _ goal) (nttz-focus ptz))
+  (next
+   ;; TODO: should this be a copy?
+   (struct-copy nttz ptz
+     [focus (make-ntt-hole (cur-normalize goal))])))
+
