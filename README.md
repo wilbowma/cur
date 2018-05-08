@@ -1,4 +1,4 @@
-cur [![Build Status](https://travis-ci.org/wilbowma/cur.svg?branch=master)](https://travis-ci.org/wilbowma/cur)
+cur [![Build Status](https://travis-ci.org/stchang/cur.svg?branch=ntac-more-tactics)](https://travis-ci.org/stchang/cur)
 ===
 
 A language with static dependent-types and dynamic types, type
