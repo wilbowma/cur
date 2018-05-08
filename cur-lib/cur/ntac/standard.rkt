@@ -165,13 +165,3 @@
   (if (nttz-done? nptz)
       nptz
       (by-obvious nptz)))
-
-(define-for-syntax (reflexivity ptz)
-  (match-define (ntt-hole _ goal) (nttz-focus ptz))
-  (ntac-match goal
-   ;; TODO: use pattern expanders to abstract away these #%app's?
-   [(_ (_ (_ == ty) a) b)
-    (with-syntax ([refl (format-id #'== "refl")])
-      (next
-       (struct-copy nttz ptz
-        [focus (make-ntt-exact goal #'(refl ty a))])))]))

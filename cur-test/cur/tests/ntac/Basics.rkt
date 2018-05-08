@@ -7,7 +7,8 @@
  cur/stdlib/prop
  cur/stdlib/sugar
  cur/ntac/base
- cur/ntac/standard)
+ cur/ntac/standard
+ cur/ntac/prop)
 
 ;; examples from SF Ch 1: Basics
 
