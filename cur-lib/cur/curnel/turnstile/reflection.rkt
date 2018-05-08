@@ -39,7 +39,10 @@
  cur-equal?
  cur-eval)
 (define debug-reflect? #f)
+(define debug-datatypes? #t)
 
+(define (turnstile-infer syn)
+  (car (cadddr (infer (list syn)))))                       
 
 
 (define (cur-type-infer syn)
@@ -161,17 +164,25 @@
            #:fail-unless (syntax-property #'c 'c-ref-name) (format "error: ~a has no property 'c-ref-name" #'c)
            #:attr name (syntax-property #'c 'c-ref-name)))
 
-(define-syntax-class expanded-datatype #:attributes (unexpanded args) #:literals (#%plain-app #%expression void list #%plain-lambda) 
+(define-syntax-class expanded-datatype #:attributes (unexpanded) #:literals (#%plain-app #%expression void list #%plain-lambda) 
   #:commit
-  (pattern (#%plain-app TY (#%plain-lambda () (#%expression void) (plain-#%app list A+i+x ... )))
+  (pattern (#%plain-app T (#%plain-lambda () (#%expression void) (plain-#%app list A+i+x ... )))
            #:fail-unless (syntax-property this-syntax 'data-ref-name) (format "error: ~a has no property 'data-ref-name" this-syntax)
-           #:attr args #'(A+i+x ...)
-           #:do [(displayln (format "args in expanded-datatype stx class: ~a\n\n types of args: ~a" #'(A+i+x ...) (map (λ (a) (syntax->datum (car (cadddr (infer (list  a )))))) (syntax->list #'(A+i+x ...)))))]
-           #:attr unexpanded (syntax-property this-syntax 'data-ref-name))
+           #:with expanded-args #'(A+i+x ...)
+           #:with data-ref-name (syntax-property this-syntax 'data-ref-name)
+           #:with reflected-args (cdr (syntax->list #'data-ref-name))
+           #:do [(when debug-datatypes? (displayln (format "expanded datatype:~a\nreflected datatype: ~a" (syntax->datum this-syntax) (syntax->datum #'data-ref-name))))]
+           #:do [(when debug-datatypes? (displayln (format "expanded A+i+x:~a\ntypes of expanded A+i+x:~a\nreflected A+i+x:~a\nTypes of reflected A+i+x:~a\nfree-id=?~a"
+                                                           (map syntax->datum   (syntax->list #'expanded-args))
+                                                           (map turnstile-infer  (syntax->list #'expanded-args))
+                                                           (map syntax->datum  (syntax->list #'reflected-args))
+                                                           (map turnstile-infer (syntax->list #'reflected-args))
+                                                           (map free-identifier=? (syntax->list #'expanded-args) (syntax->list #'reflected-args)))))]
+           #:attr unexpanded #'data-ref-name)
+  
   (pattern (#%plain-app type)
            #:fail-unless (syntax-property this-syntax 'data-ref-name) (format "error: ~a has no property 'data-ref-name" this-syntax)
-           #:attr unexpanded (stx-car (syntax-property this-syntax 'data-ref-name))
-           #:attr args #f))
+           #:attr unexpanded (stx-car (syntax-property this-syntax 'data-ref-name))))
 
 (define-syntax-class defined-id #:attributes (name)
   #:commit
