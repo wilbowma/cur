@@ -38,7 +38,7 @@
  ;;cur-step
  cur-equal?
  cur-eval)
-(define debug-reflect? #f)
+(define debug-reflect? #t)
 (define debug-datatypes? #f)
 
 (require racket/trace debug-scopes)
@@ -178,7 +178,8 @@
   (pattern (#%plain-app T (#%plain-lambda () (#%expression void) (plain-#%app list A+i+x ... )))
            #:fail-unless (syntax-property this-syntax 'data-ref-name) (format "error: ~a has no property 'data-ref-name" this-syntax)
            #:with expanded-args #'(A+i+x ...)
-           #:with data-ref-name (syntax-property this-syntax 'data-ref-name)
+           #:with data-ref-name (syntax-local-introduce (syntax-property this-syntax 'data-ref-name))
+           #:with D (car (syntax->list #'data-ref-name))
            #:with reflected-args (cdr (syntax->list #'data-ref-name))
            #:do [(when debug-datatypes? (displayln (format "expanded datatype:~a\nreflected datatype: ~a" (syntax->datum this-syntax) (syntax->datum #'data-ref-name))))]
            #:do [(when debug-datatypes? (displayln (format "expanded A+i+x:~a\ntypes of expanded A+i+x:~a\nreflected A+i+x:~a\nTypes of reflected A+i+x:~a\nfree-id=?~a"
@@ -187,7 +188,7 @@
                                                            (map syntax->datum  (syntax->list #'reflected-args))
                                                            (map turnstile-infer (syntax->list #'reflected-args))
                                                            (map free-identifier=? (syntax->list #'expanded-args) (syntax->list #'reflected-args)))))]
-           #:attr unexpanded #'data-ref-name)
+           #:attr unexpanded #'(D A+i+x ...))
 
   (pattern (#%plain-app type)
            #:fail-unless (syntax-property this-syntax 'data-ref-name) (format "error: ~a has no property 'data-ref-name" this-syntax)
