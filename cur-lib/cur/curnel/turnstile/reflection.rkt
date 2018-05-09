@@ -39,13 +39,22 @@
  cur-equal?
  cur-eval)
 (define debug-reflect? #f)
-(define debug-datatypes? #t)
+(define debug-datatypes? #f)
 
+(require racket/trace debug-scopes)
+(current-trace-print-args
+ (let ([ctpa (current-trace-print-args)])
+   (lambda (s l kw l2 n)
+     (ctpa s (map (compose +scopes) l) kw l2 n))))
+(current-trace-print-results
+ (let ([ctpr (current-trace-print-results)])
+   (lambda (s l n)
+     (ctpr s (map (compose +scopes) l) n))))
 (define (turnstile-infer syn)
-  (car (cadddr (infer (list syn)))))                       
+  (car (cadddr (infer (list syn)))))
 
 
-(define (cur-type-infer syn)
+(trace-define (cur-type-infer syn)
   (let ([t   (car (cadddr (infer (list syn) )))])
     ;(displayln (format "inferred stx: ~a\n inferred type: ~a\n\n" (syntax->datum syn) (syntax->datum t)))
     (cur-reflect t)))
@@ -55,7 +64,7 @@
     ;(displayln (format "inferred: ~a\nexpected: ~a" (syntax->datum inferred-type) (syntax->datum expected-type)))
     (typecheck? inferred-type (cur-expand expected-type))))
 
-(define (cur->datum syn) 
+(define (cur->datum syn)
   (let ([expanded (cur-expand syn)])
     ;(displayln (format "expanded: ~a" expanded))
     (let ([reflected (cur-reflect expanded)])
@@ -86,32 +95,32 @@
     (if (pair? num-params)
         (car num-params)
         num-params)))
-  
 
-(define (cur-reflect-id syn)
+
+(trace-define (cur-reflect-id syn)
   (syntax-parse syn
-    [c:constructor-id 
+    [c:constructor-id
      #'c.name]
-    [x:defined-id 
+    [x:defined-id
      #'x.name]
-    [x:axiom-id 
+    [x:axiom-id
      #'x.name]
-    [x:id 
+    [x:id
      #'x]))
 
 (define (cur-eval syn)
   ((current-type-eval) syn))
 
- 
-(define (cur-reflect syn)
+
+(trace-define (cur-reflect syn)
   ;; NB: must be called on fully expanded code;
-  ;; TODO: Would be better to enforce that to avoid quadratic expansion cost... 
+  ;; TODO: Would be better to enforce that to avoid quadratic expansion cost...
   (syntax-parse (cur-expand syn)
     #:literals (quote #%expression void #%plain-lambda #%plain-app list )
     #:datum-literals (:)
     [x:id
      #:do [(when debug-reflect? (displayln (format "id: ~a\n\n" (syntax->datum this-syntax))))]
-     (cur-reflect-id syn)] 
+     (cur-reflect-id syn)]
     [Type:expanded-Type
      #:with i #'Type.n
      #:do [(when debug-reflect? (displayln (format "Type stx class: ~a\n\n" (syntax->datum this-syntax))))]
@@ -142,7 +151,7 @@
            #:attr rator #'fn
            #:attr rand #'arg))
 
-(define-syntax-class expanded-Π #:attributes (arg τ_arg body) 
+(define-syntax-class expanded-Π #:attributes (arg τ_arg body)
   #:commit
   (pattern (~Π ([x : arg-type]) body-type)
            #:fail-unless (syntax-property this-syntax 'Π) (format "not a Π: ~a" (syntax->datum this-syntax))
@@ -160,11 +169,11 @@
 
 (define-syntax-class constructor-id #:attributes (name)
   #:commit
-  (pattern c:id 
+  (pattern c:id
            #:fail-unless (syntax-property #'c 'c-ref-name) (format "error: ~a has no property 'c-ref-name" #'c)
-           #:attr name (syntax-property #'c 'c-ref-name)))
+           #:attr name (syntax-local-introduce (syntax-property #'c 'c-ref-name))))
 
-(define-syntax-class expanded-datatype #:attributes (unexpanded) #:literals (#%plain-app #%expression void list #%plain-lambda) 
+(define-syntax-class expanded-datatype #:attributes (unexpanded) #:literals (#%plain-app #%expression void list #%plain-lambda)
   #:commit
   (pattern (#%plain-app T (#%plain-lambda () (#%expression void) (plain-#%app list A+i+x ... )))
            #:fail-unless (syntax-property this-syntax 'data-ref-name) (format "error: ~a has no property 'data-ref-name" this-syntax)
@@ -179,7 +188,7 @@
                                                            (map turnstile-infer (syntax->list #'reflected-args))
                                                            (map free-identifier=? (syntax->list #'expanded-args) (syntax->list #'reflected-args)))))]
            #:attr unexpanded #'data-ref-name)
-  
+
   (pattern (#%plain-app type)
            #:fail-unless (syntax-property this-syntax 'data-ref-name) (format "error: ~a has no property 'data-ref-name" this-syntax)
            #:attr unexpanded (stx-car (syntax-property this-syntax 'data-ref-name))))
@@ -195,7 +204,7 @@
   (pattern x:id
            #:fail-unless (syntax-property #'x 'axiom-ref-name) (format "error: ~a has no property 'axiom-ref-name" #'x)
            #:attr name (syntax-property #'x 'axiom-ref-name)))
-           
+
 
 (define (cur-expand syn)
   (local-expand syn 'expression null))
