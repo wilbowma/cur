@@ -4,7 +4,7 @@
   racket/base
   syntax/parse
   racket/syntax)
- (for-template (only-in racket/base let-values))
+ (for-template (only-in racket/base let-values #%plain-lambda))
  syntax/parse
  racket/syntax
  syntax/parse/experimental/reflect)
@@ -30,13 +30,19 @@
          (define-syntax-class name expr ...)
          (define pred? (syntax-class->pred name)))]))
 
-(define (subst v x syn)
+(require syntax/id-set)
+(define (subst v x syn [bvs (immutable-free-id-set)])
   (syntax-parse syn
     [y:id
-     #:when (free-identifier=? syn x)
+     #:when (and (free-identifier=? syn x)
+                 (not (free-id-set-member? bvs x)))
      v]
+    ; something wrong with hygiene, so need this explicit case
+    ; o.w., λ binders get substed
+    [((~and (~literal #%plain-lambda) lam) (z:id) e)
+     #`(lam (z) #,(subst v x #'e (free-id-set-add bvs #'z)))]
     [(e ...)
-     (datum->syntax syn (map (lambda (e) (subst v x e)) (attribute e)))]
+     (datum->syntax syn (map (lambda (e) (subst v x e bvs)) (attribute e)))]
     [_ syn]))
 
 ;; takes a list of values and a list of identifiers, in dependency order, and substitutes them into syn.
