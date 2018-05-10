@@ -45,3 +45,11 @@
 (ntac (== day (next-weekday (next-weekday sat)) tues)
       simpl
       reflexivity)
+
+
+;; tests that simpl uses ctx
+(define-theorem plus_1_l
+  (∀ [n : Nat] (== Nat (plus 1 n) (s n)))
+  by-intro
+  simpl
+  reflexivity)

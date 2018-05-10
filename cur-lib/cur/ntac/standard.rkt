@@ -172,5 +172,7 @@
   (next
    ;; TODO: should this be a copy?
    (struct-copy nttz ptz
-     [focus (make-ntt-hole (cur-normalize goal))])))
+     [focus (make-ntt-hole
+             (cur-normalize goal
+                            #:local-env (ctxt->env (nttz-context ptz))))])))
 

@@ -296,13 +296,19 @@
                1
                (λ [p : nat][ih : nat]
                   (mult base ih)))))
-(define factorial
+#;(define factorial
   (λ [n : nat]
     (new-elim n
               (λ [n : nat] nat)
               (S O)
               (λ [n* : nat] [ih : nat]
                  (mult (S n*) ih)))))
+
+(: factorial (-> nat nat))
+(define (factorial n)
+  (match n
+    [O 1]
+    [(S n*) (mult (S n*) (factorial n*))]))
 
 (check-equal? (mult (S (S O)) (S O)) (S (S O)))
 
@@ -321,4 +327,142 @@
 (define-theorem test-factorial2
   (== nat (factorial 5) 120)
   simpl
+  reflexivity)
+
+(define-syntax +
+  (syntax-parser
+    [(_) #'0]
+    [(_ x . rst) #'(plus x (+ . rst))]))
+
+(define-syntax *
+  (syntax-parser
+    [(_) #'1]
+    [(_ x . rst) #'(mult x (* . rst))]))
+
+(define-syntax -
+  (syntax-parser
+    [(_ x y) #'(minus x y)]))
+
+(check-equal? (+ 0 1 1) 2)
+
+;; from stdlib
+;; pattern for defining double recursive fns
+#;(define (nat-equal? (n : Nat))
+  (match n
+    [z zero?]
+    [(s n-1)
+     (lambda (m : Nat)
+       (match m #:in Nat
+         [z false]
+         [(s m-1)
+          (nat-equal? n-1 m-1)]))]))
+
+(define (beq-nat [n : nat])
+  ;; this version not working
+  #;(new-elim n
+            (λ [n1 : nat] bool)
+            (new-elim m
+                      (λ [m1 : nat] bool)
+                      true
+                      (λ [m* : nat] [ih : bool]
+                         false))
+            (λ [n* : nat] [ih : bool]
+               (new-elim m
+                         (λ [m2 : nat] bool)
+                         false
+                         (λ [m* : nat] [ih : bool]
+                            (beq-nat n* m*)))))
+  (match n #:in nat
+   [O
+    (λ [m : nat]
+      (match m #:in nat #:return bool
+       [O true]
+       [(S m*) false]))]
+   [(S n*)
+     (λ [m : nat]
+       (match m #:in nat #:return bool
+        [O false]
+        [(S m*) (beq-nat n* m*)]))]))
+  
+(check-equal? (beq-nat 0 0) true)
+(check-equal? (beq-nat 0 1) false)
+(check-equal? (beq-nat 1 0) false)
+(check-equal? (beq-nat 1 1) true)
+(check-equal? (beq-nat 1 2) false)
+(check-equal? (beq-nat 2 1) false)
+
+(define (leb [n : nat])
+  (match n #:in nat #:return (-> nat bool)
+    [O
+     (λ [m : nat] true)]
+    [(S n*)
+     (λ [m : nat]
+       (match m #:in nat #:return bool
+         [O false]
+         [(S m*) ((leb n*) m*)]))]))
+  
+(check-equal? ((leb 2) 2) true)
+(:: ((leb 2) 2) bool)
+(:: (refl bool true)
+    (== bool (leb 2 2) true))
+(define-theorem test-leb1
+  (== bool (leb 2 2) true)
+  simpl
+  reflexivity)
+(define-theorem test-leb2
+  (== bool (leb 2 4) true)
+  simpl
+  reflexivity)
+(define-theorem test-leb3
+  (== bool (leb 4 2) false)
+  simpl
+  reflexivity)
+
+(define (blt-nat [n : nat] [m : nat])
+  (andb (leb n m) (negb (beq-nat n m))))
+(define-theorem test-blt-nat1
+  (== bool (blt-nat 2 2) false)
+  simpl
+  reflexivity)
+(define-theorem test-blt-nat2
+  (== bool (blt-nat 2 4) true)
+  simpl
+  reflexivity)
+(define-theorem test-blt-nat3
+  (== bool (blt-nat 4 2) false)
+  simpl
+  reflexivity)
+
+(define-theorem plus_0_n
+  (forall [n : nat] (== nat (plus 0 n) n))
+  by-intro
+  simpl
+  reflexivity)
+
+(define-theorem plus_0_n*
+  (forall [n : nat] (== nat (plus 0 n) n))
+  by-intro
+  reflexivity)
+
+(define-theorem plus_1_l
+  (∀ [n : nat] (== nat (plus 1 n) (S n)))
+  by-intro
+  simpl
+  reflexivity)
+
+(define-theorem mult_0_l
+  (∀ [n : nat] (== nat (mult 0 n) 0))
+  by-intro
+  simpl
+  reflexivity)
+
+#;(define-theorem plus_id_example
+  (∀ [n : nat] [m : nat]
+     (-> (== nat n m)
+         (== nat (plus n n) (plus m m))))
+  by-intro
+  by-intro
+  (by-intro H)
+  (by-rewrite H)
+  display-focus
   reflexivity)
