@@ -8,18 +8,37 @@
  
 
 
- 
+;; raw term and type for plus-id-theorem below
+;; rewriteR (->)
 (::
-(λ (n : Nat) (m : Nat)
-  (λ (pf : (== Nat n m))
-     (new-elim pf
+ (λ (n : Nat) (m : Nat)
+    (λ (H : (== Nat n m))
+      (new-elim
+       H
        (λ (n : Nat)
          (λ (m : Nat)
            (λ [p : (== Nat n m)]
              (== Nat (plus n n) (plus m m)))))
        ;; somehow, z as variable doesnt work here
+       (λ (m : Nat)
+         (refl Nat (plus m m))))))
+ (forall [n : Nat] [m : Nat]
+         (-> (== Nat n m)
+             (== Nat (plus n n) (plus m m)))))
+
+;; unique var names
+(::
+ (λ (n : Nat) (m : Nat)
+    (λ (pf : (== Nat n m))
+      (new-elim
+       pf
+       (λ (n1 : Nat)
+         (λ (m1 : Nat)
+           (λ [p1 : (== Nat n1 m1)]
+             (== Nat (plus n1 n1) (plus m1 m1)))))
+       ;; somehow, z as variable doesnt work here
        (λ (x : Nat)
-          (refl Nat (plus x x))))))
+         (refl Nat (plus x x))))))
  (forall [n : Nat] [m : Nat]
          (-> (== Nat n m)
              (== Nat (plus n n) (plus m m)))))
@@ -36,3 +55,126 @@
   display-focus
   reflexivity)
 
+;; raw term and type for plus-id-theorem below
+;; testing, rewriteL (<-)
+(::
+ (λ (n : Nat) (m : Nat)
+    (λ (H : (== Nat n m))
+      (new-elim
+       H
+       (λ (n : Nat)
+         (λ (m : Nat)
+           (λ [p : (== Nat n m)]
+             (== Nat (plus n n) (plus m m)))))
+       ;; somehow, z as variable doesnt work here
+       (λ (n : Nat)
+         (refl Nat (plus n n))))))
+ (forall [n : Nat] [m : Nat]
+         (-> (== Nat n m)
+             (== Nat (plus n n) (plus m m)))))
+(define-theorem plus-id-exampleL
+  (forall [n : Nat] [m : Nat]
+     (-> (== Nat n m)
+         (== Nat (plus n n) (plus m m))))
+  by-intro
+  by-intro
+  (by-intro H)
+  display-focus
+  (by-rewriteL H)
+  display-focus
+  reflexivity)
+
+
+;; transivitity example
+;; - using pattern of propagating unused vars from here
+;; - why is this necessary?
+(::
+ (λ [A : (Type 0)]
+   (λ [x : A] [y : A] [z : A]
+      (λ [x=y : (== A x y)] [y=z : (== A y z)]
+         ((new-elim
+           x=y
+           (λ [x1 : A] [y1 : A]
+              (λ [x1=y1 : (== A x1 y1)]
+                (Π [z1 : A]
+                   (-> (== A y1 z1)
+                       (== A x1 z1)))))
+           (λ [a : A]
+             (λ [z2 : A]
+               (λ [a=z2 : (== A a z2)]
+                 a=z2))))
+          z y=z))))
+ (Π [A : (Type 0)]
+    (Π [x : A] [y : A] [z : A]
+       (→ (== A x y)
+          (== A y z)
+          (== A x z)))))
+
+;; transivitity example, reuse vars
+(::
+ (λ [A : (Type 0)]
+   (λ [x : A] [y : A] [z : A]
+      (λ [x=y : (== A x y)] [y=z : (== A y z)]
+         ((new-elim
+           x=y
+           (λ [x : A] [y : A]
+              (λ [x=y : (== A x y)]
+                (Π [z : A]
+                   (-> (== A y z)
+                       (== A x z)))))
+           (λ [a : A]
+             (λ [z : A]
+               (λ [a=z : (== A a z)]
+                 a=z))))
+          z y=z))))
+ (Π [A : (Type 0)]
+    (Π [x : A] [y : A] [z : A]
+       (→ (== A x y)
+          (== A y z)
+          (== A x z)))))
+
+;; plus-id-exercise
+;; raw term
+(:: 
+ (λ [n : Nat] [m : Nat] [o : Nat]
+    (λ [n=m : (== Nat n m)]
+       [m=o : (== Nat m o)]
+       ((new-elim
+         n=m
+         (λ [n : Nat] [m : Nat]
+            (λ [n=m : (== Nat n m)]
+              (Π [o : Nat]
+                 (-> (== Nat m o)
+                     (== Nat (plus n m) (plus m o))))))
+         (λ [m : Nat]
+           (λ [o : Nat]
+             (λ [m=o : (== Nat m o)]
+               (new-elim
+                m=o
+                (λ [m : Nat] [o : Nat]
+                   (λ [m=o : (== Nat m o)]
+                     (== Nat (plus m m) (plus m o))))
+                (λ [m : Nat]
+                  (refl Nat (plus m m))))))))
+        o m=o)))
+ (∀ [n : Nat] [m : Nat] [o : Nat]
+    (-> (== Nat n m)
+        (== Nat m o)
+        (== Nat (plus n m) (plus m o)))))
+
+(define-theorem plus-id-exercise
+  (∀ [n : Nat] [m : Nat] [o : Nat]
+     (-> (== Nat n m)
+         (== Nat m o)
+         (== Nat (plus n m) (plus m o))))
+  by-intro
+  by-intro
+  by-intro
+  (by-intro H1)
+  (by-intro H2)
+  display-focus
+  (by-rewriteR H1)
+  display-focus
+  (by-rewriteL H2)
+  display-focus
+  reflexivity)

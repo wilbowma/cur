@@ -456,7 +456,7 @@
   simpl
   reflexivity)
 
-(define-theorem plus_id_example
+(define-theorem plus-id-example
   (∀ [n : nat] [m : nat]
      (-> (== nat n m)
          (== nat (plus n n) (plus m m))))
@@ -464,4 +464,18 @@
   by-intro
   (by-intro H)
   (by-rewrite H)
+  reflexivity)
+
+(define-theorem plus-id-exercise
+  (∀ [n : nat] [m : nat] [o : nat]
+     (-> (== nat n m)
+         (== nat m o)
+         (== nat (plus n m) (plus m o))))
+  by-intro
+  by-intro
+  by-intro
+  (by-intro H1)
+  (by-intro H2)
+  (by-rewriteR H1)
+  (by-rewriteL H2)
   reflexivity)

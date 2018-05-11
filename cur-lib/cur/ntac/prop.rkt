@@ -7,7 +7,13 @@
   (for-syntax "../curnel/racket-impl/stxutils.rkt"
               (for-syntax syntax/parse)))
 
-(provide (for-syntax reflexivity by-rewrite rewrite))
+(provide (for-syntax reflexivity
+                     by-rewrite
+                     rewrite
+                     by-rewriteL
+                     rewriteL
+                     (rename-out [rewrite rewriteR]
+                                 [by-rewrite by-rewriteR])))
 
 ;; require equality (==) from cur/stdlib/prop
 (begin-for-syntax
@@ -27,28 +33,88 @@
      [(_ (_ (_ (~literal ==) ty) a) b)
       ((fill (exact #'(refl ty a))) ptz)]))
 
+
   ;; TODO: currently can only do ids, and only left to right
   (define-syntax (by-rewrite syn)
     (syntax-case syn ()
       [(_ x)
        #`(fill (rewrite #'x))]))
 
+  (define (remove-id v lst) (remove v lst free-identifier=?))
+  (define (dict-remove/flip k h) (dict-remove h k))
+  
   (define ((rewrite name) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
 ;    (printf "goal = ~a\n" (syntax->datum goal))
 ;    (displayln (syntax->datum (dict-ref ctxt name)))
     (ntac-match (dict-ref ctxt name)
-     [(_ (_ (_ (~literal ==) ty) a:id) b)#;((~literal ==) ty a:id b)
-      (with-syntax ([a* (generate-temporary #'a)])
+     [(_ (_ (_ (~literal ==) ty) a:id) b:id) #;((~literal ==) ty a:id b)
+      ;; TODO: why is it necessary to manually propagate the unused ids like this?
+      (let ([unused-ids (foldr remove-id (dict-keys ctxt) (list #'a #'b name))])
+        (with-syntax ([b* (generate-temporary #'b)])
         (make-ntt-apply
          goal
-         (list (make-ntt-hole (cur-rename #'b #'a goal)))
+       (list
+        (make-ntt-context
+         (lambda (old-ctxt)
+           ;; TODO: is removing old ids like this the right thing to do?
+           ;; also, it makes printing the focus look weird
+           (foldr dict-remove/flip old-ctxt (list #'a name)))
+         (make-ntt-hole (cur-rename #'b #'a goal))))
          (λ (body-pf)
-;          (printf "body pf = ~a\n" (syntax->datum body-pf))
            (quasisyntax/loc goal 
-             (new-elim #,name
-                       (λ [a : ty]
-                         (λ [b : ty]
-                           (λ [p : (== ty a b)]
-                             #,goal)))
-                       (λ [b : ty] #,body-pf))))))])))
+             ((new-elim #,name
+                        (λ [a : ty]
+                          (λ [b : ty]
+                            (λ [#,name : (== ty a b)]
+                              #,(foldl
+                                 (λ (x stx) #`(Π [#,x : #,(dict-ref ctxt x)] #,stx))
+                                 goal
+                                 unused-ids))))
+                        (λ [b : ty]
+                          #,(foldl
+                             (λ (x stx) #`(λ [#,x : #,(dict-ref ctxt x)] #,stx))
+                             body-pf
+                             unused-ids)))
+              #,@(reverse unused-ids)))))))]))
+
+  ;; TODO: currently can only do ids, and only left to right
+  ;; TODO: get rid of dup code with rewriteR
+  (define-syntax (by-rewriteL syn)
+    (syntax-case syn ()
+      [(_ x)
+       #`(fill (rewriteL #'x))]))
+
+  (define ((rewriteL name) ctxt pt)
+    (match-define (ntt-hole _ goal) pt)
+;    (printf "goal = ~a\n" (syntax->datum goal))
+;    (displayln (syntax->datum (dict-ref ctxt name)))
+    (ntac-match (dict-ref ctxt name)
+     [(_ (_ (_ (~literal ==) ty) a:id) b:id) #;((~literal ==) ty a:id b)
+      ;; TODO: why is it necessary to manually propagate the unused ids like this?
+      (let ([unused-ids (foldr remove-id (dict-keys ctxt) (list #'b #'a name))])
+       (with-syntax ([a* (generate-temporary #'a)])
+        (make-ntt-apply
+         goal
+         (list
+          (make-ntt-context
+           (lambda (old-ctxt)
+             ;; TODO: removing old ids like this makes printing the focus look weird
+             (foldr dict-remove/flip old-ctxt (list #'b name)))
+           (make-ntt-hole (cur-rename #'a #'b goal))))
+         (λ (body-pf)
+           (quasisyntax/loc goal 
+             ((new-elim #,name
+                        (λ [a : ty]
+                          (λ [b : ty]
+                            (λ [#,name : (== ty a b)]
+                              #,(foldl
+                                 (λ (x stx) #`(Π [#,x : #,(dict-ref ctxt x)] #,stx))
+                                 goal
+                                 unused-ids))))
+                        (λ [a : ty]
+                          #,(foldl
+                             (λ (x stx) #`(λ [#,x : #,(dict-ref ctxt x)] #,stx))
+                             body-pf
+                             unused-ids)))
+              #,@(reverse unused-ids)))))))])))
