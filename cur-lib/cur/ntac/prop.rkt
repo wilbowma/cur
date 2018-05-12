@@ -48,9 +48,10 @@
 ;    (printf "goal = ~a\n" (syntax->datum goal))
 ;    (displayln (syntax->datum (dict-ref ctxt name)))
     (ntac-match (dict-ref ctxt name)
-     [(_ (_ (_ (~literal ==) ty) a:id) b:id) #;((~literal ==) ty a:id b)
+     [(_ (_ (_ (~literal ==) ty) a:id) b) #;((~literal ==) ty a:id b)
       ;; TODO: why is it necessary to manually propagate the unused ids like this?
-      (let ([unused-ids (foldr remove-id (dict-keys ctxt) (list #'a #'b name))])
+      (let* ([used-ids (list #'a name)]
+             [unused-ids (foldr remove-id (dict-keys ctxt) used-ids)])
         (with-syntax ([b* (generate-temporary #'b)])
         (make-ntt-apply
          goal
@@ -59,24 +60,30 @@
          (lambda (old-ctxt)
            ;; TODO: is removing old ids like this the right thing to do?
            ;; also, it makes printing the focus look weird
-           (foldr dict-remove/flip old-ctxt (list #'a name)))
-         (make-ntt-hole (cur-rename #'b #'a goal))))
+           (dict-set
+            (foldr dict-remove/flip old-ctxt used-ids)
+            #'b*
+            #'b))
+         (make-ntt-hole (cur-rename #'b* #'a goal))))
          (λ (body-pf)
+           (let* ([res
            (quasisyntax/loc goal 
              ((new-elim #,name
                         (λ [a : ty]
-                          (λ [b : ty]
-                            (λ [#,name : (== ty a b)]
+                          (λ [b* : ty]
+                            (λ [#,name : (== ty a b*)]
                               #,(foldl
                                  (λ (x stx) #`(Π [#,x : #,(dict-ref ctxt x)] #,stx))
-                                 goal
+                                 (subst-term #'b* #'b goal)
                                  unused-ids))))
-                        (λ [b : ty]
+                        (λ [b* : ty]
                           #,(foldl
                              (λ (x stx) #`(λ [#,x : #,(dict-ref ctxt x)] #,stx))
-                             body-pf
+                             (subst-term #'b* #'b body-pf)
                              unused-ids)))
-              #,@(reverse unused-ids)))))))]))
+              #,@(reverse unused-ids)))]
+                  [_ (pretty-print (syntax->datum res))])
+             res)))))]))
 
   ;; TODO: currently can only do ids, and only left to right
   ;; TODO: get rid of dup code with rewriteR

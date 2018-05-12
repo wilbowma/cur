@@ -7,6 +7,7 @@
  (for-template (only-in racket/base let-values #%plain-lambda))
  syntax/parse
  racket/syntax
+  syntax/stx
  syntax/parse/experimental/reflect)
 
 (provide (all-defined-out))
@@ -43,6 +44,20 @@
      #`(lam (z) #,(subst v x #'e (free-id-set-add bvs #'z)))]
     [(e ...)
      (datum->syntax syn (map (lambda (e) (subst v x e bvs)) (attribute e)))]
+    [_ syn]))
+
+(define (stx=? e1 e2)
+  (or (and (identifier? e1) (identifier? e2)
+           (free-identifier=? e1 e2))
+      (and (stx-pair? e1) (stx-pair? e2)
+           (= (length (syntax->list e1)) (length (syntax->list e2)))
+           (andmap stx=? (syntax->list e1) (syntax->list e2)))))
+
+(define (subst-term v e0 syn)
+  (syntax-parse syn
+    [e #:when (stx=? #'e e0) v]
+    [(e ...)
+     (datum->syntax syn (map (λ (e1) (subst-term v e0 e1)) (attribute e)))]
     [_ syn]))
 
 ;; takes a list of values and a list of identifiers, in dependency order, and substitutes them into syn.
