@@ -433,24 +433,24 @@
   simpl
   reflexivity)
 
-(define-theorem plus_0_n
+(define-theorem plus-0-n
   (forall [n : nat] (== nat (plus 0 n) n))
   by-intro
   simpl
   reflexivity)
 
-(define-theorem plus_0_n*
+(define-theorem plus-0-n*
   (forall [n : nat] (== nat (plus 0 n) n))
   by-intro
   reflexivity)
 
-(define-theorem plus_1_l
+(define-theorem plus-1-l
   (∀ [n : nat] (== nat (plus 1 n) (S n)))
   by-intro
   simpl
   reflexivity)
 
-(define-theorem mult_0_l
+(define-theorem mult-0-l
   (∀ [n : nat] (== nat (mult 0 n) 0))
   by-intro
   simpl
@@ -478,4 +478,25 @@
   (by-intro H2)
   (by-rewriteR H1)
   (by-rewriteL H2)
+  reflexivity)
+
+(define-theorem mult-0-plus
+  (∀ [n : nat] [m : nat]
+     (== nat (mult (plus 0 n) m) (mult n m)))
+  by-intro
+  by-intro
+;  display-focus
+  (by-rewrite/thm plus-0-n n)
+;  display-focus
+  reflexivity)
+
+;; uses plus-0-n*
+(define-theorem mult-0-plus*
+  (∀ [n : nat] [m : nat]
+     (== nat (mult (plus 0 n) m) (mult n m)))
+  by-intro
+  by-intro
+;  display-focus
+  (by-rewrite/thm plus-0-n* n)
+;  display-focus
   reflexivity)

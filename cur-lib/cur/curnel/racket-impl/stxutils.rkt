@@ -47,13 +47,21 @@
     [_ syn]))
 
 (define (stx=? e1 e2)
-  (or (and (identifier? e1) (identifier? e2)
-           (free-identifier=? e1 e2))
-      (and (stx-pair? e1) (stx-pair? e2)
-           (= (length (syntax->list e1)) (length (syntax->list e2)))
-           (andmap stx=? (syntax->list e1) (syntax->list e2)))))
+  ;; (printf "(stx=) e1 = ~a\n" e1)
+  ;; (printf "(stx=) e2 = ~a\n" e2)
+  (define res
+    (or (and (identifier? e1) (identifier? e2)
+             (free-identifier=? e1 e2))
+        (and (number? (syntax-e e1)) (number? (syntax-e e2))
+             (= (syntax-e e1) (syntax-e e2))) ; number literals
+        (and (stx-pair? e1) (stx-pair? e2)
+             (= (length (syntax->list e1)) (length (syntax->list e2)))
+             (andmap stx=? (syntax->list e1) (syntax->list e2)))))
+;;  (displayln res)
+  res)
 
 (define (subst-term v e0 syn)
+;;  (printf "subst: ~a for ~a in ~a\n" (syntax->datum v) (syntax->datum e0) (syntax->datum syn))
   (syntax-parse syn
     [e #:when (stx=? #'e e0) v]
     [(e ...)
