@@ -30,17 +30,19 @@
  cur-constructors-for
  cur-data-parameters
  ;;cur-method-type
- ;;cur-constructor-recursive-index-ls
- ;;cur-constructor-telescope-length
+ cur-constructor-recursive-index-ls
+ cur-constructor-telescope-length
  cur-normalize
  cur-rename
  cur-reflect-id
  ;;cur-step
  cur-equal?
  cur-eval)
-(define debug-reflect? #t)
+(define debug-reflect? #f)
 (define debug-datatypes? #f)
+(define debug-scopes? #f)
 
+#|
 (require racket/trace debug-scopes)
 (current-trace-print-args
  (let ([ctpa (current-trace-print-args)])
@@ -50,11 +52,12 @@
  (let ([ctpr (current-trace-print-results)])
    (lambda (s l n)
      (ctpr s (map (compose +scopes) l) n))))
+|#
 (define (turnstile-infer syn)
   (car (cadddr (infer (list syn)))))
 
 
-(trace-define (cur-type-infer syn)
+(define (cur-type-infer syn)
   (let ([t   (car (cadddr (infer (list syn) )))])
     ;(displayln (format "inferred stx: ~a\n inferred type: ~a\n\n" (syntax->datum syn) (syntax->datum t)))
     (cur-reflect t)))
@@ -77,7 +80,7 @@
     (cur-reflect evaled)))
 
 (define (cur-equal? term1 term2)
-  (let ([term1-evaled (cur-eval term1)] ;fails on inferred types of constructors with params, param isn't bound in body
+  (let ([term1-evaled (cur-eval term1)] 
         [term2-evaled (cur-eval term2)])
     (type=? term1-evaled term2-evaled)))
 
@@ -97,7 +100,7 @@
         num-params)))
 
 
-(trace-define (cur-reflect-id syn)
+(define (cur-reflect-id syn)
   (syntax-parse syn
     [c:constructor-id
      #'c.name]
@@ -108,11 +111,21 @@
     [x:id
      #'x]))
 
+(define (cur-constructor-telescope-length syn)
+  (length (syntax->list (syntax-property (cur-expand syn) 'constructor-args))))
+
+(define (cur-constructor-recursive-index-ls syn)
+  (let* ([expanded (cur-expand syn)]
+         [args (syntax-property expanded 'constructor-args)]
+         [rec-args (syntax-property expanded 'constructor-rec-args)])
+ #; (displayln (format "expanded: ~a\n\nargs:~a\n\nrec-args:~a\n\n" (syntax->datum expanded) (syntax->datum args) (syntax->datum rec-args)))
+    (syntax->list rec-args)))
+
 (define (cur-eval syn)
   ((current-type-eval) syn))
 
 
-(trace-define (cur-reflect syn)
+(define (cur-reflect syn)
   ;; NB: must be called on fully expanded code;
   ;; TODO: Would be better to enforce that to avoid quadratic expansion cost...
   (syntax-parse (cur-expand syn)
