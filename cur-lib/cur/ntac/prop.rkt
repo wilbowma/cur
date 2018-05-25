@@ -53,6 +53,8 @@
 ;    (printf "goal = ~a\n" (syntax->datum goal))
     ;    (displayln (syntax->datum (identifier-info-delta-def (eval name))))
     (ntac-match (dict-ref ctxt name)
+     ;; TODO: to avoid hardcoding ==, need to duplicate what new-elim does?
+     ;;       - in order to generate proper motive and methods
      [(_ (_ (_ (~literal ==) ty) a) b:id) #;((~literal ==) ty a:id b)
       ;; TODO: why is it necessary to manually propagate the unused ids like this?
       (let* ([used-ids (if (identifier? #'a) (list #'a name) (list name))]

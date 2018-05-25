@@ -500,3 +500,16 @@
   (by-rewrite/thm plus-0-n* n)
 ;  display-focus
   reflexivity)
+
+(require cur/stdlib/coqeq
+         cur/ntac/coqrewrite)
+
+(define-theorem mult-S-1
+  (∀ [n : nat] [m : nat]
+     (-> (coq= nat m (S n))
+         (coq= nat (mult m (plus 1 n)) (mult m m))))
+  by-intro
+  by-intro
+  (by-intro H)
+  (by-coq-rewrite H)
+  coq-reflexivity)

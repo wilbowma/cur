@@ -6,8 +6,6 @@
          cur/ntac/standard
          cur/ntac/prop)
  
-
-
 ;; raw term and type for plus-id-theorem below
 ;; rewriteR (->)
 (::
@@ -83,7 +81,6 @@
   (by-rewriteL H)
   display-focus
   reflexivity)
-
 
 ;; transivitity example
 ;; - using pattern of propagating unused vars from here
@@ -219,67 +216,3 @@
  (Π [n : Nat] [m : Nat]
     (-> (== Nat m (s n))
         (== Nat (mult m (plus 1 n)) (mult m m)))))
-
-;; mult-S-1, leave plus-1-n as-is, still broken
-#;(::
- (λ [n : Nat] [m : Nat]
-    (λ [H : (== Nat (s n) m)]
-      (new-elim
-       H
-       (λ [sn : Nat] [m : Nat]
-          (λ [H : (== Nat sn m)]
-            (== Nat (mult m (plus 1 n)) (mult m m))))
-       (λ [sn : Nat]
-           (refl Nat (mult sn sn))))))
- (Π [n : Nat] [m : Nat]
-    (-> (== Nat (s n) m)
-        (== Nat (mult m (plus 1 n)) (mult m m)))))
-
-;; still not working
-;; - rewriteR: how to replace id with non-id? (see coq examples)
-;; - rewriteL: normalized (expanded) term doesnt match term in prop (even expanded)
-#;(define-theorem mult-S-1
-  (∀ [n : Nat] [m : Nat]
-     (-> (== Nat m (s n))
-         (== Nat (mult m (plus 1 n)) (mult m m))))
-  (by-intros n m H)
-  display-focus
-  ;; simpl
-  ;; (by-rewriteL H)
-  (by-rewriteR H)
-  display-focus
-  reflexivity)
-
-;; TODO: how to find (typed-ann s n) in here?
-#;(typed-app
- (typed-app
-  (typed-app == Nat)
-  (typed-elim
-   m
-   (typed-λ (anon-discriminant615 : Nat) Nat)
-   z
-   (typed-λ
-    (x : Nat)
-    (typed-λ
-     (ih-x : Nat)
-     (typed-app
-      s
-      (typed-elim
-       n
-       (typed-λ (anon-discriminant371 : Nat) Nat)
-       ih-x
-       (typed-λ (x : Nat) (typed-λ (ih-x : Nat) (typed-app s ih-x)))))))))
- (typed-elim
-  m
-  (typed-λ (anon-discriminant615 : Nat) Nat)
-  z
-  (typed-λ
-   (x : Nat)
-   (typed-λ
-    (ih-x : Nat)
-    (typed-elim
-     m
-     (typed-λ (anon-discriminant371 : Nat) Nat)
-     ih-x
-     (typed-λ (x : Nat) (typed-λ (ih-x : Nat)
-       (typed-app s ih-x))))))))
