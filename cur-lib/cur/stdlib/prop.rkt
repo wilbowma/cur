@@ -11,7 +11,7 @@
   thm:and-is-symmetric pf:and-is-symmetric
   thm:proj1 pf:proj1
   thm:proj2 pf:proj2
-  == refl)
+  )
 
 (data True : 0 Type (T : True))
 
@@ -76,6 +76,3 @@
           c)))
 
 (:: proof:A-or-A thm:A-or-A)
-
-(data == : 1 (forall (A : Type) (x : A) (-> A Type))
-  (refl : (forall (A : Type) (x : A) (== A x x))))
