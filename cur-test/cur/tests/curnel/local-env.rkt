@@ -1,8 +1,8 @@
 #lang racket/base
 (require
  ;; TODO: Ought just these core language forms, without for-syntax, modules, etc... somewhere
- #;(rename-in
-  cur/curnel/turnstile/type-check
+ (rename-in
+  cur/curnel/racket-impl/type-check
   [typed-Type Type]
   [typed-define define]
   [typed-λ λ]
@@ -15,13 +15,15 @@
  (for-syntax
   racket/base
   chk
-  #;cur/curnel/turnstile/reflection)
+  cur/curnel/racket-impl/reflection)
 
- cur/curnel/turnstile/cur-to-turnstile
-(for-syntax
- (except-in cur/curnel/turnstile/equiv cur-equal?)
- cur/curnel/turnstile/stxutils
- cur/curnel/turnstile/reflection))
+ #;(for-syntax (except-in racket/base sub1 add1 odd? exp even?) chk)
+; "../../../../cur-lib/cur/curnel/turnstile/cur-to-turnstile.rkt"
+ #;cur
+#;(for-syntax
+  (except-in "../../../../cur-lib/cur/curnel/turnstile/equiv.rkt" cur-equal?)
+ "../../../../cur-lib/cur/curnel/turnstile/stxutils.rkt"
+ "../../../../cur-lib/cur/curnel/turnstile/reflection.rkt"))
 
 (begin-for-syntax
   (define test-env1 `((,#'x . ,#'X) (,#'X . ,#'(Type 1))))
