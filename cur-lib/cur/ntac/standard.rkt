@@ -109,6 +109,8 @@
 (begin-for-syntax
   (define-syntax (by-intro syn)
     (syntax-case syn ()
+      [(_ syn #:as paramss)
+       #`(compose (fill (destruct #'syn #'paramss)) (fill (intro #'syn)))]
       [(_ syn)
        #`(fill (intro #'syn))]
       [_
@@ -181,6 +183,8 @@
 
   (define-syntax (by-destruct syn)
     (syntax-case syn ()
+      [(_ x)
+       #`(fill (destruct #'x))]
       [(_ x #:as param-namess)
        #`(fill (destruct #'x #'param-namess))]))
 
@@ -198,7 +202,7 @@
        (cons #'t.ann (pi->anns #'t.result))]
       [_ null]))
 
-  (define ((destruct name param-namess) ctxt pt)
+  (define ((destruct name [param-namess #f]) ctxt pt)
     (define name-ty (dict-ref ctxt name))
     (define c-info (syntax-local-eval name-ty))
 
@@ -222,16 +226,19 @@
       (map
        identifier-info-type
        (map syntax-local-eval Cs)))
-    ;; TODO: verify param-namess against result of constant-info-index-name-ls
-    #;(define params
-        (map constant-info-index-name-ls (map syntax-local-eval Cs)))
+    (define paramss
+      (if param-namess
+          (syntax->list param-namess)
+          (map (λ _ #'()) Cs))
+      ;; TODO: verify param-namess against result of constant-info-index-name-ls
+      #;(map constant-info-index-name-ls (map syntax-local-eval Cs)))
     (define pats
       (map
        (λ (C ps)
          (if (null? (syntax->list ps))
              C
              #`(#,C . #,ps)))
-       Cs (syntax->list param-namess)))
+       Cs paramss))
       
     (match-define (ntt-hole _ goal) pt)
 
@@ -251,7 +258,7 @@
           (subst pat name goal))))
       pats
       C-types
-      (syntax->list param-namess))
+      paramss)
      (λ pfs
        (let* ([res
                (quasisyntax/loc goal 
@@ -260,6 +267,73 @@
                        (λ (pat pf) #`[#,pat #,pf])
                        pats
                        pfs)))]
+              #;[_ (pretty-print (syntax->datum res))])
+         res))))
+
+  ;; same as by-destruct except uses `new-elim` instead of `match`
+  (define-syntax (by-destruct/elim syn)
+    (syntax-case syn ()
+      [(_ x)
+       #`(fill (destruct/elim #'x))]
+      [(_ x #:as param-namess)
+       #`(fill (destruct/elim #'x #'param-namess))]))
+
+  (define ((destruct/elim name [param-namess #f]) ctxt pt)
+    (define name-ty (dict-ref ctxt name))
+    (define c-info (syntax-local-eval name-ty))
+
+    (define Cs
+      (constant-info-constructor-ls c-info))
+    (define C-types
+      (map
+       identifier-info-type
+       (map syntax-local-eval Cs)))
+    (define paramss
+      (if param-namess
+          (syntax->list param-namess)
+          (map (λ _ #'()) Cs))
+      ;; TODO: verify param-namess against result of constant-info-index-name-ls
+      #;(map constant-info-index-name-ls (map syntax-local-eval Cs)))
+    (define pats
+      (map
+       (λ (C ps)
+         (if (null? (syntax->list ps))
+             C
+             #`(#,C . #,ps)))
+       Cs paramss))
+    
+    (match-define (ntt-hole _ goal) pt)
+
+    (make-ntt-apply
+     goal
+     (map
+      (λ (pat C-type params)
+        (make-ntt-context
+         (lambda (old-ctxt)
+           (foldr
+            (λ (p ty ctx)
+              (dict-set ctx p ty))
+            old-ctxt
+            (syntax->list params)
+            (pi->anns C-type)))
+         (make-ntt-hole
+          (subst pat name goal))))
+      pats
+      C-types
+      paramss)
+     (λ pfs
+       (let* ([res
+               (quasisyntax/loc goal 
+                 (new-elim #,name
+                           (λ [#,name : #,name-ty] #,goal)
+                           . #,(map 
+                                ;; TODO: add IHs
+                             (λ (params pf)
+                               (if (null? (syntax->list params))
+                                   pf
+                                   #`(λ #,params #,pf)))
+                             paramss
+                             pfs)))]
               #;[_ (pretty-print (syntax->datum res))])
          res))))
 )

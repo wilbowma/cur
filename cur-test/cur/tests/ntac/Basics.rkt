@@ -523,3 +523,70 @@
   ; ---------
   simpl
   reflexivity)
+
+(define-theorem negb-invol
+  (forall [b : bool] (== bool (negb (negb b)) b))
+  (by-intro b)
+  (by-destruct/elim b)
+  simpl
+  reflexivity
+  ; -----------
+  simpl
+  reflexivity)
+
+;; nested destructs
+(define-theorem andb-commutative
+  (∀ [b : bool] [c : bool]
+     (== bool (andb b c) (andb c b)))
+  (by-intro b)
+  (by-intro c)
+  (by-destruct/elim b)
+  ; subgoal 1 ------------
+  (by-destruct/elim c)
+  ;; subgoal 1a ---
+  reflexivity
+  ;; subgoal 1b ---
+  reflexivity
+  ; subgoal 2-----------
+  (by-destruct/elim c)
+  ;; subgoal 2a ---
+  reflexivity
+  ;; subgoal 2b ---
+  reflexivity)
+
+;; triple nested destructs
+(define-theorem andb3-exchange
+  (∀ [b : bool] [c : bool] [d : bool]
+     (== bool (andb (andb b c) d) (andb (andb b d) c)))
+  (by-intro b)
+  (by-intro c)
+  (by-intro d)
+  (by-destruct/elim b)
+  ; subgoal 1 ----------------
+  (by-destruct/elim c)
+  ; subgoal 1a --------
+  (by-destruct/elim d)
+  reflexivity
+  reflexivity
+  ; subgoal 1b --------
+  (by-destruct/elim d)
+  reflexivity
+  reflexivity
+  ; subgoal 2 ----------------
+  (by-destruct/elim c)
+  ; subgoal 2a --------
+  (by-destruct/elim d)
+  reflexivity
+  reflexivity
+  ; subgoal 2b --------
+  (by-destruct/elim d)
+  reflexivity
+  reflexivity)
+
+
+;; uses intro+destruct version of intro tactic
+(define-theorem plus-1-neq-0*
+  (∀ [n : nat] (== bool (beq-nat (plus 1 n) 0) false))
+  (by-intro n #:as [() (n-1)])
+  reflexivity
+  reflexivity)
