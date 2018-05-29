@@ -8,7 +8,7 @@
 (check-equal? (not false) true)
 
 (check-equal? (and true false) false)
-(check-equal? (and false false) true)
+(check-equal? (and false false) false)
 (check-equal? (and false true) false)
 (check-equal? (and true true) true)
 
