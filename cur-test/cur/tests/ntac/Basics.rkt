@@ -513,3 +513,13 @@
   (by-intro H)
   (by-coq-rewrite H)
   coq-reflexivity)
+
+(define-theorem plus-1-neq-0
+  (∀ [n : nat] (== bool (beq-nat (plus 1 n) 0) false))
+  (by-intro n)
+  (by-destruct n #:as [() (n-1)])
+  simpl
+  reflexivity
+  ; ---------
+  simpl
+  reflexivity)

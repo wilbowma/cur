@@ -82,8 +82,13 @@
         [(ntt-done _ _ k)
          (loop k)])))
 
-    ;; NTac proof Tree Zipper
+  ;; NTac proof Tree Zipper
+  ;; TODO: track number of holes/subgoals?
   (struct nttz (context focus prev) #:constructor-name _nttz)
+  ;; context : FreeIdHashof ID Type
+  ;; focus   : ntt
+  ;; prev    : ntt -> nttz
+  ;; Produces a new zipper from the current focus
 
   (require racket/dict)
   (define (identifier-hash) (make-immutable-custom-hash free-identifier=?))

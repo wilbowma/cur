@@ -1,7 +1,9 @@
 #lang s-exp "../main.rkt"
 (require
+  (for-syntax "../curnel/racket-impl/stxutils.rkt")
  "../stdlib/sugar.rkt"
  "../curnel/racket-impl/reflection.rkt" ; simpl needs cur-normalize
+ "../curnel/racket-impl/runtime.rkt" ; destruct needs constant-info
  "base.rkt")
 
 (begin-for-syntax
@@ -31,6 +33,7 @@
           goal)])))
 
 ;; display tactic
+;; TODO: print number of subgoals
 (define-for-syntax (display-focus tz)
   (match (nttz-focus tz)
     [(ntt-hole _ goal)
@@ -151,28 +154,112 @@
   (define-syntax (by-assumption syn)
     (syntax-case syn ()
       [_
-       #`(fill assumption)])))
+       #`(fill assumption)]))
 
-(define-for-syntax (obvious ctxt pt)
- (match-define (ntt-hole _ goal) pt)
-  (ntac-match goal
-    [(forall (a : P) body)
-     ((intro) ctxt pt)]
-    [a:id
-     (assumption ctxt pt)]))
+  (define (obvious ctxt pt)
+    (match-define (ntt-hole _ goal) pt)
+    (ntac-match goal
+      [(forall (a : P) body)
+       ((intro) ctxt pt)]
+      [a:id
+       (assumption ctxt pt)]))
 
-(define-for-syntax (by-obvious ptz)
-  (define nptz ((fill obvious) ptz))
-  (if (nttz-done? nptz)
-      nptz
-      (by-obvious nptz)))
+  (define (by-obvious ptz)
+    (define nptz ((fill obvious) ptz))
+    (if (nttz-done? nptz)
+        nptz
+        (by-obvious nptz)))
 
-(define-for-syntax (simpl ptz)
-  (match-define (ntt-hole _ goal) (nttz-focus ptz))
-  (next
-   ;; TODO: should this be a copy?
-   (struct-copy nttz ptz
-     [focus (make-ntt-hole
-             (cur-normalize goal
-                            #:local-env (ctxt->env (nttz-context ptz))))])))
+  (define (simpl ptz)
+    (match-define (ntt-hole _ goal) (nttz-focus ptz))
+    (next
+     ;; TODO: should this be a copy?
+     (struct-copy nttz ptz
+                  [focus (make-ntt-hole
+                          (cur-normalize goal
+                                         #:local-env (ctxt->env (nttz-context ptz))))])))
 
+  (define-syntax (by-destruct syn)
+    (syntax-case syn ()
+      [(_ x #:as param-namess)
+       #`(fill (destruct #'x #'param-namess))]))
+
+  ;; (struct identifier-info (type delta-def))
+  ;; ;; TODO PERF: Could use vectors instead of lists; since we store the count anyway... or maybe we won't
+  ;; ;; need to by storing param and index decls separately.
+  ;; (struct constant-info identifier-info
+  ;;   (param-count param-name-ls param-ann-ls index-name-ls index-ann-ls
+  ;;                constructor-count constructor-ls constructor-index
+  ;;                recursive-index-ls))
+
+  (define (pi->anns ty)
+    (syntax-parse ty
+      [t:cur-runtime-pi
+       (cons #'t.ann (pi->anns #'t.result))]
+      [_ null]))
+
+  (define ((destruct name param-namess) ctxt pt)
+    (define name-ty (dict-ref ctxt name))
+    (define c-info (syntax-local-eval name-ty))
+
+    ;; ;; (displayln (identifier-info-type c-info))
+    ;; ;; (displayln (identifier-info-delta-def c-info))
+    ;; ;; (displayln (constant-info-param-count c-info))
+    ;; ;; (displayln (constant-info-param-name-ls c-info))
+    ;; ;; (displayln (constant-info-param-ann-ls c-info))
+    ;; ;; (displayln (constant-info-index-name-ls c-info))
+    ;; ;; (displayln (constant-info-index-ann-ls c-info))
+    ;; ;; (displayln (constant-info-constructor-count c-info))
+
+    ;; (displayln (constant-info-constructor-ls c-info))
+    ;; ;; TODO: verify param-names against result of constant-info-index-name-ls
+    ;; (displayln (map constant-info-index-name-ls (map syntax-local-eval (constant-info-constructor-ls c-info))))
+    ;; (pretty-print (map (compose syntax->datum identifier-info-type) (map syntax-local-eval (constant-info-constructor-ls c-info))))
+
+    (define Cs
+      (constant-info-constructor-ls c-info))
+    (define C-types
+      (map
+       identifier-info-type
+       (map syntax-local-eval Cs)))
+    ;; TODO: verify param-namess against result of constant-info-index-name-ls
+    #;(define params
+        (map constant-info-index-name-ls (map syntax-local-eval Cs)))
+    (define pats
+      (map
+       (λ (C ps)
+         (if (null? (syntax->list ps))
+             C
+             #`(#,C . #,ps)))
+       Cs (syntax->list param-namess)))
+      
+    (match-define (ntt-hole _ goal) pt)
+
+    (make-ntt-apply
+     goal
+     (map
+      (λ (pat C-type params)
+        (make-ntt-context
+         (lambda (old-ctxt)
+           (foldr
+            (λ (p ty ctx)
+              (dict-set ctx p ty))
+            old-ctxt
+            (syntax->list params)
+            (pi->anns C-type)))
+         (make-ntt-hole
+          (subst pat name goal))))
+      pats
+      C-types
+      (syntax->list param-namess))
+     (λ pfs
+       (let* ([res
+               (quasisyntax/loc goal 
+                 (match #,name #:in #,name-ty #:return #,goal
+                  . #,(map 
+                       (λ (pat pf) #`[#,pat #,pf])
+                       pats
+                       pfs)))]
+              #;[_ (pretty-print (syntax->datum res))])
+         res))))
+)
