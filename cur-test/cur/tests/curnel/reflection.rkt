@@ -4,6 +4,7 @@
  (for-syntax
   chk
   racket/base
+  ;; TODO: replace with (require cur) at phase-0, when kernel is implemented
   (except-in "../../../../cur-lib/cur/curnel/turnstile/equiv.rkt" cur-equal?)
   "../../../../cur-lib/cur/curnel/turnstile/stxutils.rkt"
  ; "../../../../cur-lib/cur/curnel/racket-impl/reflection.rkt"
