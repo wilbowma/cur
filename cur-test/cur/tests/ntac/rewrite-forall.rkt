@@ -148,25 +148,6 @@
         (∀ [b : Bool] (coq= Bool (f (f b)) b)))))
 
 
-#;(typed-Π
- (f : (typed-Π (anon-parameter30157 : Bool) Bool))
- (typed-Π
-  (H : (typed-Π (x : Bool)
-                (typed-app
-                 (typed-app (typed-app == Bool) (typed-app f x)) x)))
-  (typed-Π
-   (b : Bool)
-   (typed-app (typed-app (typed-app == Bool)
-                         (typed-app f (typed-app f b))) (typed-app f b)))))
-
-#;(typed-Π
- (f : (typed-Π (anon-parameter30028 : Bool) Bool))
- (typed-Π
-  (H : (typed-Π (x : Bool) (typed-app (typed-app (typed-app == Bool) (typed-app f x)) x)))
-  (typed-Π
-   (b : Bool)
-   (typed-app (typed-app (typed-app == Bool) (typed-app f b)) b))))
-
 (define-theorem identity-fn-applied-twice
   (∀ [f : (-> Bool Bool)]
      (-> (∀ [x : Bool] (coq= Bool (f x) x))
@@ -181,3 +162,26 @@
   display-focus
   coq-reflexivity
 )
+
+(define-theorem negb-invol
+  (forall [b : Bool] (coq= Bool (not (not b)) b))
+  (by-intro b)
+  (by-destruct/elim b)
+  simpl
+  coq-reflexivity
+  ; -----------
+  simpl
+  coq-reflexivity)
+
+
+(define-theorem not-applied-twice
+  (∀ [f : (-> Bool Bool)]
+     (-> (∀ [x : Bool] (coq= Bool (f x) (not x)))
+         (∀ [b : Bool] (coq= Bool (f (f b)) b))))
+  by-intro
+  (by-intro H)
+  by-intro
+  (by-coq-rewrite H)
+  (by-coq-rewrite H)
+  (by-coq-rewrite/thm negb-invol)
+  coq-reflexivity)

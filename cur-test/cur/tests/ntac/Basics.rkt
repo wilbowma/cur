@@ -637,3 +637,25 @@
   coq-reflexivity
 )
 
+(define-theorem negb-invol/coq=
+  (forall [b : bool] (coq= bool (negb (negb b)) b))
+  (by-intro b)
+  (by-destruct/elim b)
+  simpl
+  coq-reflexivity
+  ; -----------
+  simpl
+  coq-reflexivity)
+
+
+(define-theorem not-applied-twice
+  (∀ [f : (-> bool bool)]
+     (-> (∀ [x : bool] (coq= bool (f x) (negb x)))
+         (∀ [b : bool] (coq= bool (f (f b)) b))))
+  by-intro
+  (by-intro H)
+  by-intro
+  (by-coq-rewrite H)
+  (by-coq-rewrite H)
+  (by-coq-rewrite/thm negb-invol/coq=)
+  coq-reflexivity)

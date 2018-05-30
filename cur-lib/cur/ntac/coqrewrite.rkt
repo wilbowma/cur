@@ -13,6 +13,7 @@
 
 (provide (for-syntax by-coq-rewrite
                      by-coq-rewriteL
+                     by-coq-rewrite/thm
                      coq-rewrite
                      coq-rewriteL
                      coq-reflexivity
@@ -47,6 +48,14 @@
       [(_ x)
        #`(fill (coq-rewrite #'x))]))
 
+  (define-syntax (by-coq-rewrite/thm syn)
+    (syntax-case syn ()
+      [(_ thm)
+       #`(let ([thm-info (syntax-local-eval #'thm)])
+           (fill (coq-rewrite #'thm
+                              (theorem-info-name thm-info)
+                              (theorem-info-orig thm-info))))]))
+
   (define (remove-id v lst) (remove v lst free-identifier=?))
   (define (dict-remove/flip k h) (dict-remove h k))
   
@@ -68,15 +77,20 @@
          null)))
 
   ;; replace "a" with "b"
-  (define ((coq-rewrite name) ctxt pt)
+  ;; `real-name` arg is needed bc scopes on `name` aren't right
+  (define ((coq-rewrite name [real-name #f] [thm #f]) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
-    (ntac-match (dict-ref ctxt name)
+    ;; if not given explicit thm, then lookup in ctxt
+    (ntac-match (or thm (dict-ref ctxt name))
      ;; ∀ case, elim target is application of `name`
-     [(Π [x : tyx] (== ty a/x b/x))
+     [(∀ [x : tyx] ((~literal coq=) ty a/x b/x))
       (with-syntax*
-        ([a* (format-id #'b "~a" (generate-temporary))]
+        ([a* (format-id #'b/x "~a" (generate-temporary))]
+         ;; need this temp id, ow get err "identifier's binding is ambiguous"
+         ;; when trying to use name
+         [H (format-id name "~a" (generate-temporary))]
          ;; search for a/x in goal, returns substs for x
-         [(x y) (car (search #'a/x goal))] ; arbitrarily take first search result
+         [(x y) (car (search #'a/x goal))] ; arbitrarily use first search result
          [a/y (subst #'y #'x #'a/x)]
          [b/y (subst #'y #'x #'b/x)])
         (make-ntt-apply
@@ -84,14 +98,16 @@
          (list (make-ntt-hole (subst-term #'b/y #'a/y goal)))
          (λ (body-pf)
            (let* ([res
-                   (quasisyntax/loc goal 
+                   (quasisyntax/loc goal
                      (new-elim
-                      (coq=-sym ty a/y b/y (#,name y))
+                      (coq=-sym ty a/y b/y #,(if thm
+                                                 #`(#,real-name y)
+                                                 #`(#,name y)))
                       (λ [a* : ty]
-                        (λ [#,name : (coq= ty b/y a*)]
+                        (λ [H : (coq= ty b/y a*)]
                           #,(subst-term #'a* #'a/y goal)))
                       #,body-pf))]
-                  #;[_ (pretty-print (syntax->datum res))])
+                  [_ (pretty-print (syntax->datum res))])
              res))))]
      ;; TODO: to avoid hardcoding coq=, need to duplicate what new-elim does?
      ;;       - in order to generate proper motive and methods

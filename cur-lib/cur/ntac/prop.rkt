@@ -140,7 +140,7 @@
                     #;[_ (pretty-print (syntax->datum res))])
                res)))))]))
 
-  ;; TODO: currently can only do ids, and only left to right
+  ;; TODO: reimplement this to use rewrite, like by-coq-rewrite/thm in coqrewrite.rkt
   (define-syntax (by-rewrite/thm syn)
     (syntax-case syn ()
       [(_ thm x)
@@ -148,7 +148,7 @@
 
   ;; rewrite with previously-defined theorem
   ;; `thm` must be an id
-  ;; TODO: remove
+  ;; TODO: merge with rewrite
   (define ((rewrite/thm thm x) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
 ;    (printf "goal = ~a\n" (syntax->datum goal))
