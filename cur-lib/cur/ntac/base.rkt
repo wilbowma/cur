@@ -174,7 +174,7 @@
     (datum->syntax anchor (syntax->datum syn)))
 
   (provide (struct-out theorem-info))
-  (struct theorem-info identifier-info (orig)))
+  (struct theorem-info identifier-info (name orig)))
 
 ;; Syntax
 (define-syntax (define-theorem stx)
@@ -190,7 +190,7 @@
               (define-for-syntax x
                 (theorem-info (identifier-info-type y)
                               delta-y
-                              #'ty))
+                              #'x #'ty))
               (:: x ty)))]))
 
 ;; For inline ntac
