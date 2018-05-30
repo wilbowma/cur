@@ -139,3 +139,40 @@
   reflexivity
   reflexivity)
 
+(check-equal? (and false false) false)
+(check-equal? (and true false) false)
+(check-equal? (and false true) false)
+(check-equal? (and true true) true)
+
+(define-theorem and-true-elim
+  (∀ [b : Bool] [c : Bool]
+     (-> (== Bool (and b c) true)
+         (== Bool c true)))
+  (by-intro b)
+  (by-intro c)
+  (by-destruct/elim b)
+  ; subgoal 1 ----------------
+  simpl
+  (by-intro H)
+  (by-rewrite H)
+  reflexivity
+  ; subgoal 2 ----------------
+  (by-destruct/elim c)
+  ; subgoal 2a --------
+  simpl
+  (by-intro H1)
+  reflexivity
+  ; subgoal 2b --------
+  simpl
+  (by-intro H2)
+  by-assumption
+)
+
+(define-theorem zero-neq-one
+  (∀ [n : Nat]
+     (== Bool (nat-equal? 0 (plus 1 n)) false))
+  (by-intro n #:as [() (n-1)])
+  simpl
+  reflexivity
+  simpl
+  reflexivity)

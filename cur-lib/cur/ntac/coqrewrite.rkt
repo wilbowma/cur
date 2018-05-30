@@ -7,6 +7,8 @@
               "../curnel/racket-impl/runtime.rkt"
   (for-syntax "../curnel/racket-impl/stxutils.rkt"
               "../curnel/racket-impl/runtime-utils.rkt"
+              syntax/parse
+              syntax/stx
               (for-syntax syntax/parse)))
 
 (provide (for-syntax by-coq-rewrite
@@ -48,10 +50,49 @@
   (define (remove-id v lst) (remove v lst free-identifier=?))
   (define (dict-remove/flip k h) (dict-remove h k))
   
+  ;; unify two expressions, return list of subst, for ids in e1
+  (define (unify e1 e2)
+    (if (identifier? e1)
+        (list (list e1 e2))
+        (syntax-parse (list e1 e2)
+          [((f1:id e1) (f2:id e2)) #:when (free-identifier=? #'f1 #'f2)
+           (unify #'e1 #'e2)]
+          [_ null])))
+
+  ;; naively tries to unify t with all subexprs in goal, returning list of subst
+  (define (search t goal)
+    (append
+     (unify t goal)
+     (if (stx-pair? goal)
+         (append-map (λ (e) (search t e)) (syntax->list goal))
+         null)))
+
   ;; replace "a" with "b"
   (define ((coq-rewrite name) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
     (ntac-match (dict-ref ctxt name)
+     ;; ∀ case, elim target is application of `name`
+     [(Π [x : tyx] (== ty a/x b/x))
+      (with-syntax*
+        ([a* (format-id #'b "~a" (generate-temporary))]
+         ;; search for a/x in goal, returns substs for x
+         [(x y) (car (search #'a/x goal))] ; arbitrarily take first search result
+         [a/y (subst #'y #'x #'a/x)]
+         [b/y (subst #'y #'x #'b/x)])
+        (make-ntt-apply
+         goal
+         (list (make-ntt-hole (subst-term #'b/y #'a/y goal)))
+         (λ (body-pf)
+           (let* ([res
+                   (quasisyntax/loc goal 
+                     (new-elim
+                      (coq=-sym ty a/y b/y (#,name y))
+                      (λ [a* : ty]
+                        (λ [#,name : (coq= ty b/y a*)]
+                          #,(subst-term #'a* #'a/y goal)))
+                      #,body-pf))]
+                  #;[_ (pretty-print (syntax->datum res))])
+             res))))]
      ;; TODO: to avoid hardcoding coq=, need to duplicate what new-elim does?
      ;;       - in order to generate proper motive and methods
      [(_ (_ (_ (~literal coq=) ty) a) b)

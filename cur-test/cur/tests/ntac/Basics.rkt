@@ -590,3 +590,50 @@
   (by-intro n #:as [() (n-1)])
   reflexivity
   reflexivity)
+
+(define-theorem andb-true-elim
+  (∀ [b : bool] [c : bool]
+     (-> (== bool (andb b c) true)
+         (== bool c true)))
+  (by-intro b)
+  (by-intro c)
+  (by-destruct/elim b)
+  ; subgoal 1 ----------------
+  simpl
+  (by-intro H)
+  (by-rewrite H)
+  reflexivity
+  ; subgoal 2 ----------------
+  (by-destruct/elim c)
+  ; subgoal 2a --------
+  simpl
+  (by-intro H1)
+  reflexivity
+  ; subgoal 2b --------
+  simpl
+  (by-intro H2)
+  by-assumption
+)
+
+(define-theorem zero-nbeq-plus-1
+  (∀ [n : nat]
+     (== bool (beq-nat 0 (plus 1 n)) false))
+  (by-intro n #:as [() (n-1)])
+  simpl
+  reflexivity
+  ; --------
+  simpl
+  reflexivity)
+
+(define-theorem identity-fn-applied-twice
+  (∀ [f : (-> bool bool)]
+     (-> (∀ [x : bool] (coq= bool (f x) x))
+         (∀ [b : bool] (coq= bool (f (f b)) b))))
+  (by-intro f)
+  (by-intro H)
+  (by-intro b)
+  (by-coq-rewrite H)
+  (by-coq-rewrite H)
+  coq-reflexivity
+)
+
