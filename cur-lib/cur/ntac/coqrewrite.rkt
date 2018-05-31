@@ -107,7 +107,7 @@
                         (λ [H : (coq= ty b/y a*)]
                           #,(subst-term #'a* #'a/y goal)))
                       #,body-pf))]
-                  [_ (pretty-print (syntax->datum res))])
+                  #;[_ (pretty-print (syntax->datum res))])
              res))))]
      ;; TODO: to avoid hardcoding coq=, need to duplicate what new-elim does?
      ;;       - in order to generate proper motive and methods

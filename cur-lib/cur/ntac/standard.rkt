@@ -310,12 +310,16 @@
       (λ (pat C-type params)
         (make-ntt-context
          (lambda (old-ctxt)
-           (foldr
-            (λ (p ty ctx)
-              (dict-set ctx p ty))
-            old-ctxt
-            (syntax->list params)
-            (pi->anns C-type)))
+           ; drop `name` from ctxt
+           ; but add bindings for constructor arguments of `name`
+           (dict-remove
+            (foldr
+             (λ (p ty ctx)
+               (dict-set ctx p ty))
+             old-ctxt
+             (syntax->list params)
+             (pi->anns C-type))
+            name))
          (make-ntt-hole
           (subst pat name goal))))
       pats
@@ -334,6 +338,6 @@
                                    #`(λ #,params #,pf)))
                              paramss
                              pfs)))]
-              #;[_ (pretty-print (syntax->datum res))])
+              #;[_ (begin (displayln "destruct/elim") (pretty-print (syntax->datum res)))])
          res))))
 )

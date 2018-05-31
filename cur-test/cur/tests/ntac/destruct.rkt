@@ -176,3 +176,76 @@
   reflexivity
   simpl
   reflexivity)
+
+;; and-eq-orb, as manually written term
+(::
+ (λ [b : Bool] [c : Bool]
+    (new-elim
+     b
+     (λ [b : Bool]
+       (-> (== Bool (and b c) (or b c))
+           (== Bool b c)))
+     (λ [H : (== Bool c true)]
+       (new-elim
+        H
+        (λ [c* : Bool] [true : Bool]
+           (λ [H : (== Bool c* true)]
+             (== Bool true c*)))
+        (λ [true : Bool] (refl Bool true))))
+     (λ [H : (== Bool false c)]
+       H)))
+ (∀ [b : Bool] [c : Bool]
+    (-> (== Bool (and b c) (or b c))
+        (== Bool b c))))
+
+;; and-eq-orb, but more like ntac-generated term
+;; even though, `true` works here as parameter name,
+;; it wont work in the ntac-generated term for some reason
+(::
+ (λ [b : Bool] [c : Bool]
+    (new-elim
+     b
+     (λ [b : Bool]
+       (-> (== Bool (and b c) (or b c))
+           (== Bool b c)))
+     ;(λ [H : (== Bool c true)]
+     (λ [H : (((== Bool) c) true)]
+       ((new-elim
+         H
+         (λ [c* : Bool] [true : Bool]
+            (λ [H : (== Bool c* true)]
+              ;(== Bool true c*)))
+              (Π [b : Bool]
+                 (((== Bool) true) c*))))
+         (λ [true : Bool] (λ [b : Bool] (refl Bool true))))
+        b))
+     ;(λ [H : (== Bool false c)]
+     ;  H)))
+     (λ [anon-parameter4558 : (((== Bool) false) c)]
+       anon-parameter4558)))
+ (∀ [b : Bool] [c : Bool]
+    (-> (== Bool (and b c) (or b c))
+        (== Bool b c))))
+
+(define-theorem andb-eq-orb
+  (∀ [b : Bool] [c : Bool]
+     (-> (== Bool (and b c) (or b c))
+         (== Bool b c)))
+  (by-intro b)
+  (by-intro c)
+  (by-destruct/elim b)
+  display-focus
+  ; subgoal 1 --------
+  simpl
+  display-focus
+  (by-intro H)
+  display-focus
+  (by-rewrite H)
+  display-focus
+  reflexivity
+  display-focus
+  ; subgoal 2 --------
+  simpl
+  display-focus
+  by-intro
+  by-assumption)

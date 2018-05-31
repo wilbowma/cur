@@ -55,11 +55,18 @@
     (ntac-match (dict-ref ctxt name)
      ;; TODO: to avoid hardcoding ==, need to duplicate what new-elim does?
      ;;       - in order to generate proper motive and methods
-     [(_ (_ (_ (~literal ==) ty) a) b:id) #;((~literal ==) ty a:id b)
+     [(_ (_ (_ (~literal ==) ty) a) b) #;((~literal ==) ty a:id b)
       ;; TODO: why is it necessary to manually propagate the unused ids like this?
-      (let* ([used-ids (if (identifier? #'a) (list #'a name) (list name))]
-             [unused-ids (foldr remove-id (dict-keys ctxt) (cons #'b used-ids))])
-        (with-syntax ([a* (format-id #'b "~a" (generate-temporary))])
+      (let* ([used-ids (if (identifier? #'a)
+                           (list #'a name)
+                           (list name))]
+             [unused-ids (foldr remove-id (dict-keys ctxt) (if (identifier? #'b)
+                                                               (cons #'b used-ids)
+                                                               used-ids))])
+        (with-syntax ([a* (format-id #'a "~a" (generate-temporary))]
+                      [b* (format-id #'b "~a" (generate-temporary))])
+          (define (insert-tmps stx)
+            (subst-term #'a* #'a (subst-term #'b* #'b stx)))              
           (make-ntt-apply
            goal
            (list
@@ -67,11 +74,7 @@
              (lambda (old-ctxt)
                ;; TODO: is removing old ids like this the right thing to do?
                ;; also, it makes printing the focus look weird
-               (foldr dict-remove/flip old-ctxt used-ids)
-               #;(dict-set
-                  (foldr dict-remove/flip old-ctxt used-ids)
-                  #'b*
-                  #'b))
+               (foldr dict-remove/flip old-ctxt used-ids))
              (make-ntt-hole (subst-term #'b #'a goal))))
            (λ (body-pf)
              (let* ([res
@@ -79,16 +82,20 @@
                        ((new-elim
                          #,name
                          (λ [a* : ty]
-                           (λ [b : ty]
-                             (λ [#,name : (== ty a* b)]
+                           (λ [b* : ty]
+                             (λ [#,name : (== ty a* b*)]
                                #,(foldl
-                                  (λ (x stx) #`(Π [#,x : #,(dict-ref ctxt x)] #,stx))
-                                  (subst-term #'a* #'a goal)
+                                  (λ (x stx)
+                                    #`(Π [#,x : #,(insert-tmps (dict-ref ctxt x))]
+                                         #,stx))
+                                  (insert-tmps goal)
                                   unused-ids))))
-                         (λ [b : ty]
+                         (λ [b* : ty]
                            #,(foldl
-                              (λ (x stx) #`(λ [#,x : #,(dict-ref ctxt x)] #,stx))
-                              (subst-term #'a* #'a body-pf)
+                              (λ (x stx)
+                                #`(λ [#,x : #,(insert-tmps (dict-ref ctxt x))]
+                                    #,stx))
+                              (insert-tmps body-pf)
                               unused-ids)))
                         #,@(reverse unused-ids)))]
                     #;[_ (pretty-print (syntax->datum res))])

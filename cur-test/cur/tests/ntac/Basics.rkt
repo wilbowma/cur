@@ -659,3 +659,20 @@
   (by-coq-rewrite H)
   (by-coq-rewrite/thm negb-invol/coq=)
   coq-reflexivity)
+
+(define-theorem andb-eq-orb
+  (∀ [b : bool] [c : bool]
+     (-> (== bool (andb b c) (orb b c))
+         (== bool b c)))
+  (by-intro b)
+  (by-intro c)
+  (by-destruct/elim b)
+  ; subgoal 1 --------
+  simpl
+  (by-intro H)
+  (by-rewrite H)
+  reflexivity
+  ; subgoal 2 --------
+  simpl
+  by-intro
+  by-assumption)
