@@ -10,12 +10,11 @@
               (for-syntax syntax/parse)))
 
 (provide (for-syntax reflexivity
-                     by-rewrite/thm
+                     rewrite
                      rewrite/thm
                      by-rewrite
-                     rewrite
                      by-rewriteL
-                     rewriteL
+                     by-rewrite/thm
                      (rename-out [rewrite rewriteR]
                                  [by-rewrite by-rewriteR])))
 
@@ -33,9 +32,7 @@
   (define (reflexivity ptz)
     (match-define (ntt-hole _ goal) (nttz-focus ptz))
     (ntac-match goal
-     ;; TODO: use pattern expanders to abstract away these #%app's?
-     [(_ (_ (_ (~literal ==) ty) a) b)
-      ((fill (exact #'(refl ty a))) ptz)]))
+     [(~== ty a b) ((fill (exact #'(refl ty a))) ptz)]))
 
 
   ;; TODO: currently can only do ids, and only left to right
@@ -44,29 +41,37 @@
       [(_ x)
        #`(fill (rewrite #'x))]))
 
+  (define-syntax (by-rewriteL syn)
+    (syntax-case syn ()
+      [(_ x)
+       #`(fill (rewrite #'x #:left? #t))]))
+
   (define (remove-id v lst) (remove v lst free-identifier=?))
   (define (dict-remove/flip k h) (dict-remove h k))
   
-  ;; replace "a" with "b"
-  (define ((rewrite name) ctxt pt)
+  ;; if (dict-ref ctxt name) = (== ty a_ b_)
+  ;; - [default] replace "a_" with "b_" (ie coq rewrite ->)
+  ;; - if left? = #t, replace "b_" with "a_" (ie coq rewrite <-)
+  (define ((rewrite name #:left? [left? #f]) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
-;    (printf "goal = ~a\n" (syntax->datum goal))
-    ;    (displayln (syntax->datum (identifier-info-delta-def (eval name))))
     (ntac-match (dict-ref ctxt name)
-     ;; TODO: to avoid hardcoding ==, need to duplicate what new-elim does?
-     ;;       - in order to generate proper motive and methods
-     [(_ (_ (_ (~literal ==) ty) a) b) #;((~literal ==) ty a:id b)
-      ;; TODO: why is it necessary to manually propagate the unused ids like this?
-      (let* ([used-ids (if (identifier? #'a)
-                           (list #'a name)
-                           (list name))]
-             [unused-ids (foldr remove-id (dict-keys ctxt) (if (identifier? #'b)
-                                                               (cons #'b used-ids)
-                                                               used-ids))])
-        (with-syntax ([a* (format-id #'a "~a" (generate-temporary))]
-                      [b* (format-id #'b "~a" (generate-temporary))])
-          (define (insert-tmps stx)
-            (subst-term #'a* #'a (subst-term #'b* #'b stx)))              
+     [(~== ty a_ b_)
+      ;; a = "target", b = "source"
+      (with-syntax* ([(a b) (if left? #'(b_ a_) #'(a_ b_))]
+                     [a* (format-id #'a "~a" (generate-temporary))]
+                     [b* (format-id #'b "~a" (generate-temporary))])
+        ;; ids a* and b* are used for *two* purposes:
+        ;; - in the motive: they map to a_ and b_ respectively, ie in `insert-tmps`
+        ;; - in the method: b* maps to the b, ie the "source"
+        (define (insert-tmps stx)
+          (subst-term #'a* #'a_ (subst-term #'b* #'b_ stx)))
+        ;; TODO: why is it necessary to manually propagate the unused ids like this?
+        (let* ([used-ids (if (identifier? #'a)
+                             (list #'a name)
+                             (list name))]
+               [unused-ids (foldr remove-id (dict-keys ctxt) (if (identifier? #'b)
+                                                                 (cons #'b used-ids)
+                                                                 used-ids))])
           (make-ntt-apply
            goal
            (list
@@ -77,75 +82,29 @@
                (foldr dict-remove/flip old-ctxt used-ids))
              (make-ntt-hole (subst-term #'b #'a goal))))
            (λ (body-pf)
-             (let* ([res
-                     (quasisyntax/loc goal 
-                       ((new-elim
-                         #,name
-                         (λ [a* : ty]
-                           (λ [b* : ty]
-                             (λ [#,name : (== ty a* b*)]
-                               #,(foldl
-                                  (λ (x stx)
-                                    #`(Π [#,x : #,(insert-tmps (dict-ref ctxt x))]
-                                         #,stx))
-                                  (insert-tmps goal)
-                                  unused-ids))))
-                         (λ [b* : ty]
-                           #,(foldl
-                              (λ (x stx)
-                                #`(λ [#,x : #,(insert-tmps (dict-ref ctxt x))]
-                                    #,stx))
-                              (insert-tmps body-pf)
-                              unused-ids)))
-                        #,@(reverse unused-ids)))]
-                    #;[_ (pretty-print (syntax->datum res))])
-               res)))))]))
-
-  ;; TODO: currently can only do ids, and only left to right
-  ;; TODO: get rid of dup code with rewriteR
-  (define-syntax (by-rewriteL syn)
-    (syntax-case syn ()
-      [(_ x)
-       #`(fill (rewriteL #'x))]))
-
-  (define ((rewriteL name) ctxt pt)
-    (match-define (ntt-hole _ goal) pt)
-;    (printf "goal = ~a\n" (syntax->datum goal))
-;    (displayln (syntax->datum (dict-ref ctxt name)))
-    (ntac-match (dict-ref ctxt name)
-     [(_ (_ (_ (~literal ==) ty) a:id) b) #;((~literal ==) ty a:id b)
-      ;; TODO: why is it necessary to manually propagate the unused ids like this?
-      (let* ([used-ids (if (identifier? #'b) (list #'b name) (list name))]
-             [unused-ids (foldr remove-id (dict-keys ctxt) (cons #'a used-ids))])
-        (with-syntax ([b* (format-id #'a "~a" (generate-temporary))])
-          (make-ntt-apply
-           goal
-           (list
-            (make-ntt-context
-             (lambda (old-ctxt)
-               ;; TODO: removing old ids like this makes printing the focus look weird
-               (foldr dict-remove/flip old-ctxt used-ids))
-             (make-ntt-hole (subst-term #'a #'b goal))))
-           (λ (body-pf)
-             (let* ([res
-                     (quasisyntax/loc goal 
-                       ((new-elim
-                         #,name
-                         (λ [a : ty]
-                           (λ [b* : ty]
-                             (λ [#,name : (== ty a b*)]
-                               #,(foldl
-                                  (λ (x stx) #`(Π [#,x : #,(dict-ref ctxt x)] #,stx))
-                                  (subst-term #'b* #'b goal)
-                                  unused-ids))))
-                         (λ [a : ty]
-                           #,(foldl
-                              (λ (x stx) #`(λ [#,x : #,(dict-ref ctxt x)] #,stx))
-                              (subst-term #'b* #'b body-pf)
-                              unused-ids)))
-                        #,@(reverse unused-ids)))]
-                    #;[_ (pretty-print (syntax->datum res))])
-               res)))))]))
+             (define res
+               (quasisyntax/loc goal 
+                 ((new-elim
+                   #,name
+                   (λ [a* : ty] [b* : ty]
+                      (λ [#,name : (== ty a* b*)]
+                        #,(foldl
+                           (λ (x stx)
+                             #`(Π [#,x : #,(insert-tmps (dict-ref ctxt x))]
+                                  #,stx))
+                           (insert-tmps goal)
+                           unused-ids)))
+                   (λ [b* : ty]
+                     #,(foldl
+                        (λ (x stx)
+                          #`(λ [#,x : #,(subst-term #'b* #'b (dict-ref ctxt x))]
+                              #,stx))
+                        (subst-term #'b* #'b body-pf)
+                        unused-ids)))
+                  #,@(reverse unused-ids))))
+             #;(begin (if left? (displayln "rewriteL") (displayln "rewriteR"))
+                      (pretty-print (syntax->datum res)))
+             res))))]))
 
   ;; TODO: reimplement this to use rewrite, like by-coq-rewrite/thm in coqrewrite.rkt
   (define-syntax (by-rewrite/thm syn)
