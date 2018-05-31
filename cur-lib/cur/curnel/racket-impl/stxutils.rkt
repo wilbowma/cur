@@ -60,12 +60,18 @@
 ;;  (displayln res)
   res)
 
-(define (subst-term v e0 syn)
-;;  (printf "subst: ~a for ~a in ~a\n" (syntax->datum v) (syntax->datum e0) (syntax->datum syn))
+(define (subst-term v e0 syn [bvs (immutable-free-id-set)])
+; (printf "subst-term: ~a for ~a in ~a\n" (syntax->datum v) (syntax->datum e0) (syntax->datum syn))
   (syntax-parse syn
-    [e #:when (stx=? #'e e0) v]
+    [e
+     #:when (and (stx=? #'e e0)
+                 (or (not (identifier? #'e))
+                     (not (free-id-set-member? bvs #'e))))
+     v]
+    [((~and (~datum λ) lam) (z:id : ty) e)
+     #`(lam (z : #,(subst-term v e0 #'ty bvs)) #,(subst-term v e0 #'e (free-id-set-add bvs #'z)))]
     [(e ...)
-     (datum->syntax syn (map (λ (e1) (subst-term v e0 e1)) (attribute e)))]
+     (datum->syntax syn (map (λ (e1) (subst-term v e0 e1 bvs)) (attribute e)))]
     [_ syn]))
 
 ;; takes a list of values and a list of identifiers, in dependency order, and substitutes them into syn.
