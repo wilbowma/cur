@@ -62,7 +62,8 @@
         ;; - in the motive: they map to a_ and b_ respectively, ie in `insert-tmps`
         ;; - in the method: b* maps to the b, ie the "source"
         (define (insert-tmps stx)
-          (subst-term #'a* #'a_ (subst-term #'b* #'b_ stx)))
+          ;; middle subst-term deals with potential overlap between a_ and b_
+          (subst-term #'a* (subst-term #'b* #'b_ #'a_) (subst-term #'b* #'b_ stx)))
         ;; TODO: why is it necessary to manually propagate the unused ids like this?
         (let* ([used-ids (if (identifier? #'a)
                              (list #'a name)

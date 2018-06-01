@@ -8,6 +8,8 @@
  cur/ntac/standard
  cur/ntac/prop)
 
+(provide (all-defined-out))
+
 ;; examples from SF Ch 1: Basics
 
 (data day : 0 Type
