@@ -1,6 +1,7 @@
 #lang s-exp "../main.rkt"
 (require
-  (for-syntax "../curnel/racket-impl/stxutils.rkt")
+  (for-syntax "dict-utils.rkt"
+              "../curnel/racket-impl/stxutils.rkt")
  "../stdlib/sugar.rkt"
  "../curnel/racket-impl/reflection.rkt" ; simpl needs cur-normalize
  "../curnel/racket-impl/runtime.rkt" ; destruct needs constant-info
@@ -196,6 +197,28 @@
   ;;                constructor-count constructor-ls constructor-index
   ;;                recursive-index-ls))
 
+  (define (display-info c-info name [break? #f])
+    (printf "constant info, for ~a -------------\n" (syntax->datum name))
+    (printf "type: ~a\n" (syntax->datum (identifier-info-type c-info)))
+    (printf "delta-def: ~a\n" (identifier-info-delta-def c-info))
+    (printf "param-count: ~a\n" (constant-info-param-count c-info))
+    (printf "param-name-ls: ~a\n" (constant-info-param-name-ls c-info))
+    (printf "param-ann-ls: ~a\n" (constant-info-param-ann-ls c-info))
+    (printf "index-name-ls: ~a\n" (constant-info-index-name-ls c-info))
+    (printf "index-ann-ls: ~a\n" (constant-info-index-ann-ls c-info))
+    (printf "constructor-count: ~a\n" (constant-info-constructor-count c-info))
+
+    (define const-ls (constant-info-constructor-ls c-info))
+    (printf "constructor-ls: ~a\n" const-ls)
+    (unless break?
+      (define const-c-infos (map syntax-local-eval const-ls))
+      (for-each (λ (i c) (display-info i c #t)) const-c-infos const-ls))
+    #;(displayln (map constant-info-index-name-ls const-c-infos))
+    #;(pretty-print (map (compose syntax->datum identifier-info-type) (map syntax-local-eval const-ls)))
+
+    (printf "constructor-index: ~a\n" (constant-info-constructor-index c-info))
+    (printf "recursive-index-ls: ~a\n" (constant-info-recursive-index-ls c-info)))
+
   (define (pi->anns ty)
     (syntax-parse ty
       [t:cur-runtime-pi
@@ -247,10 +270,9 @@
      (map
       (λ (pat C-type params)
         (make-ntt-context
-         (lambda (old-ctxt)
+         (λ (old-ctxt)
            (foldr
-            (λ (p ty ctx)
-              (dict-set ctx p ty))
+            dict-set/flip
             old-ctxt
             (syntax->list params)
             (pi->anns C-type)))
@@ -284,10 +306,9 @@
 
     (define Cs
       (constant-info-constructor-ls c-info))
-    (define C-types
-      (map
-       identifier-info-type
-       (map syntax-local-eval Cs)))
+    (define C-infos (map syntax-local-eval Cs))
+    (define C-types (map identifier-info-type C-infos))
+
     (define paramss
       (if param-namess
           (syntax->list param-namess)
@@ -311,11 +332,9 @@
         (make-ntt-context
          (lambda (old-ctxt)
            ; drop `name` from ctxt
-           ; but add bindings for constructor arguments of `name`
            (dict-remove
             (foldr
-             (λ (p ty ctx)
-               (dict-set ctx p ty))
+             dict-set/flip
              old-ctxt
              (syntax->list params)
              (pi->anns C-type))
@@ -327,17 +346,126 @@
       paramss)
      (λ pfs
        (let* ([res
-               (quasisyntax/loc goal 
+               (quasisyntax/loc goal
                  (new-elim #,name
                            (λ [#,name : #,name-ty] #,goal)
-                           . #,(map 
-                                ;; TODO: add IHs
-                             (λ (params pf)
-                               (if (null? (syntax->list params))
-                                   pf
-                                   #`(λ #,params #,pf)))
-                             paramss
-                             pfs)))]
+                           .
+                           #,(map
+                              ;; TODO: add IHs
+                              (λ (params pf)
+                                (if (null? (syntax->list params))
+                                    pf
+                                    #`(λ #,params #,pf)))
+                              paramss
+                              pfs)))]
               #;[_ (begin (displayln "destruct/elim") (pretty-print (syntax->datum res)))])
          res))))
+
+  ;; copied from by-destruct/elim
+  (define-syntax (by-induction syn)
+    (syntax-case syn ()
+      #;[(_ x) #`(fill (destruct/elim #'x))]
+      [(_ x #:as param-namess)
+       #`(fill (induction #'x #'param-namess))]))
+  
+
+  ;; initially copied from destruct/elim
+  (define ((induction name param-namess) ctxt pt)
+
+    (match-define (ntt-hole _ goal) pt)
+
+    (define name-ty (dict-ref ctxt name))
+    (define c-info (syntax-local-eval name-ty))
+    
+    ;;(display-info c-info name-ty)
+
+    ;; Cs = the (data constructors) for name-ty
+    (define Cs (constant-info-constructor-ls c-info))
+    (define C-infos (map syntax-local-eval Cs))
+    (define C-types (map identifier-info-type C-infos))
+
+    ;; for each C, param-names consists of:
+    ;; - args (index-name-ls)
+    ;; - IHs (recursive-index-ls)
+    (define C-IH-indexess (map constant-info-recursive-index-ls C-infos))
+    (define C-arities (map (compose length constant-info-index-name-ls) C-infos))
+
+    ;; TODO: verify param-namess against result of
+    ;; - constant-info-index-name-ls
+    ;; - constant-info-recursive-index-ls
+    (define paramss (syntax->list param-namess))
+
+    ;; for each param, type is either
+    ;; - argument types from C-type (if arg)
+    ;; - subst arg-name for name in goal (if IH)
+    ;;   - where arg-name specified by recursive-index-ls
+    (define param-typess
+      (map
+       (λ (C-type C-IH-indexes params)
+         (define tys (pi->anns C-type))
+         (append
+          tys
+          (map
+           (λ (i)
+             (let ([n* (list-ref (syntax->list params) i)])
+               (subst n* name goal)))
+           C-IH-indexes)))
+       C-types
+       C-IH-indexess
+       paramss))
+
+    ;; combines C with its args,
+    ;; -ie drop the IHs from paramss
+    (define pats
+      (map
+       (λ (C ps arity)
+         (let ([args (take (syntax->list ps) arity)])
+           (if (null? args)
+               C
+               #`(#,C . #,args))))
+       Cs paramss C-arities))
+    
+    (make-ntt-apply
+     goal
+     (map
+      (λ (pat params param-types)
+        (make-ntt-context
+         (lambda (old-ctxt)
+           ; drop `name` from ctxt
+           ; but add bindings for:
+           ; - constructor arguments of `name`
+           ; - IHs for args with type name-ty
+           (dict-remove
+            (foldl
+             dict-set/flip
+             old-ctxt
+             (syntax->list params)
+             param-types)
+            name))
+         (make-ntt-hole
+          (subst pat name goal))))
+      pats
+      paramss
+      param-typess)
+     (λ pfs
+       (define res
+         (quasisyntax/loc goal
+           (new-elim
+            #,name
+            (λ [#,name : #,name-ty] #,goal)
+            .
+            #,(map
+               (λ (params param-types pf)
+                 (if (null? (syntax->list params))
+                     pf
+                     (foldr
+                      (λ (p ty e) #`(λ [#,p : #,ty] #,e))
+                      pf
+                      (syntax->list params)
+                      param-types)))
+               paramss
+               param-typess
+               pfs))))
+       #;(begin (displayln "induction") (pretty-print (syntax->datum res)))
+       res)))
 )

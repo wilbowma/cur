@@ -7,7 +7,7 @@
  (for-template (only-in racket/base let-values #%plain-lambda))
  syntax/parse
  racket/syntax
-  syntax/stx
+ syntax/stx
  syntax/parse/experimental/reflect)
 
 (provide (all-defined-out))
@@ -117,3 +117,7 @@
       (lambda ([x #f])
         (set! n (add1 n))
         (format-id x "~a~a" (or x 'x) n #:source x))))
+
+;; remove id v from lst
+(define (remove-id v lst) (remove v lst free-identifier=?))
+  

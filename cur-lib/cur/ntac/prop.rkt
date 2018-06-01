@@ -5,7 +5,8 @@
  "base.rkt"
  "standard.rkt"
               "../curnel/racket-impl/runtime.rkt"
-  (for-syntax "../curnel/racket-impl/stxutils.rkt"
+  (for-syntax "dict-utils.rkt"
+              "../curnel/racket-impl/stxutils.rkt"
               "../curnel/racket-impl/runtime-utils.rkt"
               (for-syntax syntax/parse)))
 
@@ -46,9 +47,6 @@
       [(_ x)
        #`(fill (rewrite #'x #:left? #t))]))
 
-  (define (remove-id v lst) (remove v lst free-identifier=?))
-  (define (dict-remove/flip k h) (dict-remove h k))
-  
   ;; if (dict-ref ctxt name) = (== ty a_ b_)
   ;; - [default] replace "a_" with "b_" (ie coq rewrite ->)
   ;; - if left? = #t, replace "b_" with "a_" (ie coq rewrite <-)
