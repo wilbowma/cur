@@ -46,17 +46,29 @@
      (datum->syntax syn (map (lambda (e) (subst v x e bvs)) (attribute e)))]
     [_ syn]))
 
+;; for some reason, the same "anon-discriminant" ids are not free-id=?
+;; (require racket/string racket/format)
+;; (define (anon-discriminant=? x y)
+;;   (and (equal? (syntax->datum x) (syntax->datum y))
+;;        (string-prefix? (~a (syntax->datum x)) "anon-discriminant")
+;;        (string-prefix? (~a (syntax->datum y)) "anon-discriminant")))
 (define (stx=? e1 e2)
-  ;; (printf "(stx=) e1 = ~a\n" e1)
-  ;; (printf "(stx=) e2 = ~a\n" e2)
+  ;; (printf "(stx=) e1 = ~a\n" (syntax->datum e1))
+  ;; (printf "(stx=) e2 = ~a\n" (syntax->datum e2))
   (define res
     (or (and (identifier? e1) (identifier? e2)
              (free-identifier=? e1 e2))
         (and (number? (syntax-e e1)) (number? (syntax-e e2))
              (= (syntax-e e1) (syntax-e e2))) ; number literals
+        (syntax-parse (list e1 e2) ; α equiv
+          [(((~datum typed-λ) [x1:id (~datum :) ty1] b1)
+            ((~datum typed-λ) [x2:id (~datum :) ty2] b2))
+           (and (stx=? #'ty1 #'ty2)
+                (stx=? #'b1 (subst #'x1 #'x2 #'b2)))]
+          [_
         (and (stx-pair? e1) (stx-pair? e2)
              (= (length (syntax->list e1)) (length (syntax->list e2)))
-             (andmap stx=? (syntax->list e1) (syntax->list e2)))))
+             (andmap stx=? (syntax->list e1) (syntax->list e2)))])))
 ;;  (displayln res)
   res)
 
