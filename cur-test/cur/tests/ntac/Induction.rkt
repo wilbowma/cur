@@ -40,6 +40,7 @@
   (by-rewriteL IH)
   reflexivity)
 
+;; doesnt work, requires simul recursion
 #;(define-theorem minus-diag
   (∀ [n : nat] (== nat (minus n n) 0))
   (by-intro n)
@@ -58,54 +59,6 @@
   display-focus
   reflexivity)
 
-;IH
-#;(typed-app
- (typed-app 
-  (typed-app == nat) 
-  (typed-elim 
-   n-1 
-   (typed-λ (n : nat) nat) 
-   O 
-   (typed-λ (m* : nat)
-            (typed-λ (ih : nat) 
-                     (typed-elim 
-                      n-1
-                      (typed-λ (n : nat) nat)
-                      n-1 
-                      (typed-λ (m* : nat) 
-                               (typed-λ (ih* : nat) 
-                                        (typed-elim
-                                         ih*
-                                         (typed-λ (n : nat) nat)
-                                         O
-                                         (typed-λ (n* : nat)
-                                                  (typed-λ (ih : nat)
-                                                           n*))))))))))
- O)
-
-
-#;(typed-app 
- (typed-app 
-  (typed-app == nat) 
-  (typed-elim 
-   (typed-elim 
-    n-1 
-    (typed-λ (n : nat) nat) 
-    (typed-app S n-1) 
-    (typed-λ (m* : nat)
-             (typed-λ (ih* : nat) 
-                      (typed-elim 
-                       ih* 
-                       (typed-λ (n : nat) nat) 
-                       O 
-                       (typed-λ (n* : nat) (typed-λ (ih : nat) n*))))))
-   (typed-λ (n : nat) nat) 
-   O 
-   (typed-λ (n* : nat) 
-            (typed-λ (ih : nat) 
-                     n*)))) 
- O)
-
 (define-theorem mult_0_r
   (∀ [n : nat] (== nat (mult n 0) 0))
   (by-intro n)
@@ -116,3 +69,52 @@
   simpl
   (by-rewrite IH)
   reflexivity)
+
+;; plus-comm requires coq=
+(require cur/ntac/coqrewrite
+         cur/stdlib/coqeq)
+
+(define-theorem plus-n-0/coq
+  (∀ [n : nat] (coq= nat n (plus n O)))
+  (by-intro n)
+  simpl ;; this step doesnt do anything except get everything in expanded form
+  (by-induction n #:as [() (n-1 IH)])
+  ;; subgoal 1
+  coq-reflexivity
+  ;; subgoal 2
+  simpl
+  (by-coq-rewriteL IH)
+  coq-reflexivity)
+
+(define-theorem plus-n-Sm/coq
+  (∀ [n : nat] [m : nat]
+     (coq= nat (S (plus n m)) (plus n (S m))))
+  (by-intro n)
+  (by-intro m)
+  simpl
+  (by-induction n #:as [() (n-1 IH)])
+  ;; subgoal 1
+  simpl
+  coq-reflexivity
+  ;; subgoal 1
+  simpl
+  (by-coq-rewrite IH)
+  coq-reflexivity)
+
+(define-theorem plus-comm
+  (∀ [n : nat] [m : nat]
+     (coq= nat (plus n m) (plus m n)))
+  (by-intro n)
+  (by-intro m)
+  simpl
+  (by-induction n #:as [() (n-1 IH)])
+  ; subgoal 1
+  simpl
+  (by-coq-rewriteL/thm/expand plus-n-0/coq m)
+  coq-reflexivity
+  ; subgoal 2
+  simpl
+  (by-coq-rewriteL/thm/expand plus-n-Sm/coq m n-1)
+  (by-coq-rewrite IH)
+  coq-reflexivity)
+

@@ -10,23 +10,23 @@
  cur/ntac/prop)
 
 
-;; ;; plus-n-0
-;; (::
-;;  (λ [n : Nat]
-;;    (new-elim
-;;     n
-;;     (λ [n : Nat] (== Nat n (plus n 0)))
-;;     (refl Nat 0)
-;;     (λ [n-1 : Nat]
-;;       (λ [IH : (== Nat n-1 (plus n-1 0))]
-;;         (new-elim
-;;          IH
-;;          (λ [n : Nat] [m : Nat]
-;;             (λ [H : (== Nat n m)]
-;;               (== Nat (s n) (s m))))
-;;          (λ [n : Nat]
-;;            (refl Nat (s n))))))))
-;;  (∀ [n : Nat] (== Nat n (plus n 0))))
+;; plus-n-0
+(::
+ (λ [n : Nat]
+   (new-elim
+    n
+    (λ [n : Nat] (== Nat n (plus n 0)))
+    (refl Nat 0)
+    (λ [n-1 : Nat]
+      (λ [IH : (== Nat n-1 (plus n-1 0))]
+        (new-elim
+         IH
+         (λ [n : Nat] [m : Nat]
+            (λ [H : (== Nat n m)]
+              (== Nat (s n) (s m))))
+         (λ [n : Nat]
+           (refl Nat (s n))))))))
+ (∀ [n : Nat] (== Nat n (plus n 0))))
 
 (define-theorem plus-n-0
   (∀ [n : Nat] (== Nat n (plus n z)))
@@ -143,89 +143,55 @@
   display-focus
   reflexivity)
 
-#;     (new-elim
-      (s n-1)
-      (λ [n : Nat] Nat)
-      (s n-1)
-      (λ [m-1 : Nat] [ih : Nat]
-         (new-elim
-          ih
-          (λ [n : Nat] Nat)
-          0
-          (λ [x : Nat] [ih : Nat]
-             x))))
+;; mult_0_r manually
+(::
+ (λ [n : Nat]
+   (new-elim
+    n
+    (λ [n : Nat] (== Nat (mult n 0) 0))
+    (refl Nat 0)
+    (λ [n-1 : Nat]
+      (λ [IH : (== Nat (mult n-1 0) 0)]
+        (new-elim
+         IH
+         (λ [a : Nat] [b : Nat]
+            (λ [H : (== Nat a b)]
+              (== Nat a b)))
+         (λ [a : Nat]
+           (refl Nat a)))))))
+ (∀ [n : Nat] (== Nat (mult n 0) 0)))
 
-#;(typed-elim 
- (typed-elim 
-  n-1 
-  (typed-λ (n : Nat) Nat) 
-  (typed-app s n-1) 
-  (typed-λ (m-1 : Nat) 
-           (typed-λ (ih : Nat) 
-                    (typed-elim 
-                     ih (typed-λ (n : Nat) Nat)
-                     z 
-                     (typed-λ (x : Nat) 
-                              (typed-λ (ih : Nat) 
-                                       x))))))
- (typed-λ (n : Nat) Nat) 
- z 
- (typed-λ (x : Nat) (typed-λ (ih : Nat) x)))
+; mult_0_r, expanded
+(::
+ (λ [n : Nat]
+   (new-elim
+    n
+    (λ [n : Nat] (== Nat (mult n 0) 0))
+    (refl Nat 0)
+    (λ [n-1 : Nat]
+      (λ [IH : (== Nat (mult n-1 0) 0)]
+        ((new-elim
+          IH
+          (λ [a : Nat] [b : Nat]
+             (λ [H : (== Nat a b)]
+               (Π [n-1 : Nat]
+                  (((== Nat) a) b))))
+          (λ [a : Nat]
+            (λ [n-1 : Nat]
+              (refl Nat a))))
+         n-1)))))
+ (∀ [n : Nat] (== Nat (mult n 0) 0)))
 
-
-;; ;; mult_0_r manually
-;; (::
-;;  (λ [n : Nat]
-;;    (new-elim
-;;     n
-;;     (λ [n : Nat] (== Nat (mult n 0) 0))
-;;     (refl Nat 0)
-;;     (λ [n-1 : Nat]
-;;       (λ [IH : (== Nat (mult n-1 0) 0)]
-;;         (new-elim
-;;          IH
-;;          (λ [a : Nat] [b : Nat]
-;;             (λ [H : (== Nat a b)]
-;;               (== Nat a b)))
-;;          (λ [a : Nat]
-;;            (refl Nat a)))))))
-;;  (∀ [n : Nat] (== Nat (mult n 0) 0)))
-
-;; ; mult_0_r, expanded
-;; (::
-;;  (λ [n : Nat]
-;;    (new-elim
-;;     n
-;;     (λ [n : Nat] (== Nat (mult n 0) 0))
-;;     (refl Nat 0)
-;;     (λ [n-1 : Nat]
-;;       (λ [IH : (== Nat (mult n-1 0) 0)]
-;;         ((new-elim
-;;           IH
-;;           (λ [a : Nat] [b : Nat]
-;;              (λ [H : (== Nat a b)]
-;;                (Π [n-1 : Nat]
-;;                   (((== Nat) a) b))))
-;;           (λ [a : Nat]
-;;             (λ [n-1 : Nat]
-;;               (refl Nat a))))
-;;          n-1)))))
-;;  (∀ [n : Nat] (== Nat (mult n 0) 0)))
-
-;; (define-theorem mult_0_r
-;;   (∀ [n : Nat] (== Nat (mult n 0) 0))
-;;   (by-intro n)
-;;   simpl
-;;   (by-induction n #:as [() (n-1 IH)])
-;;   display-focus
-;;   simpl
-;;   reflexivity
-;;   display-focus
-;;   simpl
-;;   display-focus
-;;   (by-rewrite IH)
-;;   display-focus
-;;   reflexivity)
+(define-theorem mult_0_r
+  (∀ [n : Nat] (== Nat (mult n 0) 0))
+  (by-intro n)
+  simpl
+  (by-induction n #:as [() (n-1 IH)])
+  simpl
+  reflexivity
+  simpl
+  (by-rewrite IH)
+  reflexivity)
                 
 (define-theorem plus-n-Sm
   (∀ [n : Nat] [m : Nat]
@@ -241,34 +207,7 @@
   simpl
   (by-rewrite IH)
   reflexivity)
-
-
-#;(new-elim
-   (plus-n-Sm m n-1)
-   (λ (g8669 : Nat) (g8670 : Nat)
-     (λ (g8671 : (== Nat g8669 g8670))
-          (typed-app
-           (typed-app
-            (typed-app == Nat)
-            (typed-app
-             s
-             (typed-elim
-              n-1
-              (typed-λ (anon-discriminant1498 : Nat) Nat)
-              m
-              (typed-λ (x : Nat) (typed-λ (ih-x : Nat) (typed-app s ih-x))))))
-           g8670)))
-   (λ (g8670 : Nat)
-           (new-elim
-             (IH)
-             (λ (g8672 : Nat)
-               (g8673 : Nat)
-               (λ (g8674 : (== Nat g8672 g8673))
-                   (typed-app
-                    (typed-app (typed-app == Nat) (typed-app s g8672))
-                    (typed-app s g8673))))
-             (λ (g8673 : Nat)
-               (refl Nat (typed-app s g8673))))))
+ 
 
 ;; plus-comm, manually, without propagation
 ;; (doesnt work)
@@ -315,6 +254,7 @@
     (== Nat (plus n m) (plus m n))))
 
 ;; plus-comm, manually, with propagation
+;; (doesnt work with ==)
 #;(::
  (λ [n : Nat] [m : Nat]
     ((new-elim
@@ -368,6 +308,8 @@
  (∀ [n : Nat] [m : Nat]
     (== Nat (plus n m) (plus m n))))
 
+;; doesnt work with == (see above)
+;; - must use coq= (see below)
 #;(define-theorem plus-comm
   (∀ [n : Nat] [m : Nat]
      (== Nat (plus n m) (plus m n)))
@@ -394,7 +336,7 @@
 ;; same as above, but using coq=
 (require cur/ntac/coqrewrite
          cur/stdlib/coqeq)
-#;(define-theorem plus-n-0/coq
+(define-theorem plus-n-0/coq
   (∀ [n : Nat] (coq= Nat n (plus n z)))
   (by-intro n)
   simpl ;; this step doesnt do anything except get everything in expanded form
@@ -402,13 +344,10 @@
   ;; subgoal 1
   coq-reflexivity
   ;; subgoal 2
-  display-focus
   simpl
-  display-focus
   (by-coq-rewriteL IH)
-  display-focus
   coq-reflexivity)
-#;(define-theorem plus-n-Sm/coq
+(define-theorem plus-n-Sm/coq
   (∀ [n : Nat] [m : Nat]
      (coq= Nat (s (plus n m)) (plus n (s m))))
   (by-intro n)
@@ -422,7 +361,8 @@
   simpl
   (by-coq-rewrite IH)
   coq-reflexivity)
-#;(define-theorem plus_comm
+
+(define-theorem plus_comm/coq
   (∀ [n : Nat] [m : Nat]
      (coq= Nat (plus n m) (plus m n)))
   (by-intro n)
@@ -431,15 +371,11 @@
   (by-induction n #:as [() (n-1 IH)])
   ; subgoal 1
   simpl
-  (by-rewriteL/thm/expand plus-n-0 m)
+  (by-coq-rewriteL/thm/expand plus-n-0/coq m)
   coq-reflexivity
   ; subgoal 2
-  display-focus
   simpl
-  display-focus
-  (by-rewriteL/thm/expand plus-n-Sm m n-1)
-  display-focus
+  (by-coq-rewriteL/thm/expand plus-n-Sm/coq m n-1)
   (by-coq-rewrite IH)
-  display-focus
-#;  coq-reflexivity)
+  coq-reflexivity)
 
