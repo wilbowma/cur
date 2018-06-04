@@ -12,7 +12,7 @@
  ;"stxutils.rkt"
 ; (for-template "type-check.rkt")
  ;(for-template "runtime.rkt")
- (for-template (only-in turnstile/lang infer typecheck? current-type-eval ~and ~parse expand/df ~literal ~fail type=? subst assign-type #;expands/ctxs))
+ (for-template (only-in turnstile/lang add-orig infer typecheck? current-type-eval ~and ~parse expand/df ~literal ~fail type=? subst #;expands/ctxs))
  (for-template turnstile/examples/dep-ind-cur)
  (for-template macrotypes/stx-utils)
  (for-template "cur-to-turnstile.rkt")
@@ -55,14 +55,14 @@
 |#
 
 ;copied from racket impl
-#;(define current-env (make-parameter #'()))
+(define current-env (make-parameter '()))
 
-#;(define (call-with-env env t)
+(define (call-with-env env t)
   ;; TODO: backwards-compatible, but perhaps very slow/memory intensive
-  (parameterize ([current-env #`#,(append (syntax->list env) (syntax->list (current-env)))])
+  (parameterize ([current-env (append env (current-env))])
     (t)))
 
-#;(define-syntax-rule (with-env env e)
+(define-syntax-rule (with-env env e)
   (call-with-env env (thunk e)))
 
 (define (env->ctx env) ;`((,#'x . ,#'Type) ...) -> #'([x : type] ...)
@@ -74,17 +74,17 @@
 
     ctx))
 
-(define (turnstile-infer syn #:local-env [env #'()])
+(define (turnstile-infer syn #:local-env [env '()])
   (let ([ctx (env->ctx env)])
     (car (cadddr (infer (list syn) #:ctx ctx)))))
 
 
-(define (cur-type-infer syn #:local-env [env #'()])
+(define (cur-type-infer syn #:local-env [env '()])
   (let ([t   (turnstile-infer syn #:local-env env)])
     ;(displayln (format "inferred stx: ~a\n inferred type: ~a\n\n" (syntax->datum syn) (syntax->datum t)))
     (cur-reflect t)))
 
-(define (cur-type-check? term expected-type #:local-env [env #'()])
+(define (cur-type-check? term expected-type #:local-env [env '()])
   (let ([inferred-type (turnstile-infer term #:local-env env)])
     ;(displayln (format "inferred: ~a\nexpected: ~a" (syntax->datum inferred-type) (syntax->datum expected-type)))
     (typecheck? inferred-type (cur-expand expected-type #:local-env env))))
@@ -96,12 +96,12 @@
       ;(displayln (format "reflected: ~a" reflected))
       (syntax->datum reflected))))
 
-(define (cur-normalize syn #:local-env [env #'()])
+(define (cur-normalize syn #:local-env [env '()])
     (let ([evaled (cur-eval syn)])
     ;(displayln (format "evaled: ~a" evaled))
       (cur-reflect evaled)))
 
-(define (cur-equal? term1 term2 #:local-env [env #'()])
+(define (cur-equal? term1 term2 #:local-env [env '()])
   (let ([term1-evaled (cur-eval term1 #:local-env env)] 
         [term2-evaled (cur-eval term2 #:local-env env)])
     (type=? term1-evaled term2-evaled)))
@@ -143,11 +143,11 @@
  #; (displayln (format "expanded: ~a\n\nargs:~a\n\nrec-args:~a\n\n" (syntax->datum expanded) (syntax->datum args) (syntax->datum rec-args)))
     (syntax->list rec-args)))
 
-(define (cur-eval syn #:local-env [env #'()]) ;use an extended type eval?
-  ((current-type-eval) syn))
+(define (cur-eval syn #:local-env [env '()])
+  (add-orig (cur-expand syn #:local-env env) syn)) ;inlined current-type-eval
 
 
-(define (cur-reflect syn #:local-env [env #'()])
+(define (cur-reflect syn #:local-env [env '()]) ;maybe need env here because cur-expand uses it?
   ;; NB: must be called on fully expanded code;
   ;; TODO: Would be better to enforce that to avoid quadratic expansion cost...
   (syntax-parse (cur-expand syn #:local-env env)
@@ -242,6 +242,8 @@
            #:attr name (syntax-property #'x 'axiom-ref-name)))
 
 
-(define (cur-expand syn #:local-env [env #'()])
+(define (cur-expand syn #:local-env [env '()])
   (local-expand syn 'expression null)
-    #;(expands/ctxs syn #:ctx env))
+  #;(expands/ctxs syn #:ctx env))
+
+
