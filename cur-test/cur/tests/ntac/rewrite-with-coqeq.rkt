@@ -60,9 +60,7 @@
      (-> (coq= Nat (s n) m)
          (coq= Nat (mult m (plus 1 n)) (mult m m))))
   (by-intros n m H)
-  display-focus
   (by-coq-rewriteL H)
-  display-focus
   coq-reflexivity)
 
 (define-theorem mult-S-1
@@ -70,7 +68,5 @@
      (-> (coq= Nat m (s n))
          (coq= Nat (mult m (plus 1 n)) (mult m m))))
   (by-intros n m H)
-  display-focus
   (by-coq-rewrite H)
-  display-focus
   coq-reflexivity)

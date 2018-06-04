@@ -111,12 +111,8 @@
   (by-intro n)
   simpl
   (by-induction n #:as [() (n-1 IH)])
-  display-focus
   simpl
   reflexivity
-  display-focus
   simpl
-  display-focus
   (by-rewrite IH)
-  display-focus
   reflexivity)

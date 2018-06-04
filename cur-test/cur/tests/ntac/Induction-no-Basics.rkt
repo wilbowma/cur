@@ -10,23 +10,23 @@
  cur/ntac/prop)
 
 
-;; plus-n-0
-(::
- (λ [n : Nat]
-   (new-elim
-    n
-    (λ [n : Nat] (== Nat n (plus n 0)))
-    (refl Nat 0)
-    (λ [n-1 : Nat]
-      (λ [IH : (== Nat n-1 (plus n-1 0))]
-        (new-elim
-         IH
-         (λ [n : Nat] [m : Nat]
-            (λ [H : (== Nat n m)]
-              (== Nat (s n) (s m))))
-         (λ [n : Nat]
-           (refl Nat (s n))))))))
- (∀ [n : Nat] (== Nat n (plus n 0))))
+;; ;; plus-n-0
+;; (::
+;;  (λ [n : Nat]
+;;    (new-elim
+;;     n
+;;     (λ [n : Nat] (== Nat n (plus n 0)))
+;;     (refl Nat 0)
+;;     (λ [n-1 : Nat]
+;;       (λ [IH : (== Nat n-1 (plus n-1 0))]
+;;         (new-elim
+;;          IH
+;;          (λ [n : Nat] [m : Nat]
+;;             (λ [H : (== Nat n m)]
+;;               (== Nat (s n) (s m))))
+;;          (λ [n : Nat]
+;;            (refl Nat (s n))))))))
+;;  (∀ [n : Nat] (== Nat n (plus n 0))))
 
 (define-theorem plus-n-0
   (∀ [n : Nat] (== Nat n (plus n z)))
@@ -39,6 +39,15 @@
   simpl
   (by-rewriteL IH)
   reflexivity)
+
+;; check empty application = no application
+(define-theorem 1=1
+  (== Nat (s z) (s z))
+  reflexivity)
+
+(:: 1=1 (== Nat (s z) (s z)))
+(:: (1=1) (== Nat (s z) (s z)))
+(:: ((1=1)) (== Nat (s z) (s z)))
 
 ;; (define minus
 ;;   (λ [n : Nat] [m : Nat]
@@ -234,7 +243,132 @@
   reflexivity)
 
 
-(define-theorem plus_comm
+#;(new-elim
+   (plus-n-Sm m n-1)
+   (λ (g8669 : Nat) (g8670 : Nat)
+     (λ (g8671 : (== Nat g8669 g8670))
+          (typed-app
+           (typed-app
+            (typed-app == Nat)
+            (typed-app
+             s
+             (typed-elim
+              n-1
+              (typed-λ (anon-discriminant1498 : Nat) Nat)
+              m
+              (typed-λ (x : Nat) (typed-λ (ih-x : Nat) (typed-app s ih-x))))))
+           g8670)))
+   (λ (g8670 : Nat)
+           (new-elim
+             (IH)
+             (λ (g8672 : Nat)
+               (g8673 : Nat)
+               (λ (g8674 : (== Nat g8672 g8673))
+                   (typed-app
+                    (typed-app (typed-app == Nat) (typed-app s g8672))
+                    (typed-app s g8673))))
+             (λ (g8673 : Nat)
+               (refl Nat (typed-app s g8673))))))
+
+;; plus-comm, manually, without propagation
+;; (doesnt work)
+#;(::
+ (λ [n : Nat] [m : Nat]
+    (new-elim
+     n
+     (λ [n : Nat] (== Nat (plus n m) (plus m n)))
+     ; case n = z: ----------
+     ; - need to prove:
+     ;   (== Nat (plus z m) (plus m z)) simpl-> 
+     ;   (== Nat m (plus m z))
+     #;(plus-n-0 m)
+     (new-elim     
+      (plus-n-0 m) ; (== Nat m (plus m z))
+      (λ [a : Nat] [b : Nat]
+         (λ [H : (== Nat a b)]
+           (== Nat a b)))
+      (λ [b : Nat] (refl Nat b)))
+     ; case n =  s n-1: ----------
+     ; - need to prove:
+     ;   (== Nat (plus (s n-1) m) (plus m (s n-1))) simpl->
+     ;   (== Nat (s (plus n-1 m)) (plus m (s n-1)))
+     (λ [n-1 : Nat]
+       (λ [IH : (== Nat (plus n-1 m) (plus m n-1))]
+         (new-elim
+          (plus-n-Sm m n-1) ; (== Nat (s (plus m n-1)) (plus m (s n-1)))
+          (λ [a : Nat] [b : Nat]
+             (λ [H : (== Nat a b)]
+               (== Nat (s (plus n-1 m)) b)))
+          ; need to prove:
+          ; (P (== Nat (s (plus m n-1)) (s (plus m n-1)))) = 
+          ;    (== Nat (s (plus n-1 m)) (s (plus m n-1))) = 
+          ;    add 1 to each element of IH
+          (λ [b1 : Nat]
+            (new-elim
+             IH
+             (λ [a2 : Nat] [b2 : Nat]
+                (λ [H : (== Nat a2 b2)]
+                  (== Nat (s a2) (s b2))))
+             (λ [b2 : Nat]
+               (refl Nat (s b2))))))))))
+ (∀ [n : Nat] [m : Nat]
+    (== Nat (plus n m) (plus m n))))
+
+;; plus-comm, manually, with propagation
+#;(::
+ (λ [n : Nat] [m : Nat]
+    ((new-elim
+      n
+      (λ [n : Nat]
+        (Π [m : Nat] (== Nat (plus n m) (plus m n))))
+      ; case n = z: ----------
+      ; - need to prove:
+      ;   (== Nat (plus z m) (plus m z)) simpl-> 
+      ;   (== Nat m (plus m z))
+      #;(plus-n-0 m)
+      (λ [m : Nat]
+        (new-elim
+         (plus-n-0 m) ; (== Nat m (plus m z))
+         (λ [a : Nat] [b : Nat]
+            (λ [H : (== Nat a b)]
+              (== Nat a b)))
+         (λ [b : Nat] (refl Nat b))))
+      ; case n =  s n-1: ----------
+      ; - need to prove:
+      ;   (== Nat (plus (s n-1) m) (plus m (s n-1))) simpl->
+      ;   (== Nat (s (plus n-1 m)) (plus m (s n-1)))
+      (λ [n-1 : Nat]
+        (λ [IH : (== Nat (plus n-1 m) (plus m n-1))]
+          (λ [m : Nat]
+            ((new-elim
+              (plus-n-Sm m n-1) ; (== Nat (s (plus m n-1)) (plus m (s n-1)))
+              (λ [a : Nat] [b : Nat]
+                 (λ [H : (== Nat a b)]
+                   (Π [m : Nat]
+                      (Π [n-1 : Nat]
+                         (Π [IH : (== Nat (plus n-1 m) (plus m n-1))]
+                            (== Nat (s (plus n-1 m)) b))))))
+              ; need to prove:
+              ; (P (== Nat (s (plus m n-1)) (s (plus m n-1)))) = 
+              ;    (== Nat (s (plus n-1 m)) (s (plus m n-1))) = 
+              ;    add 1 to each element of IH
+              (λ [b1 : Nat]
+                (λ [m : Nat]
+                  (λ [n-1 : Nat]
+                    (λ [IH : (== Nat (plus n-1 m) (plus m n-1))]
+                      (new-elim
+                       IH
+                       (λ [a2 : Nat] [b2 : Nat]
+                          (λ [H : (== Nat a2 b2)]
+                            (== Nat (s a2) (s b2))))
+                       (λ [b2 : Nat]
+                         (refl Nat (s b2)))))))))
+             m n-1 IH)))))
+     m))
+ (∀ [n : Nat] [m : Nat]
+    (== Nat (plus n m) (plus m n))))
+
+#;(define-theorem plus-comm
   (∀ [n : Nat] [m : Nat]
      (== Nat (plus n m) (plus m n)))
   (by-intro n)
@@ -254,3 +388,58 @@
   (by-rewrite IH)
   display-focus
   reflexivity)
+
+
+
+;; same as above, but using coq=
+(require cur/ntac/coqrewrite
+         cur/stdlib/coqeq)
+#;(define-theorem plus-n-0/coq
+  (∀ [n : Nat] (coq= Nat n (plus n z)))
+  (by-intro n)
+  simpl ;; this step doesnt do anything except get everything in expanded form
+  (by-induction n #:as [() (n-1 IH)])
+  ;; subgoal 1
+  coq-reflexivity
+  ;; subgoal 2
+  display-focus
+  simpl
+  display-focus
+  (by-coq-rewriteL IH)
+  display-focus
+  coq-reflexivity)
+#;(define-theorem plus-n-Sm/coq
+  (∀ [n : Nat] [m : Nat]
+     (coq= Nat (s (plus n m)) (plus n (s m))))
+  (by-intro n)
+  (by-intro m)
+  simpl
+  (by-induction n #:as [() (n-1 IH)])
+  ;; subgoal 1
+  simpl
+  coq-reflexivity
+  ;; subgoal 1
+  simpl
+  (by-coq-rewrite IH)
+  coq-reflexivity)
+#;(define-theorem plus_comm
+  (∀ [n : Nat] [m : Nat]
+     (coq= Nat (plus n m) (plus m n)))
+  (by-intro n)
+  (by-intro m)
+  simpl
+  (by-induction n #:as [() (n-1 IH)])
+  ; subgoal 1
+  simpl
+  (by-rewriteL/thm/expand plus-n-0 m)
+  coq-reflexivity
+  ; subgoal 2
+  display-focus
+  simpl
+  display-focus
+  (by-rewriteL/thm/expand plus-n-Sm m n-1)
+  display-focus
+  (by-coq-rewrite IH)
+  display-focus
+#;  coq-reflexivity)
+

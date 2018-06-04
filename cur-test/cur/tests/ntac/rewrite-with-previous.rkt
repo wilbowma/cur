@@ -60,7 +60,5 @@
      (== Nat (mult (plus 0 n) m) (mult n m)))
   by-intro
   by-intro
-  display-focus
   (by-rewrite/thm plus-0-n n)
-  display-focus
   reflexivity)

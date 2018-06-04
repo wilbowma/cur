@@ -48,9 +48,7 @@
   by-intro
   by-intro
   (by-intro H)
-  display-focus
   (by-rewrite H)
-  display-focus
   reflexivity)
 
 ;; raw term and type for plus-id-theorem below
@@ -77,9 +75,7 @@
   by-intro
   by-intro
   (by-intro H)
-  display-focus
   (by-rewriteL H)
-  display-focus
   reflexivity)
 
 ;; transivitity example
@@ -169,11 +165,8 @@
   by-intro
   (by-intro H1)
   (by-intro H2)
-  display-focus
   (by-rewriteR H1)
-  display-focus
   (by-rewriteL H2)
-  display-focus
   reflexivity)
 
 (define eq-sym-nat

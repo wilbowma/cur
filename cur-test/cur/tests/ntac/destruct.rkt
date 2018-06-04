@@ -234,18 +234,12 @@
   (by-intro b)
   (by-intro c)
   (by-destruct/elim b)
-  display-focus
   ; subgoal 1 --------
   simpl
-  display-focus
   (by-intro H)
-  display-focus
   (by-rewrite H)
-  display-focus
   reflexivity
-  display-focus
   ; subgoal 2 --------
   simpl
-  display-focus
   by-intro
   by-assumption)

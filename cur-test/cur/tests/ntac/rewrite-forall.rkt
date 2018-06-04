@@ -155,11 +155,8 @@
   (by-intro f)
   (by-intro H)
   (by-intro b)
-  display-focus
-  (by-coq-rewrite H)
-  display-focus
-  (by-coq-rewrite H)
-  display-focus
+  (by-coq-rewrite H b)
+  (by-coq-rewrite H b)
   coq-reflexivity
 )
 
@@ -178,10 +175,10 @@
   (∀ [f : (-> Bool Bool)]
      (-> (∀ [x : Bool] (coq= Bool (f x) (not x)))
          (∀ [b : Bool] (coq= Bool (f (f b)) b))))
-  by-intro
+  (by-intro f)
   (by-intro H)
-  by-intro
-  (by-coq-rewrite H)
-  (by-coq-rewrite H)
-  (by-coq-rewrite/thm negb-invol)
+  (by-intro b)
+  (by-coq-rewrite H b)
+  (by-coq-rewrite H (not b))
+  (by-coq-rewrite/thm negb-invol b)
   coq-reflexivity)

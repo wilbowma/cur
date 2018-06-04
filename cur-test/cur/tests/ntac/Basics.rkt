@@ -634,8 +634,8 @@
   (by-intro f)
   (by-intro H)
   (by-intro b)
-  (by-coq-rewrite H)
-  (by-coq-rewrite H)
+  (by-coq-rewrite H b)
+  (by-coq-rewrite H b)
   coq-reflexivity
 )
 
@@ -654,12 +654,12 @@
   (∀ [f : (-> bool bool)]
      (-> (∀ [x : bool] (coq= bool (f x) (negb x)))
          (∀ [b : bool] (coq= bool (f (f b)) b))))
-  by-intro
+  (by-intro f)
   (by-intro H)
-  by-intro
-  (by-coq-rewrite H)
-  (by-coq-rewrite H)
-  (by-coq-rewrite/thm negb-invol/coq=)
+  (by-intro b)
+  (by-coq-rewrite H b)
+  (by-coq-rewrite H (negb b))
+  (by-coq-rewrite/thm negb-invol/coq= b)
   coq-reflexivity)
 
 (define-theorem andb-eq-orb
