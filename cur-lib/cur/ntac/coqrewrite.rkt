@@ -28,6 +28,10 @@
    [by-rewriteL/thm/expand by-coq-rewriteL/thm/expand])))
 
 ;; ported from (ie, started with copy of) prop.rkt
+;; differences:
+;; - coq= has 2 params, so motive and method have 1 less arg
+;; - coq= rewrite does not need to propagate "unused" ids
+;;   (unlike rewrite with ==) (TODO: why?)
 
 ;; require equality (coq=) from cur/stdlib/coqeq
 (begin-for-syntax
@@ -50,60 +54,60 @@
   ;; surface rewrite tactics --------------------
   (define-syntax (by-rewrite syn)
     (syntax-case syn ()
-      [(_ H x ...)
-       #`(fill (rewrite #'H #:xs #'(x ...)))]))
+      [(_ H . es)
+       #`(fill (rewrite #'H #:es #'es))]))
 
   (define-syntax (by-rewrite/expand syn)
     (syntax-case syn ()
-      [(_ x)
-       #`(fill (rewrite #'x #:expand? #t))]))
+      [(_ H . es)
+       #`(fill (rewrite #'H #:es #'es #:expand? #t))]))
 
   (define-syntax (by-rewriteL syn)
     (syntax-case syn ()
-      [(_ x)
-       #`(fill (rewrite #'x #:left? #t))]))
+      [(_ H . es)
+       #`(fill (rewrite #'H #:left? #t #:es #'es))]))
 
   (define-syntax (by-rewriteL/expand syn)
     (syntax-case syn ()
-      [(_ x)
-       #`(fill (rewrite #'x #:left? #t #:expand? #t))]))
+      [(_ H . es)
+       #`(fill (rewrite #'H #:left? #t #: #'es #:expand? #t))]))
 
   (define-syntax (by-rewrite/thm syn)
     (syntax-case syn ()
-      [(_ thm x ...)
+      [(_ thm . es)
        #`(let ([thm-info (syntax-local-eval #'thm)])
            (fill (rewrite #'thm
                           #:real-name (theorem-info-name thm-info)
                           #:thm (theorem-info-orig thm-info)
-                          #:xs #'(x ...))))]))
+                          #:es #'es)))]))
 
   (define-syntax (by-rewrite/thm/expand syn)
     (syntax-case syn ()
-      [(_ thm x ...)
+      [(_ thm . es)
        #`(let ([thm-info (syntax-local-eval #'thm)])
            (fill (rewrite #'thm
                           #:real-name (theorem-info-name thm-info)
                           #:thm (identifier-info-type thm-info)
-                          #:xs #'(x ...))))]))
+                          #:es #'es)))]))
 
   (define-syntax (by-rewriteL/thm syn)
     (syntax-case syn ()
-      [(_ thm x ...)
+      [(_ thm . es)
        #`(let ([thm-info (syntax-local-eval #'thm)])
            (fill (rewrite #'thm
                           #:real-name (theorem-info-name thm-info)
                           #:thm (theorem-info-orig thm-info)
-                          #:xs #'(x ...)
+                          #:es #'es
                           #:left? #t)))]))
 
   (define-syntax (by-rewriteL/thm/expand syn)
     (syntax-case syn ()
-      [(_ thm x ...)
+      [(_ thm . es)
        #`(let ([thm-info (syntax-local-eval #'thm)])
            (fill (rewrite #'thm
                           #:real-name (theorem-info-name thm-info)
                           #:thm (cur-reflect (identifier-info-type thm-info))
-                          #:xs #'(x ...)
+                          #:es #'es
                           #:left? #t)))]))
 
   ;; internal rewrite tactic --------------------
@@ -117,32 +121,33 @@
         [body
          #`(Π #,@(reverse binds) body)])))
 
-(define (find-in e0 stx)
-  ;; (printf "find ~a in ~a\n" (syntax->datum e0) (syntax->datum stx))
-  (syntax-parse stx
-    [e #:when (stx=? #'e e0 datum=?) #'e]
-    [(e ...)
-     (for/first ([e (syntax->list #'(e ...))]
-                 #:when (find-in e0 e))
-       (find-in e0 e))]
-    [_ #f]))
+  ;; used to fix scopes of non-id `es` args
+  (define (find-in e0 stx)
+    ;; (printf "find ~a in ~a\n" (syntax->datum e0) (syntax->datum stx))
+    (syntax-parse stx
+      [e #:when (stx=? #'e e0 datum=?) #'e]
+      [(e ...)
+       (for/first ([e (syntax->list #'(e ...))]
+                   #:when (find-in e0 e))
+         (find-in e0 e))]
+      [_ #f]))
 
   ;; The theorem "H" to use for the rewrite is either:
   ;; - thm arg --- from previously defined define-theorem
   ;; - or (dict-ref ctxt name) --- usually an IH
   ;; H can have shape:
   ;; - (coq= ty a_ b_)
-  ;; - (∀ [x : ty] (coq= ty a_ b_))
+  ;; - (∀ [x : ty] ... (coq= ty a_ b_))
+  ;;   - x ... instantiated with `es`
   ;; - or expanded versions of the above
   ;; a_ and b_ and marked as "source" and "target":
   ;; - [default] a_ = tgt, b_ = src, ie, replace "a_" with "b_" (ie coq rewrite ->)
   ;; - if left? = #t, flip and replace "b_" with "a_" (ie coq rewrite <-)
-  ;; TODO: make sure xs can be terms?
   (define ((rewrite name
                     #:real-name [real-name #f] ; ie, define-theorem name
                     #:thm [thm #f]
                     #:left? [left? #f]
-                    #:xs [xs #'()]
+                    #:es [es_ #'()]
                     #:expand? [expand? #f]) ; expands thm first before subst; useful for unexpanded IH
            ctxt pt)
     (match-define (ntt-hole _ goal) pt)
@@ -152,8 +157,8 @@
      [(~or
        ; already-instantiated thm
        (~and (~coq= ty0 a_ b_)
-             (~parse xs1 xs)) ; xs should be #'()
-       ; ∀ thm, instantiate with given xs
+             (~parse es es_)) ; es should be #'()
+       ; ∀ thm, instantiate with given es
        (~and
         nested-∀-thm
         (~parse
@@ -162,149 +167,73 @@
           (~and 
            (~or ((~literal coq=) ty0 y z)  ; unexpanded coq=
                 (~coq= ty0 y z)) ; expanded coq=
-           ;; xs didnt get scopes of the intros; manually add them, creating xs1
-           ;; TODO: make sure xs can be terms
-           (~parse xs1
+           ;; es_ didnt get scopes of the intros; manually add them, creating es
+           ;; - to get the right scope, either:
+           ;;  - look up e in the ctxt (if id)
+           ;;  - find it in the goal
+           (~parse es
                    (map
-                    (λ (x)
+                    (λ (e)
                       (or
                        (and
-                        (identifier? x)
+                        (identifier? e)
                         (for/first ([k (dict-keys ctxt)]
-                                    #:when (free-identifier=? k x))
+                                    #:when (free-identifier=? k e))
                           k))
-                       (find-in x goal)))
-                    (syntax->list xs)))
-           ;; type check that given xs match ty required by the thm
+                       (find-in e goal)))
+                    (syntax->list es_)))
+           ;; type check that given es match ty required by the thm
            (~fail
             #:unless (and
                       (= (length (syntax->list #'(x0 ...)))
-                         (length (syntax->list #'xs1)))
+                         (length (syntax->list #'es)))
                       (andmap
-                       (λ (x1 ty) (cur-type-check? x1 ty #:local-env (ctxt->env ctxt)))
-                       (syntax->list #'xs1)
+                       (λ (e ty) (cur-type-check? e ty #:local-env (ctxt->env ctxt)))
+                       (syntax->list #'es)
                        (syntax->list #'(ty ...))))
-            (format "given ids ~a have wrong arity, or wrong types ~a; cant be used with thm ~a: ~a\n"
-                    (syntax->datum xs)
+            (format "given terms ~a have wrong arity, or wrong types ~a; cant be used with thm ~a: ~a\n"
+                    (syntax->datum es_)
                     (map
-                     (λ (x)
-                       (define ty (dict-ref ctxt x))
+                     (λ (e)
+                       (define ty (dict-ref ctxt e))
                        (and ty (syntax->datum ty)))
-                     (syntax->list #'xs1))
+                     (syntax->list #'es))
                     (and real-name (syntax->datum real-name))
                     (and thm (syntax->datum thm))))
            ;; instantiate the left/right components of the thm
-           (~parse a_ (subst* (syntax->list #'xs1)
+           (~parse a_ (subst* (syntax->list #'es)
                               (syntax->list #'(x0 ...))
                               #'y))
-           (~parse b_ (subst* (syntax->list #'xs1)
+           (~parse b_ (subst* (syntax->list #'es)
                               (syntax->list #'(x0 ...))
                               #'z))))
          (flatten-Π #'nested-∀-thm))))
       ;; set a_ and b_ as source/target term, depending on specified direction
       (with-syntax* ([(tgt src) (if left? #'(b_ a_) #'(a_ b_))]
-                     [a* (format-id #'tgt "~a" (generate-temporary))]
-                     [b* (format-id #'src "~a" (generate-temporary))]
-                     [H (format-id name "~a" (generate-temporary))])
-        ;; ids a* and b* are used for *two* purposes:
-        ;; - in the motive: they map to a_ and b_ respectively, ie in `insert-tmps`
-        ;; - in the method: b* maps to the "source"
-        #;(define (insert-tmps stx)
-          ;; middle subst-term deals with potential overlap between a_ and b_
-          (subst-term #'a* (subst-term #'b* #'b_ #'a_) (subst-term #'b* #'b_ stx)))
-        (define (insert-tmps/a stx)
-          (subst-term #'a* #'a_ stx))
-        (define (insert-tmps/b stx)
-          (subst-term #'b* #'b_ stx))
-        ;; TODO (cur question):
-        ;  why is it necessary to manually propagate the unused ids like this?
-        (let* ([used-ids (if (identifier? #'tgt)
-                             (list #'tgt)
-                             (list))]
-               #;[unused-ids (foldr remove-id (dict-keys ctxt) (if (identifier? #'src)
-                                                                 (cons #'src used-ids)
-                                                                 used-ids))])
+                     [tgt-id (format-id #'tgt "~a" (generate-temporary))]
+                     [H (format-id name "~a" (generate-temporary))]
+                     [thm/inst (if thm #`(#,real-name . es) #`(#,name . es))]
+                     [THM (if left?
+                              #'thm/inst
+                              #'(coq=-sym ty0 a_ b_ thm/inst))])
           (make-ntt-apply
            goal
            (list
-            (make-ntt-hole (subst-term #'src #'tgt goal))
-            #;(make-ntt-context
-             (lambda (old-ctxt)
-               ;; TODO (cur question):
-               ;; Is removing old ids like this the right thing to do?
-               ;; - also, it makes display-focus output different from coq
-               (foldr dict-remove/flip old-ctxt used-ids))
-             (make-ntt-hole (subst-term #'src #'tgt goal))))
+            (make-ntt-hole (subst-term #'src #'tgt goal)))
            (λ (body-pf)
              (define res
-               ;; TODO: merge the two branches
-               #;(if left?
-                   (quasisyntax/loc goal ; left <-
-                     ((new-elim
-                       #,(if thm
-                             #`(#,real-name . xs1)
-                             #`(#,name . xs1))
-                       (λ [b* : ty0]
-                          (λ [H : (coq= ty0 a_ b*)]
-                            #,(foldl
-                               (λ (x stx)
-                                 #`(Π [#,x : #,(insert-tmps/b (dict-ref ctxt x))]
-                                      #,stx))
-                               (insert-tmps/b goal)
-                               unused-ids)))
-                       #,(foldl
-                          (λ (x stx)
-                            #`(λ [#,x : #,(dict-ref ctxt x)]
-                                #,stx))
-                            body-pf
-                            unused-ids))
-                      #,@(reverse unused-ids)))
-                   (quasisyntax/loc goal ; right ->
-                     ((new-elim
-                       (coq=-sym ty0 a_ b_
-                                 #,(if thm
-                                       #`(#,real-name . xs1)
-                                       #`(#,name . xs1)))
-                       (λ [a* : ty0]
-                          (λ [H : (coq= ty0 b_ a*)]
-                            #,(foldl
-                               (λ (x stx)
-                                 #`(Π [#,x : #,(insert-tmps/a (dict-ref ctxt x))]
-                                      #,stx))
-                               (insert-tmps/a goal)
-                               unused-ids)))
-                       #,(foldl
-                          (λ (x stx)
-                            #`(λ [#,x : #,(dict-ref ctxt x)]
-                                #,stx))
-                          body-pf
-                          unused-ids))
-                      #,@(reverse unused-ids))))
-               (if left?
-                   (quasisyntax/loc goal ; left <-
+                 (quasisyntax/loc goal
                      (new-elim
-                      #,(if thm
-                            #`(#,real-name . xs1)
-                            #`(#,name . xs1))
-                      (λ [b* : ty0]
-                        (λ [H : (coq= ty0 a_ b*)]
-                          #,(insert-tmps/b goal)))
-                      #,body-pf))
-                   (quasisyntax/loc goal ; right ->
-                     (new-elim
-                       (coq=-sym ty0 a_ b_
-                                 #,(if thm
-                                       #`(#,real-name . xs1)
-                                       #`(#,name . xs1)))
-                       (λ [a* : ty0]
-                          (λ [H : (coq= ty0 b_ a*)]
-                            #,(insert-tmps/a goal)))
-                       #,body-pf))))
+                      THM
+                      (λ [tgt-id : ty0]
+                        (λ [H : (coq= ty0 src tgt-id)]
+                          #,(subst-term #'tgt-id #'tgt goal)))
+                      #,body-pf)))
              #;(begin (cond [(and left? thm) (displayln "coq rewritethmL")]
                           [thm (displayln "coq rewritethmR")]
                           [left? (displayln "coq rewriteL")]
                           [else (displayln "coq rewriteR")])                          
                       (pretty-print (syntax->datum res)))
-             res))))
+             res)))
       ]))
   )
