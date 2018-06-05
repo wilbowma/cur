@@ -121,17 +121,6 @@
         [body
          #`(Π #,@(reverse binds) body)])))
 
-  ;; used to fix scopes of non-id `es` args
-  (define (find-in e0 stx)
-    ;; (printf "find ~a in ~a\n" (syntax->datum e0) (syntax->datum stx))
-    (syntax-parse stx
-      [e #:when (stx=? #'e e0 datum=?) #'e]
-      [(e ...)
-       (for/first ([e (syntax->list #'(e ...))]
-                   #:when (find-in e0 e))
-         (find-in e0 e))]
-      [_ #f]))
-
   ;; The theorem "H" to use for the rewrite is either:
   ;; - `thm` arg --- from previously defined define-theorem
   ;; - or (dict-ref ctxt name) --- usually an IH
@@ -175,14 +164,11 @@
            ;;     - find it in the goal
            (~parse es
                    (map
-                    (λ (e)
-                      (or
-                       (and
-                        (identifier? e)
-                        (for/first ([k (dict-keys ctxt)]
-                                    #:when (free-identifier=? k e))
-                          k))
-                       (find-in e goal)))
+                    (λ (e) (or (and (identifier? e)
+                                    (for/first ([k (dict-keys ctxt)]
+                                                #:when (free-identifier=? k e))
+                                      k))
+                               (find-in e goal)))
                     (syntax->list es_)))
            ;; type check that given es match ty required by the thm
            (~fail

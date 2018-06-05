@@ -67,6 +67,18 @@
 ;;  (displayln res)
   res)
 
+;; returns e if e \in stx and (datum=? e0 e), else #f
+;; (needed by ntac to workaround some scoping issues)
+(define (find-in e0 stx)
+  ;; (printf "find ~a in ~a\n" (syntax->datum e0) (syntax->datum stx))
+  (syntax-parse stx
+    [e #:when (stx=? #'e e0 datum=?) #'e]
+    [(e ...)
+     (for/first ([e (syntax->list #'(e ...))]
+                 #:when (find-in e0 e))
+       (find-in e0 e))]
+    [_ #f]))
+
 (define (subst-term v e0 syn [bvs (immutable-free-id-set)])
 ; (printf "subst-term: ~a for ~a in ~a\n" (syntax->datum v) (syntax->datum e0) (syntax->datum syn))
   (syntax-parse syn
