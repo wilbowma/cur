@@ -473,11 +473,24 @@
   (by-assert H (== Nat (plus 0 n) n))
   ; proving H
   reflexivity
+  ; proving rest
   (by-rewrite H)
   reflexivity)
   
 
 ;; plus-rearrange
+(define-theorem plus-rearrange
+  (∀ [n : Nat] [m : Nat] [p : Nat] [q : Nat]
+     (coq= Nat (plus (plus n m) (plus p q))
+               (plus (plus m n) (plus p q))))
+  (by-intros n m p q)
+  (by-assert H (coq= Nat (plus n m) (plus m n)))
+  ; proof of H
+  (by-coq-rewrite/thm plus_comm/coq n m)
+  coq-reflexivity
+  ; proof of rest
+  (by-coq-rewrite H)
+  coq-reflexivity)
 
 ;; plus-assoc
 (define-theorem plus-assoc
