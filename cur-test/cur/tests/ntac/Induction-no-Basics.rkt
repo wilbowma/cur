@@ -3,6 +3,7 @@
 (require
  rackunit
  cur/stdlib/nat
+ cur/stdlib/bool
  cur/stdlib/prop
  cur/stdlib/sugar
  cur/ntac/base
@@ -95,19 +96,18 @@
           (λ [x : Nat] [ih : Nat]
              x))))))
 
-;; (check-equal? (minus2 1 1) 0)
-;; (check-equal? (minus2 2 1) 1)
-;; (check-equal? (minus2 3 1) 2)
-;; (check-equal? (minus2 4 1) 3)
-;; (check-equal? (minus2 5 1) 4)
-;; (check-equal? (minus2 2 2) 0)
-;; (check-equal? (minus2 3 2) 1)
-;; (check-equal? (minus2 4 2) 2)
-;; (check-equal? (minus2 5 2) 3)
-;; (check-equal? (minus2 3 3) 0)
-;; (check-equal? (minus2 4 3) 1)
-;; (check-equal? (minus2 5 3) 2)
-
+(check-equal? (minus2 1 1) 0)
+(check-equal? (minus2 2 1) 1)
+(check-equal? (minus2 3 1) 2)
+(check-equal? (minus2 4 1) 3)
+(check-equal? (minus2 5 1) 4)
+(check-equal? (minus2 2 2) 0)
+(check-equal? (minus2 3 2) 1)
+(check-equal? (minus2 4 2) 2)
+(check-equal? (minus2 5 2) 3)
+(check-equal? (minus2 3 3) 0)
+(check-equal? (minus2 4 3) 1)
+(check-equal? (minus2 5 3) 2)
 
 ;; doesnt work, can't use recur outside of match
 #;(: minus/recur (-> Nat Nat Nat))
@@ -379,3 +379,91 @@
   (by-coq-rewrite IH)
   coq-reflexivity)
 
+#;(define (double [n : Nat])
+  (match n
+    [z z]
+    [(s n-1) (s (s (double n-1)))]))
+(define double
+  (λ [n : Nat]
+    (new-elim
+     n
+     (λ [n : Nat] Nat)
+     z
+     (λ [n-1 : Nat] [ih : Nat] (s (s ih))))))
+
+(check-equal? (double 0) 0)
+(check-equal? (double 1) 2)
+(check-equal? (double 1) 2)
+(check-equal? (double 5) 10)
+(check-equal? (double 10) 20)
+
+(define-theorem double-plus
+  (∀ [n : Nat] (coq= Nat (double n) (plus n n)))
+  (by-intro n)
+  simpl
+  (by-induction n #:as [() (n-1 IH)])
+  ; subgoal 1
+  coq-reflexivity
+  ; subgoal 2
+  simpl
+  (by-coq-rewriteL/thm/expand plus-n-Sm/coq n-1 n-1)
+  (by-coq-rewrite IH)
+  coq-reflexivity)
+
+;; copied from Basics.rkt
+(define negb
+  (λ [b : Bool]
+    (new-elim b (λ [b : Bool] Bool) false true)))
+
+(define evenb
+  (λ [n : Nat]
+    (new-elim
+     n
+     (λ [n : Nat] Bool)
+     true
+     (λ [n-1 : Nat] [ih : Bool]
+        (negb ih)
+        #;(new-elim
+         n-1
+         (λ [n : Nat] Bool)
+         false
+         (λ [n-2 : Nat]
+           [ih2 : Bool] 
+           (negb ih2)))))))
+(check-equal? (evenb 0) true)
+(check-equal? (evenb 1) false)
+(check-equal? (evenb 2) true)
+(check-equal? (evenb 10) true)
+(check-equal? (evenb 11) false)
+
+(define-theorem negb-invol
+  (forall [b : Bool] (coq= Bool (negb (negb b)) b))
+  (by-intro b)
+  (by-destruct/elim b)
+  simpl
+  coq-reflexivity
+  ; -----------
+  simpl
+  coq-reflexivity)
+
+;; need functional recursion
+#;(define-theorem evenb_S
+  (∀ [n : Nat]
+     (coq= Bool (evenb (s n)) (negb (evenb n))))
+  (by-intro n)
+  (by-induction n #:as [() (n-1 IH)])
+  ; goal 1
+  coq-reflexivity
+  ; goal 2
+  display-focus
+  (by-coq-rewrite IH)
+  display-focus
+  (by-coq-rewrite/thm negb-invol (evenb n-1))
+  display-focus
+  simpl
+  display-focus
+  coq-reflexivity)
+
+;; requires assert
+#;(define-theorem mult-0-plus*
+  (∀ [n : Nat] [m : Nat] (== Nat (mult (plus 0 n) m) (mult n m))))

@@ -70,7 +70,7 @@
   (define-syntax (by-rewriteL/expand syn)
     (syntax-case syn ()
       [(_ H . es)
-       #`(fill (rewrite #'H #:left? #t #: #'es #:expand? #t))]))
+       #`(fill (rewrite #'H #:left? #t #:es #'es #:expand? #t))]))
 
   (define-syntax (by-rewrite/thm syn)
     (syntax-case syn ()
@@ -141,7 +141,7 @@
            ctxt pt)
     (match-define (ntt-hole _ goal) pt)
     (define H (or thm (dict-ref ctxt name)))
- ;   (printf "thm = ~a\n" (syntax->datum H))
+    ;; (printf "thm = ~a\n" (syntax->datum H))
     (ntac-match H
      [(~or
        ; already-instantiated thm
