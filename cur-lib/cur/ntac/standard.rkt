@@ -86,6 +86,43 @@
   (reverse (for/list ([(k v) (in-dict ctxt)])
              (cons k v))))
 
+(begin-for-syntax
+  (define (transfer-scopes src stx ctxt)
+    (syntax-parse stx
+      [x:id
+       (if (dict-has-key? ctxt #'x)
+           #'x
+           (format-id src "~a" #'x))]
+      [(e ...)
+       #`#,(map (λ (e) (transfer-scopes src e ctxt)) (syntax->list #'(e ...)))]
+      [e ; datums fall here
+       (datum->syntax src (syntax->datum #'e))]))
+  
+  (define ((assert H ty_ a) ctxt pt)
+    (match-define (ntt-hole _ goal) pt)
+    
+    ;; ty_ has the wrong scopes (bc of eval I think)
+    ;; workaround by transferring scopes from goal (except for bindings in ctx)
+    (define ty (transfer-scopes goal ty_ ctxt))
+    (make-ntt-apply
+     goal
+     (list
+      (make-ntt-hole ty)
+      (make-ntt-context
+       (λ (old-ctxt)
+         (dict-set old-ctxt H ty))
+       (make-ntt-hole goal)))
+     (lambda (arg-pf body-pf)
+       (quasisyntax/loc goal
+         ((λ (#,H : #,ty)
+            #,body-pf)
+          #,arg-pf)))))
+
+  (define-syntax (by-assert syn)
+    (syntax-case syn ()
+      [(a H ty)
+       #`(fill (assert #'H #'ty #'a))])))
+
 (define-for-syntax ((intro [name #f]) ctxt pt)
   ;; TODO: ntt-match(-define) to hide this extra argument. Maybe also add ntt- to constructors in pattern?
   (match-define (ntt-hole _ goal) pt)

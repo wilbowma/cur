@@ -465,5 +465,30 @@
   coq-reflexivity)
 
 ;; requires assert
-#;(define-theorem mult-0-plus*
-  (∀ [n : Nat] [m : Nat] (== Nat (mult (plus 0 n) m) (mult n m))))
+(define-theorem mult-0-plus*
+  (∀ [n : Nat] [m : Nat]
+     (== Nat (mult (plus 0 n) m) (mult n m)))
+  (by-intros n m)
+  display-focus
+  (by-assert H (== Nat (plus 0 n) n))
+  ; proving H
+  reflexivity
+  (by-rewrite H)
+  reflexivity)
+  
+
+;; plus-rearrange
+
+;; plus-assoc
+(define-theorem plus-assoc
+  (∀ [n : Nat] [m : Nat] [p : Nat]
+     (coq= Nat (plus n (plus m p)) (plus (plus n m) p)))
+  (by-intros n m p)
+  simpl
+  (by-induction n #:as [() (n-1 IH)])
+  ; goal 1, n = 0
+  coq-reflexivity
+  simpl
+  (by-coq-rewrite IH)
+  coq-reflexivity)
+
