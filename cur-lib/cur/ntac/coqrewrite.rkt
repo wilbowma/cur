@@ -29,7 +29,7 @@
 
 ;; ported from (ie, started with copy of) prop.rkt
 ;; differences:
-;; - coq= has 2 params, so motive and method have 1 less arg
+;; - coq= has 2 params, so elim motive and method have 1 less arg
 ;; - coq= rewrite does not need to propagate "unused" ids
 ;;   (unlike rewrite with ==) (TODO: why?)
 
@@ -133,16 +133,16 @@
       [_ #f]))
 
   ;; The theorem "H" to use for the rewrite is either:
-  ;; - thm arg --- from previously defined define-theorem
+  ;; - `thm` arg --- from previously defined define-theorem
   ;; - or (dict-ref ctxt name) --- usually an IH
   ;; H can have shape:
-  ;; - (coq= ty a_ b_)
-  ;; - (∀ [x : ty] ... (coq= ty a_ b_))
+  ;; - (coq= ty L R)
+  ;; - (∀ [x : ty] ... (coq= ty L R))
   ;;   - x ... instantiated with `es`
   ;; - or expanded versions of the above
-  ;; a_ and b_ and marked as "source" and "target":
-  ;; - [default] a_ = tgt, b_ = src, ie, replace "a_" with "b_" (ie coq rewrite ->)
-  ;; - if left? = #t, flip and replace "b_" with "a_" (ie coq rewrite <-)
+  ;; L/R then marked as "source" and "target":
+  ;; - [default] L = tgt, R = src, ie, replace "L" with "R" (ie coq rewrite ->)
+  ;; - if left? = #t, flip and replace "R" with "L" (ie coq rewrite <-)
   (define ((rewrite name
                     #:real-name [real-name #f] ; ie, define-theorem name
                     #:thm [thm #f]
@@ -156,21 +156,23 @@
     (ntac-match H
      [(~or
        ; already-instantiated thm
-       (~and (~coq= ty0 a_ b_)
+       (~and (~coq= TY L R)
              (~parse es es_)) ; es should be #'()
        ; ∀ thm, instantiate with given es
        (~and
         nested-∀-thm
-        (~parse
+        (~parse ; flattened ∀-thm
          ((~datum Π)
-          [x0:id _ ty] ... ; flattened bindings
+          [x0:id _ ty0] ... ; flattened bindings
           (~and 
-           (~or ((~literal coq=) ty0 y z)  ; unexpanded coq=
-                (~coq= ty0 y z)) ; expanded coq=
-           ;; es_ didnt get scopes of the intros; manually add them, creating es
-           ;; - to get the right scope, either:
-           ;;  - look up e in the ctxt (if id)
-           ;;  - find it in the goal
+           (~or ((~literal coq=) TY L/uninst R/uninst)  ; unexpanded coq=
+                (~coq= TY L/uninst R/uninst)) ; expanded coq=
+           ;; TODO: why are the scopes on es_ not right? bc of eval?
+           ;; - eg, they dont see the intros
+           ;; - workaround for now: manually add them, creating es
+           ;;   - to get the right scope, either:
+           ;;     - look up e in the ctxt (if id)
+           ;;     - find it in the goal
            (~parse es
                    (map
                     (λ (e)
@@ -190,7 +192,7 @@
                       (andmap
                        (λ (e ty) (cur-type-check? e ty #:local-env (ctxt->env ctxt)))
                        (syntax->list #'es)
-                       (syntax->list #'(ty ...))))
+                       (syntax->list #'(ty0 ...))))
             (format "given terms ~a have wrong arity, or wrong types ~a; cant be used with thm ~a: ~a\n"
                     (syntax->datum es_)
                     (map
@@ -200,22 +202,22 @@
                      (syntax->list #'es))
                     (and real-name (syntax->datum real-name))
                     (and thm (syntax->datum thm))))
-           ;; instantiate the left/right components of the thm
-           (~parse a_ (subst* (syntax->list #'es)
+           ;; instantiate the left/right components of the thm with es
+           (~parse L (subst* (syntax->list #'es)
                               (syntax->list #'(x0 ...))
-                              #'y))
-           (~parse b_ (subst* (syntax->list #'es)
+                              #'L/uninst))
+           (~parse R (subst* (syntax->list #'es)
                               (syntax->list #'(x0 ...))
-                              #'z))))
+                              #'R/uninst))))
          (flatten-Π #'nested-∀-thm))))
-      ;; set a_ and b_ as source/target term, depending on specified direction
-      (with-syntax* ([(tgt src) (if left? #'(b_ a_) #'(a_ b_))]
+      ;; set L and R as source/target term, depending on specified direction
+      (with-syntax* ([(tgt src) (if left? #'(R L) #'(L R))]
                      [tgt-id (format-id #'tgt "~a" (generate-temporary))]
                      [H (format-id name "~a" (generate-temporary))]
                      [thm/inst (if thm #`(#,real-name . es) #`(#,name . es))]
                      [THM (if left?
                               #'thm/inst
-                              #'(coq=-sym ty0 a_ b_ thm/inst))])
+                              #'(coq=-sym TY L R thm/inst))])
           (make-ntt-apply
            goal
            (list
@@ -225,8 +227,8 @@
                  (quasisyntax/loc goal
                      (new-elim
                       THM
-                      (λ [tgt-id : ty0]
-                        (λ [H : (coq= ty0 src tgt-id)]
+                      (λ [tgt-id : TY]
+                        (λ [H : (coq= TY src tgt-id)]
                           #,(subst-term #'tgt-id #'tgt goal)))
                       #,body-pf)))
              #;(begin (cond [(and left? thm) (displayln "coq rewritethmL")]
