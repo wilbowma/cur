@@ -141,7 +141,7 @@
            ctxt pt)
     (match-define (ntt-hole _ goal) pt)
     (define H (or thm (dict-ref ctxt name)))
-    ;; (printf "thm = ~a\n" (syntax->datum H))
+;    (printf "thm = ~a\n" (syntax->datum H))
     (ntac-match H
      [(~or
        ; already-instantiated thm
@@ -188,13 +188,15 @@
                      (syntax->list #'es))
                     (and real-name (syntax->datum real-name))
                     (and thm (syntax->datum thm))))
+           ;; prevent accidental capture (why is this needed?)
+           (~parse xs* (generate-temporaries #'(x0 ...)))
            ;; instantiate the left/right components of the thm with es
            (~parse L (subst* (syntax->list #'es)
-                              (syntax->list #'(x0 ...))
-                              #'L/uninst))
+                             (syntax->list #'xs*)
+                             (subst* (syntax->list #'xs*) (syntax->list #'(x0 ...)) #'L/uninst)))
            (~parse R (subst* (syntax->list #'es)
-                              (syntax->list #'(x0 ...))
-                              #'R/uninst))))
+                             (syntax->list #'xs*)
+                             (subst* (syntax->list #'xs*) (syntax->list #'(x0 ...)) #'R/uninst)))))
          (flatten-Π #'nested-∀-thm))))
       ;; set L and R as source/target term, depending on specified direction
       (with-syntax* ([(tgt src) (if left? #'(R L) #'(L R))]
@@ -204,24 +206,26 @@
                      [THM (if left?
                               #'thm/inst
                               #'(coq=-sym TY L R thm/inst))])
-          (make-ntt-apply
-           goal
-           (list
-            (make-ntt-hole (subst-term #'src #'tgt goal)))
-           (λ (body-pf)
-             (define res
-                 (quasisyntax/loc goal
-                     (new-elim
-                      THM
-                      (λ [tgt-id : TY]
-                        (λ [H : (coq= TY src tgt-id)]
-                          #,(subst-term #'tgt-id #'tgt goal)))
-                      #,body-pf)))
-             #;(begin (cond [(and left? thm) (displayln "coq rewritethmL")]
+        ;; (printf "tgt = ~a\n" (syntax->datum #'tgt))
+        ;; (printf "src = ~a\n" (syntax->datum #'src))
+        (make-ntt-apply
+         goal
+         (list
+          (make-ntt-hole (subst-term #'src #'tgt goal)))
+         (λ (body-pf)
+           (define res
+             (quasisyntax/loc goal
+               (new-elim
+                THM
+                (λ [tgt-id : TY]
+                  (λ [H : (coq= TY src tgt-id)]
+                    #,(subst-term #'tgt-id #'tgt goal)))
+                #,body-pf)))
+           #;(begin (cond [(and left? thm) (displayln "coq rewritethmL")]
                           [thm (displayln "coq rewritethmR")]
                           [left? (displayln "coq rewriteL")]
                           [else (displayln "coq rewriteR")])                          
-                      (pretty-print (syntax->datum res)))
-             res)))
+                    (pretty-print (syntax->datum res)))
+           res)))
       ]))
   )

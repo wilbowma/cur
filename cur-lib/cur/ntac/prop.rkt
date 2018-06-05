@@ -179,13 +179,15 @@
                      (syntax->list #'es))
                     (and real-name (syntax->datum real-name))
                     (and thm (syntax->datum thm))))
+           ;; prevent accidental capture (why is this needed?)
+           (~parse xs* (generate-temporaries #'(x0 ...)))
            ;; instantiate the left/right components of the thm with es
            (~parse L (subst* (syntax->list #'es)
-                             (syntax->list #'(x0 ...))
-                             #'L_))
+                             (syntax->list #'xs*)
+                             (subst* (syntax->list #'xs*) (syntax->list #'(x0 ...)) #'L_)))
            (~parse R (subst* (syntax->list #'es)
-                             (syntax->list #'(x0 ...))
-                             #'R_))))
+                             (syntax->list #'xs*)
+                             (subst* (syntax->list #'xs*) (syntax->list #'(x0 ...)) #'R_)))))
          (flatten-Π #'nested-∀-thm))))
       ;; set a_ and b_ as source/target term, depending on specified direction
       (with-syntax* ([(tgt src) (if left? #'(R L) #'(L R))]

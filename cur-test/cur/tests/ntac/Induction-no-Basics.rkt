@@ -469,7 +469,6 @@
   (∀ [n : Nat] [m : Nat]
      (== Nat (mult (plus 0 n) m) (mult n m)))
   (by-intros n m)
-  display-focus
   (by-assert H (== Nat (plus 0 n) n))
   ; proving H
   reflexivity
@@ -504,4 +503,36 @@
   simpl
   (by-coq-rewrite IH)
   coq-reflexivity)
+
+(define-theorem plus-swap
+  (∀ [n : Nat] [m : Nat] [p : Nat]
+     (coq= Nat (plus n (plus m p))
+               (plus m (plus n p))))
+  (by-intros n m p)
+  (by-coq-rewrite/thm plus-assoc n m p)
+  (by-assert H (coq= Nat (plus n m) (plus m n)))
+  ; proof of H
+  (by-coq-rewrite/thm plus_comm/coq n m)
+  coq-reflexivity
+  ; proof of rest
+  (by-coq-rewrite H)
+  (by-coq-rewriteL/thm plus-assoc m n p)
+  coq-reflexivity)
+
+#;(define-theorem plus-swap2
+  (∀ [n : Nat] [m : Nat] [p : Nat]
+     (coq= Nat (plus n (plus m p))
+               (plus m (plus n p))))
+  (by-intros n m p)
+  (by-coq-rewrite/thm plus-assoc n m p)
+;  (by-assert H (coq= Nat (plus n m) (plus m n)))
+  (replace (plus n m) (plus m n))
+  ; proof of rest
+  (by-coq-rewrite H)
+  (by-coq-rewriteL/thm plus-assoc m n p)
+  coq-reflexivity
+  ; proof of H
+  (by-coq-rewrite/thm plus_comm/coq n m)
+  coq-reflexivity)
+
 
