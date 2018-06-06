@@ -519,20 +519,50 @@
   (by-coq-rewriteL/thm plus-assoc m n p)
   coq-reflexivity)
 
-#;(define-theorem plus-swap2
+;; plus-swap2 subterm1, just H proof
+(:: 
+ (λ [n : Nat] [m : Nat] [p : Nat]
+    ((λ (H : (coq= Nat (plus m n) (plus n m)))
+       H)
+     (new-elim
+      (coq=-sym Nat (plus m n) (plus n m) (plus_comm/coq m n))
+      (λ (g123214 : Nat)
+        (λ (g123215 : (coq= Nat (plus n m) g123214))
+          (coq= Nat g123214 (plus n m))))
+      (coq-refl Nat (plus n m)))))
+ (∀ [n : Nat] [m : Nat] [p : Nat]
+   (coq= Nat (plus m n) (plus n m))))
+
+;; plus-swap2 subterm2, use of H
+(::
+ (λ [n : Nat] [m : Nat] [p : Nat]
+    (λ (H : (coq= Nat (plus m n) (plus n m)))
+      (new-elim
+       H
+       (λ (tgt : Nat)
+         (λ (H : (coq= Nat (plus m n) tgt))
+           (coq= Nat (plus tgt p) (plus m (plus n p)))))
+       (new-elim
+        (plus-assoc m n p)
+        (λ (g122603 : Nat)
+          (λ (g122604 : (coq= Nat (plus m (plus n p)) g122603))
+            (coq= Nat g122603 (plus m (plus n p)))))
+        (coq-refl Nat (plus m (plus n p)))))))
+ (∀ [n : Nat] [m : Nat] [p : Nat]
+    (-> (coq= Nat (plus m n) (plus n m))
+        (coq= Nat (plus (plus n m) p) (plus m (plus n p))))))
+
+(define-theorem plus-swap2
   (∀ [n : Nat] [m : Nat] [p : Nat]
      (coq= Nat (plus n (plus m p))
                (plus m (plus n p))))
   (by-intros n m p)
   (by-coq-rewrite/thm plus-assoc n m p)
-;  (by-assert H (coq= Nat (plus n m) (plus m n)))
-  (replace (plus n m) (plus m n))
-  ; proof of rest
-  (by-coq-rewrite H)
+  (by-coq-replace Nat (plus n m) (plus m n)) ; H
   (by-coq-rewriteL/thm plus-assoc m n p)
   coq-reflexivity
   ; proof of H
-  (by-coq-rewrite/thm plus_comm/coq n m)
+  (by-coq-rewrite/thm plus_comm/coq m n)
   coq-reflexivity)
 
 

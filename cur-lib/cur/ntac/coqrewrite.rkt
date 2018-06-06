@@ -15,6 +15,7 @@
  (for-syntax
   (rename-out
    [reflexivity coq-reflexivity]
+   [by-replace by-coq-replace]
    [rewrite coq-rewrite]
    [rewrite coq-rewriteR]
    [by-rewrite by-coq-rewrite]
@@ -228,4 +229,49 @@
                     (pretty-print (syntax->datum res)))
            res)))
       ]))
+
+    ;; transfer scopes from src to each stxobj in stx, except for ids in ctxt
+  (define (transfer-scopes src stx ctxt)
+    (syntax-parse stx
+      [x:id
+       (if (dict-has-key? ctxt #'x)
+           #'x
+           (format-id src "~a" #'x))]
+      [(e ...)
+       #`#,(map (λ (e) (transfer-scopes src e ctxt)) (syntax->list #'(e ...)))]
+      [e ; datums fall here
+       (datum->syntax src (syntax->datum #'e))]))
+
+  (define ((replace ty_ from_ to_) ctxt pt)
+    (match-define (ntt-hole _ goal) pt)
+    (define ty (transfer-scopes goal ty_ ctxt))
+    (define from (transfer-scopes goal from_ ctxt))
+    (define to (transfer-scopes goal to_ ctxt))
+    (with-syntax ([tgt-id (format-id from "tgt")]
+                  [H (format-id from "H")])
+      (make-ntt-apply
+       goal
+       (list
+        (make-ntt-hole (subst-term to from goal))
+        (make-ntt-hole (quasisyntax/loc goal (coq= #,ty #,to #,from))))
+       (lambda (body-pf arg-pf)
+         (define res
+           (quasisyntax/loc goal
+             ((λ [H : (coq= #,ty #,to #,from)]
+                (new-elim
+                 H
+                 (λ [tgt-id : #,ty]
+                   (λ [H : (coq= #,ty #,to tgt-id)]
+                     #,(subst-term #'tgt-id from goal)))
+                 #,body-pf))
+              #,arg-pf)))
+         #;(begin
+           (displayln "replace")
+           (pretty-print (syntax->datum res)))
+         res))))
+
+  (define-syntax (by-replace syn)
+    (syntax-case syn ()
+      [(_ ty from to)
+       #`(fill (replace #'ty #'from #'to))]))
   )
