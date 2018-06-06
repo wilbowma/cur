@@ -552,6 +552,7 @@
     (-> (coq= Nat (plus m n) (plus n m))
         (coq= Nat (plus (plus n m) p) (plus m (plus n p))))))
 
+;; use replace instead of assert
 (define-theorem plus-swap2
   (∀ [n : Nat] [m : Nat] [p : Nat]
      (coq= Nat (plus n (plus m p))

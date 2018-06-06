@@ -327,6 +327,7 @@
       [(_ x #:as param-namess)
        #`(fill (destruct/elim #'x #'param-namess))]))
 
+  ;; TODO: combine this with induction (below)
   (define ((destruct/elim name [param-namess #f]) ctxt pt)
     (define name-ty (dict-ref ctxt name))
     (define c-info (syntax-local-eval name-ty))
@@ -378,12 +379,17 @@
                            (λ [#,name : #,name-ty] #,goal)
                            .
                            #,(map
-                              ;; TODO: add IHs
-                              (λ (params pf)
+                              ;; TODO: add IHs?
+                              (λ (params C-type pf)
                                 (if (null? (syntax->list params))
                                     pf
-                                    #`(λ #,params #,pf)))
+                                    #`(λ #,@(map
+                                             (λ (p ty) #`[#,p : #,ty])
+                                             (syntax->list params)
+                                             (pi->anns C-type))
+                                        #,pf)))
                               paramss
+                              C-types
                               pfs)))]
               #;[_ (begin (displayln "destruct/elim") (pretty-print (syntax->datum res)))])
          res))))

@@ -118,7 +118,9 @@
     (let loop ([p p][binds null])
       (syntax-parse p
         [(_ (~and b [_:id (~datum :) ty]) rst)
-         (loop #'rst (cons #'b binds))]
+         (loop #'rst (cons #'b binds))] ; unexpanded
+        #;[(plain-app Π ty (plain-lam (x:id) rst))
+         (loop #'rst (cons #'[x : ty] binds))] ; expanded
         [body
          #`(Π #,@(reverse binds) body)])))
 
@@ -142,7 +144,7 @@
            ctxt pt)
     (match-define (ntt-hole _ goal) pt)
     (define H (or thm (dict-ref ctxt name)))
-;    (printf "thm = ~a\n" (syntax->datum H))
+    ;(printf "thm = ~a\n" (syntax->datum H))
     (ntac-match H
      [(~or
        ; already-instantiated thm
