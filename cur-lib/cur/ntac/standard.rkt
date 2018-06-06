@@ -88,18 +88,6 @@
 
 (begin-for-syntax
   
-  ;; transfer scopes from src to each stxobj in stx, except for ids in ctxt
-  (define (transfer-scopes src stx ctxt)
-    (syntax-parse stx
-      [x:id
-       (if (dict-has-key? ctxt #'x)
-           #'x
-           (format-id src "~a" #'x))]
-      [(e ...)
-       #`#,(map (λ (e) (transfer-scopes src e ctxt)) (syntax->list #'(e ...)))]
-      [e ; datums fall here
-       (datum->syntax src (syntax->datum #'e))]))
-
   (define ((assert H ty_ a) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
     
