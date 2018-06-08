@@ -39,11 +39,9 @@
 (turn-axiom Kittens : (turn-Type 0))
 (turn-axiom puppies : (Maybe Nat))
 (begin-for-syntax
-#;  (displayln (format "turnstile-only infer type of empty: ~a\n\n" (syntax->datum  (car (cadddr (infer (list #'empty )))))))
-#;  (displayln (format "turnstile-only evaluated infer type of empty: ~a\n\n" (syntax->datum  (cur-eval (car (cadddr (infer (list #'empty ))))))))
   (chk
    #:t (cur-normalize #'(turn-Π (B : (turn-Type 0)) (Maybe B))) ;ok
-   #:t (cur-eval (cur-type-infer #'none))
+   #:t (cur-expand (cur-type-infer #'none))
    #:eq cur-equal? (cur-type-infer #'none) #'(turn-Π (A : (turn-Type 0)) (Maybe A))
    #:t (cur-normalize (cur-type-infer #'make-pair))
    #:t (cur-normalize (cur-type-infer #'empty))
