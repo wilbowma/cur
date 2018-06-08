@@ -34,7 +34,7 @@
 (begin-for-syntax
   (define test-env1 `((,#'x . ,#'X) (,#'X . ,#'(Type 1))))
   (chk
- ;  #:x (cur-equal? #'x #'x) ""
+   #:x (cur-equal? #'x #'x) ""
    #:t (cur-equal? #'x #'x #:local-env `((,#'x . ,#'(Type 0))))
    #:t (cur-type-infer #'X #:local-env `((,#'X . ,#'(Type 0))))
    #:t (cur-type-infer #'X #:local-env test-env1)
@@ -42,16 +42,16 @@
    #:eq cur-equal? (cur-type-infer #'X #:local-env test-env1) #'(Type 1)
 
    ;; When comparing open terms, need to specify the environment under which they are equal
-;   #:eq (lambda (x y) (cur-equal? x y #:local-env test-env1))
-;     (cur-type-infer #'x #:local-env test-env1)
-;     #'X
+   #:eq (lambda (x y) (cur-equal? x y #:local-env test-env1))
+   (cur-type-infer #'x #:local-env test-env1)
+     #'X
 
-;   #:t (cur-type-check? #'x #'(Type 0) #:local-env `((,#'x . ,#'(Type 0))))
+   #:t (cur-type-check? #'x #'(Type 0) #:local-env `((,#'x . ,#'(Type 0))))
 
-;   #:do (define test-env2 `((,#'f . ,#'(Π (x : (Type 0)) (Type 0))) (,#'x . ,#'(Type 0))))
-;   #:eq cur-equal? (cur-type-infer #'f #:local-env test-env2)
-;   #'(Π (x : (Type 0)) (Type 0))
+   #:do (define test-env2 `((,#'f . ,#'(Π (x : (Type 0)) (Type 0))) (,#'x . ,#'(Type 0))))
+   #:eq cur-equal? (cur-type-infer #'f #:local-env test-env2)
+   #'(Π (x : (Type 0)) (Type 0))
 
-#;#;#;   #:eq (lambda (x y) (cur-equal? x y #:local-env test-env2))
-     (cur-normalize #'(f x) #:local-env test-env2)
-     #'(f x)))
+   #:eq (lambda (x y) (cur-equal? x y #:local-env test-env2))
+   (cur-normalize #'(f x) #:local-env test-env2)
+   #'(f x)))
