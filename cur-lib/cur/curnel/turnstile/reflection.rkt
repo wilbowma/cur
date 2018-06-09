@@ -13,7 +13,8 @@
  "stxutils.rkt"
 ; (for-template "type-check.rkt")
  ;(for-template "runtime.rkt")
- (for-template (only-in turnstile/lang add-orig infer typecheck? current-type-eval ~and ~parse expand/df ~literal ~fail type=?))
+ (only-in macrotypes/stx-utils transfer-props)
+ (for-template (only-in turnstile/lang add-orig infer typecheck? current-type-eval ~and ~parse expand/df ~literal ~fail type=? transfer-stx-props))
  (for-template turnstile/examples/dep-ind-cur)
  (for-template macrotypes/stx-utils)
  (for-template "cur-to-turnstile.rkt")
@@ -75,8 +76,9 @@
     ctx))
 
 (define (turnstile-infer syn #:local-env [env '()])
-  (let ([ctx (env->ctx env)])
-    (car (cadddr (infer (list syn) #:ctx ctx)))))
+  (let* ([ctx (env->ctx env)]
+         [type (car (cadddr (infer (list syn) #:ctx ctx)))])
+    type))
 
 (define (turnstile-expand syn #:local-env [env '()]) ;returns ((tvs) (xs) (es) (τs))
   (let ([ctx (env->ctx env)])
@@ -85,8 +87,8 @@
 
 (define (cur-type-infer syn #:local-env [env '()])
   (let ([t   (turnstile-infer syn #:local-env env)])
-    ;(displayln (format "inferred stx: ~a\n inferred type: ~a\n\n" (syntax->datum syn) (syntax->datum t)))
-    (cur-reflect t)))
+    #;(displayln (format "inferred stx: ~a\n inferred type: ~a\n\n" (syntax->datum syn) (syntax->datum t)))
+    (cur-reflect t #:local-env env)))
 
 (define (cur-type-check? term expected-type #:local-env [env '()])
   (let ([inferred-type (turnstile-infer term #:local-env env)])
@@ -102,12 +104,13 @@
 
 (define (cur-normalize syn #:local-env [env '()])
     (let ([evaled (cur-expand syn #:local-env env)])
-    ;(displayln (format "evaled: ~a" evaled))
-      (cur-reflect evaled)))
+    #;(displayln (format "in cur-normalize, syn: ~a, evaled: ~a" syn evaled))
+      (cur-reflect evaled #:local-env env)))
 
 (define (cur-equal? term1 term2 #:local-env [env '()])
   (let ([term1-evaled (cur-expand term1 #:local-env env)]
         [term2-evaled (cur-expand term2 #:local-env env)])
+    #;(displayln (format "in cur-equal? term1: ~a \n term2: ~a" term1-evaled term2-evaled))
     (type=? term1-evaled term2-evaled)))
 
 (define (cur-constructors-for syn)
@@ -148,10 +151,10 @@
     (syntax->list rec-args)))
 
 
-(define (cur-reflect syn) ;maybe need env here because cur-expand uses it?
+(define (cur-reflect syn #:local-env [env '()]) ;maybe need env here because cur-expand uses it?
   ;; NB: must be called on fully expanded code;
   ;; TODO: Would be better to enforce that to avoid quadratic expansion cost...
-  (syntax-parse (cur-expand syn)
+  (syntax-parse (cur-expand syn #:local-env env)
     #:literals (quote #%expression void #%plain-lambda #%plain-app list )
     #:datum-literals (:)
     [x:id
@@ -164,13 +167,13 @@
     [(#%plain-lambda (x:id) body)
      #:with (~Π ([y : t]) _) (syntax-property syn ':)
      #:do [(when debug-reflect?(displayln (format "lambda: ~a\n\n" (syntax->datum this-syntax))))]
-     #`(turn-λ (x : #,(cur-reflect #'t)) #,(cur-reflect #'body))]
+     #`(turn-λ (x : #,(cur-reflect #'t #:local-env env)) #,(cur-reflect #'body #:local-env env))]
     [pi:expanded-Π
      #:with arg #'pi.arg
      #:with τ_arg #'pi.τ_arg
      #:with body #'pi.body
      #:do [(when debug-reflect? (displayln (format "Π stx class: ~a\n\n" (syntax->datum this-syntax))))]
-     #`(turn-Π (arg : #,(cur-reflect #'τ_arg)) #,(cur-reflect #'body))]
+     #`(turn-Π (arg : #,(cur-reflect #'τ_arg #:local-env env)) #,(cur-reflect #'body #:local-env env))]
     [d:expanded-datatype
       #:do [(when debug-reflect? (displayln (format "expanded-datatype case: ~a\n\n" (syntax->datum this-syntax))))]
      #'d.unexpanded]
@@ -178,7 +181,7 @@
      #:with fn #'e.rator
      #:with arg #'e.rand
      #:do [(when debug-reflect? (displayln (format "app stx class: ~a\n\n" (syntax->datum this-syntax))))]
-     #`(turn-app #,(cur-reflect #'fn) #,(cur-reflect #'arg))]))
+     #`(turn-app #,(cur-reflect #'fn #:local-env env) #,(cur-reflect #'arg #:local-env env))]))
 
 (define-syntax-class expanded-app #:attributes (rator rand) #:literals (#%plain-app)
   #:commit
@@ -247,8 +250,7 @@
   (let* ([expanded (turnstile-expand syn #:local-env env)]
          [xs-ls (syntax->list (second expanded))]
          [es-ls (syntax->list (third expanded))]
-         [env-ids (map car env)])
-    #;(displayln (format "in cur-expand, env-ids: ~a \n\n expanded: ~a \n\n xs-ls: ~a \n\n es-ls: ~a" env-ids expanded xs-ls es-ls))
-    (subst* env-ids xs-ls (first es-ls))))
-
-
+         [env-ids (reverse (map car env))])
+    #;(displayln (format "in cur-expand, syn: ~a\n\n env-ids: ~a \n\n expanded: ~a \n\n xs-ls: ~a \n\n es-ls: ~a"
+                       syn env-ids expanded xs-ls es-ls))
+    (transfer-props syn (subst* env-ids xs-ls (first es-ls)))))
