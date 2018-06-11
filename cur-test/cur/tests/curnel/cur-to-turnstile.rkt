@@ -26,8 +26,6 @@
   ; ---------------------------------------------------------------------
   (begin-for-syntax
     (require chk)
-    (require (only-in rackunit require/expose))
-    (require/expose turnstile/examples/dep-ind-fixed (assign-type))
     (define (expand/def syn)
       (local-expand syn 'top-level '()))
     (define (expand/term syn)

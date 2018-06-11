@@ -32,10 +32,6 @@
          [define dep-define]
          [define-type-alias dep-define-type-alias]))
 
-(begin-for-syntax
-  (require (only-in rackunit require/expose))
-  (require/expose turnstile/examples/dep-ind-cur (assign-type)))
-
 (provide
  cur-Type
  cur-define
