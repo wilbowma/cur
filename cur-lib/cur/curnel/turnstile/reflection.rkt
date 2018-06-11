@@ -45,15 +45,22 @@
 
 #|
 (require racket/trace debug-scopes)
+(define (add-scopes maybe-ls)
+  (cond
+    [(syntax? maybe-ls)
+     (+scopes maybe-ls)]
+    [(list? maybe-ls)
+     (cons (add-scopes (car maybe-ls))
+           (add-scopes (cdr maybe-ls)))]
+    [else maybe-ls]))
 (current-trace-print-args
  (let ([ctpa (current-trace-print-args)])
    (lambda (s l kw l2 n)
-     (ctpa s (map (compose +scopes) l) kw l2 n))))
+     (ctpa s (map (compose add-scopes) l) kw l2 n))))
 (current-trace-print-results
  (let ([ctpr (current-trace-print-results)])
    (lambda (s l n)
-     (ctpr s (map (compose +scopes) l) n))))
-|#
+     (ctpr s (map (compose add-scopes) l) n))))
 
 ;copied from racket impl
 (define current-env (make-parameter '()))
