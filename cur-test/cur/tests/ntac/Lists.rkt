@@ -3,6 +3,9 @@
          cur/stdlib/nat
          rackunit)
 
+;; examples from SF Ch 3: Lists.v
+;; - only up to rev-length
+
 (data natprod : 0 Type
       [pair : (-> Nat Nat natprod)])
 

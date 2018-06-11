@@ -10,6 +10,8 @@
  cur/ntac/standard
  cur/ntac/prop)
 
+;; examples from SF Ch 2: Induction.v
+;; - like Induction.rkt but does not import defs from Basics.rkt
 
 ;; plus-n-0
 (::

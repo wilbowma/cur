@@ -216,36 +216,6 @@
       [(_ x #:as param-namess)
        #`(fill (destruct #'x #'param-namess))]))
 
-  ;; (struct identifier-info (type delta-def))
-  ;; ;; TODO PERF: Could use vectors instead of lists; since we store the count anyway... or maybe we won't
-  ;; ;; need to by storing param and index decls separately.
-  ;; (struct constant-info identifier-info
-  ;;   (param-count param-name-ls param-ann-ls index-name-ls index-ann-ls
-  ;;                constructor-count constructor-ls constructor-index
-  ;;                recursive-index-ls))
-
-  (define (display-info c-info name [break? #f])
-    (printf "constant info, for ~a -------------\n" (syntax->datum name))
-    (printf "type: ~a\n" (syntax->datum (identifier-info-type c-info)))
-    (printf "delta-def: ~a\n" (identifier-info-delta-def c-info))
-    (printf "param-count: ~a\n" (constant-info-param-count c-info))
-    (printf "param-name-ls: ~a\n" (constant-info-param-name-ls c-info))
-    (printf "param-ann-ls: ~a\n" (constant-info-param-ann-ls c-info))
-    (printf "index-name-ls: ~a\n" (constant-info-index-name-ls c-info))
-    (printf "index-ann-ls: ~a\n" (constant-info-index-ann-ls c-info))
-    (printf "constructor-count: ~a\n" (constant-info-constructor-count c-info))
-
-    (define const-ls (constant-info-constructor-ls c-info))
-    (printf "constructor-ls: ~a\n" const-ls)
-    (unless break?
-      (define const-c-infos (map syntax-local-eval const-ls))
-      (for-each (λ (i c) (display-info i c #t)) const-c-infos const-ls))
-    #;(displayln (map constant-info-index-name-ls const-c-infos))
-    #;(pretty-print (map (compose syntax->datum identifier-info-type) (map syntax-local-eval const-ls)))
-
-    (printf "constructor-index: ~a\n" (constant-info-constructor-index c-info))
-    (printf "recursive-index-ls: ~a\n" (constant-info-recursive-index-ls c-info)))
-
   (define (pi->anns ty)
     (syntax-parse ty
       [t:cur-runtime-pi
@@ -255,20 +225,6 @@
   (define ((destruct name [param-namess #f]) ctxt pt)
     (define name-ty (dict-ref ctxt name))
     (define c-info (syntax-local-eval name-ty))
-
-    ;; ;; (displayln (identifier-info-type c-info))
-    ;; ;; (displayln (identifier-info-delta-def c-info))
-    ;; ;; (displayln (constant-info-param-count c-info))
-    ;; ;; (displayln (constant-info-param-name-ls c-info))
-    ;; ;; (displayln (constant-info-param-ann-ls c-info))
-    ;; ;; (displayln (constant-info-index-name-ls c-info))
-    ;; ;; (displayln (constant-info-index-ann-ls c-info))
-    ;; ;; (displayln (constant-info-constructor-count c-info))
-
-    ;; (displayln (constant-info-constructor-ls c-info))
-    ;; ;; TODO: verify param-names against result of constant-info-index-name-ls
-    ;; (displayln (map constant-info-index-name-ls (map syntax-local-eval (constant-info-constructor-ls c-info))))
-    ;; (pretty-print (map (compose syntax->datum identifier-info-type) (map syntax-local-eval (constant-info-constructor-ls c-info))))
 
     (define Cs
       (constant-info-constructor-ls c-info))

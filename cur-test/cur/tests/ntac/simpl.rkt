@@ -10,7 +10,8 @@
  cur/ntac/standard
  cur/ntac/prop)
 
-;; examples from SF Ch 1: Basics
+;; tests for simpl tactic
+;; (but most examples from SF Ch 1: Basics)
 
 (data day : 0 (Type 0)
       (mon : day)

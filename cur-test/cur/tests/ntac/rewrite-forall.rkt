@@ -10,7 +10,7 @@
          cur/stdlib/coqeq
          cur/ntac/coqrewrite)
 
-
+;; tests involving rewrite of a ∀ thm
 
 ;; f(b) = b
 (:: 

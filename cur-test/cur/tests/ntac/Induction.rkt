@@ -9,6 +9,7 @@
  cur/ntac/standard
  cur/ntac/prop)
 
+;; examples from SF Ch 2: Induction.v
 
 ;; plus-n-0
 (::

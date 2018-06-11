@@ -9,6 +9,8 @@
          cur/ntac/prop
          rackunit)
 
+;; separate tests for destruct tactic
+
 ;; using built-ins 
 ;; n+1 doesnt work, must be 1+n
 (:: (λ [n : Nat]

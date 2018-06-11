@@ -5,6 +5,8 @@
          cur/ntac/base
          cur/ntac/standard
          cur/ntac/prop)
+
+;; separate tests for rewrite tactic
  
 ;; raw term and type for plus-id-theorem below
 ;; rewriteR (->)
