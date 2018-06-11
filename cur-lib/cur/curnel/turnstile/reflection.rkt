@@ -43,7 +43,7 @@
 (define debug-datatypes? #f)
 (define debug-scopes? #f)
 
-#|
+
 (require racket/trace debug-scopes)
 (define (add-scopes maybe-ls)
   (cond
@@ -95,7 +95,7 @@
 (define (cur-type-infer syn #:local-env [env '()])
   (let ([t   (turnstile-infer syn #:local-env env)])
     #;(displayln (format "inferred stx: ~a\n inferred type: ~a\n\n" (syntax->datum syn) (syntax->datum t)))
-    (cur-reflect t #:local-env env)))
+    (cur-reflect (cur-expand t #:local-env env))))
 
 (define (cur-type-check? term expected-type #:local-env [env '()])
   (let ([inferred-type (turnstile-infer term #:local-env env)])
@@ -112,7 +112,7 @@
 (define (cur-normalize syn #:local-env [env '()])
     (let ([evaled (cur-expand syn #:local-env env)])
     #;(displayln (format "in cur-normalize, syn: ~a, evaled: ~a" syn evaled))
-      (cur-reflect evaled #:local-env env)))
+      (cur-reflect evaled)))
 
 (define (cur-equal? term1 term2 #:local-env [env '()])
   (let ([term1-evaled (cur-expand term1 #:local-env env)]
@@ -158,10 +158,8 @@
     (syntax->list rec-args)))
 
 
-(define (cur-reflect syn #:local-env [env '()]) ;maybe need env here because cur-expand uses it?
-  ;; NB: must be called on fully expanded code;
-  ;; TODO: Would be better to enforce that to avoid quadratic expansion cost...
-  (syntax-parse (cur-expand syn #:local-env env)
+(define (cur-reflect syn) 
+  (syntax-parse syn
     #:literals (quote #%expression void #%plain-lambda #%plain-app list )
     #:datum-literals (:)
     [x:id
@@ -174,13 +172,13 @@
     [(#%plain-lambda (x:id) body)
      #:with (~Π ([y : t]) _) (syntax-property syn ':)
      #:do [(when debug-reflect?(displayln (format "lambda: ~a\n\n" (syntax->datum this-syntax))))]
-     #`(turn-λ (x : #,(cur-reflect #'t #:local-env env)) #,(cur-reflect #'body #:local-env env))]
+     #`(turn-λ (x : #,(cur-reflect #'t)) #,(cur-reflect #'body))]
     [pi:expanded-Π
      #:with arg #'pi.arg
      #:with τ_arg #'pi.τ_arg
      #:with body #'pi.body
      #:do [(when debug-reflect? (displayln (format "Π stx class: ~a\n\n" (syntax->datum this-syntax))))]
-     #`(turn-Π (arg : #,(cur-reflect #'τ_arg #:local-env env)) #,(cur-reflect #'body #:local-env env))]
+     #`(turn-Π (arg : #,(cur-reflect #'τ_arg)) #,(cur-reflect #'body))]
     [d:expanded-datatype
       #:do [(when debug-reflect? (displayln (format "expanded-datatype case: ~a\n\n" (syntax->datum this-syntax))))]
      #'d.unexpanded]
@@ -188,7 +186,7 @@
      #:with fn #'e.rator
      #:with arg #'e.rand
      #:do [(when debug-reflect? (displayln (format "app stx class: ~a\n\n" (syntax->datum this-syntax))))]
-     #`(turn-app #,(cur-reflect #'fn #:local-env env) #,(cur-reflect #'arg #:local-env env))]))
+     #`(turn-app #,(cur-reflect #'fn) #,(cur-reflect #'arg))]))
 
 (define-syntax-class expanded-app #:attributes (rator rand) #:literals (#%plain-app)
   #:commit
@@ -252,12 +250,18 @@
            #:fail-unless (syntax-property #'x 'axiom-ref-name) (format "error: ~a has no property 'axiom-ref-name" #'x)
            #:attr name (syntax-property #'x 'axiom-ref-name)))
 
-
 (define (cur-expand syn #:local-env [env '()])
+ (trace-let cur-expand ([syn syn]
+                        [env env])
   (let* ([expanded (turnstile-expand syn #:local-env env)]
          [xs-ls (syntax->list (second expanded))]
          [es-ls (syntax->list (third expanded))]
          [env-ids (reverse (map car env))])
+    (displayln (add-scopes xs-ls))
+    (displayln (add-scopes es-ls))
+    (displayln (add-scopes expanded))
+    (displayln (add-scopes (subst* env-ids xs-ls (first es-ls))))
     #;(displayln (format "in cur-expand, syn: ~a\n\n env-ids: ~a \n\n expanded: ~a \n\n xs-ls: ~a \n\n es-ls: ~a"
-                       syn env-ids expanded xs-ls es-ls))
-    (transfer-props syn (subst* env-ids xs-ls (first es-ls)))))
+                         syn env-ids expanded xs-ls es-ls))
+    (transfer-props syn (subst* env-ids xs-ls (first es-ls))))
+  ))
