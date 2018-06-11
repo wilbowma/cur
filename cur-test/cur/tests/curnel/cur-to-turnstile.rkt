@@ -4,14 +4,14 @@
 (require
   chk
   (rename-in "../../../../cur-lib/cur/curnel/turnstile/cur-to-turnstile.rkt"
-            [turn-Type Type]
-            [turn-define define]
-            [turn-λ λ]
-            [turn-Π Π]
-            [turn-app #%app]
-            [turn-axiom axiom]
-            [turn-data data]
-            [turn-new-elim new-elim]))
+            [cur-Type Type]
+            [cur-define define]
+            [cur-λ λ]
+            [cur-Π Π]
+            [cur-app #%app]
+            [cur-axiom axiom]
+            [cur-data data]
+            [cur-new-elim new-elim]))
 
 
   ; -------------------- Top-level and Failure tests --------------------

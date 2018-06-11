@@ -37,43 +37,43 @@
   (require/expose turnstile/examples/dep-ind-cur (assign-type)))
 
 (provide
- turn-Type
- turn-define
- turn-λ
- turn-Π
- turn-app
- turn-axiom
- turn-data
- turn-new-elim
-; turn-elim
-; turn-void
+ cur-Type
+ cur-define
+ cur-λ
+ cur-Π
+ cur-app
+ cur-axiom
+ cur-data
+ cur-new-elim
+; cur-elim
+; cur-void
   #;[cur-require require]
  ;provide-with-types
   )
 
-(define-syntax (turn-Type syn)
+(define-syntax (cur-Type syn)
    (syntax-parse syn
     [(_ i:exact-nonnegative-integer)
      (quasisyntax/loc syn (dep-Type i))]))
 
-(define-syntax (turn-define syn)
+(define-syntax (cur-define syn)
   (syntax-parse syn
     [(_:top-level-id name:id body:expr)
      (quasisyntax/loc syn (dep-define name body))]))
 
 
-(define-syntax (turn-λ syn)
+(define-syntax (cur-λ syn)
   (syntax-parse syn
     #:datum-literals (:)
     [(_ (x:id : t1:expr) ... e:expr)
      (quasisyntax/loc syn (dep-λ [x : t1] ... e))]))
 
-(define-syntax (turn-Π syn)
+(define-syntax (cur-Π syn)
     (syntax-parse syn #:datum-literals (:)
     [(_ (x:id : t1:expr) ... e:expr)
      (quasisyntax/loc syn (dep-Π [x : t1] ... e))]))
 
-(define-syntax (turn-app syn)
+(define-syntax (cur-app syn)
   (syntax-parse syn
     [(_ e1:expr e2:expr ...)
       (quasisyntax/loc syn (dep-#%app e1 e2 ...))]))
@@ -83,28 +83,28 @@
   (define (parse-telescope-names type)
     (syntax-parse type
       #:datum-literals (:)
-      #:literals (turn-Π)
-      [(turn-Π (x : t) telescope) (cons (quasisyntax/loc type x) (parse-telescope-names #'telescope))]
+      #:literals (cur-Π)
+      [(cur-Π (x : t) telescope) (cons (quasisyntax/loc type x) (parse-telescope-names #'telescope))]
       [result '()]))
   (define (parse-telescope-annotations type)
     (syntax-parse type
       #:datum-literals (:)
-      #:literals (turn-Π)
-      [(turn-Π (x : t) telescope) (cons (quasisyntax/loc type [x : t]) (parse-telescope-annotations #'telescope))]
+      #:literals (cur-Π)
+      [(cur-Π (x : t) telescope) (cons (quasisyntax/loc type [x : t]) (parse-telescope-annotations #'telescope))]
       [result '()]))
   (define (parse-telescope-result type)
     (syntax-parse type
       #:datum-literals (:)
-      #:literals (turn-Π)
-      [(turn-Π (x : t) telescope) (parse-telescope-result #'telescope)]
+      #:literals (cur-Π)
+      [(cur-Π (x : t) telescope) (parse-telescope-result #'telescope)]
       [result type]))
   )
 
-(define-syntax (turn-data syn)
+(define-syntax (cur-data syn)
   (syntax-parse syn #:datum-literals (:)
-    [(_ Name:id : p:nat (turn-Π (x : ty) body)
+    [(_ Name:id : p:nat (cur-Π (x : ty) body)
         (c-name:id : c-type) ...)
-     #:with type #'(turn-Π (x : ty) body)
+     #:with type #'(cur-Π (x : ty) body)
      #:with Result (parse-telescope-result (attribute type))
      #:do [(define param-count (syntax->datum #'p))
            (define telescope-anns (parse-telescope-annotations (attribute type)))]
@@ -136,7 +136,7 @@
                             [c-name :  (dep-Π [r : rT] ...
                                              c_result)] ...))]))
 
-(define-syntax (turn-new-elim syn)
+(define-syntax (cur-new-elim syn)
   (syntax-parse syn
     [(_ target:expr motive:expr (method:expr ...))
      #:with elim-name (let ([possible-pair (syntax-property (first (fourth (infer (list #'target) #:ctx '())))
@@ -146,7 +146,7 @@
      (quasisyntax/loc syn (elim-name target motive method ...))]))
 
 
-(define-syntax (turn-axiom syn)
+(define-syntax (cur-axiom syn)
   (syntax-parse syn
     #:datum-literals (:)
     [(_ name:id (~datum :) type)
@@ -169,6 +169,6 @@
 
 
 
- (define-syntax (turn-void syn)
+ (define-syntax (cur-void syn)
    syn)
 

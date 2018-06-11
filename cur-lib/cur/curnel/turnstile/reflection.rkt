@@ -168,17 +168,17 @@
     [Type:expanded-Type
      #:with i #'Type.n
      #:do [(when debug-reflect? (displayln (format "Type stx class: ~a\n\n" (syntax->datum this-syntax))))]
-     #'(turn-Type i)]
+     #'(cur-Type i)]
     [(#%plain-lambda (x:id) body)
      #:with (~Π ([y : t]) _) (syntax-property syn ':)
      #:do [(when debug-reflect?(displayln (format "lambda: ~a\n\n" (syntax->datum this-syntax))))]
-     #`(turn-λ (x : #,(cur-reflect #'t)) #,(cur-reflect #'body))]
+     #`(cur-λ (x : #,(cur-reflect #'t)) #,(cur-reflect #'body))]
     [pi:expanded-Π
      #:with arg #'pi.arg
      #:with τ_arg #'pi.τ_arg
      #:with body #'pi.body
      #:do [(when debug-reflect? (displayln (format "Π stx class: ~a\n\n" (syntax->datum this-syntax))))]
-     #`(turn-Π (arg : #,(cur-reflect #'τ_arg)) #,(cur-reflect #'body))]
+     #`(cur-Π (arg : #,(cur-reflect #'τ_arg)) #,(cur-reflect #'body))]
     [d:expanded-datatype
       #:do [(when debug-reflect? (displayln (format "expanded-datatype case: ~a\n\n" (syntax->datum this-syntax))))]
      #'d.unexpanded]
@@ -186,7 +186,7 @@
      #:with fn #'e.rator
      #:with arg #'e.rand
      #:do [(when debug-reflect? (displayln (format "app stx class: ~a\n\n" (syntax->datum this-syntax))))]
-     #`(turn-app #,(cur-reflect #'fn) #,(cur-reflect #'arg))]))
+     #`(cur-app #,(cur-reflect #'fn) #,(cur-reflect #'arg))]))
 
 (define-syntax-class expanded-app #:attributes (rator rand) #:literals (#%plain-app)
   #:commit
