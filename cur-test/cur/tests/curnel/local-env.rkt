@@ -18,14 +18,14 @@
   #;cur/curnel/turnstile/reflection)
 
  (rename-in "../../../../cur-lib/cur/curnel/turnstile/cur-to-turnstile.rkt"
-            [turn-Type Type]
-            [turn-define define]
-            [turn-λ λ]
-            [turn-Π Π]
-            [turn-app #%app]
-            [turn-axiom axiom]
-            [turn-data data]
-            [turn-new-elim new-elim])
+            [cur-Type Type]
+            [cur-define define]
+            [cur-λ λ]
+            [cur-Π Π]
+            [cur-app #%app]
+            [cur-axiom axiom]
+            [cur-data data]
+            [cur-new-elim new-elim])
 (for-syntax
  (except-in "../../../../cur-lib/cur/curnel/turnstile/equiv.rkt" cur-equal?)
  "../../../../cur-lib/cur/curnel/turnstile/stxutils.rkt"
@@ -53,7 +53,7 @@
    ;; When comparing open terms, need to specify the environment under which they are equal
    #:eq (lambda (x y) (cur-equal? x y #:local-env test-env1))
    (cur-type-infer #'x #:local-env test-env1)
-     #'X
+   #'X
 
    #:t (cur-type-check? #'x #'(Type 0) #:local-env `((,#'x . ,#'(Type 0))))
 
