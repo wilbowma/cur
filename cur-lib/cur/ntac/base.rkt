@@ -2,7 +2,9 @@
 ;; Proof tree representation and top-level syntax
 
 (require
- "../stdlib/sugar.rkt")
+ "../stdlib/sugar.rkt"
+ "../curnel/racket-impl/runtime.rkt"
+ (only-in racket [define r:define]))
 
 (provide
  define-theorem
@@ -80,8 +82,13 @@
         [(ntt-done _ _ k)
          (loop k)])))
 
-    ;; NTac proof Tree Zipper
+  ;; NTac proof Tree Zipper
+  ;; TODO: track number of holes/subgoals?
   (struct nttz (context focus prev) #:constructor-name _nttz)
+  ;; context : FreeIdHashof ID Type
+  ;; focus   : ntt
+  ;; prev    : ntt -> nttz
+  ;; Produces a new zipper from the current focus
 
   (require racket/dict)
   (define (identifier-hash) (make-immutable-custom-hash free-identifier=?))
@@ -164,14 +171,26 @@
 
   (define anchor #'a)
   (define (ntac-syntax syn)
-    (datum->syntax anchor (syntax->datum syn))))
+    (datum->syntax anchor (syntax->datum syn)))
+
+  (provide (struct-out theorem-info))
+  (struct theorem-info identifier-info (name orig)))
 
 ;; Syntax
 (define-syntax (define-theorem stx)
   (syntax-parse stx
     [(_ x:id ty ps ...)
+     #:with y (generate-temporary #'x)
+     #:with delta-y (format-id #'y "delta:~a" #'y #:source #'y)
+     #:with delta-x (format-id #'x "delta:~a" #'x #:source #'x)
      (quasisyntax/loc stx
-       (begin (define x (ntac ty ps ...))
+       (begin (define y (ntac ty ps ...))
+              (r:define x y)
+              (define-for-syntax delta-x delta-y)
+              (define-for-syntax x
+                (theorem-info (identifier-info-type y)
+                              delta-y
+                              #'x #'ty))
               (:: x ty)))]))
 
 ;; For inline ntac
