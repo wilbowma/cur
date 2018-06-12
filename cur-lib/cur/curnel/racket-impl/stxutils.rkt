@@ -48,7 +48,9 @@
 
 (define (datum=? e1 e2) (equal? (syntax->datum e1) (syntax->datum e2)))
 
+#;(require racket/contract)
 (define (stx=? e1 e2 [id=? free-identifier=?])
+  #;(->* (syntax? syntax?) ((-> identifier? identifier? boolean?)) boolean?)
   (cond
     [(and (identifier? e1) (identifier? e2))
      (id=? e1 e2)]
@@ -65,7 +67,8 @@
         (and
          ; short-circuit on length, for performance
          (= (length (syntax->list e1)) (length (syntax->list e2)))
-         (andmap (λ (x y) (stx=? x y id=?)) (syntax->list e1) (syntax->list e2)))])]))
+         (andmap (λ (x y) (stx=? x y id=?)) (syntax->list e1) (syntax->list e2)))])]
+    [else #f]))
 
 ;; returns e if e \in stx and (datum=? e0 e), else #f
 ;; (needed by ntac to workaround some scoping issues)
