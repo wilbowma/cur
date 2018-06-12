@@ -7,7 +7,8 @@
  cur/olly
  cur/stdlib/maybe
  cur/stdlib/bool
- cur/stdlib/prop)
+ cur/stdlib/prop
+ cur/stdlib/equality)
 
 (define-language stlc
   #:vars (x)
@@ -40,7 +41,7 @@
    (has-type g (stlc-val->stlc-term stlc-false) stlc-boolty)]
 
   [(g : (List stlc-type)) (x : Nat) (t : stlc-type)
-   (== (Maybe stlc-type) (lookup-env g x) (some stlc-type t))
+   (ML-= (Maybe stlc-type) (lookup-env g x) (some stlc-type t))
    ------------------------ T-Var
    (has-type g (Nat->stlc-term x) t)]
 
