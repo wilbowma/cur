@@ -550,7 +550,7 @@
          'match
          ;; TODO: Detect when inside a match to provide better error
          (format
-          "Cannot recur on ~a. Ether not inside a match or ~a is not an inductive argument."
+          "Cannot recur on ~a. Either not inside a match or ~a is not an inductive argument."
           (syntax->datum #'id)
           (syntax->datum #'id))
          syn)))))]))
