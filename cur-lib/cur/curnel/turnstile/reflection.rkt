@@ -45,11 +45,12 @@
 
 
 (require racket/trace debug-scopes)
+(provide add-scopes)
 (define (add-scopes maybe-ls)
   (cond
     [(syntax? maybe-ls)
      (+scopes maybe-ls)]
-    [(list? maybe-ls)
+    [(pair? maybe-ls)
      (cons (add-scopes (car maybe-ls))
            (add-scopes (cdr maybe-ls)))]
     [else maybe-ls]))
@@ -235,16 +236,20 @@
            #:attr name (syntax-property #'x 'axiom-ref-name)))
 
 (define (cur-expand syn #:local-env [env '()])
- (trace-let cur-expand ([syn syn]
+ (let cur-expand ([syn syn]
                         [env env])
   (let* ([expanded (turnstile-expand syn #:local-env env)]
          [xs-ls (syntax->list (second expanded))]
          [es-ls (syntax->list (third expanded))]
          [env-ids (reverse (map car env))])
-    (displayln (add-scopes xs-ls))
-    (displayln (add-scopes es-ls))
-    (displayln (add-scopes expanded))
-    (displayln (add-scopes (subst* env-ids xs-ls (first es-ls))))
+    (printf "env ~s~n" (add-scopes env-ids))
+    (printf "xs ~s~n" (add-scopes xs-ls))
+    (printf "ought to replace ~s by ~s~n" (add-scopes xs-ls) (add-scopes env-ids))
+    #;(displayln (add-scopes xs-ls))
+    (printf "es ~s~n"(add-scopes (first es-ls)))
+    #;(displayln (add-scopes expanded))
+    (printf "subst ~s~n" (add-scopes (subst* env-ids xs-ls (first es-ls))))
+    (printf "transfer ~s~n" (add-scopes (transfer-props syn (subst* env-ids xs-ls (first es-ls)))))
     #;(displayln (format "in cur-expand, syn: ~a\n\n env-ids: ~a \n\n expanded: ~a \n\n xs-ls: ~a \n\n es-ls: ~a"
                          syn env-ids expanded xs-ls es-ls))
     (transfer-props syn (subst* env-ids xs-ls (first es-ls))))
