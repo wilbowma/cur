@@ -21,7 +21,7 @@
 (define (and (x : Bool) (y : Bool))
   (if x
       y
-      (not y)))
+      false))
 
 (define (or (x : Bool) (y : Bool))
   (if x
