@@ -14,7 +14,7 @@
 ; (for-template "type-check.rkt")
  ;(for-template "runtime.rkt")
  (only-in macrotypes/stx-utils transfer-props)
- (for-template (only-in turnstile/lang add-orig infer typecheck? current-type-eval ~and ~parse expand/df ~literal ~fail type=? transfer-stx-props))
+ (for-template (only-in turnstile/lang infer typecheck? type=?))
  (for-template turnstile/examples/dep-ind-cur)
  (for-template macrotypes/stx-utils)
  (for-template "cur-to-turnstile.rkt")
@@ -61,17 +61,6 @@
  (let ([ctpr (current-trace-print-results)])
    (lambda (s l n)
      (ctpr s (map (compose add-scopes) l) n))))
-
-;copied from racket impl
-(define current-env (make-parameter '()))
-
-(define (call-with-env env t)
-  ;; TODO: backwards-compatible, but perhaps very slow/memory intensive
-  (parameterize ([current-env (append env (current-env))])
-    (t)))
-
-(define-syntax-rule (with-env env e)
-  (call-with-env env (thunk e)))
 
 (define (env->ctx env) ;`((,#'x . ,#'Type) ...) -> #'([x : type] ...)
   (let ([ctx (datum->syntax #f
@@ -191,24 +180,19 @@
 (define-syntax-class expanded-app #:attributes (rator rand) #:literals (#%plain-app)
   #:commit
   (pattern (#%plain-app fn arg)
-           #:fail-unless (syntax-property this-syntax 'app) (format "not an app: ~a" (syntax->datum this-syntax))
            #:attr rator #'fn
            #:attr rand #'arg))
 
 (define-syntax-class expanded-Π #:attributes (arg τ_arg body)
   #:commit
   (pattern (~Π ([x : arg-type]) body-type)
-           #:fail-unless (syntax-property this-syntax 'Π) (format "not a Π: ~a" (syntax->datum this-syntax))
            #:attr arg #'x
            #:attr τ_arg #'arg-type
            #:attr body #'body-type))
 
-(define-syntax-class expanded-Type #:attributes (n) #:literals (#%plain-app #%plain-lambda #%expression list void quote)
+(define-syntax-class expanded-Type #:attributes (n) #:literals (quote)
   #:commit
-  (pattern (#%plain-app
-           _
-           (#%plain-lambda () (#%expression void) (#%plain-app list (quote i))))
-           #:fail-unless (syntax-property this-syntax 'Type) (format "error: not Type: ~a" this-syntax)
+  (pattern (~Type (quote i))
            #:attr n #'i))
 
 (define-syntax-class constructor-id #:attributes (name)
