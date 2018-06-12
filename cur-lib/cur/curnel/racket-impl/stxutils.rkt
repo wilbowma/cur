@@ -55,17 +55,17 @@
     [(and (number? (syntax-e e1)) (number? (syntax-e e2)))
      (= (syntax-e e1) (syntax-e e2))]
     [(and (stx-pair? e1) (stx-pair? e2))
-     (and
-      ; short-circuit on length, for performance
-      (= (length (syntax->list e1)) (length (syntax->list e2)))
-      (andmap (λ (x y) (stx=? x y id=?)) (syntax->list e1) (syntax->list e2)))]
-    [else
      (syntax-parse (list e1 e2) ; α equiv
        ;; XXX: Matches on underlying lambda name... this is breaking abstractions
        [(((~datum typed-λ) [x1:id (~datum :) ty1] b1)
          ((~datum typed-λ) [x2:id (~datum :) ty2] b2))
         (and (stx=? #'ty1 #'ty2 id=?)
-             (stx=? #'b1 (subst #'x1 #'x2 #'b2) id=?))])]))
+             (stx=? #'b1 (subst #'x1 #'x2 #'b2) id=?))]
+       [_
+        (and
+         ; short-circuit on length, for performance
+         (= (length (syntax->list e1)) (length (syntax->list e2)))
+         (andmap (λ (x y) (stx=? x y id=?)) (syntax->list e1) (syntax->list e2)))])]))
 
 ;; returns e if e \in stx and (datum=? e0 e), else #f
 ;; (needed by ntac to workaround some scoping issues)
