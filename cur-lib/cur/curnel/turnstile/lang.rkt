@@ -8,34 +8,27 @@
   (except-in racket import export)
   racket/syntax
   syntax/parse
-  ;racket/require-transform
-  racket/provide-transform
-  
-  
+
   "stxutils.rkt"
   "runtime-utils.rkt"
-  
-  "reflection.rkt"
- )
+
+  "reflection.rkt")
  ;;"runtime.rkt"
  ;;"type-check.rkt"
- "cur-to-turnstile.rkt"
- )
+ "cur-to-turnstile.rkt")
+
 (provide
-; (rename-out
-;  [turn-Type Type]
-;  [turn-define define]
-;  [turn-λ λ]
-;  [turn-Π Π]
-;  [turn-app #%app]
-;  [turn-axiom axiom]
-;  [turn-data data]
-;  [turn-new-elim new-elim]
-;  [turn-elim elim]
-;  [turn-void void]
-  #;[cur-require require]
-;  [turn-provide provide]
-;  )
+ (rename-out
+  [cur-Type Type]
+  [cur-define define]
+  [cur-λ λ]
+  [cur-Π Π]
+  [cur-app #%app]
+  [cur-axiom axiom]
+  [cur-data data]
+  [cur-new-elim new-elim]
+  [deprecated-cur-elim elim]
+  [cur-void void])
  begin
  ;; TODO: Don't export these by default; export in library or so
 ;; DYI syntax extension
@@ -56,8 +49,31 @@
 
  all-defined-out all-from-out rename-out except-out prefix-out struct-out combine-out
  protect-out for-meta for-syntax for-template for-label
- provide-with-types
+ provide
 
  #%top #%top-interaction
  #%module-begin)
 
+
+; TODO: Copy pasted from racket lang
+#;(define-syntax (cur-provide syn)
+  (syntax-parse syn
+    [(_ spec ...)
+     #'(provide spec ...)]))
+
+#;(define-provide-syntax (provide-with-types stx)
+  (syntax-case stx ()
+    [(_ spec)
+     (let ([exports (expand-export #'spec '())])
+       #`(combine-out
+          spec
+          (for-syntax
+           #,@(for/list ([i (in-list exports)]
+                         #:when (with-handlers ([values (lambda _ #f)])
+                                  (identifier-info? (syntax-local-eval (export-local-id i)))))
+                #`(rename-out [#,(export-local-id i) #,(export-out-sym i)])))))]))
+
+(define-syntax (deprecated-cur-elim syn)
+  (syntax-case syn ()
+    [(_ _ motive (methods ...) target)
+     (quasisyntax/loc syn (cur-elim target motive methods ...))]))

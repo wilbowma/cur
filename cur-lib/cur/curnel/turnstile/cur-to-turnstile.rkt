@@ -1,36 +1,24 @@
 #lang racket
 (require
- racket/require-syntax
- racket/provide-syntax
  (for-syntax
   ;; imported for export
   (except-in racket import export)
   racket/syntax
   syntax/parse
-  ;racket/require-transform
-  racket/provide-transform
   "stxutils.rkt"
   "runtime-utils.rkt"
-  syntax/to-string
-  )
+  syntax/to-string)
 
  (only-in turnstile/lang define- infer)
-  (rename-in
-   turnstile/examples/dep-ind-cur
-             [Type dep-Type]
-             [* dep-*]
-             [ Π dep-Π]
-             [→ dep-→]
-             [∀ dep-∀]
-         [= dep-=]
-         [eq-refl dep-eq-refl]
-         [eq-elim dep-eq-elim]
-         [λ dep-λ]
-         [#%app dep-#%app]
-         [ann dep-ann]
-         [define-datatype dep-define-datatype]
-         [define dep-define]
-         [define-type-alias dep-define-type-alias]))
+ (only-in
+  turnstile/examples/dep-ind-cur
+  [Type dep-Type]
+  [Π dep-Π]
+  [λ dep-λ]
+  [#%app dep-#%app]
+  [ann dep-ann]
+  [define-datatype dep-define-datatype]
+  [define dep-define]))
 
 (provide
  cur-Type
@@ -41,11 +29,7 @@
  cur-axiom
  cur-data
  cur-new-elim
-; cur-elim
-; cur-void
-  #;[cur-require require]
- ;provide-with-types
-  )
+ cur-void)
 
 (define-syntax (cur-Type syn)
    (syntax-parse syn
@@ -56,7 +40,6 @@
   (syntax-parse syn
     [(_:top-level-id name:id body:expr)
      (quasisyntax/loc syn (dep-define name body))]))
-
 
 (define-syntax (cur-λ syn)
   (syntax-parse syn
@@ -73,7 +56,6 @@
   (syntax-parse syn
     [(_ e1:expr e2:expr ...)
       (quasisyntax/loc syn (dep-#%app e1 e2 ...))]))
-
 
 (begin-for-syntax
   (define (parse-telescope-names type)
@@ -93,8 +75,7 @@
       #:datum-literals (:)
       #:literals (cur-Π)
       [(cur-Π (x : t) telescope) (parse-telescope-result #'telescope)]
-      [result type]))
-  )
+      [result type])))
 
 (define-syntax (cur-data syn)
   (syntax-parse syn #:datum-literals (:)
@@ -158,13 +139,6 @@
             (assign-type #'name- #'#,(local-expand #'type 'expression null))))))]))
 
 
-
-
-;------------------------------------------------------------------------------------------;
-;------------------------------- not implemented yet -------------------------------;
-
-
-
- (define-syntax (cur-void syn)
-   syn)
-
+;; TODO: Copy pasted from racket lang
+(define-syntax-rule (cur-void)
+  (#%plain-app void))
