@@ -12,6 +12,7 @@
  (only-in turnstile/lang define- infer)
  (only-in
   turnstile/examples/dep-ind-cur
+  [* dep-*]
   [Type dep-Type]
   [Π dep-Π]
   [λ dep-λ]
