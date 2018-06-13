@@ -18,7 +18,7 @@
        (match m #:in Nat #:return Bool
          [z false]
          [(s m*) ((leb n*) m*)]))]))
-  
+
 (check-equal? ((leb 2) 2) true)
 (:: ((leb 2) 2) Bool)
 (:: (ML-refl Bool true)
