@@ -22,7 +22,7 @@
       (sun : day))
 
 (define next-weekday
-  (λ [d : day] 
+  (λ [d : day]
     (new-elim d
               (λ [x : day] day)
               tues
@@ -61,7 +61,7 @@
   (== bool (orb true false) true)
   simpl
   reflexivity)
-      
+
 (define-theorem test-orb2
   (== bool (orb false false) false)
   simpl
@@ -218,9 +218,9 @@
               (λ [n* : nat] [ih : bool]
                  (new-elim n* (λ [n : nat] bool)
                            false
-                           (λ [n** : nat] [ih* : bool] 
+                           (λ [n** : nat] [ih* : bool]
                               (negb ih*)))))))
-                                      
+
 
 (define oddb (λ [n : nat] (negb (evenb n))))
 
@@ -385,7 +385,7 @@
        (match m #:in nat #:return bool
         [O false]
         [(S m*) (beq-nat n* m*)]))]))
-  
+
 (check-equal? (beq-nat 0 0) true)
 (check-equal? (beq-nat 0 1) false)
 (check-equal? (beq-nat 1 0) false)
@@ -402,7 +402,7 @@
        (match m #:in nat #:return bool
          [O false]
          [(S m*) ((leb n*) m*)]))]))
-  
+
 (check-equal? ((leb 2) 2) true)
 (:: ((leb 2) 2) bool)
 (:: (refl bool true)

@@ -8,11 +8,11 @@
          cur/ntac/standard
          cur/ntac/ML-rewrite)
 
-;; tests rewrite/thm 
+;; tests rewrite/thm
 
 ;;plus-0-n raw term
 (define plus-0-n-term  (λ [n : Nat] (refl Nat n)))
-(:: 
+(::
  plus-0-n-term
  (forall [n : Nat] (== Nat (plus 0 n) n)))
 
