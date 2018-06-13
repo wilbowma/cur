@@ -42,15 +42,18 @@
   (displayln (add-scopes (cur-normalize #'X #:local-env test-env1)))
   (displayln (add-scopes (cur-type-infer #'x #:local-env test-env1)))
   (chk
-  ; #:x (cur-equal? #'x #'x) ""
-  ; #:t (cur-equal? #'x #'x #:local-env `((,#'x . ,#'(Type 0))))
-  ; #:t (cur-type-infer #'X #:local-env `((,#'X . ,#'(Type 0))))
-  ; #:t (cur-type-infer #'X #:local-env test-env1)
-  ; #:t (cur-type-infer #'x #:local-env test-env3)
-  ; #:t (cur-normalize #'(f x) #:local-env test-env2)
-  ; #:eq cur-equal? (cur-type-infer #'X #:local-env `((,#'X . ,#'(Type 0)))) #'(Type 0)
-  ; #:eq cur-equal? (cur-type-infer #'X #:local-env test-env1) #'(Type 1)
+   #:x (cur-equal? #'x #'x) ""
+   #:t (cur-equal? #'x #'x #:local-env `((,#'x . ,#'(Type 0))))
+   #:t (cur-type-infer #'X #:local-env `((,#'X . ,#'(Type 0))))
+   #:t (cur-type-infer #'X #:local-env test-env1)
+   #:t (cur-type-infer #'x #:local-env test-env3)
+   #:t (cur-normalize #'(f x) #:local-env test-env2)
+   #:eq cur-equal? (cur-type-infer #'X #:local-env `((,#'X . ,#'(Type 0)))) #'(Type 0)
+   #:eq cur-equal? (cur-type-infer #'X #:local-env test-env1) #'(Type 1)
    ;; When comparing open terms, need to specify the environment under which they are equal
+   #:eq (lambda (x y) (cur-equal? x y #:local-env test-env3)) (cur-type-infer #'x #:local-env test-env3) #'Nat
+   #:eq (lambda (x y) (cur-equal? x y #:local-env test-env3)) (cur-type-infer #'(s x) #:local-env test-env3) #'Nat
+   
    #:eq (lambda (x y)
           (displayln "mark")
           (newline)
@@ -58,6 +61,15 @@
           (printf "expected ~s~n" (add-scopes y))
           (cur-equal? x y #:local-env test-env1))
    (cur-type-infer #'x #:local-env test-env1)
+   #'X
+
+    #:eq (lambda (x y)
+          (displayln "mark")
+          (newline)
+          (printf "result ~s~n" (add-scopes x))
+          (printf "expected ~s~n" (add-scopes y))
+          (cur-equal? x y #:local-env test-env1))
+   (cur-normalize #'X #:local-env test-env1)
    #'X
 
   ; #:t (cur-type-check? #'x #'(Type 0) #:local-env `((,#'x . ,#'(Type 0))))
