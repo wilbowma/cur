@@ -81,11 +81,24 @@
   (let ([ctx (env->ctx env)])
     (infer (list syn) #:ctx ctx)))
 
-
 (define (cur-type-infer syn #:local-env [env '()])
-  (let ([t   (turnstile-infer syn #:local-env env)])
-    #;(displayln (format "inferred stx: ~a\n inferred type: ~a\n\n" (syntax->datum syn) (syntax->datum t)))
-    (cur-reflect (cur-expand t #:local-env env))))
+ (let cur-type-infer ([syn syn]
+                        [env env])
+ (let* ([expanded (turnstile-expand syn #:local-env env)]
+         [xs-ls (syntax->list (second expanded))]
+         [es-ls (syntax->list (third expanded))]
+         [τs-ls (fourth expanded)]
+         [env-ids (reverse (map car env))])
+   (when debug-scopes?
+     (printf "cur-type-infer syn ~s~n" (add-scopes syn))
+     (printf "cur-type-infer env ~s~n" (add-scopes env-ids))
+     (printf "cur-type-infer xs ~s~n" (add-scopes xs-ls))
+     (printf "ought to replace ~s by ~s~n" (add-scopes xs-ls) (add-scopes env-ids))
+     (printf "τs ~s~n"(add-scopes τs-ls))
+     (printf "cur-type-infer subst ~s~n" (add-scopes (subst* env-ids xs-ls (first τs-ls))))
+     (printf "cur-type-infer transfer ~s~n" (add-scopes (transfer-props syn (subst* env-ids xs-ls (first τs-ls))))))
+    (cur-reflect (cur-expand (transfer-props (first τs-ls) (subst* env-ids xs-ls  (first τs-ls))) #:local-env env)))))
+
 
 (define (cur-type-check? term expected-type #:local-env [env '()])
   (let ([inferred-type (turnstile-infer term #:local-env env)])
@@ -107,7 +120,7 @@
 (define (cur-equal? term1 term2 #:local-env [env '()])
   (let ([term1-evaled (cur-expand term1 #:local-env env)]
         [term2-evaled (cur-expand term2 #:local-env env)])
-    #;(displayln (format "in cur-equal? term1: ~a \n term2: ~a" term1-evaled term2-evaled))
+   ; (printf "in cur-equal? term1: ~s~n term2: ~s~n" (add-scopes term1-evaled) (add-scopes term2-evaled))
     (type=? term1-evaled term2-evaled)))
 
 (define (cur-constructors-for syn)
@@ -242,15 +255,17 @@
          [xs-ls (syntax->list (second expanded))]
          [es-ls (syntax->list (third expanded))]
          [env-ids (reverse (map car env))])
-    (printf "env ~s~n" (add-scopes env-ids))
-    (printf "xs ~s~n" (add-scopes xs-ls))
-    (printf "ought to replace ~s by ~s~n" (add-scopes xs-ls) (add-scopes env-ids))
-    #;(displayln (add-scopes xs-ls))
-    (printf "es ~s~n"(add-scopes (first es-ls)))
-    #;(displayln (add-scopes expanded))
-    (printf "subst ~s~n" (add-scopes (subst* env-ids xs-ls (first es-ls))))
-    (printf "transfer ~s~n" (add-scopes (transfer-props syn (subst* env-ids xs-ls (first es-ls)))))
-    #;(displayln (format "in cur-expand, syn: ~a\n\n env-ids: ~a \n\n expanded: ~a \n\n xs-ls: ~a \n\n es-ls: ~a"
-                         syn env-ids expanded xs-ls es-ls))
-    (transfer-props syn (subst* env-ids xs-ls (first es-ls))))
+    (when debug-scopes?
+      (printf "syn ~s~n" (add-scopes syn))
+      (printf "env ~s~n" (add-scopes env-ids))
+      (printf "xs ~s~n" (add-scopes xs-ls))
+      (printf "ought to replace ~s by ~s~n" (add-scopes xs-ls) (add-scopes env-ids))
+      #;(displayln (add-scopes xs-ls))
+      (printf "es ~s~n"(add-scopes (first es-ls)))
+      ;   #;(displayln (add-scopes expanded))
+      (printf "subst ~s~n" (add-scopes (subst* env-ids xs-ls (first es-ls))))
+      (printf "transfer ~s~n" (add-scopes (transfer-props syn (subst* env-ids xs-ls (first es-ls)))))
+      #;(displayln (format "in cur-expand, syn: ~a\n\n env-ids: ~a \n\n expanded: ~a \n\n xs-ls: ~a \n\n es-ls: ~a"
+                           syn env-ids expanded xs-ls es-ls)))
+(transfer-props syn (subst* env-ids xs-ls (first es-ls))))
   ))
