@@ -10,7 +10,7 @@
          cur/ntac/ML-rewrite)
 
 ;; separate tests for rewrite tactic
- 
+
 ;; raw term and type for plus-id-theorem below
 ;; rewriteR (->)
 (::
@@ -133,7 +133,7 @@
 
 ;; plus-id-exercise
 ;; raw term
-(:: 
+(::
  (λ [n : Nat] [m : Nat] [o : Nat]
     (λ [n=m : (== Nat n m)]
        [m=o : (== Nat m o)]
