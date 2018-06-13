@@ -72,6 +72,12 @@
    (cur-normalize #'X #:local-env test-env1)
    #'X
 
+   #:t (with-env test-env1 (cur-type-infer #'x))
+   #:eq (lambda (x y)
+          (with-env test-env1 (cur-equal? x y)))
+   (with-env test-env1 (cur-type-infer #'x))
+   #'X
+
   ; #:t (cur-type-check? #'x #'(Type 0) #:local-env `((,#'x . ,#'(Type 0))))
 
   ; #:eq cur-equal? (cur-type-infer #'f #:local-env test-env2)
