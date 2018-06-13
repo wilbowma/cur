@@ -195,7 +195,7 @@
   simpl
   (ML:by-rewrite IH)
   ML:reflexivity)
-                
+
 (define-theorem plus-n-Sm/ML
   (∀ [n : Nat] [m : Nat]
      (ML-= Nat (s (plus n m)) (plus n (s m))))
@@ -220,10 +220,10 @@
      (λ [n : Nat] ML-= Nat (plus n m) (plus m n)))
      ; case n = z: ----------
      ; - need to prove:
-     ;   (ML-= Nat (plus z m) (plus m z)) simpl-> 
+     ;   (ML-= Nat (plus z m) (plus m z)) simpl->
      ;   (ML-= Nat m (plus m z))
      #;(plus-n-0/ML m)
-     (new-elim     
+     (new-elim
       (plus-n-0/ML m) ; (ML-= Nat m (plus m z))
       (λ [a : Nat] [b : Nat]
          (λ [H : (ML-= Nat a b)]
@@ -241,8 +241,8 @@
              (λ [H : (ML-= Nat a b)]
                (ML-= Nat (s (plus n-1 m)) b)))
           ; need to prove:
-          ; (P (ML-= Nat (s (plus m n-1)) (s (plus m n-1)))) = 
-          ;    (ML-= Nat (s (plus n-1 m)) (s (plus m n-1))) = 
+          ; (P (ML-= Nat (s (plus m n-1)) (s (plus m n-1)))) =
+          ;    (ML-= Nat (s (plus n-1 m)) (s (plus m n-1))) =
           ;    add 1 to each element of IH
           (λ [b1 : Nat]
             (new-elim
@@ -265,7 +265,7 @@
         (Π [m : Nat] (ML-= Nat (plus n m) (plus m n))))
       ; case n = z: ----------
       ; - need to prove:
-      ;   (ML-= Nat (plus z m) (plus m z)) simpl-> 
+      ;   (ML-= Nat (plus z m) (plus m z)) simpl->
       ;   (ML-= Nat m (plus m z))
       #;(plus-n-0/ML m)
       (λ [m : Nat]
@@ -291,8 +291,8 @@
                          (Π [IH : (ML-= Nat (plus n-1 m) (plus m n-1))]
                             (ML-= Nat (s (plus n-1 m)) b))))))
               ; need to prove:
-              ; (P (ML-= Nat (s (plus m n-1)) (s (plus m n-1)))) = 
-              ;    (ML-= Nat (s (plus n-1 m)) (s (plus m n-1))) = 
+              ; (P (ML-= Nat (s (plus m n-1)) (s (plus m n-1)))) =
+              ;    (ML-= Nat (s (plus n-1 m)) (s (plus m n-1))) =
               ;    add 1 to each element of IH
               (λ [b1 : Nat]
                 (λ [m : Nat]
@@ -432,7 +432,7 @@
          (λ [n : Nat] Bool)
          false
          (λ [n-2 : Nat]
-           [ih2 : Bool] 
+           [ih2 : Bool]
            (negb ih2)))))))
 (check-equal? (evenb 0) true)
 (check-equal? (evenb 1) false)
@@ -523,7 +523,7 @@
   reflexivity)
 
 ;; plus-swap2 subterm1, just H proof
-(:: 
+(::
  (λ [n : Nat] [m : Nat] [p : Nat]
     ((λ (H : (== Nat (plus m n) (plus n m)))
        H)
