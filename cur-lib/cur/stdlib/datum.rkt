@@ -11,7 +11,7 @@
      syn))
   (define current-datum
     (make-parameter
-     default-datum
+     (lambda (syn) (default-datum syn void))
      (lambda (f)
        (let ([old-f (current-datum)])
          (case-lambda
