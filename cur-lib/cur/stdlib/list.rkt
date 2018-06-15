@@ -10,7 +10,8 @@
  cons
  list-ref
  length
- build-list)
+ build-list
+ list-append)
 
 (data List : 1 (-> (A : Type) Type)
   (nil : (-> (A : Type) (List A)))
@@ -41,3 +42,10 @@
      z]
     [(cons (a : A) (rest : (List A)))
      (s (recur rest))]))
+
+(define (list-append (A : Type) (ls1 : (List A)) (ls2 : (List A)))
+  (match ls1
+    [nil
+     ls2]
+    [(cons (a : A) (rest : (List A)))
+     (cons A a (recur rest))]))

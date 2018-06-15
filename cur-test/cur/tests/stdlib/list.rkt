@@ -62,3 +62,15 @@
 
 ;; TODO: Produces bad error message
 ; (((list-ref Bool (cons Bool true (nil Bool))) z) z)
+
+(check-equal?
+ (nil Nat)
+ (list-append Nat (nil Nat) (nil Nat)))
+
+(check-equal?
+ (cons Nat z (nil Nat))
+ (list-append Nat (nil Nat) (cons Nat z (nil Nat))))
+
+(check-equal?
+ (cons Nat z (cons Nat (s z) (nil Nat)))
+ (list-append Nat (cons Nat z (nil Nat)) (cons Nat (s z) (nil Nat))))

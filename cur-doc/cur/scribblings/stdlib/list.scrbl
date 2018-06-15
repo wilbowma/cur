@@ -31,3 +31,13 @@ A form for iterated application of @racket[cons].
 @defproc[(list-ref [A Type] [ls (List A)] [n Nat]) (Maybe A)]{
 Returns the @racket[n]th element of @racket[ls] in the @racket[Maybe] monad.
 }
+
+
+@defproc[(list-append [A Type] [ls1 (List A)] [ls2 (List A)]) (List A)]{
+Returns the @racket[n]th element of @racket[ls] in the @racket[Maybe] monad.
+
+@examples[#:eval curnel-eval
+  (list-append Nat (nil Nat) (nil Nat))
+  (list-append Nat (build-list Nat z (s z)) (build-list Nat (s z)))
+]
+}
