@@ -2,6 +2,7 @@
 
 @(require
   "../defs.rkt"
+  (for-label cur/stdlib/datum)
   scribble/eval)
 
 @(define curnel-eval (curnel-sandbox "(require cur/stdlib/bool cur/stdlib/nat cur/stdlib/sugar)"))
@@ -9,6 +10,7 @@
 @title{Nat}
 @defmodule[cur/stdlib/nat]
 This library defines the datatype @racket[Nat] and several functions on them.
+Extends @racket[#%datum] with @racket[nat-datum] for handling natural number literals.
 
 @deftogether[(@defthing[Nat Type]
               @defthing[z Nat]
@@ -20,8 +22,9 @@ The natural number datatype.
 A phase 1 function that converts a natural number in decimal notation, as a syntax object, into a unary notation of the same natural number, as a syntax object. 
 }
 
-@defform[(#%datum syn)]{
-A handler for natural number literals. Allows writing natural numbers in decimal notation.
+@defproc[(nat-datum [syn syntax?] [f procedure?]) syntax?]{
+A phase 1 procedure for parsing natural number literals.
+Allows writing natural numbers in decimal notation.
 
 @examples[#:eval curnel-eval
           0

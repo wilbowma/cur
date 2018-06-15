@@ -1,10 +1,8 @@
 #lang s-exp "../main.rkt"
 (require
+ "datum.rkt"
  "sugar.rkt"
- "bool.rkt"
- (only-in
-  "../main.rkt"
-  [#%datum old-datum]))
+ "bool.rkt")
 ;; TODO: override (all-defined-out) to enable exporting all these
 ;; properly.
 (provide #%datum Nat z s add1 sub1 plus mult exp square nat-equal? even? odd?)
@@ -14,17 +12,20 @@
   (s : (-> Nat Nat)))
 
 (begin-for-syntax
+  (provide nat->unary)
   (define (nat->unary n)
     (if (zero? n)
         #`z
         #`(s #,(nat->unary (sub1 n))))))
 
-(define-syntax (#%datum syn)
-  (syntax-parse syn
-    [(_ . x:nat)
-     (nat->unary (syntax->datum #'x))]
-    [(_ . e)
-     #`(old-datum e)]))
+(begin-for-syntax
+  (provide nat-datum)
+  (define (nat-datum syn f)
+    (syntax-parse syn
+      [x:nat
+       (nat->unary (syntax->datum #'x))]
+      [_ (f syn)]))
+  (current-datum nat-datum))
 
 (define (add1 (n : Nat)) (s n))
 
