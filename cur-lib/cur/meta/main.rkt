@@ -13,7 +13,8 @@
   [new-elim core-elim])
  "../stdlib/sugar.rkt"
  "../stdlib/nat.rkt"
- "../stdlib/list.rkt")
+ "../stdlib/list.rkt"
+ "../stdlib/sigma.rkt")
 
 ;; Staged meta-programming for Cur
 ;; Largely based on
@@ -39,7 +40,7 @@
       (cur-elim : (-> Cur-Term Cur-Term (List Cur-Term) Cur-Term)))
 
 (data Cur-Program : 0 (Type 0)
-      (cur-data : (-> Nat Cur-Term (List (Pair Cur-Name Cur-Term)) Cur-Program))
+      (cur-data : (-> Nat Cur-Term (List (Σ Cur-Name Cur-Term)) Cur-Program))
       (cur-def : (-> Cur-Name Cur-Term Cur-Program))
       (cur-expr : (-> Cur-Term Cur-Program))
       (cur-eof : Cur-Program))
@@ -54,8 +55,8 @@
         #:datum-literals (:)
         [(core-data x:id : p:nat D (cs:id : e) ...)
          #`(cur-data p #,(quasisquote/term #'D)
-                     (make-list
-                      (make-pair cs (quasiquote e)) ...))]
+                     (build-list
+                      (pair cs (quasiquote e)) ...))]
         [(core-define x:id e)
          ]
         [_ (quasiquote/term this-syntax free-var-map)])))
@@ -70,13 +71,22 @@
         [x:id
          #:when (member #'x free-var-map)
          (ref #'x free-var-map)]
-        [(core-λ )]
-        [(core-app )]
+        [(core-λ (x:id : A) e)
+         #`(cur-lam
+            (cur-id z)
+            #,(quasiquote/term #'A)
+            #,(shift (quasiquote/term (subst #'(cur-var (cur-id z)) #'x #'e))))]
+        [(core-app e1 e2)
+         #`(cur-app #,(quasiquote/term #'e1) #,(quasiquote/term #'e2))]
         [(core-Π (x:id : A) B)
          #`(cur-Pi (cur-id z)
                    #,(quasiquote/term #'A)
                    #,(shift (quasiquote/term (subst #'(cur-var (cur-id z)) #'x #'B))))]
-        [(core-elim )]))))
+        [(core-elim target motive methods ...)
+         #`(cur-elim
+            #,(quasiquote/term #'target)
+            #,(quasiquote/term #'motive)
+            (build-list (quasiquote methods) ...))]))))
 
 (define-syntax (quasiquote syn)
   (syntax-parse syn
