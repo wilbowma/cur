@@ -15,6 +15,19 @@
 (check-equal?
  (void)
  (:: (cons Bool true (nil Bool)) (List Bool)))
+
+(check-equal?
+ (nil Nat)
+ (build-list Nat))
+
+(check-equal?
+ (cons Nat z (nil Nat))
+ (build-list Nat z))
+
+(check-equal?
+ (cons Nat z (cons Nat z (nil Nat)))
+ (build-list Nat z z))
+
 (check-equal?
  (void)
  (:: (lambda (A : Type) (a : A)

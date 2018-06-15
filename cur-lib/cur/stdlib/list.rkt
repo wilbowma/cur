@@ -9,11 +9,19 @@
  nil
  cons
  list-ref
- length)
+ length
+ build-list)
 
 (data List : 1 (-> (A : Type) Type)
   (nil : (-> (A : Type) (List A)))
   (cons : (-> (A : Type) A (List A) (List A))))
+
+(define-syntax (build-list syn)
+  (syntax-parse syn
+    [(_ A)
+     #'(nil A)]
+    [(_ A e e^ ...)
+     #'(cons A e (build-list A e^ ...))]))
 
 (define (list-ref (A : Type) (ls : (List A)))
   (match ls
