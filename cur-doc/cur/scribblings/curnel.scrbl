@@ -2,9 +2,11 @@
 
 @(require
   "defs.rkt"
+  (for-label (only-meta-in 0 cur))
   scribble/eval)
 
 @title{Curnel Forms}
+@defmodule[cur]
 @deftech{Curnel forms} are the core forms provided @racketmodname[cur].
 These forms come directly from the trusted core and are all that remain after macro expansion.
 @todo{Link to guide regarding macro expansion}

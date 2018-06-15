@@ -2,6 +2,8 @@
 
 @(require
   "../defs.rkt"
+  (for-label (only-meta-in 0 cur/stdlib/bool))
+  (for-label (only-meta-in 0 cur))
   scribble/eval)
 
 @(define curnel-eval (curnel-sandbox "(require cur/stdlib/bool cur/stdlib/sugar)"))
@@ -11,9 +13,9 @@
 This library defines the datatype @racket[Bool] and several functions and forms for using them.
 
 @; TODO: Define a @defdata macro for Cur
-@deftogether[(@defthing[Bool Type]
-              @defthing[true Bool]
-	      @defthing[false Bool])]{
+@deftogether[(@defthing[#:kind "0 parameter type" Bool Type]
+              @defthing[#:kind "constructor" true Bool]
+              @defthing[#:kind "constructor" false Bool])]{
 The boolean datatype.
 }
 

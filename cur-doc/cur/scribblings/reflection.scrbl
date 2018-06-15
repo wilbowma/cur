@@ -5,9 +5,36 @@
    scribble/eval
    racket/sandbox
    (for-label
-     (only-in racket local-expand)))
+     (only-in
+       (only-meta-in 1 cur)
+          with-env
+          call-with-env
+          cur->datum
+          deprecated-cur-expand
+          cur-expand
+          cur-type-infer
+          cur-type-check?
+          cur-constructors-for
+          cur-data-parameters
+          cur-method-type
+          cur-constructor-recursive-index-ls
+          cur-constructor-telescope-length
+          cur-normalize
+          cur-rename
+          cur-reflect-id
+          cur-step
+          cur-equal?))
+   (for-label
+     (only-meta-in 0 cur))
+   (for-label
+     (only-in racket local-expand syntax? listof -> cons/c any identifier? or/c
+              symbol? natural-number/c thunk boolean?))
+   (for-label (only-meta-in 0 cur/stdlib/bool))
+   (for-label (only-meta-in 0 cur/stdlib/nat))
+   (for-label (only-meta-in 0 cur/stdlib/list)))
 
 @title{Reflection}
+@defmodule[cur]
 To support the addition of new user-defined language features, @racketmodname[cur] provides access to
 various parts of the language implementation as Racket forms at @gtech{phase} 1.
 The reflection features are @emph{unstable} and may change without warning.
@@ -31,8 +58,8 @@ reduce before type checking, or type check before expansion.
 
 @history[#:changed "0.20" @elem{Removed @racket[declare-data!], @racket[call-local-data-scope], @racket[local-data-scope]---we can't implement these in the new Curnel, and they were hacks to begin with.}]
 
-@defproc[(call-with-env [env (listof (cons/c syntax? syntax?))] [thunk (-> any?)])
-         any?]{
+@defproc[(call-with-env [env (listof (cons/c syntax? syntax?))] [thunk (-> any)])
+         any]{
 Calls @racket[thunk] with the lexical environment extended by @racket[env].
 @racket[env] should be in reverse dependency order; the 0th element of
 
@@ -205,7 +232,7 @@ Returns a list of constructors for the inductively defined type @racket[D].
 }
 
 @defproc[(cur-data-parameters [D identifier?])
-         natural-number?]{
+         natural-number/c]{
 Return the number of invariant parameters for the inductively defined type @racket[D].
 
 @examples[
@@ -224,7 +251,7 @@ type of the method required for this constructor when eliminating @racket[D].
 }
 
 @defproc[(cur-constructor-telescope-length [c identifier?])
-         natural-number?]{
+         natural-number/c]{
 Return the number of arguments to the constructor @racket[c].
 
 @examples[
@@ -238,7 +265,7 @@ Return the number of arguments to the constructor @racket[c].
 }
 
 @defproc[(cur-constructor-recursive-index-ls [c identifier?])
-         (listof natural-number?)]{
+         (listof natural-number/c)]{
 Return a 0-indexed list of the positions of the recursive arguments of constructor @racket[c].
 
 @examples[

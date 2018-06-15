@@ -2,6 +2,10 @@
 
 @(require
   "../defs.rkt"
+  (for-label (only-meta-in 0 cur/stdlib/typeclass))
+  (for-label (only-meta-in 0 cur/stdlib/nat))
+  (for-label (only-meta-in 0 cur/stdlib/bool))
+  (for-label (except-in cur/stdlib/sugar :))
   scribble/eval)
 
 @(define curnel-eval (curnel-sandbox "(require cur/stdlib/typeclass cur/stdlib/bool cur/stdlib/nat cur/stdlib/sugar)"))
@@ -21,7 +25,7 @@ are @racket[t ...].
 
 @examples[#:eval curnel-eval
           (typeclass (Eqv (A : Type))
-	    (equal? : (forall (a : A) (b : A) Bool)))]
+          (equal? : (-> (a : A) (b : A) Bool)))]
 }
 
 @defform[(impl (class param) defs ...)]{
@@ -34,9 +38,9 @@ definitions for each of the methods of the typeclass.
             (define (equal? (a : Bool) (b : Bool))
               (if a
                   (if b true false)
-		  (if b false true))))
+                  (if b false true))))
           (impl (Eqv Nat)
             (define equal? nat-equal?))
           (equal? true true)
-	  (equal? z z)]
+          (equal? z z)]
 }

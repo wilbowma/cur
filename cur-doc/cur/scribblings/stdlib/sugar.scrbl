@@ -2,6 +2,9 @@
 
 @(require
   "../defs.rkt"
+  (for-label cur/stdlib/sugar)
+  (for-label (only-meta-in 0 cur/stdlib/bool))
+  (for-label (only-meta-in 0 cur/stdlib/nat))
   scribble/eval)
 
 @(define curnel-eval (curnel-sandbox "(require cur/stdlib/nat cur/stdlib/bool cur/stdlib/sugar cur/stdlib/list)"))
@@ -25,18 +28,18 @@ Added @racket[Type] as a synonym for @racket[(Type 0)].
 @history[#:changed "0.20" @elem{Moved @racket[Type] synonym from Curnel.}]
 }
 
-@defform*[((-> decl decl ... type)
-           (→ decl decl ... type)
-	   (forall decl decl ... type)
-	   (∀ decl decl ... type)
-	   (Π decl decl ... type)
-	   (Pi decl decl ... type))
+@defform[(-> decl decl ... type)
 	  #:grammar
 	  [(decl
 	     type
 	     (code:line (identifier : type)))]]{
 A multi-artiy function type that supports dependent and non-dependent type declarations and automatic currying.
-We provide lots of names for this form, because there are lots of synonyms in the literature.
+Also exported as the following names, because there are lots of synonyms in the literature:
+@defidform/inline[→],
+@defidform/inline[forall],
+@defidform/inline[∀],
+@defidform/inline[Pi],
+@defidform/inline[Π].
 
 @examples[#:eval curnel-eval
           (data And : 2 (-> Type Type Type)
@@ -50,9 +53,9 @@ We provide lots of names for this form, because there are lots of synonyms in th
 
 }
 
-@defform*[((lambda (a : t) ... body)
-           (λ (a : t) ... body))]{
+@defform[(lambda (a : t) ... body)]{
 Defines a multi-arity procedure that supports automatic currying.
+Also provied as @defidform/inline[λ].
 
 @examples[#:eval curnel-eval
           ((lambda (x : Bool) (lambda (y : Bool) y)) true)
