@@ -22,8 +22,8 @@
  )
 
 (provide
-;; with-env
-;; call-with-env
+ with-env
+ call-with-env
  cur->datum
  ;;deprecated-cur-expand
  cur-expand
@@ -62,6 +62,16 @@
  (let ([ctpr (current-trace-print-results)])
    (lambda (s l n)
      (ctpr s (map (compose add-scopes) l) n))))
+
+(define current-env (make-parameter '()))
+
+(define (call-with-env env t)
+  ;; TODO: backwards-compatible, but perhaps very slow/memory intensive
+  (parameterize ([current-env (append env (current-env))])
+    (t)))
+
+(define-syntax-rule (with-env env e)
+  (call-with-env env (thunk e)))
 
 (define (env->ctx env) ;`((,#'x . ,#'Type) ...) -> #'([x : type] ...)
   (let ([ctx (datum->syntax #f
@@ -153,12 +163,14 @@
 (define (cur-constructor-telescope-length syn)
   (length (syntax->list (syntax-property (cur-expand syn) 'constructor-args))))
 
-(define (cur-constructor-recursive-index-ls syn) ;TODO
+(define (cur-constructor-recursive-index-ls syn)
   (let* ([expanded (cur-expand syn)]
-         [args (syntax-property expanded 'constructor-args)]
-         [rec-args (syntax-property expanded 'constructor-rec-args)])
- #; (displayln (format "expanded: ~a\n\nargs:~a\n\nrec-args:~a\n\n" (syntax->datum expanded) (syntax->datum args) (syntax->datum rec-args)))
-    (syntax->list rec-args)))
+         [rec-args-ls (syntax->list (syntax-property expanded 'constructor-rec-args))])
+    #;(displayln (format "expanded: ~a\n\nrec-args:~a" (syntax->datum expanded) rec-args-ls))
+    (for/fold ([ls empty])
+              ([arg-pair rec-args-ls]
+               [i (in-range (length rec-args-ls))])
+      (if (cdr (syntax->datum arg-pair)) (cons i ls) ls))))
 
 
 (define (cur-reflect syn) 
