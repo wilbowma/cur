@@ -3,7 +3,9 @@
 @(require
   "../defs.rkt"
   (for-label (only-meta-in 0 cur/stdlib/bool))
+  (for-label (only-in (only-meta-in 1 cur/stdlib/bool) bool->meta-bool meta-bool->bool))
   (for-label (only-meta-in 0 cur))
+  (for-label (only-in racket/base boolean? displayln))
   scribble/eval)
 
 @(define curnel-eval (curnel-sandbox "(require cur/stdlib/bool cur/stdlib/sugar)"))
@@ -53,4 +55,24 @@ The boolean @racket[or]. True if and only if either @racket[x] or @racket[y] is 
           (or true true)
 	  (or false true)
 	  (or false false)]
+}
+
+@defproc[(bool->meta-bool [syn syntax?]) boolean?]{
+A meta-procedure, provided at phase 1, that converts syntax representing a
+@racket[Bool] literal into a Racket (meta-level) @racket[boolean?].
+
+@examples[#:eval curnel-eval
+         (begin-for-syntax
+           (displayln (bool->meta-bool #'true)))
+]
+}
+
+@defproc[(meta-bool->bool [b boolean?]) syntax?]{
+A meta-procedure, provided at phase 1, that converts a Racket (meta-level)
+@racket[boolean?] into syntax representing a @racket[Bool].
+
+@examples[#:eval curnel-eval
+         (begin-for-syntax
+           (displayln (meta-bool->bool #f)))
+]
 }
