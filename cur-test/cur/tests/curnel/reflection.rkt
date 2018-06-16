@@ -40,7 +40,7 @@
 (cur-axiom puppies : (Maybe Nat))
 (begin-for-syntax
   (chk
-   #:t (cur-normalize #'(cur-Π (B : (cur-Type 0)) (Maybe B))) ;ok
+   #:t (cur-normalize #'(cur-Π (B : (cur-Type 0)) (Maybe B))) 
    #:t (cur-expand (cur-type-infer #'none))
    #:eq cur-equal? (cur-type-infer #'none) #'(cur-Π (A : (cur-Type 0)) (Maybe A))
    #:t (cur-normalize (cur-type-infer #'make-pair))
@@ -61,9 +61,9 @@
    #:eq cur-equal? (cur-type-infer #'Kittens) #'(cur-Type 0)
    #:eq cur-equal? (cur-type-infer #'empty) #'(cur-Π (A : (cur-Type 0)) (Vec A z))
    #:eq cur-equal? (cur-type-infer #'cons) #'(cur-Π (A : (cur-Type 0)) (cur-Π (k : Nat) (cur-Π (x : A) (cur-Π (xs : (Vec A k)) (Vec A (s k))))))
- ;  #:eq cur-equal? (cur-type-infer #'(cur-app empty Bool)) #'(Vec Bool z) ;fails, returns (Vec A z))
-  ; #:eq cur-equal? (cur-type-infer #'(cur-app just Nat)) #'(cur-Π (a : Nat) (Maybe Nat)) ;fails, returns (cur-Π (a : Nat) (Maybe A))
-;   #:eq cur-equal? (cur-type-infer #'(cur-app none Nat)) #'(Maybe Nat) ;fails, returns (Maybe A);
+   #:eq cur-equal? (cur-type-infer #'(cur-app empty Bool)) #'(Vec Bool z) 
+   #:eq cur-equal? (cur-type-infer #'(cur-app just Nat)) #'(cur-Π (a : Nat) (Maybe Nat)) 
+   #:eq cur-equal? (cur-type-infer #'(cur-app none Nat)) #'(Maybe Nat) 
    #:eq cur-equal? (cur-type-infer #'sub1) #'(cur-Π (n : Nat) Nat)
    #:eq cur-equal? (cur-type-infer #'puppies) #'(Maybe Nat))
   (chk
@@ -74,7 +74,7 @@
    #:t (cur-type-check? #'Kittens #'(cur-Type 0))
    #:t (cur-type-check? #'none #'(cur-Π (A : (cur-Type 0)) (Maybe A)))
    #:t (cur-type-check? #'(Maybe Nat) #'(cur-Type 0))
-  ; #:t (cur-type-check? #'Maybe  #'(cur-Π (A : (cur-Type 0)) (cur-Type 0))) ;fails: bad syntax in Maybe. Datatypes are defined with all params and indices in dep-ind-cur
+   #:t (cur-type-check? #'Maybe  #'(cur-Π (A : (cur-Type 0)) (cur-Type 0))) ;fails: bad syntax in Maybe. Datatypes are defined with all params and indices in dep-ind-cur
    #:t (cur-type-check? #'Nat #'(cur-Type 0))
    #:t (cur-type-check? #'just #'(cur-Π (A : (cur-Type 0)) (cur-Π (a : A) (Maybe A)))))
   (chk
@@ -94,15 +94,15 @@
   #:eq cur-equal? (cur-normalize #'(cur-app (cur-λ (x : (cur-Type 1)) x) (cur-Type 0))) #'(cur-Type 0)
   #:eq cur-equal? (cur-normalize #'(((cur-λ (A : (cur-Type 3)) (cur-λ (a : (cur-Type 2)) a)) (cur-Type 2)) (cur-Type 1))) #'(cur-Type 1)
   #:eq cur-equal? (cur-normalize #'(cur-app s z)) #'(cur-app s z)
-  #;#;#;#:eq cur-equal? (cur-normalize #'(cur-app sub1 (cur-app s z))) #'z) ;fails,doesn't apply sub1, returns (cur-app sub1 (cur-app s z))
-  #;(chk ;not equal by =
- #:eq cur-equal? (cur-constructors-for #'Nat) (list #'s #'z)
- #:eq cur-equal? (cur-constructors-for #'(Maybe Bool)) (list #'none #'just))
-#;(chk ;substitutes the bound var
+  #:eq cur-equal? (cur-normalize #'(cur-app sub1 (cur-app s z))) #'z) ;fails,doesn't apply sub1, returns (cur-app sub1 (cur-app s z))
+ (chk
+ #:eq (λ (x y) (map cur-equal? x y)) (cur-constructors-for #'Nat) (list #'s #'z)
+ #:eq (λ (x y) (map cur-equal? x y))  (cur-constructors-for #'(Maybe Bool)) (list #'none #'just))
+ (chk ;substitutes the bound var
  #:= (cur-rename #'Y #'X #'((cur-λ (X : (cur-Type 0)) X) X)) #'((cur-λ (X : (Type 0)) X) Y))
-(chk ;Note: can't test (cur-data-parameters #'Maybe) (see above)
- #:= (cur-data-parameters #'Nat) 0
- #:= (cur-data-parameters #'(Maybe Bool)) 1)
+ (chk ;Note: can't test (cur-data-parameters #'Maybe) (see above)
+  #:= (cur-data-parameters #'Nat) 0
+  #:= (cur-data-parameters #'(Maybe Bool)) 1)
 (chk
  #:= (cur-constructor-telescope-length #'z) 0
  #:= (cur-constructor-telescope-length #'s) 1
@@ -111,7 +111,8 @@
  #:= (cur-constructor-recursive-index-ls #'z) '()
  #:= (cur-constructor-recursive-index-ls #'s) '(0)
  #:= (cur-constructor-recursive-index-ls #'make-pair) '()
- #:= (cur-constructor-recursive-index-ls #'cons) '(3))
+ #:= (cur-constructor-recursive-index-ls #'cons) '(3)
+ #:= (cur-constructor-recursive-index-ls #'empty) '())
 ;(displayln (cur-type-infer #'none))
 ;(displayln (cur->datum (cur-type-infer #'none)))
 )
