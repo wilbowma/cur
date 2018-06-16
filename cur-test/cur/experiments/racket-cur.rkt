@@ -13,6 +13,7 @@
 ;; Racket only provides module-level
 (check-equal?
  (cur-datum . "meow")
+ ;; build-list is a macro, so no need for cur-apply
  (build-list
   Ascii
   (cur-apply ascii true true false true true false true)
@@ -22,6 +23,7 @@
 
 (check-equal?
  (cur-datum . 5)
+ ;; Can get away without cur-apply or cur-datum here, because s is secretly a macro
  (s (s (s (s (s z))))))
 
 (check-equal?
@@ -37,3 +39,15 @@
 ;; That's bad; need to be able to define only once
 ;; TODO: All meta-procedures are provided for-syntax, which makes it annoying to
 ;; try to require them for-meta 0. But, they are tied to syntax objects.. hm.
+
+(displayln (s (s (s (s (s (s z)))))))
+
+;; Let's violate type safety and manually making "" a Nat
+(define x "")
+
+(require (for-syntax (only-in racket/base #%app syntax define quote-syntax)))
+(require (except-in cur/curnel/racket-impl/runtime cur-apply))
+(begin-for-syntax
+  (define x (identifier-info #'Nat #'"")))
+
+(cur-apply add1 x)
