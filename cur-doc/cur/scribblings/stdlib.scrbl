@@ -14,4 +14,5 @@ Cur has a small standard library, primary for demonstration purposes.
 @include-section{stdlib/sigma.scrbl}
 @include-section{stdlib/maybe.scrbl}
 @include-section{stdlib/list.scrbl}
+@include-section{stdlib/equality.scrbl}
 @include-section{stdlib/typeclass.scrbl}
