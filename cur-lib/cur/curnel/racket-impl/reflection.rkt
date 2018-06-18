@@ -93,10 +93,14 @@
 (define (cur-data-parameters syn)
   (constant-info-param-count (syntax-local-eval syn)))
 
-;; Given an a target (a constructor applied to parameters) and a motive for eliminating
+;; Given an a target (a constructor applied to parameters), and a motive for eliminating
 ;; it, return the type of the method required for this.
 (define (cur-method-type syn motive)
-  (cur-reflect (branch-type syn syn motive)))
+  (syntax-parse syn
+    [c:id
+     (cur-method-type #'(c) motive)]
+    [(c:id ps ...)
+     (cur-reflect (branch-type syn #'c (attribute ps) (local-expand motive 'expression null)))]))
 
 ;; Given a constructor, return the number of arguments it takes.
 (define (cur-constructor-telescope-length syn)

@@ -248,6 +248,17 @@ Return the number of invariant parameters for the inductively defined type @rack
 Given an a @racket[target] (a constructor for some type @racket[D] applied to
 its invariant parameters) and a @racket[motive] for eliminating it, return the
 type of the method required for this constructor when eliminating @racket[D].
+
+@examples[
+(eval:alts (cur-method-type #'s #'(lambda (x : Nat) Nat))
+           (eval:result @racket[#'Nat] "" ""))
+(eval:alts (cur-method-type #'s #'(lambda (x : Nat) Nat))
+           (eval:result @racket[#'(Π (x : Nat) (Π (ih : Nat) Nat))] "" ""))
+(eval:alts (cur-method-type #'(nil Nat) #'(lambda (x : (List Nat)) Nat))
+           (eval:result @racket[#'Nat] "" ""))
+(eval:alts (cur-method-type #'(cons Nat) #'(lambda (x : (List Nat)) Nat))
+           (eval:result @racket[#'(Π (a : Nat) (Π (rest : (List Nat)) (Π (ih : Nat) Nat)))] "" ""))
+]
 }
 
 @defproc[(cur-constructor-telescope-length [c identifier?])
