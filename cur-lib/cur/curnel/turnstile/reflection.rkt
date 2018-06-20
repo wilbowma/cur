@@ -153,12 +153,14 @@
 (define (cur-constructor-telescope-length syn)
   (length (syntax->list (syntax-property (cur-expand syn) 'constructor-args))))
 
-(define (cur-constructor-recursive-index-ls syn) ;TODO
+(define (cur-constructor-recursive-index-ls syn)
   (let* ([expanded (cur-expand syn)]
-         [args (syntax-property expanded 'constructor-args)]
-         [rec-args (syntax-property expanded 'constructor-rec-args)])
- #; (displayln (format "expanded: ~a\n\nargs:~a\n\nrec-args:~a\n\n" (syntax->datum expanded) (syntax->datum args) (syntax->datum rec-args)))
-    (syntax->list rec-args)))
+         [rec-args-ls (syntax->list (syntax-property expanded 'constructor-rec-args))])
+    #;(displayln (format "expanded: ~a\n\nrec-args:~a" (syntax->datum expanded) rec-args-ls))
+    (for/fold ([ls empty])
+              ([arg-pair rec-args-ls]
+               [i (in-range (length rec-args-ls))])
+      (if (cdr (syntax->datum arg-pair)) (cons i ls) ls))))
 
 
 (define (cur-reflect syn) 
