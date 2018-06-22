@@ -22,8 +22,8 @@
  )
 
 (provide
-;; with-env
-;; call-with-env
+ with-env
+ call-with-env
  cur->datum
  ;;deprecated-cur-expand
  cur-expand
@@ -63,6 +63,16 @@
    (lambda (s l n)
      (ctpr s (map (compose add-scopes) l) n))))
 
+(define current-env (make-parameter '()))
+
+(define (call-with-env env t)
+  ;; TODO: backwards-compatible, but perhaps very slow/memory intensive
+  (parameterize ([current-env (append env (current-env))])
+    (t)))
+
+(define-syntax-rule (with-env env e)
+  (call-with-env env (thunk e)))
+
 (define (env->ctx env) ;`((,#'x . ,#'Type) ...) -> #'([x : type] ...)
   (let ([ctx (datum->syntax #f
                             (map (λ (pr)
@@ -82,6 +92,13 @@
     (infer (list syn) #:ctx ctx)))
 
 (define (cur-type-infer syn #:local-env [env '()])
+  (with-env env
+    (cur-type-infer/env syn)))
+
+(define (cur-type-infer/env syn)
+  (cur-get-type syn #:local-env (current-env)))
+
+(define (cur-get-type syn #:local-env [env '()])
  (let cur-type-infer ([syn syn]
                         [env env])
  (let* ([expanded (turnstile-expand syn #:local-env env)]
@@ -101,6 +118,14 @@
 
 
 (define (cur-type-check? term expected-type #:local-env [env '()])
+  (with-env env
+    (cur-type-check?/env term expected-type)))
+
+(define (cur-type-check?/env term expected-type)
+  (cur-type-check?/local term expected-type #:local-env (current-env)))
+
+
+(define (cur-type-check?/local term expected-type #:local-env [env '()])
   (let ([inferred-type (turnstile-infer term #:local-env env)])
     ;(displayln (format "inferred: ~a\nexpected: ~a" (syntax->datum inferred-type) (syntax->datum expected-type)))
     (typecheck? inferred-type (cur-expand expected-type #:local-env env))))
@@ -113,11 +138,25 @@
       (syntax->datum reflected))))
 
 (define (cur-normalize syn #:local-env [env '()])
+  (with-env env
+    (cur-normalize/env syn)))
+
+(define (cur-normalize/env syn)
+  (cur-normalize/local syn #:local-env (current-env)))
+
+(define (cur-normalize/local syn #:local-env [env '()])
     (let ([evaled (cur-expand syn #:local-env env)])
     #;(displayln (format "in cur-normalize, syn: ~a, evaled: ~a" syn evaled))
       (cur-reflect evaled)))
 
 (define (cur-equal? term1 term2 #:local-env [env '()])
+  (with-env env
+    (cur-equal?/env term1 term2)))
+
+(define (cur-equal?/env term1 term2)
+  (cur-equal?/local term1 term2 #:local-env (current-env)))
+
+(define (cur-equal?/local term1 term2 #:local-env [env '()])
   (let ([term1-evaled (cur-expand term1 #:local-env env)]
         [term2-evaled (cur-expand term2 #:local-env env)])
    ; (printf "in cur-equal? term1: ~s~n term2: ~s~n" (add-scopes term1-evaled) (add-scopes term2-evaled))
@@ -251,6 +290,12 @@
            #:attr name (syntax-property #'x 'axiom-ref-name)))
 
 (define (cur-expand syn #:local-env [env '()])
+  (cur-expand/env syn))
+
+(define (cur-expand/env syn)
+  (cur-expand/local syn #:local-env (current-env)))
+
+(define (cur-expand/local syn #:local-env [env '()])
  (let cur-expand ([syn syn]
                         [env env])
   (let* ([expanded (turnstile-expand syn #:local-env env)]
