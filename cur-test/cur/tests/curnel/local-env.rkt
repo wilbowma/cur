@@ -78,7 +78,14 @@
    (with-env test-env1 (cur-type-infer #'x))
    #'X
 
-  ; #:t (cur-type-check? #'x #'(Type 0) #:local-env `((,#'x . ,#'(Type 0))))
+   #:t (with-env test-env2 (cur-type-check? #'x #'(Type 0)))
+
+   #:t (with-env test-env3 (cur-normalize #'x))
+
+   #:t (with-env test-env1 (cur-expand #'X))
+
+   #:eq (lambda (x y) (with-env test-env3 (cur-equal? x y)))
+   (with-env test-env3 (cur-type-infer #'x)) #'Nat
 
   ; #:eq cur-equal? (cur-type-infer #'f #:local-env test-env2)
   ; #'(Π (x : (Type 0)) (Type 0))
