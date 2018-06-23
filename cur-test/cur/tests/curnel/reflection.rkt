@@ -5,17 +5,9 @@
   chk
   racket/base
   ;; TODO: replace with (require cur) at phase-0, when kernel is implemented
-  (except-in "../../../../cur-lib/cur/curnel/turnstile/equiv.rkt" cur-equal?)
-  "../../../../cur-lib/cur/curnel/turnstile/stxutils.rkt"
- ; "../../../../cur-lib/cur/curnel/racket-impl/reflection.rkt"
-  "../../../../cur-lib/cur/curnel/turnstile/reflection.rkt"
-  )
- "../../../../cur-lib/cur/curnel/turnstile/cur-to-turnstile.rkt"
-; "../../../../cur-lib/cur/curnel/racket-impl/type-check.rkt"
- ;"../../../../cur-lib/cur/curnel/racket-impl/runtime.rkt"
- ;"runtime.rkt"
- turnstile/examples/dep-ind-cur
- (only-in turnstile/lang infer))
+  cur/curnel/turnstile/reflection)
+ cur/curnel/turnstile/cur-to-turnstile
+ turnstile/examples/dep-ind-cur)
 
 (cur-data Nat : 0 (cur-Type 0)
            (z :   Nat)
@@ -40,7 +32,7 @@
 (cur-axiom puppies : (Maybe Nat))
 (begin-for-syntax
   (chk
-   #:t (cur-normalize #'(cur-Π (B : (cur-Type 0)) (Maybe B))) ;ok
+   #:t (cur-normalize #'(cur-Π (B : (cur-Type 0)) (Maybe B)))
    #:t (cur-expand (cur-type-infer #'none))
    #:eq cur-equal? (cur-type-infer #'none) #'(cur-Π (A : (cur-Type 0)) (Maybe A))
    #:t (cur-normalize (cur-type-infer #'make-pair))

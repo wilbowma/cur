@@ -1,23 +1,11 @@
 #lang racket/base
 (require
  ;; TODO: Ought just these core language forms, without for-syntax, modules, etc... somewhere
- #;(rename-in
-  cur/curnel/turnstile/type-check
-  [typed-Type Type]
-  [typed-define define]
-  [typed-λ λ]
-  [typed-Π Π]
-  [typed-app #%app]
-  [typed-axiom axiom]
-  [typed-data data]
-  [typed-elim new-elim]
-  [deprecated-typed-elim elim])
  (for-syntax
   racket/base
   chk
-  #;cur/curnel/turnstile/reflection)
-
- (rename-in "../../../../cur-lib/cur/curnel/turnstile/cur-to-turnstile.rkt"
+  cur/curnel/turnstile/reflection)
+ (rename-in cur/curnel/turnstile/cur-to-turnstile
             [cur-Type Type]
             [cur-define define]
             [cur-λ λ]
@@ -25,11 +13,7 @@
             [cur-app #%app]
             [cur-axiom axiom]
             [cur-data data]
-            [cur-new-elim new-elim])
-(for-syntax
- (except-in "../../../../cur-lib/cur/curnel/turnstile/equiv.rkt" cur-equal?)
- "../../../../cur-lib/cur/curnel/turnstile/stxutils.rkt"
- "../../../../cur-lib/cur/curnel/turnstile/reflection.rkt"))
+            [cur-new-elim new-elim]))
 
 (data Nat : 0 (Type 0)
            (z :   Nat)
