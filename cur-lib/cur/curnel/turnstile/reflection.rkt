@@ -6,20 +6,12 @@
  syntax/to-string
  syntax/stx
  racket/list
- ;"type-reconstruct.rkt"
- "eval.rkt"
-; "runtime-utils.rkt"
- (rename-in "equiv.rkt" [cur-equal? _cur-equal?])
- "stxutils.rkt"
-; (for-template "type-check.rkt")
- ;(for-template "runtime.rkt")
+ cur/curnel/racket-impl/stxutils
  (only-in macrotypes/stx-utils transfer-props)
  (for-template (only-in turnstile/lang infer typecheck? type=?))
  (for-template turnstile/examples/dep-ind-cur)
- (for-template macrotypes/stx-utils)
- (for-template "cur-to-turnstile.rkt")
- (for-template (only-in racket/base quote #%expression void #%plain-lambda #%plain-app list))
- )
+ (for-template cur/curnel/turnstile/cur-to-turnstile)
+ (for-template (only-in racket/base quote #%expression void #%plain-lambda #%plain-app list)))
 
 (provide
  with-env
