@@ -187,13 +187,13 @@
          "Cannot omit type annotations unless you have declared them with (: name type) form first."
          syn)])]
     [(define (name (x : t) ...) body)
-     (current-definition-param-decl (syntax->list #`((x : t) ...)))
+     (current-definition-param-decl (map syntax-local-introduce (syntax->list #`((x : t) ...))))
      (quasisyntax/loc syn
        (define name (lambda (x : t) ... body)))]
     [(define id body)
      ;; TODO: without syntax-parameterize, or similar, this information will become stale and may
      ;; result in incorrect expansion
-     (current-definition-id #'id)
+     (current-definition-id (syntax-local-introduce #'id))
      (quasisyntax/loc syn
        (real-define id body))]))
 
@@ -497,7 +497,8 @@
   ;; TODO: Perhaps this should be part of the application macro. That could simply test the operator
   ;; against the current-definition-id, rather than walk over the syntax tree.
   (define (replace-recursive-call body)
-    (syntax-parse (cur-expand body)
+    (syntax-parse (local-expand body 'expression (list #'real-lambda #'real-Π #'real-app
+                                                       #'elim))
       #:literals (real-lambda real-Π real-app elim)
       #:datum-literals (:)
       [(real-lambda (x : t) e)
@@ -508,10 +509,11 @@
          (real-Π (x : #,(replace-recursive-call #'t)) #,(replace-recursive-call #'e)))]
       [(real-app e:id a:expr)
        ;; TODO: Need proper identifiers to do the right thing
-       #:when (and (current-definition-id) (eq? (syntax-e #'e) (syntax-e (current-definition-id))))
-;       #:when (bound-identifier=? #'e (syntax-parameter-value #'current-definition-id))
+       #:when (and (current-definition-id) (free-identifier=? #'e (syntax-local-introduce (current-definition-id))))
+       ;       #:when (bound-identifier=? #'e (syntax-parameter-value #'current-definition-id))
+       #:do [(printf "replacing ~a~n" this-syntax)]
        (quasisyntax/loc this-syntax
-         (lambda #,@(cdr (current-definition-param-decl)) (recur #,(replace-recursive-call #'a))))]
+         (lambda #,@(map syntax-local-introduce (cdr (current-definition-param-decl))) (recur #,(replace-recursive-call #'a))))]
       [(real-app e:expr e2:expr)
        (quasisyntax/loc this-syntax
          (#,(replace-recursive-call #'e) #,(replace-recursive-call #'e2)))]
