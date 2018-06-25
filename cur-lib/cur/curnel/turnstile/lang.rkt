@@ -76,4 +76,4 @@
 (define-syntax (deprecated-cur-elim syn)
   (syntax-case syn ()
     [(_ _ motive (methods ...) target)
-     (quasisyntax/loc syn (cur-elim target motive methods ...))]))
+     (quasisyntax/loc syn (cur-new-elim target motive (methods ...)))]))

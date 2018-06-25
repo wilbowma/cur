@@ -7,11 +7,28 @@
  syntax/stx
  racket/list
  cur/curnel/racket-impl/stxutils
- (only-in macrotypes/stx-utils transfer-props)
  (for-template (only-in turnstile/lang infer typecheck? type=?))
  (for-template turnstile/examples/dep-ind-cur)
  (for-template cur/curnel/turnstile/cur-to-turnstile)
  (for-template (only-in racket/base quote #%expression void #%plain-lambda #%plain-app list)))
+
+;; copy/paste/modified from macrotype/stx-utils
+;; transfer single prop, unless it exists already
+;; this isn't enough to get rid of all the duplicate properties, since turnstile
+;; doesn't do this internally.
+;; but hopefully it helps
+(define (transfer-prop p from to)
+  (define v (syntax-property from p))
+  (if (syntax-property to p)
+      to
+      (syntax-property to p v)))
+
+;; transfer all props except 'origin, 'orig, and ':
+(define (transfer-props from to #:except [dont-transfer '(origin orig :)])
+  (define (transfer-from prop to) (transfer-prop prop from to))
+  (define props (syntax-property-symbol-keys from))
+  (define props/filtered (foldr remove props dont-transfer))
+  (foldl transfer-from to props/filtered))
 
 (provide
  with-env
@@ -29,7 +46,7 @@
  cur-normalize
  cur-rename
  cur-reflect-id
- ;;cur-step
+ cur-step
  cur-equal?)
 (define debug-reflect? #f)
 (define debug-datatypes? #f)
@@ -75,87 +92,54 @@
     ctx))
 
 (define (turnstile-infer syn #:local-env [env '()])
-  (let* ([ctx (env->ctx env)]
-         [type (car (cadddr (infer (list syn) #:ctx ctx)))])
-    type))
+  (with-env env
+    (let* ([ctx (env->ctx (current-env))]
+           [type (car (cadddr (infer (list syn) #:ctx ctx)))])
+    type)))
 
-(define (turnstile-expand syn #:local-env [env '()]) ;returns ((tvs) (xs) (es) (τs))
-  (let ([ctx (env->ctx env)])
-    (infer (list syn) #:ctx ctx)))
+(define (turnstile-expand syn #:local-env [env '()] . ls) ;returns ((tvs) (xs) (es) (τs))
+  (with-env env
+    (let ([ctx (env->ctx (current-env))])
+      (infer (list syn) #:ctx ctx
+            ; #:stop-list? ls future work
+             ))))
 
 (define (cur-type-infer syn #:local-env [env '()])
-  (with-env env
-    (cur-type-infer/env syn)))
+  (with-env env (cur-get-type syn)))
 
-(define (cur-type-infer/env syn)
-  (cur-get-type syn #:local-env (current-env)))
-
-(define (cur-get-type syn #:local-env [env '()])
- (let cur-type-infer ([syn syn]
-                        [env env])
- (let* ([expanded (turnstile-expand syn #:local-env env)]
+;; XXX: Probably way too much prop transfer going on
+(define (cur-get-type syn)
+  (let* ([expanded (turnstile-expand syn)]
          [xs-ls (syntax->list (second expanded))]
          [es-ls (syntax->list (third expanded))]
          [τs-ls (fourth expanded)]
-         [env-ids (reverse (map car env))])
-   (when debug-scopes?
-     (printf "cur-type-infer syn ~s~n" (add-scopes syn))
-     (printf "cur-type-infer env ~s~n" (add-scopes env-ids))
-     (printf "cur-type-infer xs ~s~n" (add-scopes xs-ls))
-     (printf "ought to replace ~s by ~s~n" (add-scopes xs-ls) (add-scopes env-ids))
-     (printf "τs ~s~n"(add-scopes τs-ls))
-     (printf "cur-type-infer subst ~s~n" (add-scopes (subst* env-ids xs-ls (first τs-ls))))
-     (printf "cur-type-infer transfer ~s~n" (add-scopes (transfer-props syn (subst* env-ids xs-ls (first τs-ls))))))
-    (cur-reflect (cur-expand (transfer-props (first τs-ls) (subst* env-ids xs-ls  (first τs-ls))) #:local-env env)))))
-
+         [env-ids (reverse (map car (current-env)))])
+    (transfer-props (first τs-ls) (transfer-props syn (cur-reflect (transfer-props syn (transfer-props (first τs-ls) (subst* env-ids xs-ls  (first τs-ls)))))))))
 
 (define (cur-type-check? term expected-type #:local-env [env '()])
   (with-env env
-    (cur-type-check?/env term expected-type)))
-
-(define (cur-type-check?/env term expected-type)
-  (cur-type-check?/local term expected-type #:local-env (current-env)))
-
-
-(define (cur-type-check?/local term expected-type #:local-env [env '()])
-  (let ([inferred-type (turnstile-infer term #:local-env env)])
-    ;(displayln (format "inferred: ~a\nexpected: ~a" (syntax->datum inferred-type) (syntax->datum expected-type)))
-    (typecheck? inferred-type (cur-expand expected-type #:local-env env))))
+    (let ([inferred-type (turnstile-infer term)])
+      (typecheck? inferred-type (cur-expand expected-type)))))
 
 (define (cur->datum syn)
   (let ([expanded (cur-expand syn)])
-    ;(displayln (format "expanded: ~a" expanded))
     (let ([reflected (cur-reflect expanded)])
-      ;(displayln (format "reflected: ~a" reflected))
       (syntax->datum reflected))))
 
 (define (cur-normalize syn #:local-env [env '()])
   (with-env env
-    (cur-normalize/env syn)))
-
-(define (cur-normalize/env syn)
-  (cur-normalize/local syn #:local-env (current-env)))
-
-(define (cur-normalize/local syn #:local-env [env '()])
-    (let ([evaled (cur-expand syn #:local-env env)])
-    #;(displayln (format "in cur-normalize, syn: ~a, evaled: ~a" syn evaled))
-      (cur-reflect evaled)))
+    (let ([evaled (cur-expand syn)])
+      (cur-reflect evaled))))
 
 (define (cur-equal? term1 term2 #:local-env [env '()])
   (with-env env
-    (cur-equal?/env term1 term2)))
-
-(define (cur-equal?/env term1 term2)
-  (cur-equal?/local term1 term2 #:local-env (current-env)))
-
-(define (cur-equal?/local term1 term2 #:local-env [env '()])
-  (let ([term1-evaled (cur-expand term1 #:local-env env)]
-        [term2-evaled (cur-expand term2 #:local-env env)])
-   ; (printf "in cur-equal? term1: ~s~n term2: ~s~n" (add-scopes term1-evaled) (add-scopes term2-evaled))
-    (type=? term1-evaled term2-evaled)))
+    (let ([term1-evaled (cur-expand term1)]
+          [term2-evaled (cur-expand term2)])
+      (type=? term1-evaled term2-evaled))))
 
 (define (cur-constructors-for syn)
   (let ([constructor-ls (syntax-property (cur-expand syn) 'constructors)])
+    ;; XXX: This pattern is caused by a similar issue as the XXX above.
     (if (pair? constructor-ls)
         (syntax->list (car constructor-ls))
         (syntax->list constructor-ls))))
@@ -168,7 +152,6 @@
     (if (pair? num-params)
         (car num-params)
         num-params)))
-
 
 (define (cur-reflect-id syn)
   (syntax-parse syn
@@ -187,60 +170,33 @@
 (define (cur-constructor-recursive-index-ls syn)
   (let* ([expanded (cur-expand syn)]
          [rec-args-ls (syntax->list (syntax-property expanded 'constructor-rec-args))])
-    #;(displayln (format "expanded: ~a\n\nrec-args:~a" (syntax->datum expanded) rec-args-ls))
     (for/fold ([ls empty])
               ([arg-pair rec-args-ls]
                [i (in-range (length rec-args-ls))])
       (if (cdr (syntax->datum arg-pair)) (cons i ls) ls))))
 
-
-(define (cur-reflect syn) 
+(define (cur-reflect syn)
   (syntax-parse syn
     #:literals (quote #%expression void #%plain-lambda #%plain-app list )
     #:datum-literals (:)
     [x:id
-     #:do [(when debug-reflect? (displayln (format "id: ~a\n\n" (syntax->datum this-syntax))))]
      (cur-reflect-id syn)]
-    [Type:expanded-Type
-     #:with i #'Type.n
-     #:do [(when debug-reflect? (displayln (format "Type stx class: ~a\n\n" (syntax->datum this-syntax))))]
-     #'(cur-Type i)]
+    [(~Type (quote i))
+     (quasisyntax/loc this-syntax
+       (cur-Type i))]
     [(#%plain-lambda (x:id) body)
      #:with (~Π ([y : t]) _) (syntax-property syn ':)
-     #:do [(when debug-reflect?(displayln (format "lambda: ~a\n\n" (syntax->datum this-syntax))))]
-     #`(cur-λ (x : #,(cur-reflect #'t)) #,(cur-reflect #'body))]
-    [pi:expanded-Π
-     #:with arg #'pi.arg
-     #:with τ_arg #'pi.τ_arg
-     #:with body #'pi.body
-     #:do [(when debug-reflect? (displayln (format "Π stx class: ~a\n\n" (syntax->datum this-syntax))))]
-     #`(cur-Π (arg : #,(cur-reflect #'τ_arg)) #,(cur-reflect #'body))]
+     (quasisyntax/loc this-syntax
+       (cur-λ (x : #,(cur-reflect #'t)) #,(cur-reflect #'body)))]
+    [(~Π ([arg : τ_arg]) body)
+     (quasisyntax/loc this-syntax
+       (cur-Π (arg : #,(cur-reflect #'τ_arg)) #,(cur-reflect #'body)))]
     [d:expanded-datatype
-      #:do [(when debug-reflect? (displayln (format "expanded-datatype case: ~a\n\n" (syntax->datum this-syntax))))]
-     #'d.unexpanded]
-    [e:expanded-app
-     #:with fn #'e.rator
-     #:with arg #'e.rand
-     #:do [(when debug-reflect? (displayln (format "app stx class: ~a\n\n" (syntax->datum this-syntax))))]
-     #`(cur-app #,(cur-reflect #'fn) #,(cur-reflect #'arg))]))
-
-(define-syntax-class expanded-app #:attributes (rator rand) #:literals (#%plain-app)
-  #:commit
-  (pattern (#%plain-app fn arg)
-           #:attr rator #'fn
-           #:attr rand #'arg))
-
-(define-syntax-class expanded-Π #:attributes (arg τ_arg body)
-  #:commit
-  (pattern (~Π ([x : arg-type]) body-type)
-           #:attr arg #'x
-           #:attr τ_arg #'arg-type
-           #:attr body #'body-type))
-
-(define-syntax-class expanded-Type #:attributes (n) #:literals (quote)
-  #:commit
-  (pattern (~Type (quote i))
-           #:attr n #'i))
+      ;; XXX: Caused by duplicating syntax properties
+      (if (pair? (attribute d.unexpanded)) (car (attribute d.unexpanded)) (attribute d.unexpanded))]
+    [(#%plain-app fn arg)
+     (quasisyntax/loc this-syntax
+       (cur-app #,(cur-reflect #'fn) #,(cur-reflect #'arg)))]))
 
 (define-syntax-class constructor-id #:attributes (name)
   #:commit
@@ -250,20 +206,15 @@
 
 (define-syntax-class expanded-datatype #:attributes (unexpanded) #:literals (#%plain-app #%expression void list #%plain-lambda)
   #:commit
-  (pattern (#%plain-app T (#%plain-lambda () (#%expression void) (plain-#%app list A+i+x ... )))
+  (pattern (#%plain-app T (#%plain-lambda () (#%expression void) (#%plain-app list A+i+x ... )))
            #:fail-unless (syntax-property this-syntax 'data-ref-name) (format "error: ~a has no property 'data-ref-name" this-syntax)
-           #:with expanded-args #'(A+i+x ...)
            #:with data-ref-name (syntax-local-introduce (syntax-property this-syntax 'data-ref-name))
            #:with D (car (syntax->list #'data-ref-name))
            #:with reflected-args (cdr (syntax->list #'data-ref-name))
-           #:do [(when debug-datatypes? (displayln (format "expanded datatype:~a\nreflected datatype: ~a" (syntax->datum this-syntax) (syntax->datum #'data-ref-name))))]
-           #:do [(when debug-datatypes? (displayln (format "expanded A+i+x:~a\ntypes of expanded A+i+x:~a\nreflected A+i+x:~a\nTypes of reflected A+i+x:~a\nfree-id=?~a"
-                                                           (map syntax->datum   (syntax->list #'expanded-args))
-                                                           (map turnstile-infer  (syntax->list #'expanded-args))
-                                                           (map syntax->datum  (syntax->list #'reflected-args))
-                                                           (map turnstile-infer (syntax->list #'reflected-args))
-                                                           (map free-identifier=? (syntax->list #'expanded-args) (syntax->list #'reflected-args)))))]
-           #:attr unexpanded #'(D A+i+x ...))
+           #:attr unexpanded
+           (for/fold ([head #'D])
+                     ([a (attribute A+i+x)])
+             #`(cur-app #,head #,(cur-reflect a))))
 
   (pattern (#%plain-app type)
            #:fail-unless (syntax-property this-syntax 'data-ref-name) (format "error: ~a has no property 'data-ref-name" this-syntax)
@@ -281,30 +232,24 @@
            #:fail-unless (syntax-property #'x 'axiom-ref-name) (format "error: ~a has no property 'axiom-ref-name" #'x)
            #:attr name (syntax-property #'x 'axiom-ref-name)))
 
-(define (cur-expand syn #:local-env [env '()])
-  (cur-expand/env syn))
+;; XXX: currently ignores stop list; this is bad.
+;; requires updated turnstile to support
+(define (cur-expand syn #:local-env [env '()] . ls)
+  (with-env env
+    (let* ([expanded (apply turnstile-expand syn (append
+                                                  (syntax-e #'(cur-Type cur-λ cur-app cur-Π cur-data cur-define cur-new-elim))
+                                                  ls))]
+           [xs-ls (syntax->list (second expanded))]
+           [es-ls (syntax->list (third expanded))]
+           [env-ids (reverse (map car (current-env)))])
+      (transfer-props
+       (first es-ls)
+       (transfer-props
+        syn
+        (cur-reflect
+         (transfer-props (first es-ls)
+                       (transfer-props syn (subst* env-ids xs-ls (first es-ls))))))))))
 
-(define (cur-expand/env syn)
-  (cur-expand/local syn #:local-env (current-env)))
-
-(define (cur-expand/local syn #:local-env [env '()])
- (let cur-expand ([syn syn]
-                        [env env])
-  (let* ([expanded (turnstile-expand syn #:local-env env)]
-         [xs-ls (syntax->list (second expanded))]
-         [es-ls (syntax->list (third expanded))]
-         [env-ids (reverse (map car env))])
-    (when debug-scopes?
-      (printf "syn ~s~n" (add-scopes syn))
-      (printf "env ~s~n" (add-scopes env-ids))
-      (printf "xs ~s~n" (add-scopes xs-ls))
-      (printf "ought to replace ~s by ~s~n" (add-scopes xs-ls) (add-scopes env-ids))
-      #;(displayln (add-scopes xs-ls))
-      (printf "es ~s~n"(add-scopes (first es-ls)))
-      ;   #;(displayln (add-scopes expanded))
-      (printf "subst ~s~n" (add-scopes (subst* env-ids xs-ls (first es-ls))))
-      (printf "transfer ~s~n" (add-scopes (transfer-props syn (subst* env-ids xs-ls (first es-ls)))))
-      #;(displayln (format "in cur-expand, syn: ~a\n\n env-ids: ~a \n\n expanded: ~a \n\n xs-ls: ~a \n\n es-ls: ~a"
-                           syn env-ids expanded xs-ls es-ls)))
-(transfer-props syn (subst* env-ids xs-ls (first es-ls))))
-  ))
+(define (cur-step syn #:local-env [env '()])
+  (printf "Warning: cur-step is not yet supported.~n")
+  (cur-normalize syn #:local-env env))

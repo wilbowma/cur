@@ -46,44 +46,46 @@
 (define-syntax (cur-λ syn)
   (syntax-parse syn
     #:datum-literals (:)
-    [(_ (x:id : t1:expr) ... e:expr)
-     (quasisyntax/loc syn (dep-λ [x : t1] ... e))]))
+    [(_ (x:id : t1:expr) e:expr)
+     (quasisyntax/loc syn (dep-λ [x : t1] e))]))
 
 (define-syntax (cur-Π syn)
-    (syntax-parse syn #:datum-literals (:)
-    [(_ (x:id : t1:expr) ... e:expr)
-     (quasisyntax/loc syn (dep-Π [x : t1] ... e))]))
+  (syntax-parse syn
+    #:datum-literals (:)
+    [(_ (x:id : t1:expr) e:expr)
+     (quasisyntax/loc syn (dep-Π [x : t1] e))]))
 
 (define-syntax (cur-app syn)
   (syntax-parse syn
-    [(_ e1:expr e2:expr ...)
-      (quasisyntax/loc syn (dep-#%app e1 e2 ...))]))
+    [(_ e1:expr e2:expr)
+      (quasisyntax/loc syn (dep-#%app e1 e2))]))
 
 (begin-for-syntax
   (define (parse-telescope-names type)
-    (syntax-parse type
+    (syntax-parse (local-expand type 'expression (syntax-e #'(cur-Π cur-Type)))
       #:datum-literals (:)
       #:literals (cur-Π)
       [(cur-Π (x : t) telescope) (cons (quasisyntax/loc type x) (parse-telescope-names #'telescope))]
       [result '()]))
   (define (parse-telescope-annotations type)
-    (syntax-parse type
+    (syntax-parse (local-expand type 'expression (syntax-e #'(cur-Π cur-Type)))
       #:datum-literals (:)
       #:literals (cur-Π)
       [(cur-Π (x : t) telescope) (cons (quasisyntax/loc type [x : t]) (parse-telescope-annotations #'telescope))]
       [result '()]))
   (define (parse-telescope-result type)
-    (syntax-parse type
+    (syntax-parse (local-expand type 'expression (syntax-e #'(cur-Π cur-Type)))
       #:datum-literals (:)
       #:literals (cur-Π)
       [(cur-Π (x : t) telescope) (parse-telescope-result #'telescope)]
       [result type])))
 
 (define-syntax (cur-data syn)
-  (syntax-parse syn #:datum-literals (:)
-    [(_ Name:id : p:nat (cur-Π (x : ty) body)
+  (syntax-parse syn
+    #:datum-literals (:)
+    [(_ Name:id : p:nat type
         (c-name:id : c-type) ...)
-     #:with type #'(cur-Π (x : ty) body)
+     #:with (cur-Π (x : ty) body) (local-expand (attribute type) 'expression (syntax-e #'(cur-Π cur-Type)))
      #:with Result (parse-telescope-result (attribute type))
      #:do [(define param-count (syntax->datum #'p))
            (define telescope-anns (parse-telescope-annotations (attribute type)))]
@@ -106,6 +108,7 @@
                             ...))]
     [(_ Name:id : 0 type ;;per dep-ind-cur-tests, still need special case for (Type 0): must use * or Type?
         (c-name:id : c-type) ...)
+     #:with (cur-Type n) (local-expand (attribute type) 'expression (syntax-e #'(cur-Π cur-Type)))
      #:with (([r : rT] ...) ...) (for/list ([t (syntax->list #'(c-type ...))])
                                    (parse-telescope-annotations t))
      #:with (c_result ...) (for/list ([t (syntax->list #'(c-type ...))])
@@ -115,13 +118,14 @@
                             [c-name :  (dep-Π [r : rT] ...
                                              c_result)] ...))]))
 
+;; TODO: Rename this to cur-elim
 (define-syntax (cur-new-elim syn)
   (syntax-parse syn
     [(_ target:expr motive:expr (method:expr ...))
-     #:with elim-name (let ([possible-pair (syntax-property (first (fourth (infer (list #'target) #:ctx '())))
+     #:with elim-name (let ([possible-pair (syntax-property (first (fourth (infer (list #'target))))
                                        'elim-name)])
+                        ;; XXX: This pattern caused by accidentally duplicating syntax properties
                         (if (pair? possible-pair) (car possible-pair) possible-pair))
-     ;#:do [(displayln (format "elim-name in cur-to-turnstile: ~a" #'elim-name))]
      (quasisyntax/loc syn (elim-name target motive method ...))]))
 
 
