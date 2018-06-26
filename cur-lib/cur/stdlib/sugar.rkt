@@ -511,7 +511,6 @@
        ;; TODO: Need proper identifiers to do the right thing
        #:when (and (current-definition-id) (free-identifier=? #'e (syntax-local-introduce (current-definition-id))))
        ;       #:when (bound-identifier=? #'e (syntax-parameter-value #'current-definition-id))
-       #:do [(printf "replacing ~a~n" this-syntax)]
        (quasisyntax/loc this-syntax
          (lambda #,@(map syntax-local-introduce (cdr (current-definition-param-decl))) (recur #,(replace-recursive-call #'a))))]
       [(real-app e:expr e2:expr)
@@ -540,7 +539,7 @@
                b
                #`(lambda #,@(attribute p.decls) #,b)))))))
 
-(define-syntax (recur syn)
+(trace-define-syntax (recur syn)
   (syntax-case syn ()
     [(_ id)
      ;; TODO XXX HACK: Backwards compatibility hack; recur should be use syntax-paramterize
@@ -557,7 +556,7 @@
           (syntax->datum #'id))
          syn)))))]))
 
-(define-syntax (match syn)
+(trace-define-syntax (match syn)
   (syntax-parse syn
     [(_ d
         ~!
