@@ -34,18 +34,41 @@
     [(s x) x]))
 
 (define (plus (n1 : Nat) (n2 : Nat))
+  (new-elim
+   n1
+   (lambda (x : Nat) Nat)
+  ( n2
+   (lambda (x : Nat) (ih : Nat) (s ih)))))
+
+#;(define (plus (n1 : Nat) (n2 : Nat))
   (match n1
     [z n2]
     [(s x)
      (s (plus x n2))]))
 
 (define (mult (m : Nat) (n : Nat))
+  (new-elim
+   m
+   (lambda (x : Nat) Nat)
+  ( z
+   (lambda (x : Nat) (ih : Nat)
+           (plus n ih)))))
+
+#;(define (mult (m : Nat) (n : Nat))
   (match m
     [z z]
     [(s x)
      (plus n (mult x n))]))
 
 (define (exp (m : Nat) (e : Nat))
+  (new-elim
+   m
+   (lambda (x : Nat) Nat)
+  ( (s z)
+   (lambda (x : Nat) (ih : Nat)
+           (mult e ih))))
+  )
+#;(define (exp (m : Nat) (e : Nat))
   (match m
     [z (s z)]
     [(s x)
@@ -54,13 +77,23 @@
 (define square (run (exp (s (s z)))))
 
 (define (zero? (n : Nat))
-  (match n
+  (new-elim
+   n
+   (lambda (x : Nat) Bool)
+   (
+    true
+    (lambda (x : Nat) (ih : Bool)
+            false)))
+  #;(match n
     [z true]
     [(s n)
      false]))
 
 (define (nat-equal? (n : Nat))
-  (match n
+  (new-elim
+   n
+   )
+  #;(match n
     [z zero?]
     [(s n-1)
      (lambda (m : Nat)

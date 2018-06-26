@@ -129,7 +129,7 @@
 (define (cur-normalize syn #:local-env [env '()])
   (with-env env
     (let ([evaled (cur-expand syn)])
-      (cur-reflect evaled))))
+      evaled)))
 
 (define (cur-equal? term1 term2 #:local-env [env '()])
   (with-env env
