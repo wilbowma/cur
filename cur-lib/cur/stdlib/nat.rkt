@@ -76,6 +76,9 @@
 
 (define square (run (exp (s (s z)))))
 
+(begin-for-syntax
+  (displayln (syntax-property-symbol-keys #'true)))
+
 (define (zero? (n : Nat))
   (new-elim
    n
