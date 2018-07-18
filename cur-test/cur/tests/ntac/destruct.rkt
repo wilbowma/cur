@@ -47,6 +47,16 @@
     (Π [n : Nat]
        (== Bool (beq-nat (plus 1 n) 0) false)))
 
+(define-theorem plus-1-neq-0/builtin
+  (∀ [n : Nat] (== Bool (nat-equal? (plus 1 n) 0) false))
+  (by-intro n)
+  (by-destruct n #:as [() (n-1)])
+  simpl
+  reflexivity
+  ; ---------
+  simpl
+  reflexivity)
+
 (define-theorem plus-1-neq-0
   (∀ [n : Nat] (== Bool (beq-nat (plus 1 n) 0) false))
   (by-intro n)
