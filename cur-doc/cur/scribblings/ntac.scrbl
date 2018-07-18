@@ -3,7 +3,8 @@
 @(require
   "defs.rkt"
   racket/contract
-  (for-label racket)
+  (for-label (except-in racket match)
+             (only-in cur match new-elim))
   scribble/eval)
 
 @title{ntac: The New Tactic System}
@@ -43,7 +44,9 @@ need not deal with syntax objects directly, or explicitly use the @racket[fill]
 tactic.
 These macros follow the naming convention @racket[by-_tactical].
 
-@(define curnel-eval (curnel-sandbox "(require cur/ntac/base cur/ntac/standard cur/stdlib/sugar cur/stdlib/nat)"))
+@(define curnel-eval
+   (curnel-sandbox
+    "(require cur/ntac/base cur/ntac/standard cur/ntac/rewrite cur/stdlib/sugar cur/stdlib/nat cur/stdlib/bool cur/stdlib/equality)"))
 
 @subsection{Usage}
 
@@ -331,6 +334,189 @@ Try to solve all the holes by doing the obvious thing.
  z)
 ]
 }
+
+
+@; assert ----------------------------------------
+
+@defform[(by-assert name thm)]{
+
+Short hand for @racket[(fill (assert #'name #'thm))].
+
+@examples[#:eval curnel-eval
+((ntac
+  (∀ [x : Nat] [y : Nat]
+     (-> (== Nat x y)
+         (== Nat y x)))
+  (by-intros x y x=y)
+  @code:comment{define local thm named y=x}
+  (by-assert y=x (== Nat y x))
+  @code:comment{prove y=x}
+  display-focus
+  (by-rewriteR x=y)
+  display-focus
+  reflexivity
+  @code:comment{prove original goal using y=x}
+  display-focus
+  (by-assumption y=x))
+ 1 1 (refl Nat 1))
+]
+}
+
+@defproc[(assert [name identifier?] [thm syntax?]) tactical?]{
+
+Shifts the goal to defining @racket[thm]. When @racket[thm] is proven, shifts
+the goal to the original goal, but with @racket[name] bound to @racket[thm] in
+the context.
+}
+
+@; simpl ----------------------------------------
+
+
+@defthing[simpl tactic?]{
+
+Simplifies the current goal by evaluating it.
+
+@examples[#:eval curnel-eval
+(define-theorem plus_1_l
+  (∀ [n : Nat] (== Nat (plus 1 n) (s n)))
+  by-intro
+  display-focus
+  simpl
+  display-focus
+  reflexivity)
+]
+}
+
+
+
+@; destruct ----------------------------------------
+
+@defform*[((by-destruct name)
+           (by-destruct name #:as param-namess))]{
+
+Short hand for @racket[(fill (destruct #'x))] or @racket[(fill (destruct #'x #'param-namess))].
+
+@examples[#:eval curnel-eval
+(define-theorem plus-1-neq-0
+  (∀ [n : Nat] (== Bool (nat-equal? (plus 1 n) 0) false))
+  (by-intro n)
+  display-focus
+  (by-destruct n #:as [() (n-1)])
+  @code:comment{zero case}
+  display-focus
+  simpl
+  display-focus
+  reflexivity
+  @code:comment{succ case}
+  display-focus
+  simpl
+  display-focus
+  reflexivity)
+(plus-1-neq-0 0)
+(plus-1-neq-0 1)
+]
+}
+
+@defproc[(destruct [name identifier?] [param-namess syntax? #f]) tactical?]{
+
+Splits the goal into @racket[n] subgoals, where
+@racket[n] is the number of possible cases for @racket[name].
+
+The resulting proof term uses @racket[match].
+
+@racket[param-namess] should be a list of list of identifiers, which are used
+as the binders in each clause. If not specified, the original binder names from
+the @racket[data] declaration are used. Does not include induction hypotheses
+for recursive arguments.
+
+}
+
+@defform*[((by-destruct/elim name)
+           (by-destruct/elim name #:as param-namess))]{
+
+Short hand for @racket[(fill (destruct/elim #'x))] or @racket[(fill (destruct/elim #'x #'param-namess))].
+
+@examples[#:eval curnel-eval
+(define negb
+  (λ [b : Bool]
+    (new-elim b (λ [b : Bool] Bool) false true)))
+(negb true)
+(negb false)
+(negb (negb true))
+(negb (negb false))
+
+(define-theorem negb-invol
+  (forall [b : Bool] (== Bool (negb (negb b)) b))
+  (by-intro b)
+  (by-destruct/elim b)
+  @code:comment{true case}
+  display-focus
+  simpl
+  display-focus
+  reflexivity
+  @code:comment{false case}
+  display-focus
+  simpl
+  display-focus
+  reflexivity)
+]
+}
+
+@defproc[(destruct/elim [name identifier?] [param-namess syntax? #f]) tactical?]{
+
+Splits the goal into @racket[n] subgoals, where
+@racket[n] is the number of possible cases for @racket[name].
+
+The resulting proof term uses @racket[new-elim].
+
+@racket[param-namess] should be a list of list of identifiers, which are used
+as the binders in each clause. If not specified, the original binder names from
+the @racket[data] declaration are used.
+}
+
+@; induction ----------------------------------------
+
+@defform[(by-induction name #:as param-namess)]{
+
+Short hand for @racket[(fill (induction #'x #'param-namess))].
+
+@examples[#:eval curnel-eval
+(define-theorem plus-n-0
+  (∀ [n : Nat] (== Nat n (plus n z)))
+  (by-intro n)
+  simpl ;; this step doesnt do anything except get everything in expanded form
+  (by-induction n #:as [() (n-1 IH)])
+  @code:comment{zero case}
+  display-focus
+  reflexivity
+  @code:comment{succ case}
+  display-focus
+  simpl
+  display-focus
+  (by-rewriteL IH)
+  display-focus
+  reflexivity)
+]
+}
+
+@defproc[(induction [name identifier?] [param-namess syntax?]) tactical?]{
+
+Splits the goal into @racket[n] subgoals, where
+@racket[n] is the number of possible cases for @racket[name].
+
+Unlike @racket[destruct], @racket[induction] binds an induction hypothesis for
+recursive arguments in each case.
+
+The resulting proof term uses @racket[new-elim].
+
+@racket[param-namess] should be a list of list of identifiers, which are used
+as the binders in each clause. If not specified, the original binder names from
+the @racket[data] declaration are used.
+
+}
+
+
+@; interactive ----------------------------------------
 
 @subsection{Interactive Tactic}
 In Cur, interactivity is just a user-defined tactic.
