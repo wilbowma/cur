@@ -5,6 +5,7 @@
  "../stdlib/sugar.rkt"
  "../curnel/racket-impl/reflection.rkt" ; simpl needs cur-normalize
  "../curnel/racket-impl/runtime.rkt" ; destruct needs constant-info
+ (only-in "../curnel/racket-impl/type-check.rkt" cur-pretty-print)
  "base.rkt")
 
 (begin-for-syntax
@@ -39,9 +40,9 @@
   (match (nttz-focus tz)
     [(ntt-hole _ goal)
      (for ([(k v) (in-dict (nttz-context tz))])
-       (printf "~a : ~a\n" (syntax->datum k) (syntax->datum v)))
+       (printf "~a : ~a\n" (syntax->datum k) (syntax->datum (cur-pretty-print v))))
      (printf "--------------------------------\n")
-     (printf "~a\n\n" (syntax->datum goal))]
+     (printf "~a\n\n" (syntax->datum (cur-pretty-print goal)))]
     [(ntt-done _ _ _)
      (printf "Proof complete.\n")]
     [_
@@ -88,7 +89,7 @@
 
 (begin-for-syntax
 
-  (define ((assert H ty_ a) ctxt pt)
+  (define ((assert H ty_) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
 
     ;; ty_ has the wrong scopes (bc of eval I think)
@@ -110,8 +111,8 @@
 
   (define-syntax (by-assert syn)
     (syntax-case syn ()
-      [(a H ty)
-       #`(fill (assert #'H #'ty #'a))])))
+      [(_ H ty)
+       #`(fill (assert #'H #'ty))])))
 
 (define-for-syntax ((intro [name #f]) ctxt pt)
   ;; TODO: ntt-match(-define) to hide this extra argument. Maybe also add ntt- to constructors in pattern?
@@ -347,7 +348,6 @@
   ;; copied from by-destruct/elim
   (define-syntax (by-induction syn)
     (syntax-case syn ()
-      #;[(_ x) #`(fill (destruct/elim #'x))]
       [(_ x #:as param-namess)
        #`(fill (induction #'x #'param-namess))]))
 
