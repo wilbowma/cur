@@ -32,6 +32,8 @@
    (struct-out nttz)
    make-nttz nttz-up nttz-down-context nttz-down-apply nttz-done?
 
+   (struct-out theorem-info)
+
    ;; In case someone wants to redefine define-theorem
    new-proof-tree
    proof-tree->complete-term
@@ -173,7 +175,9 @@
   (define (ntac-syntax syn)
     (datum->syntax anchor (syntax->datum syn)))
 
-  (provide (struct-out theorem-info))
+  ;; `name` is the binder (thm name); `ty` is the surface stx of the thm
+  ;; this is needed bc `name` is likely bound to a normalized
+  ;; (and expanded) version of `ty`
   (struct theorem-info identifier-info (name orig)))
 
 ;; Syntax
