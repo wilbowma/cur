@@ -9,6 +9,7 @@
   "runtime-utils.rkt"
   racket/base
   racket/syntax
+  syntax/stx
   racket/list
   racket/function
   syntax/parse)
@@ -20,7 +21,7 @@
  (for-syntax
   cur-elab
   cur-elab/ctx
-
+  cur-pretty-print
   cur-reflect)
 
  typed-Type
@@ -96,6 +97,33 @@ However, we don't really want the type system to be extensible since we desire a
          (internal-definition-context-introduce intdef (local-expand syn 'expression ls intdef)
                                                 'remove))
        (attribute e.body))))
+
+  ;; cur-print:
+  ;; - dont display typed-app
+  ;; - re-curry
+  ;; - drop parens around 0-arg apps
+  ;; - truncate lam param names to 4 chars max
+  (define cur-pretty-print
+    (syntax-parser
+;      [tmp #:do[(displayln #'tmp)]#:when #f #'(void)]
+      [((~literal typed-app) ((~literal typed-app) e ...) . rst)
+       (cur-pretty-print #'(typed-app e ... . rst))]
+      [((~literal typed-app) e)
+       (cur-pretty-print #'e)]
+      [((~literal typed-app) e ...)
+       #`#,(stx-map cur-pretty-print #'(e ...))]
+      [((~literal typed-elim) e ...)
+       #`(new-elim . #,(stx-map cur-pretty-print #'(e ...)))]
+      [((~literal typed-λ) [x:id : t] e)
+       ;; truncate long x names to max 4 chars
+       #:do[(define x-str (symbol->string (syntax->datum #'x)))
+            (define x-len (string-length x-str))]
+       #:with y (format-id #'x "~a" (substring x-str 0 (min x-len 4)))
+       #`(λ [y : #,(cur-pretty-print #'t)]
+           #,(cur-pretty-print (subst #'y #'x #'e)))]
+      [(e ...)
+       #`#,(stx-map cur-pretty-print #'(e ...))]
+      [e #'e]))
 
   (define (cur-reflect syn)
     (syntax-parse syn
