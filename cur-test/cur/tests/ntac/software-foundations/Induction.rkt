@@ -94,10 +94,10 @@
   (by-induction n #:as [() (n-1 IH)])
   ; subgoal 1
   simpl
-  (by-rewriteL/thm/expand plus-n-0 m)
+  (by-rewriteL/thm/normalized plus-n-0 m)
   reflexivity
   ; subgoal 2
   simpl
-  (by-rewriteL/thm/expand plus-n-Sm m n-1)
+  (by-rewriteL/thm/normalized plus-n-Sm m n-1)
   (by-rewrite IH)
   reflexivity)

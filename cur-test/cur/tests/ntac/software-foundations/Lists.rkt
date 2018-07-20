@@ -183,6 +183,6 @@
   ; cons
   simpl
   display-focus
-  (by-rewrite/thm/expand app-length (rev t) (cons h nil))
+  (by-rewrite/thm/normalized app-length (rev t) (cons h nil))
   display-focus
 )

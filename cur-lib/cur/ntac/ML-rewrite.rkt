@@ -21,12 +21,11 @@
                      by-rewriteL
                      by-rewrite/thm
                      by-rewriteL/thm
-                     by-rewrite/expand
-                     by-rewriteL/expand
-                     by-rewrite/thm/expand
-                     by-rewriteL/thm/expand
-                     (rename-out [rewrite rewriteR]
-                                 [by-rewrite by-rewriteR])))
+                     by-rewrite/thm/normalized
+                     by-rewriteL/thm/normalized
+                     (rename-out [by-rewrite by-rewriteR]
+                                 [by-rewrite/thm by-rewriteR/thm]
+                                 [by-rewrite/thm/normalized by-rewriteR/thm/normalized])))
 
 (begin-for-syntax
 
@@ -49,37 +48,27 @@
       [(_ H . es)
        #`(fill (rewrite #'H #:es #'es))]))
 
-  (define-syntax (by-rewrite/expand syn)
-    (syntax-case syn ()
-      [(_ H . es)
-       #`(fill (rewrite #'H #:es #'es #:expand? #t))]))
-
   (define-syntax (by-rewriteL syn)
     (syntax-case syn ()
       [(_ H . es)
        #`(fill (rewrite #'H #:es #'es #:left? #t))]))
-
-  (define-syntax (by-rewriteL/expand syn)
-    (syntax-case syn ()
-      [(_ H . es)
-       #`(fill (rewrite #'H #:es #'es #:left? #t #:expand? #t))]))
 
   (define-syntax (by-rewrite/thm syn)
     (syntax-case syn ()
       [(_ thm . es)
        #`(let ([thm-info (syntax-local-eval #'thm)])
            (fill (rewrite #'thm
-                          #:real-name (theorem-info-name thm-info)
+                          #:thm-name (theorem-info-name thm-info)
                           #:thm (theorem-info-orig thm-info)
                           #:es #'es)))]))
 
-  (define-syntax (by-rewrite/thm/expand syn)
+  (define-syntax (by-rewrite/thm/normalized syn)
     (syntax-case syn ()
       [(_ thm . es)
        #`(let ([thm-info (syntax-local-eval #'thm)])
            (fill (rewrite #'thm
-                          #:real-name (theorem-info-name thm-info)
-                          #:thm (identifier-info-type thm-info)
+                          #:thm-name (theorem-info-name thm-info)
+                          #:thm (cur-reflect (identifier-info-type thm-info))
                           #:es #'es)))]))
 
   (define-syntax (by-rewriteL/thm syn)
@@ -87,17 +76,17 @@
       [(_ thm . es)
        #`(let ([thm-info (syntax-local-eval #'thm)])
            (fill (rewrite #'thm
-                          #:real-name (theorem-info-name thm-info)
+                          #:thm-name (theorem-info-name thm-info)
                           #:thm (theorem-info-orig thm-info)
                           #:es #'es
                           #:left? #t)))]))
 
-  (define-syntax (by-rewriteL/thm/expand syn)
+  (define-syntax (by-rewriteL/thm/normalized syn)
     (syntax-case syn ()
       [(_ thm . es)
        #`(let ([thm-info (syntax-local-eval #'thm)])
            (fill (rewrite #'thm
-                          #:real-name (theorem-info-name thm-info)
+                          #:thm-name (theorem-info-name thm-info)
                           #:thm (cur-reflect (identifier-info-type thm-info))
                           #:es #'es
                           #:left? #t)))]))
@@ -127,11 +116,10 @@
   ;; - [default] L = tgt, R = src, ie, replace "L" with "R" (ie coq rewrite ->)
   ;; - if left? = #t, flip and replace "R" with "L" (ie coq rewrite <-)
   (define ((rewrite name
-                    #:real-name [real-name #f] ; ie, define-theorem name
+                    #:thm-name [real-name #f] ; ie, define-theorem name
                     #:thm [thm #f]
                     #:left? [left? #f]
-                    #:es [es_ #'()]
-                    #:expand? [expand? #f]) ; expands thm first before subst; useful for unexpanded IH
+                    #:es [es_ #'()])
            ctxt pt)
     (match-define (ntt-hole _ goal) pt)
     (define H (or thm (dict-ref ctxt name)))
