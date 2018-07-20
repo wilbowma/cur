@@ -121,6 +121,13 @@ However, we don't really want the type system to be extensible since we desire a
        #:with y (format-id #'x "~a" (substring x-str 0 (min x-len 4)))
        #`(λ [y : #,(cur-pretty-print #'t)]
            #,(cur-pretty-print (subst #'y #'x #'e)))]
+      [((~literal typed-Π) [x:id : t] e)
+       ;; truncate long x names to max 4 chars
+       #:do[(define x-str (symbol->string (syntax->datum #'x)))
+            (define x-len (string-length x-str))]
+       #:with y (format-id #'x "~a" (substring x-str 0 (min x-len 4)))
+       #`(Π [y : #,(cur-pretty-print #'t)]
+           #,(cur-pretty-print (subst #'y #'x #'e)))]
       [(e ...)
        #`#,(stx-map cur-pretty-print #'(e ...))]
       [e #'e]))

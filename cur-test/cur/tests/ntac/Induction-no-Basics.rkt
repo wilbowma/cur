@@ -321,13 +321,13 @@
   (by-induction n #:as [() (n-1 IH)])
   ; subgoal 1
   simpl
-  (ML:by-rewriteL/thm/expand plus-n-0/ML m)
+  (ML:by-rewriteL/thm/normalized plus-n-0/ML m)
   ML:reflexivity
   ; subgoal 2
   display-focus
   simpl
   display-focus
-  (ML:by-rewriteL/thm/expand plus-n-Sm/ML m n-1)
+  (ML:by-rewriteL/thm/normalized plus-n-Sm/ML m n-1)
   display-focus
   (ML:by-rewrite IH)
   display-focus
@@ -355,7 +355,7 @@
   ;; subgoal 1
   simpl
   reflexivity
-  ;; subgoal 1
+  ;; subgoal 2
   simpl
   (by-rewrite IH)
   reflexivity)
@@ -369,11 +369,11 @@
   (by-induction n #:as [() (n-1 IH)])
   ; subgoal 1
   simpl
-  (by-rewriteL/thm/expand plus-n-0 m)
+  (by-rewriteL/thm/normalized plus-n-0 m)
   reflexivity
   ; subgoal 2
   simpl
-  (by-rewriteL/thm/expand plus-n-Sm m n-1)
+  (by-rewriteL/thm/normalized plus-n-Sm m n-1)
   (by-rewrite IH)
   reflexivity)
 
@@ -407,7 +407,7 @@
   display-focus
   simpl
   display-focus
-  (by-rewriteL/thm/expand plus-n-Sm 1 n-1)
+  (by-rewriteL/thm/normalized plus-n-Sm 1 n-1)
   display-focus
   (by-rewrite IH)
   display-focus
