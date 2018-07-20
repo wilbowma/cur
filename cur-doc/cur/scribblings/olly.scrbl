@@ -127,7 +127,7 @@ This example is equivalent to
                      (forall (e2 : stlc-term)
                        stlc-term))))]
 
-@margin-note{This example is taken from @racketmodname[cur/tests/stlc]}
+@margin-note{This example is taken from @code{cur-test/cur/tests/stlc}}
 }
 
 @defform[(define-relation (name args ...)
