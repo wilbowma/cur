@@ -158,6 +158,19 @@
   reflexivity
 )
 
+;; search for proper instantiation of thm, instead of user-specified
+(define-theorem identity-fn-applied-twice/search
+  (∀ [f : (-> Bool Bool)]
+     (-> (∀ [x : Bool] (== Bool (f x) x))
+         (∀ [b : Bool] (== Bool (f (f b)) b))))
+  (by-intro f)
+  (by-intro H)
+  (by-intro b)
+  (by-rewrite H)
+  (by-rewrite H)
+  reflexivity
+)
+
 (define-theorem negb-invol
   (forall [b : Bool] (== Bool (not (not b)) b))
   (by-intro b)
@@ -179,4 +192,30 @@
   (by-rewrite H b)
   (by-rewrite H (not b))
   (by-rewrite/thm negb-invol b)
+  reflexivity)
+
+;; rewrite in different order
+(define-theorem not-applied-twice2
+  (∀ [f : (-> Bool Bool)]
+     (-> (∀ [x : Bool] (== Bool (f x) (not x)))
+         (∀ [b : Bool] (== Bool (f (f b)) b))))
+  (by-intro f)
+  (by-intro H)
+  (by-intro b)
+  (by-rewrite H (f b))
+  (by-rewrite H b)
+  (by-rewrite/thm negb-invol b)
+  reflexivity)
+
+;; dont supply instantiation; searches goal to auto-instantiate thm
+(define-theorem not-applied-twice/search
+  (∀ [f : (-> Bool Bool)]
+     (-> (∀ [x : Bool] (== Bool (f x) (not x)))
+         (∀ [b : Bool] (== Bool (f (f b)) b))))
+  (by-intro f)
+  (by-intro H)
+  (by-intro b)
+  (by-rewrite H)
+  (by-rewrite H)
+  (by-rewrite/thm negb-invol)
   reflexivity)
