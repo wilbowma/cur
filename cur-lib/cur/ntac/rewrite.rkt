@@ -10,6 +10,7 @@
   (for-syntax "dict-utils.rkt"
               "../curnel/racket-impl/stxutils.rkt"
               "../curnel/racket-impl/runtime-utils.rkt"
+              syntax/stx
               (for-syntax syntax/parse)))
 
 (provide (for-syntax reflexivity
@@ -103,6 +104,36 @@
         [body
          #`(Π #,@(reverse binds) body)])))
 
+
+  ;; unify
+  ;; tries to unify e1 with e2, where bvs closes over e1
+  ;; returns list of (stx)pairs [x e], where x \in bvs, and e \in e2,
+  ;; or #f if the args cannot be unified
+  (define ((unify bvs) e1 e2)
+    ;; (printf "unify1: ~a\n" (syntax->datum e1))
+    ;; (printf "unify2: ~a\n" (syntax->datum e2))
+    (syntax-parse (list e1 e2)
+      [(x:id e) ; found a possible binidng
+       #:when (member #'x (syntax->list bvs) free-identifier=?)
+       (list #'(x e))]
+      [(x:id y:id) #:when (free-identifier=? #'x #'y) null]
+      [((e1 ...) (e2 ...))
+       #:do[(define e1-lst (syntax->list #'(e1 ...)))
+            (define e2-lst (syntax->list #'(e2 ...)))]
+       #:when (= (length e1-lst) (length e2-lst))
+       ;; performs a fold, but stops on first fail
+       (let L ([acc null] [e1s e1-lst] [e2s e2-lst])
+         (cond
+           [(and (null? e1s) (null? e2s)) acc]
+           [else
+            (define e1 (car e1s))
+            (define e2 (car e2s))
+            (define res ((unify bvs) e1 e2))
+            (and res
+                 (L (append res acc) (cdr e1s) (cdr e2s)))]))]
+      [(d1 d2) #:when (equal? (syntax-e #'d1) (syntax-e #'d2)) null] ; datums
+      [_ #f]))
+
   ;; The theorem "H" to use for the rewrite is either:
   ;; - `thm` arg --- from previously defined define-theorem
   ;; - or (dict-ref ctxt name) --- usually an IH
@@ -127,7 +158,7 @@
        ; already-instantiated thm
        (~and (~== TY L R)
              (~parse es es_)) ; es should be #'()
-       ; ∀ thm, instantiate with given es
+       ; ∀ thm
        (~and
         nested-∀-thm
         (~parse ; flattened ∀-thm
@@ -136,20 +167,45 @@
           (~and
            (~or ((~literal ==) TY L/uninst R/uninst)  ; unexpanded ==
                 (~== TY L/uninst R/uninst)) ; expanded ==
-           ;; TODO: why are the scopes on es_ not right? bc of eval?
-           ;; - eg, they dont see the intros
-           ;; - workaround for now: manually add them, creating es
-           ;;   - to get the right scope, either:
-           ;;     - look up e in the ctxt (if id)
-           ;;     - find it in the goal
-           (~parse es
-                   (map
-                    (λ (e) (or (and (identifier? e)
-                                    (for/first ([k (dict-keys ctxt)]
-                                                #:when (free-identifier=? k e))
-                                      k))
-                               (find-in e goal)))
-                    (syntax->list es_)))
+           ;; compute es, by either:
+           ;; - fixing hygiene in es_
+           ;; - or searching goal
+           (~parse
+            es
+            (if (= (length (syntax->list #'(x0 ...)))
+                   (length (syntax->list es_)))
+                ;; instantiate with given es_
+                ;; TODO: why are the scopes on es_ not right? bc of eval?
+                ;; - eg, they dont see the intros
+                ;; - workaround for now: manually add them, creating es
+                ;;   - to get the right scope, either:
+                ;;     - look up e in the ctxt (if id)
+                ;;     - find it in the goal
+                (map
+                 (λ (e) (or (and (identifier? e)
+                                 (for/first ([k (dict-keys ctxt)]
+                                             #:when (free-identifier=? k e))
+                                   k))
+                            (find-in e goal)))
+                 (syntax->list es_))
+                ;; find es in goal to instantiate thm with
+                (let ([x+es
+                       (find-in (if left? #'R/uninst #'L/uninst)
+                                goal
+                                (unify #'(x0 ...))
+                                #;(λ (x y)
+                                  (define res ((unify #'(x0 ...)) x y))
+                                  (and (not (null? res)) res)))])
+                  (map ; extract es
+                   (λ (x+es) (cadr (syntax-e (car x+es))))
+                   (filter ; filter out #f
+                    (λ (x) x)
+                    (map ; lookup in result of unification
+                     (λ (x)
+                       (member x (or x+es null)
+                               (λ (x x+e)
+                                 (free-identifier=? x (stx-car x+e)))))
+                     (syntax->list #'(x0 ...))))))))
            ;; type check that given es match ty required by the thm
            (~fail
             #:unless (and
@@ -159,15 +215,19 @@
                        (λ (e ty) (cur-type-check? e ty #:local-env (ctxt->env ctxt)))
                        (syntax->list #'es)
                        (syntax->list #'(ty0 ...))))
-            (format "given terms ~a have wrong arity, or wrong types ~a; cant be used with thm ~a: ~a\n"
-                    (syntax->datum es_)
-                    (map
-                     (λ (e)
-                       (define ty (dict-ref ctxt e))
-                       (and ty (syntax->datum ty)))
-                     (syntax->list #'es))
-                    (and real-name (syntax->datum real-name))
-                    (and thm (syntax->datum thm))))
+            (format
+             (string-append
+             "given terms ~a have wrong arity or types ~a; "
+             "or, failed to instantiate thm ~a: ~a "
+             "(try supplying explicit instantiation terms?)\n")
+             (syntax->datum es_)
+             (map
+              (λ (e)
+                (define ty (dict-ref ctxt e))
+                (and ty (syntax->datum ty)))
+              (syntax->list #'es))
+             (and real-name (syntax->datum real-name))
+             (and thm (syntax->datum thm))))
            ;; prevent accidental capture (why is this needed?)
            (~parse xs* (generate-temporaries #'(x0 ...)))
            ;; instantiate the left/right components of the thm with es
