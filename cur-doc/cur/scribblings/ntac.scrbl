@@ -36,7 +36,9 @@ Now it's the default system.
 @defmodule[cur/ntac/base]
 
 A @tech{tactic} is used at the top-level of a proof script.
-A @deftech{tactic} is a Racket function that satisfies the contact @racket[(r:-> nttz? nttz?)]
+A @deftech{tactic} is a Racket function that satisfies the contact @racket[(r:->
+nttz? nttz?)] (where @racket[r:->] is the Racket function contract normally
+written @code{->}; we use @racket[r:->] since Cur redefined @racket[->]).
 Tactics easily compose, may navigate the proof tree, resolve multiple holes, and
 be called recursively.
 
