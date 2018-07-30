@@ -22,6 +22,7 @@
 
 @author[@author+email["William J. Bowman" "wjb@williamjbowman.com"]]
 @author[@author+email["Jay McCarthy" "jay@racket-lang.org"]]
+@author[@author+email["Stephen Chang" "stchang@ccs.neu.edu"]]
 
 As Coq has shown, tactics have proven useful for doing complex proofs.
 In Cur, tactics are not built-in or provided by the language.
