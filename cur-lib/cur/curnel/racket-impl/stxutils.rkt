@@ -72,13 +72,14 @@
 
 ;; returns e if e \in stx and (datum=? e0 e), else #f
 ;; (needed by ntac to workaround some scoping issues)
-(define (find-in e0 stx)
+(define (find-in e0 stx [=? (λ (x y) (and (datum=? x y) y))])
   (syntax-parse stx
-    [e #:when (stx=? #'e e0 datum=?) #'e]
+    [e #:do[(define res (=? e0 #'e))] #:when res res]
     [(e ...)
-     (for/first ([e (syntax->list #'(e ...))]
-                 #:when (find-in e0 e))
-       (find-in e0 e))]
+     (let L ([es (syntax->list #'(e ...))])
+       (and (not (null? es))
+            (let ([res (find-in e0 (car es) =?)])
+              (or res (L (cdr es))))))]
     [_ #f]))
 
 (define (subst-term v e0 syn [bvs (immutable-free-id-set)])

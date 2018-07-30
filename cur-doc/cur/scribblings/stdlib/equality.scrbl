@@ -13,10 +13,19 @@
 @defmodule[cur/stdlib/equality]
 This library defines the Paulin-Mohring and Martin-Löf equality types.
 
+@deftogether[(@defthing[#:kind "2 parameter type" == (-> (A : Type) (x : A) (y : A) Type)]
+              @defthing[#:kind "constructor" refl (-> (A : Type) (x : A) (== A x x))]
+              @defproc[(sym [A Type] [n A] [m A] [n=m (PM-= A n m)]) (== A m n)]
+              @defproc[(trans [A Type] [a A] [b A] [c A] [H1 (PM-= A a b)] [H2 (PM-= A b c)]) (== A a c)]
+              )]{
+Equivalent to @racket[PM-=], @racket[PM-refl], @racket[PM-sym], and @racket[PM-trans], respectively.
+}
+
 @deftogether[(@defthing[#:kind "2 parameter type" PM-= (-> (A : Type) (x : A) (y : A) Type)]
               @defthing[#:kind "constructor" PM-refl (-> (A : Type) (x : A) (PM-= A x x))])]{
 The Paulin-Mohring equality type (PM equality).
-Also provided as @defidform/inline[==] and @defidform/inline[refl], as this
+
+Also provided as @racket[==] and @racket[refl], as this
 should be considered the default equality.
 
 @examples[#:eval curnel-eval
@@ -30,10 +39,14 @@ should be considered the default equality.
 
 @defproc[(PM-sym [A Type] [n A] [m A] [n=m (PM-= A n m)]) (PM-= A m n)]{
 A proof of symmetry for PM equality.
+
+Also provided as @racket[sym].
 }
 
 @defproc[(PM-trans [A Type] [a A] [b A] [c A] [H1 (PM-= A a b)] [H2 (PM-= A b c)]) (PM-= A a c)]{
 A proof of transitivity for PM equality.
+
+Also provided as @racket[trans].
 }
 
 @deftogether[(@defthing[#:kind "1 parameter type" ML-= (-> (A : Type) (x : A) (y : A) Type)]
