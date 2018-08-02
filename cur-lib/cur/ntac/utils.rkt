@@ -1,5 +1,10 @@
 #lang racket/base
-(require racket/dict)
+(require
+ racket/dict
+ syntax/id-set
+ syntax/parse
+ syntax/stx
+ "../curnel/racket-impl/stxutils.rkt")
 (provide (all-defined-out))
 
 ;; dict fns, with args rearranged for use with fold
