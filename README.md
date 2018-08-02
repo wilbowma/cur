@@ -30,15 +30,19 @@ Getting started
 ===============
 
 ## Easy mode:
+You'll need Racket v7.0
 Install cur via `raco pkg install cur`. See the docs: `raco docs cur`. Come ask questions in IRC,
 `#cur` on Freenode.
 
 ## Advanced mode:
-Cur is actually distributed as several packages.
-`cur-lib` provides the implementation and all standard
-libraries.
-`cur-doc` provides the documentation.
-`cur-test` provides a test suite and examples.
+You can actually get away with v6.12, but you'll have issues with locally built
+documentation.
+Cur is distributed as several packages.
+`cur-lib` provides the implementation and all standard libraries; this works
+fine in Racket v6.12.
+`cur-doc` provides the documentation, most of this works fine in v6.12, but some
+examples in the documentation do not run in the sandbox correctly.
+`cur-test` provides a test suite and examples, this works fine in Racket v6.12.
 
 You can install the individual packages from the Racket package server, or from local copies of the
 files:
