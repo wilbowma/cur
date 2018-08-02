@@ -1,6 +1,6 @@
 #lang s-exp "../main.rkt"
 (require
- (for-syntax "dict-utils.rkt"
+ (for-syntax "utils.rkt"
              "../curnel/racket-impl/stxutils.rkt")
  "../stdlib/sugar.rkt"
  "../curnel/racket-impl/reflection.rkt" ; simpl needs cur-normalize

@@ -7,7 +7,7 @@
  "standard.rkt"
  "../curnel/racket-impl/runtime.rkt"
  "../curnel/racket-impl/type-check.rkt"
-  (for-syntax "dict-utils.rkt"
+  (for-syntax "utils.rkt"
               "../curnel/racket-impl/stxutils.rkt"
               "../curnel/racket-impl/runtime-utils.rkt"
               syntax/stx
