@@ -4,7 +4,7 @@
 
 ;; dep-ind-cur2 library, adding some sugar like auto-currying
 
-(provide → ∀ (rename-out [λ/c λ] [app/c #%app] [app/eval/c app/eval]))
+(provide → ∀ (rename-out [λ/c λ] [app/c #%app] [app/eval/c app/eval] [→ ->]))
 
 ;; abbrevs for Π/c
 ;; (→ τ_in τ_out) == (Π (unused : τ_in) τ_out)
