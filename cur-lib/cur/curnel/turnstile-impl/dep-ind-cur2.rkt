@@ -121,4 +121,5 @@
 ;; top-level ------------------------------------------------------------------
 (define-syntax define
   (syntax-parser
-    [(_ alias:id τ) #'(define-syntax- alias (make-variable-like-transformer #'τ))]))
+    [(_ alias:id τ) #'(define-syntax- alias (make-variable-like-transformer #'τ))]
+    [(_ (f [x:id : τ]) e) #'(define f (λ/1 [x : τ] e))]))

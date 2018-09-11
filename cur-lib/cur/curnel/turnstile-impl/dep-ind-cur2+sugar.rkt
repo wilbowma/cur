@@ -4,7 +4,9 @@
 
 ;; dep-ind-cur2 library, adding some sugar like auto-currying
 
-(provide → ∀ (rename-out [λ/c λ] [app/c #%app] [app/eval/c app/eval] [→ ->]))
+(provide → ∀
+ (rename-out [λ/c λ] [app/c #%app] [app/eval/c app/eval] [define/c define]
+             [→ ->]))
 
 ;; abbrevs for Π/c
 ;; (→ τ_in τ_out) == (Π (unused : τ_in) τ_out)
@@ -18,3 +20,5 @@
 (define-nested/R λ/c λ)
 (define-nested/L app/c #%app)
 (define-nested/L app/eval/c app/eval/1)
+
+(define-simple-macro (define/c (f:id x+τ ...) e) (define f (λ/c x+τ ... e)))
