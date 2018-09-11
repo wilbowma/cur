@@ -1,18 +1,21 @@
 #lang cur
 (require
- rackunit
- cur/stdlib/bool
- cur/stdlib/sugar)
+ turnstile/rackunit-typechecking
+ cur/stdlib/sugar
+ cur/stdlib/bool)
 
-(check-equal? (not true) false)
-(check-equal? (not false) true)
+(check-type (if true false true) : Bool -> false)
+(check-type (if false false true) : Bool -> true)
 
-(check-equal? (and true false) false)
-(check-equal? (and false false) false)
-(check-equal? (and false true) false)
-(check-equal? (and true true) true)
+(check-type (not true) : Bool -> false)
+(check-type (not false) : Bool -> true)
 
-(check-equal? (or true false) true)
-(check-equal? (or false false) false)
-(check-equal? (or false true) true)
-(check-equal? (or true true) true)
+(check-type (and true false) : Bool -> false)
+(check-type (and false false) : Bool -> false)
+(check-type (and false true) : Bool -> false)
+(check-type (and true true) : Bool -> true)
+
+(check-type (or true false) : Bool -> true)
+(check-type (or false false) : Bool -> false)
+(check-type (or false true) : Bool -> true)
+(check-type (or true true) : Bool -> true)

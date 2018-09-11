@@ -17,6 +17,9 @@
 (require (only-in turnstile/base define-typed-syntax))
 (provide (all-from-out turnstile/base))
 
+(require "dep-ind-cur2+data2.rkt")
+(provide (all-from-out "dep-ind-cur2+data2.rkt"))
+
 ;; (define-syntax define+provide-placeholders
 ;;   (syntax-parser
 ;;     [(_ x:id ...)
