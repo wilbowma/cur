@@ -1,4 +1,4 @@
-cur [![Build Status](https://travis-ci.org/wilbowma/cur.svg?branch=master)](https://travis-ci.org/stchang/cur/branches#turnstile-core)
+cur [![Build Status](https://travis-ci.org/stchang/cur.svg?branch=turnstile-core)](https://travis-ci.org/stchang/cur/)
 ===
 
 this branch: `turnstile-core`
