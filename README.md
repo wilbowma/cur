@@ -172,3 +172,12 @@ language, <600 lines of code.
 You can run some Cur code using this model, but the
 `cur-lib/cur/curnel/racket-impl/core.rkt` (the default Curnel) is much
 faster and supports more features.
+
+Differences Between Legacy Cur Legacy and Cur with Turnstile Core
+=================================================================
+Lega: forall same as Pi
+Turn: forall has no annotations
+
+Turn:
+- `match` requires #:return
+- no function signature forward declaration (`:`)
