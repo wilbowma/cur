@@ -142,7 +142,7 @@
 (define-typed-syntax define-datatype
   ;; simple datatypes, eg Nat -------------------------------------------------
   ;; - ie, `TY` is an id with no params or indices
-  [(_ TY:id (~datum :) τ:id [C:id (~datum :) τC] ...) ≫ --- [≻ (define-datatype1 TY : τ [C : τC] ...)]]
+  [(_ TY:id (~datum :) τ [C:id (~datum :) τC] ...) ≫ --- [≻ (define-datatype1 TY : τ [C : τC] ...)]]
   ;; --------------------------------------------------------------------------
   ;; defines inductive type family `TY`, with:
   ;; - params A ...
