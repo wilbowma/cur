@@ -1,10 +1,20 @@
 #lang s-exp "../main.rkt"
-(require cur/curnel/turnstile-impl/dep-ind-cur2+sugar)
+
+(require (for-syntax macrotypes/stx-utils syntax/stx))
+
+;; differs from curnel/racket-impl:
+;; ∀ syntax requires only ids in binding pos (no types)
+;; - in racket-impl: ∀ = Π
+
 (provide (all-from-out cur/curnel/turnstile-impl/dep-ind-cur2+sugar)
-         let)
+         let
+         match)
+
+(require cur/curnel/turnstile-impl/dep-ind-cur2+sugar
+         (prefix-in r: racket/base))
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
-(require (prefix-in r: racket/base))
+
 (define-typed-syntax let
   [(_ ((~or (~describe "unannotated" [x:id ex])
             (~describe "annotated" [(y:id (~datum :) τ) ey])) ...) body) ≫
@@ -16,11 +26,41 @@
    ;; TODO: xs and ys out of order
    [⊢ (r:let ([x- ex-] ... [y- ey-] ...) body-) ⇒ τout]])
    ;  [⊢ ((λ [x- : τ] ... body-) e- ...)]
-   
+
+(begin-for-syntax
+  (define (subst-recur v e)
+    (syntax-parse e
+      [((~literal recur) . _) v]
+      [(e ...) #`#,(stx-map (λ (e) (subst-recur v e)) #'(e ...))]
+      [_ e]))
+  (define ((mk-method e τe τout) ty clause) ; 2 args: ei tys and clause
+    (syntax-parse (list ty clause)
+      [(_ [x:id body]) #'body] ; no subst, bc x is just nullary constructor
+      [((([y τin] ...) (yrec ...))
+        [(tycon x ...) body])
+       #:with (yrec* ...) (generate-temporaries #'(yrec ...))
+       #:with body* (substs #'(y ...) #'(x ...) #'body)
+;       #:do[(printf "about to subst recur: ~a\n" (stx->datum #'body*))]
+       #:with body** (subst-recur (stx-car #'(yrec* ...)) #'body*)
+       #`(λ [y : τin] ... [yrec* : #,τout] ... body**)])))
+
+;(require (for-syntax racket/pretty))
+;; TODO:
+;; - for now, explicit and #:return args are required
+;; - assuming clauses appear in order
+(define-typed-syntax (match e #:return τout . clauses) ≫
+;  #:do[(printf "matching ~a\n" this-syntax)]
+  [⊢ e ≫ e- ⇒ τ]
+  #:with (elim-Name ei ...) (let ([e (syntax-property #'τ 'extra)])
+                              (or (and (pair? e) (car e)) null))
+;  #:do[(printf "ei: ~a\n" (stx->datum #'(ei ...)))]
+  #:with (m ...) (stx-map (mk-method #'e- #'τ #'τout) #'(ei ...) #'clauses)
+;  #:do[(map pretty-print (stx->datum #'(m ...)))]
+; [⊢ body ≫ body- ⇐ τout] ...
+  ------------
+  [≻ (elim-Name e- (λ [x : τ] τout) m ...)])
   
 
-;; differs from cur:
-;; ∀
 
 ;; (provide
 ;;   Type
