@@ -15,7 +15,7 @@
 (require "dep-ind-cur2.rkt")
 (provide (all-from-out "dep-ind-cur2.rkt"))
 
-(require (only-in turnstile/base define-typed-syntax))
+(require (only-in turnstile/base define-typed-syntax get-orig assign-type subst substs))
 (provide (all-from-out turnstile/base))
 
 (require "dep-ind-cur2+data2.rkt")

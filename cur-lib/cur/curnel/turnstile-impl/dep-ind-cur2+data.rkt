@@ -15,13 +15,14 @@
 ;; - constructor is curried (eg, can partially apply)
 (define-syntax define-cur-constructor
   (syntax-parser
-    [(_ name (~datum :) ty)
+    [(_ name (~datum :) ty) #'(define-cur-constructor name : ty #:extra ())]
+    [(_ name (~datum :) ty #:extra . extra-info)
      #:with (~Π [A+i : τ] ... τ-out) ((current-type-eval) #'ty)
      #:with name/internal (generate-temporary #'name)
      #:with name/internal-expander (mk-~ #'name/internal)
      #:with name-expander (mk-~ #'name)
       #'(begin-
-         (define-type name/internal : [A+i : τ] ... -> τ-out)
+         (define-type name/internal : [A+i : τ] ... -> τ-out #:extra . extra-info)
          (define-syntax name
            (make-variable-like-transformer
             #'(λ [A+i : τ] ... (name/internal A+i ...))))
@@ -125,7 +126,7 @@
    --------
    [≻ (begin-
         ;; define the type, eg "Nat"
-        (define-cur-constructor TY : τ) 
+        (define-cur-constructor TY : τ #:extra elim-TY (([x τin] ...) (xrec ...)) ...)
 
         ;; define the data constructors, eg Z and S
         (define-cur-constructor C : τC) ...

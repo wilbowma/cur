@@ -21,4 +21,9 @@
 (define-nested/L app/c #%app)
 (define-nested/L app/eval/c app/eval/1)
 
-(define-simple-macro (define/c (f:id x+τ ...) e) (define f (λ/c x+τ ... e)))
+(define-syntax define/c
+  (syntax-parser
+    [(_ x:id e) #'(define x e)]
+    [(_ (f:id x+τ ...) e)
+     #:with body (subst #'recur #'f #'e)
+     #'(define f (λ/c x+τ ... body))]))

@@ -30,7 +30,8 @@
         #'(~or
            ((~literal Type) n)   ; unexpanded
            ((~literal #%plain-app) ; expanded
-            (~and C:id (~fail #:unless (free-identifier=? #'C Type-id)
+            (~and C:id ; TODO: this free-id=? sometimes fails
+                  (~fail #:unless (stx-datum-equal? #;free-identifier=? #'C Type-id)
                               (format "type mismatch, expected Type, given ~a"
                                       (syntax->datum #'C))))
             ((~literal quote) n)))]
@@ -118,8 +119,14 @@
   --------
   [⊢ e- ⇒ τ])
 
+;; TODO: should this be a stx parameter?
+(define-syntax recur
+  (λ (stx) (raise-syntax-error 'recur "not allowed to recur" stx)))
+(provide recur)
 ;; top-level ------------------------------------------------------------------
 (define-syntax define
   (syntax-parser
     [(_ alias:id τ) #'(define-syntax- alias (make-variable-like-transformer #'τ))]
-    [(_ (f [x:id : τ]) e) #'(define f (λ/1 [x : τ] e))]))
+    [(_ (f [x:id : τ]) e)
+     #:with body (subst #'recur #'f #'e)
+     #'(define f (λ/1 [x : τ] body))]))
