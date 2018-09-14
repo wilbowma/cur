@@ -1,5 +1,23 @@
-cur [![Build Status](https://travis-ci.org/wilbowma/cur.svg?branch=master)](https://travis-ci.org/wilbowma/cur)
+cur [![Build Status](https://travis-ci.org/wilbowma/cur.svg?branch=master)](https://travis-ci.org/stchang/cur/branches#turnstile-core)
 ===
+
+this branch: `turnstile-core`
+=============================
+
+- work-in-progress replacing Cur core with a Turnstile lang
+
+Differences Between Legacy Cur Legacy and Cur with Turnstile Core
+=================================================================
+Lega: forall same as Pi
+Turn: forall has no annotations
+
+Turn:
+- `match` requires #:return
+- no function signature forward declaration (`:`)
+
+
+previous README for Cur
+=======================
 
 A language with static dependent-types and dynamic types, type
 annotations and parentheses, theorem proving and meta-programming.
@@ -172,12 +190,3 @@ language, <600 lines of code.
 You can run some Cur code using this model, but the
 `cur-lib/cur/curnel/racket-impl/core.rkt` (the default Curnel) is much
 faster and supports more features.
-
-Differences Between Legacy Cur Legacy and Cur with Turnstile Core
-=================================================================
-Lega: forall same as Pi
-Turn: forall has no annotations
-
-Turn:
-- `match` requires #:return
-- no function signature forward declaration (`:`)

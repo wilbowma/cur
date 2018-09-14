@@ -106,7 +106,7 @@
 (define-typed-syntax define-datatype
   ;; simple datatypes, eg Nat -------------------------------------------------
   ;; - ie, `TY` is an id with no params or indices
-  [(_ TY:id (~datum :) τ:id [C:id (~datum :) τC] ...) ≫
+  [(_ TY:id (~datum :) τ [C:id (~datum :) τC] ...) ≫
    ;; need with-unbound and ~unbound bc `TY` name still undefined here
    ;; TODO: is with-unbound needed?
    ;; - is it possible to defer check to define-constructor below, after TY is defined?

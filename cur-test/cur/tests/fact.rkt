@@ -5,13 +5,13 @@
 
 ;; this example used to demonstrates a bug in match
 (define (fact [n : Nat])
-  (match n
+  (match n #:return Nat
     [z (s z)]
     [(s x) (mult (s x) (fact x))]))
 
-(: fact^ (-> Nat Nat))
-(define (fact^ n)
-  (match n
+;(: fact^ (-> Nat Nat))
+(define (fact^ [n : Nat])
+  (match n #:return Nat
     [z (s z)]
     [(s x) (mult n (fact x))]))
 
