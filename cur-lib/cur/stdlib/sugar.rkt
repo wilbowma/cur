@@ -28,10 +28,19 @@
    ;  [⊢ ((λ [x- : τ] ... body-) e- ...)]
 
 (begin-for-syntax
-  (define (subst-recur v e)
+  (define (subst-recur v τout e)
     (syntax-parse e
-      [((~literal recur) . _) v]
-      [(e ...) #`#,(stx-map (λ (e) (subst-recur v e)) #'(e ...))]
+      [((~literal recur) . args)
+       (syntax-parse τout ; if v is fn, then apply it
+         [((~literal ->) . _)
+          #`(#,v . #,(stx-cdr #'args)
+                   ;; TODO: is stx-cdr robust enough? i think i need the following instead:
+                   #;#,(reverse (take (length #'(arg ...)) (reverse (stx->list #'args)))))]
+         [_ v])]
+      #;[((~literal recur) _) v] ; 1 arg = replace the whole recur
+      #;[((~literal recur) _ . rst) ; 2 arg = curry the recur, other args will have another elim
+       #`(#,v . rst)]
+      [(e ...) #`#,(stx-map (λ (e) (subst-recur v τout e)) #'(e ...))]
       [_ e]))
   (define ((mk-method e τe τout) ty clause) ; 2 args: ei tys and clause
     (syntax-parse (list ty clause)
@@ -41,7 +50,7 @@
        #:with (yrec* ...) (generate-temporaries #'(yrec ...))
        #:with body* (substs #'(y ...) #'(x ...) #'body)
 ;       #:do[(printf "about to subst recur: ~a\n" (stx->datum #'body*))]
-       #:with body** (subst-recur (stx-car #'(yrec* ...)) #'body*)
+       #:with body** (subst-recur (stx-car #'(yrec* ...)) τout #'body*)
        #`(λ [y : τin] ... [yrec* : #,τout] ... body**)])))
 
 ;(require (for-syntax racket/pretty))
@@ -51,8 +60,10 @@
 (define-typed-syntax (match e #:return τout . clauses) ≫
 ;  #:do[(printf "matching ~a\n" this-syntax)]
   [⊢ e ≫ e- ⇒ τ]
-  #:with (elim-Name ei ...) (let ([e (syntax-property #'τ 'extra)])
-                              (or (and (pair? e) (car e)) null))
+  #:do[(define exinfo (syntax-property #'τ 'extra))]
+  #:fail-unless exinfo (format "could not infer extra info from type ~a" (stx->datum #'τ))
+  #:with (elim-Name ei ...) (let (#;[e (syntax-property #'τ 'extra)])
+                              (or (and (pair? exinfo) (car exinfo)) exinfo))
 ;  #:do[(printf "ei: ~a\n" (stx->datum #'(ei ...)))]
   #:with (m ...) (stx-map (mk-method #'e- #'τ #'τout) #'(ei ...) #'clauses)
 ;  #:do[(map pretty-print (stx->datum #'(m ...)))]

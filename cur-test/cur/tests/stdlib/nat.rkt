@@ -28,9 +28,11 @@
 (check-type (zero? 1) : Bool -> false)
 
 ;; TODO: fix nat-equal?
-;(check-type (nat-equal? z z) : Bool -> true)
-;; (check-type (nat-equal? z (s z)) : Bool -> false)
-;; (check-type (nat-equal? (s z) (s z)) : Bool -> true)
+(check-type (nat-equal? z z) : Bool -> true)
+(check-type (nat-equal? z (s z)) : Bool -> false)
+(check-type (nat-equal? (s z) z) : Bool -> false)
+(check-type (nat-equal? (s z) (s z)) : Bool -> true)
+(check-type (nat-equal? 3 3) : Bool -> true)
 
 (check-type (even? z) : Bool -> true)
 (check-type (even? (s z)) : Bool -> false)

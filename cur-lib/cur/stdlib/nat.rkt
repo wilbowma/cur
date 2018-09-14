@@ -149,6 +149,21 @@
     [(s n)
      false]))
 
+;; nat-equal? with explicit elims
+#;(define nat-equal?
+  (λ [n : Nat]
+    (elim-Nat n
+     (λ [x : Nat] (-> Nat Bool))
+     zero?
+     (λ [n-1 : Nat] [ihn : (-> Nat Bool)]
+        (λ [m : Nat]
+          (elim-Nat m
+           (λ [x : Nat] Bool)
+           false
+           (λ [m-1 : Nat] [ihm : Bool]
+              (ihn m-1))))))))
+
+;; working version
 (define (nat-equal? (n : Nat))
   (match n #:return (-> Nat Bool)
     [z zero?]
@@ -158,6 +173,68 @@
          [z false]
          [(s m-1)
           (nat-equal? n-1 m-1)]))]))
+;; TODO: some notes for improving nat-equal?-like fns
+;; match currently elaborates to elim, which only recurs on one arg,
+;; so fns like nat-equal? require explicit currying
+;; TODO: automatically do this currying?
+;; eg, programmer writes
+;; ideally:
+#;(define (nat-equal? [n : Nat] [m : Nat])
+  (match (n,m)
+    [(z,z) true]
+    [(s n-1),(s m-1) (nat-equal? n-1 m-1)]))
+;; somewhat more realistic (currently not working, 2018-09-14)
+#;(define (nat-equal? [n : Nat] [m : Nat])
+  (match n #:return Bool
+    [z
+     (match m #:return Bool
+      [z true]
+      [(s m-1) false])]
+    [(s n-1)
+     (match m #:return Bool
+      [z false]
+      [(s m-1) (nat-equal? n-1 m-1)])]))      
+;; concretely, match (and define) must push the curried λ into the match bodies?
+;; eg the fn, which is equiv to (currently inf looping, 2018-09-14, bc recur not inserted for id defs)
+#;(define nat-equal?
+  (λ [n : Nat]
+    (λ [m : Nat]
+      (match n #:return Bool
+       [z
+        (match m #:return Bool
+         [z true]
+         [(s m-1) false])]
+       [(s n-1)
+        (match m #:return Bool
+         [z false]
+         [(s m-1) (nat-equal? n-1 m-1)])]))))
+;;(currently inf looping, 2018-09-14, bc recur not inserted for id defs)
+#;(define nat-equal?
+  (λ [n : Nat]
+      (match n #:return (-> Nat Bool)
+       [z
+        (λ [m : Nat]
+          (match m #:return Bool
+           [z true]
+           [(s m-1) false]))]
+       [(s n-1)
+        (λ [m : Nat]
+          (match m #:return Bool
+           [z false]
+           [(s m-1) (nat-equal? n-1 m-1)]))])))
+;; not inf looping, but still broken version
+#;(define (nat-equal? [n : Nat])
+  (λ [m : Nat]
+    (match n #:return Bool
+     [z
+      (match m #:return Bool
+       [z true]
+       [(s m-1) false])]
+     [(s n-1)
+      (match m #:return Bool
+       [z false]
+       [(s m-1) (nat-equal? n-1 m-1)])])))
+
 
 (define (even? (n : Nat))
   (match n #:return Bool
