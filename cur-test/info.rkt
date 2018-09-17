@@ -16,7 +16,6 @@
     "cur/tests/stdlib/equality.rkt"
     "cur/tests/stdlib/list.rkt"
     "cur/tests/stdlib/maybe.rkt"
-    "cur/tests/stdlib/prop.rkt"
     "cur/tests/stdlib/racket-ascii.rkt"
     "cur/tests/stdlib/sigma.rkt"
     "cur/tests/stdlib/typeclass.rkt"

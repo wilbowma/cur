@@ -225,7 +225,7 @@
     #'(begin-
         ;; define the type
 ;        (define-type TY : [A : τA] ... [i : τi] ... -> τ)
-        (define-type TY : [A2 Atag τA2] ... [i2 itag τi2] ... -> τ2 #:extra ([i+x2 i+xtag τin2] ... ((xrec irec ...) ...)) ...)
+        (define-type TY : [A2 Atag τA2] ... [i2 itag τi2] ... -> τ2 #:extra elim-TY (([i+x2 τin2] ...) ((xrec irec ...) ...)) ...)
 
         ;; define the data constructors
 ;        (define-data-constructor C : [A*C : τA*C] ... [i+x : τin] ... -> τout) ...

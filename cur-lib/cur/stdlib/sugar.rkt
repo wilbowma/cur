@@ -7,6 +7,7 @@
 ;; - in racket-impl: ∀ = Π
 
 (provide (all-from-out cur/curnel/turnstile-impl/dep-ind-cur2+sugar)
+         (rename-out [∀ forall] [λ lambda])
          let
          match)
 
@@ -45,13 +46,23 @@
   (define ((mk-method e τe τout) ty clause) ; 2 args: ei tys and clause
     (syntax-parse (list ty clause)
       [(_ [x:id body]) #'body] ; no subst, bc x is just nullary constructor
-      [((([y τin] ...) (yrec ...))
-        [(tycon x ...) body])
-       #:with (yrec* ...) (generate-temporaries #'(yrec ...))
+      [((([y:id τin] ...) ()) ; no rec, no anno
+        [(con:id x:id ...) body])
+       #:with body* (substs #'(y ...) #'(x ...) #'body)
+       #`(λ [y : τin] ... body*)]
+      [((([y:id τin] ...) ()) ; no rec, with anno
+        [(con:id [x:id tag:id ty] ...) body])
+       #:fail-unless (typechecks? #'(ty ...) #'(τin ...))
+                      "match: pattern annotation type mismatch"
+       #:with body* (substs #'(y ...) #'(x ...) #'body)
+       #`(λ [y : τin] ... body*)]
+      [((([y:id τin] ...) (yrec))
+        [(con:id x:id ...) body])
+       #:with yrec* (generate-temporary #'yrec)
        #:with body* (substs #'(y ...) #'(x ...) #'body)
 ;       #:do[(printf "about to subst recur: ~a\n" (stx->datum #'body*))]
-       #:with body** (subst-recur (stx-car #'(yrec* ...)) τout #'body*)
-       #`(λ [y : τin] ... [yrec* : #,τout] ... body**)])))
+       #:with body** (subst-recur #'yrec* τout #'body*)
+       #`(λ [y : τin] ... [yrec* : #,τout] body**)])))
 
 ;(require (for-syntax racket/pretty))
 ;; TODO:
@@ -64,7 +75,9 @@
   #:fail-unless exinfo (format "could not infer extra info from type ~a" (stx->datum #'τ))
   #:with (elim-Name ei ...) (let (#;[e (syntax-property #'τ 'extra)])
                               (or (and (pair? exinfo) (car exinfo)) exinfo))
-;  #:do[(printf "ei: ~a\n" (stx->datum #'(ei ...)))]
+  ;  #:do[(printf "ei: ~a\n" (stx->datum #'(ei ...)))]
+  #:fail-unless (stx-length=? #'(ei ...) #'clauses)
+                "extra info error: check that number of clauses matches type declaration"
   #:with (m ...) (stx-map (mk-method #'e- #'τ #'τout) #'(ei ...) #'clauses)
 ;  #:do[(map pretty-print (stx->datum #'(m ...)))]
 ; [⊢ body ≫ body- ⇐ τout] ...
