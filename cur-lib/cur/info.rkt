@@ -3,7 +3,6 @@
 (define compile-omit-paths
   '("ntac"
     "stdlib/ascii.rkt"
-    "stdlib/equality.rkt"
     "stdlib/list.rkt"
     "stdlib/maybe.rkt"
     "stdlib/sigma.rkt"

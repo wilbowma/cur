@@ -5,25 +5,28 @@
  cur/stdlib/bool
  cur/stdlib/nat
  cur/stdlib/equality
- "curunit.rkt")
+ turnstile/rackunit-typechecking)
 
-(check-equal?
+(check-type
  (elim ML-= (λ (x : Bool) (y : Bool) (p : (ML-= Bool x y)) Nat)
        ((λ (x : Bool) z))
        (ML-refl Bool true))
- z)
+ : Nat
+ -> z)
 
 (define (id (A : Type) (x : A)) x)
 
-(check-equal?
- ((id (ML-= True T T))
-  (ML-refl True (run (id True T))))
- (ML-refl True T))
-
-(check-equal?
+(check-type
  ((id (ML-= True T T))
   (ML-refl True (id True T)))
- (ML-refl True T))
+ : (ML-= True T T)
+ -> (ML-refl True T))
+
+; no curry
+(check-type
+ (id (ML-= True T T) (ML-refl True (id True T)))
+ : (ML-= True T T)
+ -> (ML-refl True T))
 
 ;; prove some properties of equality
 ;; - with both built-in and user-defined datatypes
@@ -107,8 +110,10 @@
 
 ;; new my= equality
 
-(data my= : 1 (Π (A : (Type 0)) (Π (a : A) (Π (b : A) (Type 0))))
+#;(data my= : 1 (Π (A : (Type 0)) (Π (a : A) (Π (b : A) (Type 0))))
       (my-refl : (Π (A : (Type 0)) (Π (a : A) (my= A a a)))))
+(define-datatype my= (A : (Type 0)) : (a : A) (b : A) -> (Type 0)
+  (my-refl : (a : A) -> (my= A a a)))
 
 (check-type (my-refl Nat 1) : (my= Nat 1 1))
 (check-type (my-refl Nat 1) : (my= Nat 1 (plus 1 0)))
