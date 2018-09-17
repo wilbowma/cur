@@ -53,10 +53,12 @@
        #`(λ [y : τin] ... body*)]
       [((([y:id τin] ...) ()) ; no rec, with anno
         [(con:id [x:id tag:id ty] ...) body])
-       #:fail-unless (typechecks? #'(ty ...) #'(τin ...))
-                      "match: pattern annotation type mismatch"
+       ;; TODO: for this to work, must inst τin
+       ;; - add params to extra info?
+       ;; #:fail-unless (typechecks? #'(ty ...) #'(τin ...))
+       ;;                "match: pattern annotation type mismatch"
        #:with body* (substs #'(y ...) #'(x ...) #'body)
-       #`(λ [y : τin] ... body*)]
+       #`(λ [y : ty] ... body*)]
       [((([y:id τin] ...) ((yrec))) ; rec, no anno
         [(con:id x:id ...) body])
        #:with yrec* (generate-temporary #'yrec)
@@ -66,13 +68,15 @@
        #`(λ [y : τin] ... [yrec* : #,τout] body**)]
       [((([y:id τin] ...) ((yrec))) ; rec, with anno
         [(con:id [x:id tag:id ty] ...) body])
-       #:fail-unless (typechecks? #'(ty ...) #'(τin ...))
-                      "match: pattern annotation type mismatch"
+       ;; TODO: for this to work, must inst τin
+       ;; - add params to extra info?
+       ;; #:fail-unless (typechecks? #'(ty ...) #'(τin ...))
+       ;;                "match: pattern annotation type mismatch"
        #:with yrec* (generate-temporary #'yrec)
        #:with body* (substs #'(y ...) #'(x ...) #'body)
 ;       #:do[(printf "about to subst recur: ~a\n" (stx->datum #'body*))]
        #:with body** (subst-recur #'yrec* τout #'body*)
-       #`(λ [y : τin] ... [yrec* : #,τout] body**)])))
+       #`(λ [y : ty] ... [yrec* : #,τout] body**)])))
 
 ;(require (for-syntax racket/pretty))
 ;; TODO:

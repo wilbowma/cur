@@ -9,7 +9,6 @@
     "tests/olly.rkt"
     "tests/stdlib/ascii.rkt"
     "tests/stdlib/list.rkt"
-    "tests/stdlib/maybe.rkt"
     "tests/stdlib/racket-ascii.rkt"
     "tests/stdlib/sigma.rkt"
     "tests/stdlib/typeclass.rkt"

@@ -4,7 +4,6 @@
   '("ntac"
     "stdlib/ascii.rkt"
     "stdlib/list.rkt"
-    "stdlib/maybe.rkt"
     "stdlib/sigma.rkt"
     "stdlib/typeclass.rkt"
     "olly.rkt"))

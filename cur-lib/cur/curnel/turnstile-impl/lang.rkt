@@ -45,6 +45,8 @@
          (L (cons #'[x τ] is) #'rst)]
         [_ (list (reverse is) ty)]))))
 
+;; TODO: currently, dont expand TY or tyC, bc of unbound TY
+;; - but this means that curried form wont be handled
 (define-typed-syntax (data TY:id (~datum :) n:exact-nonnegative-integer ty
                            [C:id (~datum :) tyC] ...) ≫
   ;; [⊢ ty ≫ ty- ⇐ Type] ; use unexpanded
@@ -53,6 +55,10 @@
   #:with [([i tyi] ...) ty0] (split-Π #'ty-rst)
   #:with ([_ tyC-rst] ...) (stx-map (λ (t) (take-Π t (stx-e #'n))) #'(tyC ...))
   #:with ([([x tyx] ...) tyC0] ...) (stx-map split-Π #'(tyC-rst ...))
+  ;; #:do[(displayln
+  ;;       (stx->datum
+  ;;        #'(define-datatype TY [A : tyA] ... : [i : tyi] ... -> ty0
+  ;;            [C : [x : tyx] ... -> tyC0] ...)))]
   -----------------
   [≻ (define-datatype TY [A : tyA] ... : [i : tyi] ... -> ty0
        [C : [x : tyx] ... -> tyC0] ...)])
