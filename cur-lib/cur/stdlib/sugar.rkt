@@ -46,6 +46,7 @@
   (define ((mk-method e τe τout) ty clause) ; 2 args: ei tys and clause
     (syntax-parse (list ty clause)
       [(_ [x:id body]) #'body] ; no subst, bc x is just nullary constructor
+      ;; TODO: combine the following 4 cases
       [((([y:id τin] ...) ()) ; no rec, no anno
         [(con:id x:id ...) body])
        #:with body* (substs #'(y ...) #'(x ...) #'body)
@@ -56,8 +57,17 @@
                       "match: pattern annotation type mismatch"
        #:with body* (substs #'(y ...) #'(x ...) #'body)
        #`(λ [y : τin] ... body*)]
-      [((([y:id τin] ...) (yrec))
+      [((([y:id τin] ...) (yrec)) ; rec, no anno
         [(con:id x:id ...) body])
+       #:with yrec* (generate-temporary #'yrec)
+       #:with body* (substs #'(y ...) #'(x ...) #'body)
+;       #:do[(printf "about to subst recur: ~a\n" (stx->datum #'body*))]
+       #:with body** (subst-recur #'yrec* τout #'body*)
+       #`(λ [y : τin] ... [yrec* : #,τout] body**)]
+      [((([y:id τin] ...) (yrec)) ; rec, with anno
+        [(con:id [x:id tag:id ty] ...) body])
+       #:fail-unless (typechecks? #'(ty ...) #'(τin ...))
+                      "match: pattern annotation type mismatch"
        #:with yrec* (generate-temporary #'yrec)
        #:with body* (substs #'(y ...) #'(x ...) #'body)
 ;       #:do[(printf "about to subst recur: ~a\n" (stx->datum #'body*))]
@@ -73,9 +83,9 @@
   [⊢ e ≫ e- ⇒ τ]
   #:do[(define exinfo (syntax-property #'τ 'extra))]
   #:fail-unless exinfo (format "could not infer extra info from type ~a" (stx->datum #'τ))
-  #:with (elim-Name ei ...) (let (#;[e (syntax-property #'τ 'extra)])
-                              (or (and (pair? exinfo) (car exinfo)) exinfo))
-  ;  #:do[(printf "ei: ~a\n" (stx->datum #'(ei ...)))]
+  #:with (elim-Name ei ...) (or (and (pair? exinfo) (car exinfo)) exinfo)
+  ;; #:do[(displayln #'elim-Name)
+  ;;      (printf "ei: ~a\n" (stx->datum #'(ei ...)))]
   #:fail-unless (stx-length=? #'(ei ...) #'clauses)
                 "extra info error: check that number of clauses matches type declaration"
   #:with (m ...) (stx-map (mk-method #'e- #'τ #'τout) #'(ei ...) #'clauses)
