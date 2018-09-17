@@ -126,7 +126,7 @@
    --------
    [≻ (begin-
         ;; define the type, eg "Nat"
-        (define-cur-constructor TY : τ #:extra elim-TY (([x τin] ...) (xrec ...)) ...)
+        (define-cur-constructor TY : τ #:extra elim-TY (([x τin] ...) ((xrec) ...)) ...)
 
         ;; define the data constructors, eg Z and S
         (define-cur-constructor C : τC) ...
