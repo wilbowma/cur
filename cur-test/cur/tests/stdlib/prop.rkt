@@ -16,3 +16,20 @@
 (check-type (conj (conj T T) T)
             : (And (And True True) True)
             -> (conj (And True True) True (conj True True T T) T))
+
+;; A or A
+
+(define thm:A-or-A
+  (Π (A : Type) (o : (Or A A)) A))
+
+(define proof:A-or-A
+  (lambda (A : Type) (c : (Or A A))
+          (elim Or (lambda (c : (Or A A)) A)
+                [(lambda (a : A) a)
+                 (lambda (b : A) b)]
+                c)
+          #;(new-elim c (lambda (c : (Or A A)) A)
+                [(lambda (a : A) a)
+                 (lambda (b : A) b)])))
+
+(check-type proof:A-or-A : thm:A-or-A)

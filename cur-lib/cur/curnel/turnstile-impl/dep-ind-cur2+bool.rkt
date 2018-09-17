@@ -4,7 +4,8 @@
 
 ;; bool lib
 
-(provide False True I And conj Or or_introL or_introR)
+(provide False True I And conj Or or_introL or_introR
+         elim-Or elim-And)
 
 ;(define-type Bool : Type)
 

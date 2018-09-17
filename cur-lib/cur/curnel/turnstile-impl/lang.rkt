@@ -23,6 +23,22 @@
 (provide (all-from-out "dep-ind-cur2+data2.rkt")
          (rename-out [define-datatype data]))
 
+; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
+(provide elim new-elim)
+(define-typed-syntax (elim ty:id motive (method ...) target) ≫
+  #:with elim-Name (format-id #'ty "elim-~a" #'ty)
+  ---
+  [≻ (elim-Name target motive method ...)])
+
+(define-typed-syntax (new-elim target motive (method ...)) ≫
+  [⊢ target ≫ target- ⇒ τ]
+  #:do[(define exinfo (syntax-property #'τ 'extra))]
+  #:fail-unless exinfo (format "could not infer extra info from type ~a" (syntax->datum #'τ))
+  #:with (elim-Name _ ...) (or (and (pair? exinfo) (car exinfo)) exinfo)
+  ---
+  [≻ (elim-Name target- motive method ...)])
+
+
 (require "reflection.rkt")
 (provide (all-from-out "reflection.rkt"))
 
