@@ -13,7 +13,6 @@
     "cur/tests/olly.rkt"
     "cur/tests/plus.rkt"
     "cur/tests/stdlib/ascii.rkt"
-    "cur/tests/stdlib/equality.rkt"
     "cur/tests/stdlib/list.rkt"
     "cur/tests/stdlib/maybe.rkt"
     "cur/tests/stdlib/racket-ascii.rkt"
