@@ -41,6 +41,7 @@
        (define xs (stx-map stx-car x+τs))
        (stx-filtermap
         (syntax-parser
+          [(x t:id) (and (free-id=? #'t TY) (list #'x))] ; num-is should be = 0
           [(x (t:id . _)) (and (free-id=? #'t TY) (cons #'x (stx-take xs num-is)))]
           [_ #f])
         x+τs))
