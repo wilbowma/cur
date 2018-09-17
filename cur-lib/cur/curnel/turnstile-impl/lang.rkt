@@ -1,7 +1,7 @@
 #lang racket/base
 
 (provide ;; #%module-begin
-         provide require only-in for-syntax all-from-out
+         provide require only-in for-syntax all-from-out rename-out except-out
          ;; begin-for-syntax
          ;; define-values begin define #%app λ
          define-syntax define-for-syntax
@@ -13,13 +13,15 @@
 (require (for-syntax racket/base syntax/parse racket/syntax))
 
 (require "dep-ind-cur2.rkt")
-(provide (all-from-out "dep-ind-cur2.rkt"))
+(provide (all-from-out "dep-ind-cur2.rkt")
+         (rename-out [λ lambda]))
 
-(require (only-in turnstile/base define-typed-syntax get-orig assign-type subst substs))
+(require (only-in turnstile/base define-typed-syntax get-orig assign-type subst substs typecheck? typechecks?))
 (provide (all-from-out turnstile/base))
 
 (require "dep-ind-cur2+data2.rkt")
-(provide (all-from-out "dep-ind-cur2+data2.rkt"))
+(provide (all-from-out "dep-ind-cur2+data2.rkt")
+         (rename-out [define-datatype data]))
 
 (require "reflection.rkt")
 (provide (all-from-out "reflection.rkt"))
