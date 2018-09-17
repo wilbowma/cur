@@ -110,10 +110,9 @@
 
 ;; new my= equality
 
-#;(data my= : 1 (Π (A : (Type 0)) (Π (a : A) (Π (b : A) (Type 0))))
+;; old stx (data)
+(data my= : 1 (Π (A : (Type 0)) (Π (a : A) (Π (b : A) (Type 0))))
       (my-refl : (Π (A : (Type 0)) (Π (a : A) (my= A a a)))))
-(define-datatype my= (A : (Type 0)) : (a : A) (b : A) -> (Type 0)
-  (my-refl : (a : A) -> (my= A a a)))
 
 (check-type (my-refl Nat 1) : (my= Nat 1 1))
 (check-type (my-refl Nat 1) : (my= Nat 1 (plus 1 0)))
@@ -155,3 +154,48 @@
          (→ (my= A x y)
             (my= A y z)
             (my= A x z)))))
+
+;; new stx (define-datatype)
+(define-datatype my=2 (A : (Type 0)) : (a : A) (b : A) -> (Type 0)
+  (my-refl2 : (a : A) -> (my=2 A a a)))
+
+(check-type (my-refl2 Nat 1) : (my=2 Nat 1 1))
+(check-type (my-refl2 Nat 1) : (my=2 Nat 1 (plus 1 0)))
+(check-type (my-refl2 Nat 1) : (my=2 Nat (plus 1 0) (plus 1 0)))
+(check-type (my-refl2 Nat 2) : (my=2 Nat (plus 1 1) (plus 1 (plus 1 0))))
+
+;; my=2 symmetric
+(check-type
+ (λ [A : (Type 0)]
+   (λ [x : A] [y : A]
+       (λ [e : (my=2 A x y)]
+         (new-elim 
+          e
+          (λ [a : A] [b : A]
+             (λ [e : (my=2 A a b)]
+               (my=2 A b a)))
+          (λ [c : A]
+            (my-refl2 A c))))))
+ : (Π [A : (Type 0)]
+      (Π [x : A] [y : A]
+         (→ (my=2 A x y) (my=2 A y x)))))
+
+;; = transitive
+(check-type
+ (λ [A : (Type 0)]
+   (λ [x : A] [y : A] [z : A]
+      (λ [e1 : (my=2 A x y)] [e2 : (my=2 A y z)]
+         ((new-elim
+           e1
+           (λ [a : A] [b : A]
+              (λ [e : (my=2 A a b)]
+                (Π [c : A] (→ (my=2 A b c) (my=2 A a c)))))
+           (λ [a : A]
+             (λ [c : A]
+               (λ [e : (my=2 A a c)] e))))
+          z e2))))
+ : (Π (A : (Type 0))
+      (Π [x : A] [y : A] [z : A]
+         (→ (my=2 A x y)
+            (my=2 A y z)
+            (my=2 A x z)))))
