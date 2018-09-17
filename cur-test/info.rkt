@@ -11,7 +11,6 @@
     "cur/tests/ntac/"
     "cur/tests/ntac.rkt"
     "cur/tests/olly.rkt"
-    "cur/tests/plus.rkt"
     "cur/tests/stdlib/ascii.rkt"
     "cur/tests/stdlib/list.rkt"
     "cur/tests/stdlib/maybe.rkt"

@@ -99,6 +99,7 @@
 #;                            [(~plain-app/c tty:id x (... ...))
                              #:when (free-id=? #'tty TmpTy+)
                              (transfer-props stx #'(X x (... ...)) #:except null)]
+                              [tty:id #:when (free-id=? #'tty TmpTy+) #'X]
                               [((~literal #%plain-app) tty:id . rst)
                              #:when (free-id=? #'tty TmpTy+)
                                (transfer-props stx #'(X . rst) #:except null)]
@@ -215,10 +216,14 @@
    #:with (τm ...) (generate-temporaries #'(m ...))
    #:with (C-expander ...) (stx-map mk-~ #'(C ...))
 
-   ;; ASSUMING: τoutA has shape (TY A ... τouti ...)
+   ;; ASSUMING: τoutA has shape (TY A ... τouti ...), or id
    ;; - this is the same "patvar trick" as re-using A below
    ;; - it makes sure that the method output types properly reference the right i
-   #:with ((τouti ...) ...) (stx-map (λ (ts) (stx-drop ts (add1 (stx-length #'(A ...))))) #'(τout2 ...))
+   #:with ((τouti ...) ...) (stx-map
+                             (λ (ts)
+                               (or (and (stx-pair? ts) (stx-drop ts (add1 (stx-length #'(A ...)))))
+                                   #'()))
+                             #'(τout2 ...))
 
    ;; these are all the generated definitions that implement the define-datatype
    #:with OUTPUT-DEFS
