@@ -27,6 +27,7 @@
  cur-runtime-constant?
  cur-runtime-axiom-telescope?
 
+ gamma
  )
 
 #|
