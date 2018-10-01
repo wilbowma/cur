@@ -17,7 +17,21 @@
     (format "~a~a : ~a~n" str (syntax-e k) (cur->datum (identifier-info-type v)))))
 
 (define-for-syntax (hline str)
-  (build-string (max (sub1 (string-length str)) 0) (lambda _ #\-)))
+  (let ([m (for/fold
+               ([n 0])
+               ([s (string-split str "\n")])
+             (max n (string-length s)))])
+    (build-string m (lambda _ #\-))))
+(begin-for-syntax
+  (module+ test
+    (require chk)
+    (chk
+     #:= "-----" (hline (format "12345~n1234"))
+     #:= "-----" (hline "12345\n1234")
+     #:= "----" (hline "1234\n1234")
+     #:= "----" (hline "123\n1234")
+     #:= "-----" (hline "123\n1234\n12345")
+     #:= "" (hline ""))))
 
 (define-syntax (TODO stx)
   (syntax-parse stx
