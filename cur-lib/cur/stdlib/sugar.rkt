@@ -9,12 +9,11 @@
 (provide (all-from-out cur/curnel/turnstile-impl/dep-ind-cur2+sugar)
          (rename-out [∀ forall] [λ lambda])
          let
-         match)
+         match
+         define/rec/match)
 
 (require cur/curnel/turnstile-impl/dep-ind-cur2+sugar
          (prefix-in r: racket/base))
-
-; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
 (define-typed-syntax let
   [(_ ((~or (~describe "unannotated" [x:id ex])
@@ -43,14 +42,15 @@
        #`(#,v . rst)]
       [(e ...) #`#,(stx-map (λ (e) (subst-recur v τout e)) #'(e ...))]
       [_ e]))
-  (define ((mk-method e τe τout) ty clause) ; 2 args: ei tys and clause
+  (define ((mk-method e τe τout nointro? orig) ty clause) ; 2 args: ei tys and clause
     (syntax-parse (list ty clause)
       [(_ [x:id body]) #'body] ; no subst, bc x is just nullary constructor
       ;; TODO: combine the following 4 cases
       [((([y:id τin] ...) ()) ; no rec, no anno
         [(con:id x:id ...) body])
        #:with body* (substs #'(y ...) #'(x ...) #'body)
-       #`(λ [y : τin] ... body*)]
+       #:with (τin* ...) (stx-map (λ (t) (if nointro? t (datum->syntax orig (syntax-e t)))) #'(τin ...))
+       #`(λ [y : τin*] ... body*)]
       [((([y:id τin] ...) ()) ; no rec, with anno
         [(con:id [x:id tag:id ty] ...) body])
        ;; TODO: for this to work, must inst τin
@@ -63,9 +63,10 @@
         [(con:id x:id ...) body])
        #:with yrec* (generate-temporary #'yrec)
        #:with body* (substs #'(y ...) #'(x ...) #'body)
+       #:with (τin* ...) (stx-map (λ (t) (if nointro? t (datum->syntax orig (syntax-e t)))) #'(τin ...))
 ;       #:do[(printf "about to subst recur: ~a\n" (stx->datum #'body*))]
        #:with body** (subst-recur #'yrec* τout #'body*)
-       #`(λ [y : τin] ... [yrec* : #,τout] body**)]
+       #`(λ [y : τin*] ... [yrec* : #,τout] body**)]
       [((([y:id τin] ...) ((yrec))) ; rec, with anno
         [(con:id [x:id tag:id ty] ...) body])
        ;; TODO: for this to work, must inst τin
@@ -78,28 +79,140 @@
        #:with body** (subst-recur #'yrec* τout #'body*)
        #`(λ [y : ty] ... [yrec* : #,τout] body**)])))
 
-;(require (for-syntax racket/pretty))
+
+
+(require (for-syntax racket/pretty))
+
+
+;; Note: all constructor pats, even nullary, requires parens
+;; otherwise cannot distinguish nullary constructor from plain var pattern
+(define-syntax multi-match ; matches multi exprs
+  (syntax-parser
+    [(_ e #:return ty [(pat) body] ...) ; base case, 1 expr to match
+     #'(match e #:return ty [pat body] ...)]
+    [(_ e0 e ... #:return ty [(pat . rst) body] ...)
+     #'(match e0 #:return ty [pat (multi-match e ... #:return ty [rst body] ...)] ...)]))
 ;; TODO:
 ;; - for now, explicit and #:return args are required
 ;; - assuming clauses appear in order
 (define-typed-syntax (match e #:return τout . clauses) ≫
 ;  #:do[(printf "matching ~a\n" this-syntax)]
   [⊢ e ≫ e- ⇒ τ]
+;  #:do[(printf "τ = ~a\n" (syntax->datum #'τ))]
   #:do[(define exinfo (syntax-property #'τ 'extra))]
+;  #:do[(displayln exinfo)]
   #:fail-unless exinfo (format "could not infer extra info from type ~a" (stx->datum #'τ))
-  #:with (elim-Name ei ...) (or (and (pair? exinfo) (car exinfo)) exinfo)
+  #:with (elim-Name ei ...)
+        ;; (datum->syntax
+        ;;  this-syntax
+        ;;  (syntax->datum
+          (or (and (pair? exinfo) (cdr exinfo)) exinfo)
+;;          ))
   ;; #:do[(displayln #'elim-Name)
-  ;;      (printf "ei: ~a\n" (stx->datum #'(ei ...)))]
+  ;;      (displayln (identifier-binding #'elim-Name))]
+  #:do[(define-values (modulepath basepath)
+         (module-path-index-split (car (identifier-binding #'elim-Name))))]
+;;  #:do[(printf "ei: ~a\n" (stx->datum #'(ei ...)))]
   #:fail-unless (stx-length=? #'(ei ...) #'clauses)
                 "extra info error: check that number of clauses matches type declaration"
-  #:with (m ...) (stx-map (mk-method #'e- #'τ #'τout) #'(ei ...) #'clauses)
+  #:with (m ...) (stx-map (mk-method #'e- #'τ #'τout modulepath this-syntax) #'(ei ...) #'clauses)
 ;  #:do[(map pretty-print (stx->datum #'(m ...)))]
-; [⊢ body ≫ body- ⇐ τout] ...
+  ; [⊢ body ≫ body- ⇐ τout] ...
+  ;; TODO: is string? the best test here?
+  #:with elim-Name* (if modulepath
+                        #'elim-Name
+                        (datum->syntax this-syntax (syntax->datum #'elim-Name)))
+;  #:do[(displayln (identifier-binding #'elim-Name*))]
+  #:with out #'(elim-Name* e- (λ [x : τ] τout) m ...)
+;  #:do[(pretty-print (syntax->datum #'out))]
   ------------
-  [≻ (elim-Name e- (λ [x : τ] τout) m ...)])
-  
+  [≻ out #;(elim-Name e- (λ [x : τ] τout) m ...)])
 
 
+
+(define-syntax λ/match
+  (syntax-parser
+    [(_ [x:id (~datum :) ty] (~datum ->) ty_out [(pat) body] ...)
+     #'(λ [x : ty] (match x #:return ty [pat body] ...))]
+    [(_ [x:id (~datum :) ty] [y:id (~datum :) tyy] ... (~datum ->) ty_out
+        [(p . prst) body] ...)
+     #'(λ [x : ty]
+         (match x #:return (-> tyy ... ty_out)
+           [p (λ/match [y : tyy] ... -> ty_out [prst body] ...)] ...))]))
+
+(begin-for-syntax
+  (define (mk-eval id) (format-id id "eval-~a" id))
+  (define (mk-~ id) (format-id id "~~~a" id))
+  ;; converts pat to a constructor (pattern expander) pat
+  (define pat->cpat
+    (syntax-parser
+      [x:id (list (mk-~ #'x))]
+      [(C:id . rst) (cons (mk-~ #'C) #'rst)]))
+  (define mk-red-pat
+    (syntax-parser ; convert constructors to pat expanders
+      [(x:id . rst) #`(#%plain-app (#,(mk-~ #'x)) . rst)] ; id case, must add parens
+      [((C:id . Crst) . rst) #`(#%plain-app (#,(mk-~ #'C) . Crst) . rst)])))
+
+; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
+
+;; TODO:
+;; - check smaller arg for rec calls
+;; - currently, can only recur on first arg; generalize for any arg?
+#;(define-syntax define/match/1 ; single arg version of define/match
+  (syntax-parser
+    [(_ name:id (~datum :) ty_in (~datum ->) ty_out
+        [pat (~datum =>) body] ...+)
+     #'(define/match name : ty_in -> ty_out [(pat) => body] ...)]))
+;; Note: patterns are always for first arg
+;; TODO: validate tys and body
+;; - eg, currently wont error if body and ty_out have type mismatch
+(define-syntax define/rec/match 
+  (syntax-parser
+    [(_ name:id (~datum :) (~and ty0 (~not [_ (~datum :) _]) (~not (~datum ->))) ... [x (~datum :) ty_in] ...
+                (~datum ->) ty_out
+        [pat ... (~datum =>) body] ...)
+     #:with (x0 ...) (generate-temporaries #'(ty0 ...))
+     #:with (x0- ...) (generate-temporaries #'(ty0 ...))
+     #:with (x- ...) (generate-temporaries #'(x ...))
+     #:with (xs-for-pat ...) (stx-map (λ _ #'(x ...)) #'((pat ...) ...))
+     #:with name-eval (mk-eval #'name)
+     #:with ((cpat ...) ...) (stx-map (λ (ps) (stx-map pat->cpat ps)) #'((pat ...) ...))
+;     #:with (red-pat ...) (stx-map mk-red-pat #'((pat . xs-for-pat) ...))
+     #:with (red-pat ...) #'((#%plain-app cpat ... . xs-for-pat) ...)
+     #:with (body/eval ...) #'(body ...) #;(subst #'name-eval #'name #'(body ...))
+     #:with OUT
+     #'(begin
+         (define-typed-syntax name
+           [(_ x0 ... x ...) ≫
+            [⊢ x0 ≫ x0- ⇐ ty0] ...
+            [⊢ x ≫ x- ⇐ ty_in] ...
+            ----------
+            [⊢ (name-eval x0- ... x- ...) ⇒ ty_out]]
+           ;; TODO: combine 2nd and third cases?
+           ;;TODO: fix these cases when (len ty0 ...) > 1, eg nat-equal?
+           [:id ≫ --- [≻ (λ [x0 : ty0] ... [x : ty_in] ... (name x0 ... x ...))]]
+           [(_ arg (... ...)) ≫ ; non-full application
+            #:with ([y _ ty] (... ...))
+                   (stx-drop #'([x0 : ty0] ... [x : ty_in] ...) (stx-length #'(arg (... ...))))
+            ----
+            [≻ (λ [y : ty] (... ...) (name arg (... ...) y (... ...)))]]
+           #;[_:id ≫
+            ---
+            [≻ (λ [x0 : ty0] ...
+                 (match x0 ... #:return (-> ty_in ... ty_out)
+                        [pat ... (λ [x : ty_in] ... body)] ...))]]
+           [(_:id . rst) ≫ ; non-full application
+            #:when (<= (stx-length #'rst) (stx-length #'(x ...)))
+            ---
+            [≻ ((λ [x0 : ty0] ...
+                  (match x0 ... #:return (-> ty_in ... ty_out)
+                         [pat ... (λ [x : ty_in] ... body)] ...))
+                . rst)]])
+         (define-red name-eval [red-pat ~> body/eval] ...))
+;     #:do[(pretty-print (syntax->datum #'OUT))]
+     #'OUT]))
+
+            
 ;; (provide
 ;;   Type
 ;;   ->

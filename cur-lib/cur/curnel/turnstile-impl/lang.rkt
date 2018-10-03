@@ -4,6 +4,7 @@
          provide require only-in for-syntax all-from-out rename-out except-out
          ;; begin-for-syntax
          ;; define-values begin define #%app λ
+         #%plain-app void #%plain-lambda printf displayln quote begin
          define-syntax define-for-syntax
          (for-syntax
           (all-from-out racket/base
@@ -17,9 +18,10 @@
          (rename-out [λ lambda]))
 
 (require (only-in turnstile/base
-                  define-typed-syntax get-orig assign-type subst substs typecheck? typechecks?)
+                  define-typed-syntax get-orig assign-type subst substs typecheck? typechecks? typeof)
+         turnstile/eval
          (for-syntax macrotypes/stx-utils syntax/stx))
-(provide (all-from-out turnstile/base))
+(provide (all-from-out turnstile/base turnstile/eval))
 
 (require "dep-ind-cur2+data2.rkt")
 (provide (all-from-out "dep-ind-cur2+data2.rkt"))
