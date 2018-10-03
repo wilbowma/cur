@@ -7,6 +7,7 @@
   "type-reconstruct.rkt"
   "stxutils.rkt"
   "runtime-utils.rkt"
+  "environment.rkt"
   racket/base
   racket/syntax
   syntax/stx
@@ -49,8 +50,8 @@
   check-motive
   check-method)
  )
-(require racket/trace (for-syntax racket/trace))
-(begin-for-syntax
+#;(require racket/trace (for-syntax racket/trace))
+#;(begin-for-syntax
   (define (maybe-syntax->datum syn)
     (if (syntax? syn)
         (syntax->datum syn)
@@ -82,21 +83,22 @@ However, we don't really want the type system to be extensible since we desire a
 (begin-for-syntax
 
   ; Expects a Cur term and produces a cur-runtime-term?, returns a cur-runtime-term? or raises a type error.
-  (define (cur-elab syn)
-    (define/syntax-parse e:in-let-values (local-expand-expr syn))
+  ;; NB: intdef is used to share code between this and cur-elab/ctx
+  ;; Do not use intdef. Only cur-elab/ctx may use intdef.
+  (define (cur-elab syn [intdef #f] . ls)
+    (define/syntax-parse e:in-let-values (local-expand syn 'expression ls intdef))
     (attribute e.body))
 
-  (require racket/trace)
+  ;; TODO: Fragile. Trying to abstract all environment management nonsense into "environment.rkt";
+  ;; this code is at some mid-way point.
   (define (cur-elab/ctx syn ctx . ls)
     (call-with-ctx
      ctx
      (lambda ()
-       (define intdef (syntax-local-make-definition-context))
-       (syntax-local-bind-syntaxes (map car ctx) #f intdef)
-       (define/syntax-parse e:in-let-values
-         (internal-definition-context-introduce intdef (local-expand syn 'expression ls intdef)
-                                                'remove))
-       (attribute e.body))))
+       (bind-ctx-in
+        ctx
+        (lambda (intdef)
+          (apply cur-elab syn intdef ls))))))
 
   ;; cur-print:
   ;; - dont display typed-app

@@ -36,6 +36,8 @@
     (define/syntax-parse (~var e (cur-expr/ctx ctx)) (cdr p))
     (cons (cons (car p) (attribute e.reified)) ctx)))
 
+;; TODO: We already have an implementation of an environment, in "environment.rkt"
+;; Unfortunately, the interfaces are somewhat different...
 (define current-env (make-parameter '()))
 
 (define (call-with-env env t)

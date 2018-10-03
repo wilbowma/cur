@@ -11,10 +11,7 @@
 (provide
  cur-apply*
  make-cur-runtime-lambda*
-; type-of-constant
- type-of-id
- identifier-def
- call-with-ctx
+
  build-dispatch
 
  cur-runtime-constant
@@ -47,50 +44,6 @@ Utilities for working with cur-runtime-terms
             ([name (reverse name-ls)]
              [ann (reverse ann-ls)])
     (make-cur-runtime-lambda syn ann name result)))
-
-;; TODO: For future use
-; Expects an identifier defined as a Cur constant, and it's argument as cur-runtime-term?s
-; Returns it's type as a cur-runtime-term?
-#;(define (type-of-constant name args)
-  ; NB: eval is evil, but this is the least bad way I can figured out to store types.
-  (apply (constant-info-type-constr (syntax-local-eval name)) args))
-
-(require syntax/id-table racket/dict)
-(define gamma (make-parameter (make-immutable-free-id-table #:phase -1)))
-
-; Expects an identifier defined as a Cur identifier
-; Returns it's type as a cur-runtime-term?
-(define (type-of-id name)
-  (identifier-info-type (dict-ref (gamma) name (lambda () (syntax-local-eval name)))))
-
-(define (identifier-def name)
-  ;; TODO: Catch specific error
-  (with-handlers ([values (lambda (_) #f)])
-    (identifier-info-delta-def (syntax-local-eval name))))
-
-; Excepts an ordered list of pairs of an identifier and a type, as a cur-runtime-term, and a thunk.
-; Adds a binding for each identifier to the identifier-info containing the type, within the scope of
-; the thunk.
-(define (call-with-ctx ctx th)
-  (parameterize ([gamma (for/fold ([g (gamma)])
-                                  ([name (map car ctx)]
-                                   [type (map cdr ctx)])
-                          (dict-set g name (identifier-info type #f)))])
-    (th)))
-#;(define (call-with-ctx ctx th)
-  (define name-ls (map car ctx))
-  (for ([name name-ls]
-        [type (map cdr ctx)])
-    (namespace-set-variable-value! (syntax-e name) (identifier-info type #f) #f ns))
-  (let ([r (th)])
-    ;; NB: Can't make a copy of of the current namespace, so need to manually clean up.
-    (for ([name name-ls])
-      ;; TODO: Catch or detect the specific error;
-      ;; NB: when dealing with lexical variables, it is normal
-      ;; that a shadowed variable gets undefined multiple tmies.
-      (with-handlers ([(lambda (_) #t) (lambda (_) (void))])
-        (namespace-undefine-variable! (syntax-e name) ns)))
-    r))
 
 ;; TODO PERF: Should be able to do a better job since predicates are mutually exclusive.
 (define (build-dispatch predicates)

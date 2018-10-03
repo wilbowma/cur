@@ -5,6 +5,7 @@
  syntax/parse
  "runtime-utils.rkt"
  "stxutils.rkt"
+ "environment.rkt"
  (for-template
   "runtime.rkt"))
 

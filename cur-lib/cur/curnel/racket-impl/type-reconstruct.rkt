@@ -10,6 +10,7 @@
  "stxutils.rkt"
  "eval.rkt"
  "runtime-utils.rkt"
+ "environment.rkt"
  (for-template
   "runtime.rkt"))
 
@@ -17,7 +18,6 @@
  get-type
  get-type/ctx)
 
-(require racket/trace)
 ;; Takes a cur-runtime-term? and computes it's type, as a cur-runtime-term?.
 (define (get-type syn)
   (cur-eval
