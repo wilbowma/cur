@@ -2,8 +2,8 @@
 
 ;; TODO: override (all-defined-out) to enable exporting these properly.
 (provide #%datum Nat
-         z s nat-equal? elim-Nat (for-syntax ~z ~s)
-         add1 sub1 plus mult zero? exp square even? odd?)
+         z s (for-syntax ~z ~s)
+         add1 sub1 plus mult zero? exp square nat-equal? even? odd?)
 
 (require "datum.rkt" "sugar.rkt" "bool.rkt")
 
@@ -12,19 +12,17 @@
   [s : (-> Nat Nat)])
 
 (begin-for-syntax
-  (provide nat->unary)
   (define (nat->unary n)
     (if (zero? n)
         #`z
-        #`(s #,(nat->unary (sub1 n))))))
+        #`(s #,(nat->unary (sub1 n)))))
 
-(begin-for-syntax
-  (provide nat-datum)
   (define (nat-datum syn f)
     (syntax-parse syn
       [x:nat
        (nat->unary (syntax->datum #'x))]
       [_ (f syn)]))
+
   (current-datum nat-datum))
 
 (define (add1 (n : Nat)) (s n))
@@ -284,8 +282,8 @@
 ;; nat-equal? with multi match
 (define/rec/match nat-equal? : Nat Nat -> Bool
   [z z => true]
-  [z (s x) => false]
-  [(s x) z => false]
+  [z (s _) => false]
+  [(s _) z => false]
   [(s x) (s y) =>  (nat-equal? x y)])
 
 ;; ;; TODO: some notes for improving nat-equal?-like fns
@@ -358,7 +356,8 @@
      (not (even? n-1))]))
 (define/rec/match even? : Nat -> Bool
   [z => true]
-  [(s n-1) => (not (even? n-1))])
+;  [(s n-1) => (not (even? n-1))])
+  [(s n-1) => (odd? n-1)])
 
 (define (odd? (n : Nat))
   (not (even? n)))
