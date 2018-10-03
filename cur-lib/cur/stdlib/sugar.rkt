@@ -110,6 +110,11 @@
 ;;          ))
   ;; #:do[(displayln #'elim-Name)
   ;;      (displayln (identifier-binding #'elim-Name))]
+  ;; TODO: the following is a workound for the "kind stx prop" problem
+  ;; ie, stxobj stx props are not visible to the expander, causing potential issues,
+  ;; it's frequently seen with "kinds", ie props on types, eg extra-info
+  ;; - sometimes the elim-name loses its proper module-path-index
+  ;; - in these situations, unhygienically use the ctx here
   #:do[(define-values (modulepath basepath)
          (module-path-index-split (car (identifier-binding #'elim-Name))))]
 ;;  #:do[(printf "ei: ~a\n" (stx->datum #'(ei ...)))]
@@ -118,7 +123,6 @@
   #:with (m ...) (stx-map (mk-method #'e- #'τ #'τout modulepath this-syntax) #'(ei ...) #'clauses)
 ;  #:do[(map pretty-print (stx->datum #'(m ...)))]
   ; [⊢ body ≫ body- ⇐ τout] ...
-  ;; TODO: is string? the best test here?
   #:with elim-Name* (if modulepath
                         #'elim-Name
                         (datum->syntax this-syntax (syntax->datum #'elim-Name)))
@@ -128,18 +132,6 @@
   ------------
   [≻ out #;(elim-Name e- (λ [x : τ] τout) m ...)])
 
-
-
-(define-syntax λ/match
-  (syntax-parser
-    [(_ [x:id (~datum :) ty] (~datum ->) ty_out [(pat) body] ...)
-     #'(λ [x : ty] (match x #:return ty [pat body] ...))]
-    [(_ [x:id (~datum :) ty] [y:id (~datum :) tyy] ... (~datum ->) ty_out
-        [(p . prst) body] ...)
-     #'(λ [x : ty]
-         (match x #:return (-> tyy ... ty_out)
-           [p (λ/match [y : tyy] ... -> ty_out [prst body] ...)] ...))]))
-
 (begin-for-syntax
   (define (mk-eval id) (format-id id "eval-~a" id))
   (define (mk-~ id) (format-id id "~~~a" id))
@@ -147,23 +139,15 @@
   (define pat->cpat
     (syntax-parser
       [x:id (list (mk-~ #'x))]
-      [(C:id . rst) (cons (mk-~ #'C) #'rst)]))
-  (define mk-red-pat
-    (syntax-parser ; convert constructors to pat expanders
-      [(x:id . rst) #`(#%plain-app (#,(mk-~ #'x)) . rst)] ; id case, must add parens
-      [((C:id . Crst) . rst) #`(#%plain-app (#,(mk-~ #'C) . Crst) . rst)])))
+      [(C:id . rst) (cons (mk-~ #'C) #'rst)])))
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
 ;; TODO:
 ;; - check smaller arg for rec calls
 ;; - currently, can only recur on first arg; generalize for any arg?
-#;(define-syntax define/match/1 ; single arg version of define/match
-  (syntax-parser
-    [(_ name:id (~datum :) ty_in (~datum ->) ty_out
-        [pat (~datum =>) body] ...+)
-     #'(define/match name : ty_in -> ty_out [(pat) => body] ...)]))
-;; Note: patterns are always for first arg
+
+;; Note: patterns are always for first args
 ;; TODO: validate tys and body
 ;; - eg, currently wont error if body and ty_out have type mismatch
 (define-syntax define/rec/match 
@@ -177,10 +161,7 @@
      #:with (xs-for-pat ...) (stx-map (λ _ #'(x ...)) #'((pat ...) ...))
      #:with name-eval (mk-eval #'name)
      #:with ((cpat ...) ...) (stx-map (λ (ps) (stx-map pat->cpat ps)) #'((pat ...) ...))
-;     #:with (red-pat ...) (stx-map mk-red-pat #'((pat . xs-for-pat) ...))
      #:with (red-pat ...) #'((#%plain-app cpat ... . xs-for-pat) ...)
-     #:with (body/eval ...) #'(body ...) #;(subst #'name-eval #'name #'(body ...))
-     #:with OUT
      #'(begin
          (define-typed-syntax name
            [(_ x0 ... x ...) ≫
@@ -188,29 +169,14 @@
             [⊢ x ≫ x- ⇐ ty_in] ...
             ----------
             [⊢ (name-eval x0- ... x- ...) ⇒ ty_out]]
-           ;; TODO: combine 2nd and third cases?
-           ;;TODO: fix these cases when (len ty0 ...) > 1, eg nat-equal?
-           [:id ≫ --- [≻ (λ [x0 : ty0] ... [x : ty_in] ... (name x0 ... x ...))]]
-           [(_ arg (... ...)) ≫ ; non-full application
-            #:with ([y _ ty] (... ...))
-                   (stx-drop #'([x0 : ty0] ... [x : ty_in] ...) (stx-length #'(arg (... ...))))
+           ; non-full application cases: η expand
+           [:id ≫ --- [≻ (name)]]
+           [(_ arg (... ...)) ≫ 
+            #:with ([y ty] (... ...))
+                   (stx-drop #'([x0 ty0] ... [x ty_in] ...) (stx-length #'(arg (... ...))))
             ----
-            [≻ (λ [y : ty] (... ...) (name arg (... ...) y (... ...)))]]
-           #;[_:id ≫
-            ---
-            [≻ (λ [x0 : ty0] ...
-                 (match x0 ... #:return (-> ty_in ... ty_out)
-                        [pat ... (λ [x : ty_in] ... body)] ...))]]
-           [(_:id . rst) ≫ ; non-full application
-            #:when (<= (stx-length #'rst) (stx-length #'(x ...)))
-            ---
-            [≻ ((λ [x0 : ty0] ...
-                  (match x0 ... #:return (-> ty_in ... ty_out)
-                         [pat ... (λ [x : ty_in] ... body)] ...))
-                . rst)]])
-         (define-red name-eval [red-pat ~> body/eval] ...))
-;     #:do[(pretty-print (syntax->datum #'OUT))]
-     #'OUT]))
+            [≻ (λ [y : ty] (... ...) (name arg (... ...) y (... ...)))]])
+         (define-red name-eval [red-pat ~> body] ...))]))
 
             
 ;; (provide
