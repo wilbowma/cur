@@ -2,7 +2,8 @@
 
 ;; TODO: override (all-defined-out) to enable exporting these properly.
 (provide #%datum Nat
-         z s add1 sub1 plus mult exp square zero? nat-equal? even? odd?)
+         z s nat-equal? elim-Nat (for-syntax ~z ~s)
+         add1 sub1 plus mult zero? exp square even? odd?)
 
 (require "datum.rkt" "sugar.rkt" "bool.rkt")
 
@@ -28,10 +29,9 @@
 
 (define (add1 (n : Nat)) (s n))
 
-(define (sub1 (n : Nat))
-  (match n #:return Nat
-    [z z]
-    [(s x) x]))
+(define/rec/match sub1 : Nat -> Nat
+  [z => z]
+  [(s x) => x])
 
 ;; plus, using elim-Nat
 #;(define plus
@@ -76,7 +76,7 @@
   )
 
 
-;; plus, unrolling recursive call
+;; plus, unrolling recursive function call
 #;(define plus
 #;  (λ [n1 : Nat] [n2 : Nat]
      (match n1 #:return Nat
@@ -110,11 +110,33 @@
                              (s n2)]))]))])))
 
 
-(define (plus [n1 : Nat] [n2 : Nat])
+; current working plus:
+#;(define (plus [n1 : Nat] [n2 : Nat])
   (match n1 #:return Nat
    [z n2]
    [(s x) (s (plus x n2))]))
 
+;; plus as a macro + define-red
+#;(define-red eval-plus
+  [(#%plain-app ~z n) ~> n]
+  [(#%plain-app (~s x) n) ~> (s (plus x n))])
+#;(define-syntax eval-plus
+  (syntax-parser
+    [(_ ~z n2) #'n2]
+    [(_ (~s x) n2) #'(s (plus x n2))]
+    [debug #:do[(printf "plus: ~a\n" (syntax->datum #'debug))] #:when #f #'debug]
+    [(_ n1 n2) #`(#,(mk-reflected #'eval-plus) n1 n2)]))
+    
+#;(define-typed-syntax plus
+  [(_ n1 n2) ≫
+   [⊢ n1 ≫ n1- ⇐ Nat]
+   [⊢ n2 ≫ n2- ⇐ Nat]
+   ------------------
+   [⊢ (eval-plus n1- n2-) ⇒ Nat]])
+
+(define/rec/match plus : Nat [n : Nat] -> Nat
+  [z => n]
+  [(s x) => (s (plus x n))])
 
 ;; mult, using elim-Nat
 #;(define mult
@@ -127,27 +149,89 @@
                    (plus n pm)))))
     )
 
-(define (mult (m : Nat) (n : Nat))
+; current working mult:
+#;(define (mult (m : Nat) (n : Nat))
   (match m #:return Nat
     [z z]
     [(s x)
      (plus n (mult x n))]))
 
-(define (exp (m : Nat) (e : Nat))
+;; mult as a macro and define-red
+; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
+#;(define-red eval-mult
+  [(#%plain-app ~z n) ~> z]
+  [(#%plain-app (~s x) n) ~> (plus n (mult x n))])
+
+#;(define-syntax eval-mult
+  (syntax-parser
+    [(_ ~z _) #'z]
+    [(_ (~s x) n) #'(plus n (mult x n))]
+    [debug #:do[(printf "mult: ~a\n" (syntax->datum #'debug))] #:when #f #'debug]
+    [(_ n1 n2) #`(#,(mk-reflected #'eval-mult) n1 n2)]))
+    
+#;(define-typed-syntax mult
+  [(_ n1 n2) ≫
+   [⊢ n1 ≫ n1- ⇐ Nat]
+   [⊢ n2 ≫ n2- ⇐ Nat]
+   ------------------
+   [⊢ (eval-mult n1- n2-) ⇒ Nat]])
+
+(define/rec/match mult : Nat [n : Nat] -> Nat
+  [z => z]
+  [(s x) => (plus n (mult x n))])
+
+;; current working exp
+#;(define (exp (m : Nat) (e : Nat))
   (match m #:return Nat
     [z (s z)]
     [(s x)
      (mult e (exp x e))]))
 
+;; exponent is first
+#;(define-red eval-exp
+  [(#%plain-app ~z _) ~> (s z)]
+  [(#%plain-app (~s x) e) ~> (mult e (exp x e))])
+
+#;(define-typed-syntax exp
+  [(_ n1 n2) ≫
+   [⊢ n1 ≫ n1- ⇐ Nat]
+   [⊢ n2 ≫ n2- ⇐ Nat]
+   ------------------
+   [⊢ (eval-exp n1- n2-) ⇒ Nat]])
+(define/rec/match exp : Nat [e : Nat] -> Nat
+  [z => (s z)]
+  [(s x) => (mult e (exp x e))])
+
 ;; TODO: dont need run?
 ;(define square (run (exp (s (s z)))))
+;; tests curry (ie, non-full application) of exp
 (define square (exp (s (s z))))
 
-(define (zero? (n : Nat))
+#;(define-red eval-zero?
+  ;; TODO: this ~z triggers nonid case bc it gets moved to "head" in define-red, in eval.rkt
+  ;; but expected the id patexpander case to be triggered
+  [(#%plain-app (~z)) ~> true]
+  [(#%plain-app (~s x)) ~> false])
+#;(define-typed-syntax zero?
+  [(_ n) ≫
+   [⊢ n ≫ n- ⇐ Nat]
+   ------------------
+   [⊢ (eval-zero? n-) ⇒ Bool]]
+  [:id ≫
+   -----
+   [≻ (λ [m : Nat]
+        (match m #:return Bool
+         [(z) true]
+         [(s n) false]))]])
+#;(define (zero? (n : Nat))
   (match n #:return Bool
     [z true]
     [(s n)
      false]))
+
+(define/rec/match zero? : Nat -> Bool
+  [z => true]
+  [(s _) => false])
 
 ;; nat-equal? with explicit elims
 #;(define nat-equal?
@@ -163,8 +247,8 @@
            (λ [m-1 : Nat] [ihm : Bool]
               (ihn m-1))))))))
 
-;; working version
-(define (nat-equal? (n : Nat))
+;; current working version
+#;(define (nat-equal? (n : Nat))
   (match n #:return (-> Nat Bool)
     [z zero?]
     [(s n-1)
@@ -173,74 +257,108 @@
          [z false]
          [(s m-1)
           (nat-equal? n-1 m-1)]))]))
-;; TODO: some notes for improving nat-equal?-like fns
-;; match currently elaborates to elim, which only recurs on one arg,
-;; so fns like nat-equal? require explicit currying
-;; TODO: automatically do this currying?
-;; eg, programmer writes
-;; ideally:
-#;(define (nat-equal? [n : Nat] [m : Nat])
-  (match (n,m)
-    [(z,z) true]
-    [(s n-1),(s m-1) (nat-equal? n-1 m-1)]))
-;; somewhat more realistic (currently not working, 2018-09-14)
-#;(define (nat-equal? [n : Nat] [m : Nat])
-  (match n #:return Bool
-    [z
-     (match m #:return Bool
-      [z true]
-      [(s m-1) false])]
-    [(s n-1)
-     (match m #:return Bool
-      [z false]
-      [(s m-1) (nat-equal? n-1 m-1)])]))      
-;; concretely, match (and define) must push the curried λ into the match bodies?
-;; eg the fn, which is equiv to (currently inf looping, 2018-09-14, bc recur not inserted for id defs)
-#;(define nat-equal?
-  (λ [n : Nat]
-    (λ [m : Nat]
-      (match n #:return Bool
-       [z
-        (match m #:return Bool
-         [z true]
-         [(s m-1) false])]
-       [(s n-1)
-        (match m #:return Bool
-         [z false]
-         [(s m-1) (nat-equal? n-1 m-1)])]))))
-;;(currently inf looping, 2018-09-14, bc recur not inserted for id defs)
-#;(define nat-equal?
-  (λ [n : Nat]
-      (match n #:return (-> Nat Bool)
-       [z
-        (λ [m : Nat]
-          (match m #:return Bool
-           [z true]
-           [(s m-1) false]))]
-       [(s n-1)
-        (λ [m : Nat]
-          (match m #:return Bool
-           [z false]
-           [(s m-1) (nat-equal? n-1 m-1)]))])))
-;; not inf looping, but still broken version
-#;(define (nat-equal? [n : Nat])
-  (λ [m : Nat]
-    (match n #:return Bool
-     [z
-      (match m #:return Bool
-       [z true]
-       [(s m-1) false])]
-     [(s n-1)
-      (match m #:return Bool
-       [z false]
-       [(s m-1) (nat-equal? n-1 m-1)])])))
+;; (define-red eval-nat-equal?
+;;   [(#%plain-app (~z) (~z)) ~> true]
+;;   [(#%plain-app (~s x) (~z)) ~> false]
+;;   [(#%plain-app (~z) (~s x)) ~> false]
+;;   [(#%plain-app (~s x) (~s y)) ~> (nat-equal? x y)])
+
+;; (define-typed-syntax nat-equal?
+;;   [(_ n1 n2) ≫
+;;    [⊢ n1 ≫ n1- ⇐ Nat]
+;;    [⊢ n2 ≫ n2- ⇐ Nat]
+;;    ------------------
+;;    [⊢ (eval-nat-equal? n1- n2-) ⇒ Bool]]
+;;   #;[:id ≫
+;;    -----
+;;    [≻ (λ [m : Nat]
+;;         (match m #:return Bool
+;;          [z true]
+;;          [(s n) false]))]])
+
+;; nat-equal? with single match
+#;(define/rec/match nat-equal? : Nat [n : Nat] -> Bool
+  [z => (match n #:return Bool [z true] [(s x) false])]
+  [(s x) => (match n #:return Bool [z false] [(s y) (nat-equal? x y)])])
+
+;; nat-equal? with multi match
+(define/rec/match nat-equal? : Nat Nat -> Bool
+  [z z => true]
+  [z (s x) => false]
+  [(s x) z => false]
+  [(s x) (s y) =>  (nat-equal? x y)])
+
+;; ;; TODO: some notes for improving nat-equal?-like fns
+;; ;; match currently elaborates to elim, which only recurs on one arg,
+;; ;; so fns like nat-equal? require explicit currying
+;; ;; TODO: automatically do this currying?
+;; ;; eg, programmer writes
+;; ;; ideally:
+;; #;(define (nat-equal? [n : Nat] [m : Nat])
+;;   (match (n,m)
+;;     [(z,z) true]
+;;     [(s n-1),(s m-1) (nat-equal? n-1 m-1)]))
+;; ;; somewhat more realistic (currently not working, 2018-09-14)
+;; #;(define (nat-equal? [n : Nat] [m : Nat])
+;;   (match n #:return Bool
+;;     [z
+;;      (match m #:return Bool
+;;       [z true]
+;;       [(s m-1) false])]
+;;     [(s n-1)
+;;      (match m #:return Bool
+;;       [z false]
+;;       [(s m-1) (nat-equal? n-1 m-1)])]))      
+;; ;; concretely, match (and define) must push the curried λ into the match bodies?
+;; ;; eg the fn, which is equiv to (currently inf looping, 2018-09-14, bc recur not inserted for id defs)
+;; #;(define nat-equal?
+;;   (λ [n : Nat]
+;;     (λ [m : Nat]
+;;       (match n #:return Bool
+;;        [z
+;;         (match m #:return Bool
+;;          [z true]
+;;          [(s m-1) false])]
+;;        [(s n-1)
+;;         (match m #:return Bool
+;;          [z false]
+;;          [(s m-1) (nat-equal? n-1 m-1)])]))))
+;; ;;(currently inf looping, 2018-09-14, bc recur not inserted for id defs)
+;; #;(define nat-equal?
+;;   (λ [n : Nat]
+;;       (match n #:return (-> Nat Bool)
+;;        [z
+;;         (λ [m : Nat]
+;;           (match m #:return Bool
+;;            [z true]
+;;            [(s m-1) false]))]
+;;        [(s n-1)
+;;         (λ [m : Nat]
+;;           (match m #:return Bool
+;;            [z false]
+;;            [(s m-1) (nat-equal? n-1 m-1)]))])))
+;; ;; not inf looping, but still broken version
+;; #;(define (nat-equal? [n : Nat])
+;;   (λ [m : Nat]
+;;     (match n #:return Bool
+;;      [z
+;;       (match m #:return Bool
+;;        [z true]
+;;        [(s m-1) false])]
+;;      [(s n-1)
+;;       (match m #:return Bool
+;;        [z false]
+;;        [(s m-1) (nat-equal? n-1 m-1)])])))
 
 
-(define (even? (n : Nat))
+#;(define (even? (n : Nat))
   (match n #:return Bool
     [z true]
     [(s n-1)
      (not (even? n-1))]))
+(define/rec/match even? : Nat -> Bool
+  [z => true]
+  [(s n-1) => (not (even? n-1))])
 
 (define (odd? (n : Nat))
   (not (even? n)))
