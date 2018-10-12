@@ -10,5 +10,4 @@
     "tests/stdlib/racket-ascii.rkt"
     "tests/stdlib/sigma.rkt"
     "tests/stdlib/typeclass.rkt"
-    "tests/stlc.rkt"
-    "tests/sweet-exp.rkt"))
+    "tests/stlc.rkt"))
