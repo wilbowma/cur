@@ -1,7 +1,11 @@
 #lang info
 (define collection 'multi)
-(define deps '("base" "turnstile"))
+(define deps
+  '(("base" #:version "7.0")
+    ("turnstile-lib" #:version "0.3.1")
+    ))
+
 (define build-deps '())
 (define pkg-desc "implementation (no documentation, tests) part of \"cur\".")
-(define version "0.40")
+(define version "0.41")
 (define pkg-authors '(wilbowma))
