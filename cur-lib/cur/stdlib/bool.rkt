@@ -27,17 +27,17 @@
       true
       y))
 
-;; (begin-for-syntax
-;;   (provide bool->meta-bool meta-bool->bool)
+(begin-for-syntax
+  (provide bool->meta-bool meta-bool->bool)
 
-;;   ;; TODO: I sense a pattern.
-;;   ;; Follow this pattern hence forth.
-;;   ;; Maybe abstract.
-;;   (define (meta-bool->bool b)
-;;     (if b #'true #'false))
+  ;; TODO: I sense a pattern.
+  ;; Follow this pattern hence forth.
+  ;; Maybe abstract.
+  (define (meta-bool->bool b)
+    (if b #'true #'false))
 
-;;   (define (bool->meta-bool syn)
-;;     (syntax-parse syn
-;;       #:literals (true false)
-;;       [true #t]
-;;       [false #f])))
+  (define (bool->meta-bool syn)
+    (syntax-parse syn
+      #:literals (true false)
+      [true #t]
+      [false #f])))
