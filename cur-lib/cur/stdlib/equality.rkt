@@ -21,7 +21,7 @@
   (λ [A : (Type 0)]
     (λ [x : A] [y : A]
        (λ [e : (PM-= A x y)]
-         (elim-PM=
+         (elim-PM-=
           e
           (λ [b : A]
             (λ [e2 : (PM-= A x b)]
