@@ -11,5 +11,4 @@
     "tests/stdlib/sigma.rkt"
     "tests/stdlib/typeclass.rkt"
     "tests/stlc.rkt"
-    "tests/sweet-exp.rkt"
-    "tests/vector-append.rkt"))
+    "tests/sweet-exp.rkt"))
