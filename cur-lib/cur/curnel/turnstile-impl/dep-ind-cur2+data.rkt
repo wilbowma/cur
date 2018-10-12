@@ -17,7 +17,7 @@
   (syntax-parser
     [(_ name (~datum :) ty)
      (syntax/loc this-syntax
-       (define-cur-constructor name : ty #:extra ()))]
+       (define-cur-constructor name : ty #:extra))]
     [(_ name (~datum :) ty #:extra . extra-info)
      #:with (~Π [A+i : τ] ... τ-out) ((current-type-eval) #'ty)
      #:with name/internal (fresh #'name)
@@ -131,7 +131,7 @@
    [≻ (begin-
         ;; define the type, eg "Nat"
         #,(syntax/loc #'TY
-            (define-cur-constructor TY : τ #:extra elim-TY (([x τin] ...) ((xrec) ...)) ...))
+            (define-type TY : τ #:extra elim-TY (([x τin] ...) ((xrec) ...)) ...))
 
         ;; define the data constructors, eg Z and S
         #,@(for/list ([C (attribute C)]

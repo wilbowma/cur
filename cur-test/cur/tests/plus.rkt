@@ -9,11 +9,9 @@
   (s : (Π (x : Nat) Nat)))
 
 ;(plus . : . (-> Nat Nat Nat))
-(define (plus [n : Nat] [m : Nat])
-  (match n #:return Nat
-    [z m]
-    [(s (x : Nat))
-     (s (plus x m))]))
+(define/rec/match plus : Nat [m : Nat] -> Nat
+  [z => m]
+  [(s n-1) => (s (plus n-1 m))])
 
 (check-type (plus z z) : Nat -> z)
 

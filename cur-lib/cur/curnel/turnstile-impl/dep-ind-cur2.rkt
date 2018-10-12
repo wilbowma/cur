@@ -10,8 +10,8 @@
 
 (provide Type (for-syntax ~Type) TypeTop
          Π (for-syntax ~Π ~Π/1)
-         (rename-out [λ/1 λ] [app #%app] [app/eval app/eval/1])
-         ann define provide module* submod for-syntax begin-for-syntax)
+         (rename-out [λ/1 λ] [app #%app] [app/eval app/eval/1] [typed-define define])
+         ann provide module* submod for-syntax begin-for-syntax)
 
 (begin-for-syntax (current-use-stop-list? #f))
 
@@ -83,7 +83,7 @@
            [((~Π/1 [x1 : τ_in1] τ_out1) (~Π/1 [x2 : τ_in2] τ_out2))
             (and (type=? #'τ_in1 #'τ_in2)
                  (typecheck? (subst #'x2 #'x1 #'τ_out1) #'τ_out2))]
-           [_ #f])))))
+           [_ #;[(printf "failed to type check: ~a\n" (syntax->datum this-syntax))] #f])))))
 
 ;; lambda and #%app -----------------------------------------------------------
 (define-typed-syntax λ/1
@@ -108,7 +108,7 @@
 (define-typerule/red (app e_fn e_arg) ≫
   [⊢ e_fn ≫ e_fn- ⇒ (~Π/1 [X : τ_in] τ_out)]
   [⊢ e_arg ≫ e_arg- ⇐ τ_in]
-  #:with τ_out- (reflect (subst #'e_arg- #'X #'τ_out))
+  #:with τ_out- (reflect (subst #'e_arg- #'X #'τ_out)) ; TODO: fix orig
   -----------------------------
   [⊢ (app/eval e_fn- e_arg-) ⇒ τ_out- #;(app/eval (λ- (X) τ_out) e_arg-)]
   #:where app/eval
@@ -123,14 +123,13 @@
   --------
   [⊢ e- ⇒ τ])
 
-;; TODO: should this be a stx parameter?
-(define-syntax recur
-  (λ (stx) (raise-syntax-error 'recur "not allowed to recur" stx)))
-(provide recur)
 ;; top-level ------------------------------------------------------------------
-(define-syntax define
+(define-syntax typed-define
   (syntax-parser
-    [(_ alias:id τ) #'(define-syntax- alias (make-variable-like-transformer #'τ))]
+    [(_ alias:id τ)
+     ; expand τ just to check,
+     ; but throw away, otherwise we run into stxprop module problems
+     #:with _ ((current-type-eval) #'τ)
+     #'(define-syntax alias (make-variable-like-transformer #'τ))]
     [(_ (f [x:id : τ]) e)
-     #:with body (subst #'recur #'f #'e)
-     #'(define f (λ/1 [x : τ] body))]))
+     #'(typed-define f (λ/1 [x : τ] body))]))
