@@ -2,9 +2,19 @@
 
 ;; Challenge 1A: Transitivity of Subtyping in System F with Subtyping (F_sub)
 
-;; First, the syntax
-
 #|
+First, the syntax.
+
+In the Cur philosophy, we should reason about our formal models using the
+notation and theories specific to that domain.
+The POPLMark challenge is a challenge for formalizing programming languages
+theory.
+Therefore, before we begin modeling, we should develop notation and theories for
+the programming languages domain.
+
+For formalizing syntax, I want BNF notation and a theory of abstract syntax with
+binding.
+
 Below is the code I would like to write.
 
   (define-data/bnf F-Type (T) ::= α | Top | (T -> T) | (∀ α <: T. T))
