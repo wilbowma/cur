@@ -1,7 +1,7 @@
 #lang s-exp "../main.rkt"
 
 ;; TODO: override (all-defined-out) to enable exporting these properly.
-(provide #%datum Nat
+(provide #%datum Nat elim-Nat
          z s (for-syntax ~z ~s)
          add1 sub1 plus mult zero? exp square nat-equal? even? odd?)
 
@@ -274,7 +274,8 @@
 ;;          [z true]
 ;;          [(s n) false]))]])
 
-;; nat-equal? with single match
+;; nat-equal? with single match,
+;; also tests nested match
 #;(define/rec/match nat-equal? : Nat [n : Nat] -> Bool
   [z => (match n #:return Bool [z true] [(s x) false])]
   [(s x) => (match n #:return Bool [z false] [(s y) (nat-equal? x y)])])
@@ -356,8 +357,8 @@
      (not (even? n-1))]))
 (define/rec/match even? : Nat -> Bool
   [z => true]
-;  [(s n-1) => (not (even? n-1))])
   [(s n-1) => (odd? n-1)])
 
 (define (odd? (n : Nat))
   (not (even? n)))
+

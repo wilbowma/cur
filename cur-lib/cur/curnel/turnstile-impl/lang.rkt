@@ -18,10 +18,12 @@
          (rename-out [λ lambda]))
 
 (require (only-in turnstile/base
-                  define-typed-syntax get-orig assign-type subst substs typecheck? typechecks? typeof)
+                  define-typed-syntax get-orig assign-type
+                  subst substs typecheck? typechecks? typeof)
          turnstile/eval
+         (only-in turnstile/typedefs get-type-info)
          (for-syntax macrotypes/stx-utils syntax/stx))
-(provide (all-from-out turnstile/base turnstile/eval))
+(provide (all-from-out turnstile/base turnstile/eval turnstile/typedefs))
 
 (require "dep-ind-cur2+data2.rkt")
 (provide (all-from-out "dep-ind-cur2+data2.rkt"))
@@ -72,9 +74,7 @@
 
 (define-typed-syntax (new-elim target motive method ...) ≫
   [⊢ target ≫ target- ⇒ τ]
-  #:do[(define exinfo (syntax-property #'τ 'extra))]
-  #:fail-unless exinfo (format "could not infer extra info from type ~a" (syntax->datum #'τ))
-  #:with (elim-Name _ ...) (or (and (pair? exinfo) (car exinfo)) exinfo)
+  #:with (elim-Name . _) (get-type-info #'τ)
   ---
   [≻ (elim-Name target- motive method ...)])
 

@@ -17,7 +17,7 @@
 (define-syntax define-data-constructor
   (syntax-parser
     [(_ name (~datum :) [A+i:id Atag:id τ] ... (~datum ->) τ-out)
-     #:with name/internal (generate-temporary #'name)
+     #:with name/internal (fresh #'name)
      #:with name/internal-expander (mk-~ #'name/internal)
      #:with name-expander (mk-~ #'name)
       #'(begin-

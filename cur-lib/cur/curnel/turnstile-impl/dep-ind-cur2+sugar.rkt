@@ -25,5 +25,4 @@
   (syntax-parser
     [(_ x:id e) #'(define x e)]
     [(_ (f:id x+τ ...) e)
-     #:with body (subst #'recur #'f #'e)
-     #'(define f (λ/c x+τ ... body))]))
+     #'(define f (λ/c x+τ ... e))]))

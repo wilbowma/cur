@@ -28,29 +28,14 @@
    ;  [⊢ ((λ [x- : τ] ... body-) e- ...)]
 
 (begin-for-syntax
-  (define (subst-recur v τout e)
-    (syntax-parse e
-      [((~literal recur) . args)
-       (syntax-parse τout ; if v is fn, then apply it
-         [((~literal ->) . _)
-          #`(#,v . #,(stx-cdr #'args)
-                   ;; TODO: is stx-cdr robust enough? i think i need the following instead:
-                   #;#,(reverse (take (length #'(arg ...)) (reverse (stx->list #'args)))))]
-         [_ v])]
-      #;[((~literal recur) _) v] ; 1 arg = replace the whole recur
-      #;[((~literal recur) _ . rst) ; 2 arg = curry the recur, other args will have another elim
-       #`(#,v . rst)]
-      [(e ...) #`#,(stx-map (λ (e) (subst-recur v τout e)) #'(e ...))]
-      [_ e]))
-  (define ((mk-method e τe τout nointro? orig) ty clause) ; 2 args: ei tys and clause
+  (define ((mk-method τout) ty clause) ; 2 args: ei tys and clause
     (syntax-parse (list ty clause)
       [(_ [x:id body]) #'body] ; no subst, bc x is just nullary constructor
       ;; TODO: combine the following 4 cases
       [((([y:id τin] ...) ()) ; no rec, no anno
         [(con:id x:id ...) body])
        #:with body* (substs #'(y ...) #'(x ...) #'body)
-       #:with (τin* ...) (stx-map (λ (t) (if nointro? t (datum->syntax orig (syntax-e t)))) #'(τin ...))
-       #`(λ [y : τin*] ... body*)]
+       #`(λ [y : τin] ... body*)]
       [((([y:id τin] ...) ()) ; no rec, with anno
         [(con:id [x:id tag:id ty] ...) body])
        ;; TODO: for this to work, must inst τin
@@ -63,10 +48,7 @@
         [(con:id x:id ...) body])
        #:with yrec* (generate-temporary #'yrec)
        #:with body* (substs #'(y ...) #'(x ...) #'body)
-       #:with (τin* ...) (stx-map (λ (t) (if nointro? t (datum->syntax orig (syntax-e t)))) #'(τin ...))
-;       #:do[(printf "about to subst recur: ~a\n" (stx->datum #'body*))]
-       #:with body** (subst-recur #'yrec* τout #'body*)
-       #`(λ [y : τin*] ... [yrec* : #,τout] body**)]
+       #`(λ [y : τin] ... [yrec* : #,τout] body*)]
       [((([y:id τin] ...) ((yrec))) ; rec, with anno
         [(con:id [x:id tag:id ty] ...) body])
        ;; TODO: for this to work, must inst τin
@@ -75,62 +57,42 @@
        ;;                "match: pattern annotation type mismatch"
        #:with yrec* (generate-temporary #'yrec)
        #:with body* (substs #'(y ...) #'(x ...) #'body)
-;       #:do[(printf "about to subst recur: ~a\n" (stx->datum #'body*))]
-       #:with body** (subst-recur #'yrec* τout #'body*)
-       #`(λ [y : ty] ... [yrec* : #,τout] body**)])))
+       #`(λ [y : ty] ... [yrec* : #,τout] body*)])))
 
-
-
-(require (for-syntax racket/pretty))
-
-
-;; Note: all constructor pats, even nullary, requires parens
-;; otherwise cannot distinguish nullary constructor from plain var pattern
-(define-syntax multi-match ; matches multi exprs
-  (syntax-parser
-    [(_ e #:return ty [(pat) body] ...) ; base case, 1 expr to match
-     #'(match e #:return ty [pat body] ...)]
-    [(_ e0 e ... #:return ty [(pat . rst) body] ...)
-     #'(match e0 #:return ty [pat (multi-match e ... #:return ty [rst body] ...)] ...)]))
 ;; TODO:
-;; - for now, explicit and #:return args are required
+;; - for now, explicit #:return arg required
 ;; - assuming clauses appear in order
 (define-typed-syntax (match e #:return τout . clauses) ≫
 ;  #:do[(printf "matching ~a\n" this-syntax)]
-  [⊢ e ≫ e- ⇒ τ]
-;  #:do[(printf "τ = ~a\n" (syntax->datum #'τ))]
-  #:do[(define exinfo (syntax-property #'τ 'extra))]
+  [⊢ e ≫ e- ⇒ τin]
+  #:do[(define exinfo (get-type-info #'τin))]
 ;  #:do[(displayln exinfo)]
   #:fail-unless exinfo (format "could not infer extra info from type ~a" (stx->datum #'τ))
-  #:with (elim-Name ei ...)
-        ;; (datum->syntax
-        ;;  this-syntax
-        ;;  (syntax->datum
-          (or (and (pair? exinfo) (cdr exinfo)) exinfo)
-;;          ))
-  ;; #:do[(displayln #'elim-Name)
-  ;;      (displayln (identifier-binding #'elim-Name))]
-  ;; TODO: the following is a workound for the "kind stx prop" problem
-  ;; ie, stxobj stx props are not visible to the expander, causing potential issues,
-  ;; it's frequently seen with "kinds", ie props on types, eg extra-info
-  ;; - sometimes the elim-name loses its proper module-path-index
-  ;; - in these situations, unhygienically use the ctx here
-  #:do[(define-values (modulepath basepath)
-         (module-path-index-split (car (identifier-binding #'elim-Name))))]
+  #:with (elim-Name ei ...) exinfo
+  ;; ;; #:do[(displayln #'elim-Name)
+  ;; ;;      (displayln (identifier-binding #'elim-Name))]
+  ;; ;; TODO: the following is a workound for the "kind stx prop" problem
+  ;; ;; ie, stxobj stx props are not visible to the expander, causing potential issues,
+  ;; ;; it's frequently seen with "kinds", ie props on types, eg extra-info
+  ;; ;; - sometimes the elim-name loses its proper module-path-index
+  ;; ;; - in these situations, unhygienically use the ctx here
+  ;; #:do[(define-values (modulepath basepath)
+  ;;        (module-path-index-split (car (identifier-binding #'elim-Name))))]
 ;;  #:do[(printf "ei: ~a\n" (stx->datum #'(ei ...)))]
   #:fail-unless (stx-length=? #'(ei ...) #'clauses)
                 "extra info error: check that number of clauses matches type declaration"
-  #:with (m ...) (stx-map (mk-method #'e- #'τ #'τout modulepath this-syntax) #'(ei ...) #'clauses)
+;;  #:with (m ...) (stx-map (mk-method #'e- #'τ #'τout modulepath this-syntax) #'(ei ...) #'clauses)
+  #:with (m ...) (stx-map (mk-method #'τout) #'(ei ...) #'clauses)
 ;  #:do[(map pretty-print (stx->datum #'(m ...)))]
   ; [⊢ body ≫ body- ⇐ τout] ...
-  #:with elim-Name* (if modulepath
-                        #'elim-Name
-                        (datum->syntax this-syntax (syntax->datum #'elim-Name)))
-;  #:do[(displayln (identifier-binding #'elim-Name*))]
-  #:with out #'(elim-Name* e- (λ [x : τ] τout) m ...)
+;;   #:with elim-Name* (if modulepath
+;;                         #'elim-Name
+;;                         (datum->syntax this-syntax (syntax->datum #'elim-Name)))
+;; ;  #:do[(displayln (identifier-binding #'elim-Name*))]
+  #:with out #'(elim-Name e- (λ [x : τin] τout) m ...)
 ;  #:do[(pretty-print (syntax->datum #'out))]
   ------------
-  [≻ out #;(elim-Name e- (λ [x : τ] τout) m ...)])
+  [≻ out])
 
 (begin-for-syntax
   (define (mk-eval id) (format-id id "eval-~a" id))
@@ -143,40 +105,57 @@
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
+;; usage:
+;; (define/rec/match name : [x : ty_in1] ... ty-to-match ... [y : ty_in2] ... -> ty_out
+;;  [constructor-pat ... => body] ...
+;; where:
+;; - the [x : ty_in1] ... and [y : ty_in2] ... are telescopic
+;; - ty-to-match are not named
+;; - but other tys are named
+;; - in each clause, there must be one constructor-pat per ty-to-match
 ;; TODO:
 ;; - check smaller arg for rec calls
-;; - currently, can only recur on first arg; generalize for any arg?
-
-;; Note: patterns are always for first args
-;; TODO: validate tys and body
-;; - eg, currently wont error if body and ty_out have type mismatch
+;; - check coverage of pats
+;; - check that body has type ty_out; currently, mismatch wont error
 (define-syntax define/rec/match 
   (syntax-parser
-    [(_ name:id (~datum :) (~and ty0 (~not [_ (~datum :) _]) (~not (~datum ->))) ... [x (~datum :) ty_in] ...
-                (~datum ->) ty_out
+    [(_ name:id
+        (~datum :)
+        [x (~datum :) ty_in1] ...
+        (~and ty-to-match (~not [_ (~datum :) _]) (~not (~datum ->))) ...
+        [y (~datum :) ty_in2] ...
+        (~datum ->) ty_out
         [pat ... (~datum =>) body] ...)
-     #:with (x0 ...) (generate-temporaries #'(ty0 ...))
-     #:with (x0- ...) (generate-temporaries #'(ty0 ...))
+     #:with (x0 ...) (generate-temporaries #'(ty-to-match ...))
+     #:with (x0- ...) (generate-temporaries #'(x0 ...))
      #:with (x- ...) (generate-temporaries #'(x ...))
-     #:with (xs-for-pat ...) (stx-map (λ _ #'(x ...)) #'((pat ...) ...))
+     #:with (y- ...) (generate-temporaries #'(y ...))
+     #:with ((x-for-pat ...) ...) (stx-map (λ _ #'(x ...)) #'((pat ...) ...))
+     #:with (ys-for-pat ...) (stx-map (λ _ #'(y ...)) #'((pat ...) ...))
      #:with name-eval (mk-eval #'name)
      #:with ((cpat ...) ...) (stx-map (λ (ps) (stx-map pat->cpat ps)) #'((pat ...) ...))
-     #:with (red-pat ...) #'((#%plain-app cpat ... . xs-for-pat) ...)
+     #:with (red-pat ...) #'((#%plain-app x-for-pat ... cpat ... . ys-for-pat) ...)
+     #:with OUT
      #'(begin
+         ;; this macro uses the patvar reuse technique
+         ;; ie, references to x in x0 will be instantiated to the type bound to x
          (define-typed-syntax name
-           [(_ x0 ... x ...) ≫
-            [⊢ x0 ≫ x0- ⇐ ty0] ...
-            [⊢ x ≫ x- ⇐ ty_in] ...
+           [(_ x ... x0 ... y ...) ≫
+            [⊢ x ≫ x- ⇐ ty_in1] ...
+            [⊢ x0 ≫ x0- ⇐ ty-to-match] ...
+            [⊢ y ≫ y- ⇐ ty_in2] ...
             ----------
-            [⊢ (name-eval x0- ... x- ...) ⇒ ty_out]]
+            [⊢ (name-eval x- ... x0- ... y- ...) ⇒ ty_out]]
            ; non-full application cases: η expand
            [:id ≫ --- [≻ (name)]]
            [(_ arg (... ...)) ≫ 
-            #:with ([y ty] (... ...))
-                   (stx-drop #'([x0 ty0] ... [x ty_in] ...) (stx-length #'(arg (... ...))))
             ----
-            [≻ (λ [y : ty] (... ...) (name arg (... ...) y (... ...)))]])
-         (define-red name-eval [red-pat ~> body] ...))]))
+            [≻ ((λ [x : ty_in1] ... [x0 : ty-to-match] ... [y : ty_in2] ...
+                  (name x ... x0 ... y ...))
+                arg (... ...))]])
+         (define-red name-eval [red-pat ~> body] ...))
+;     #:do[(pretty-print (syntax->datum #'OUT))]
+     #'OUT]))
 
             
 ;; (provide
