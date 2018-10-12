@@ -3,7 +3,6 @@
 (define compile-omit-paths 'all)
 (define test-omit-paths
   '("tests/curnel/"
-    "tests/issue-71.rkt"
     "tests/ntac/"
     "tests/ntac.rkt"
     "tests/olly.rkt"
