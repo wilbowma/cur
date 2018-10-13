@@ -43,11 +43,8 @@ Syntax for BNF grammars in Cur.
                       (local-expand #'x 'expression null)
                       #f)))
 
-  ;; TODO: This should be provided by reflection API
   (define-syntax-class cur-type
-    (pattern e:expr
-             ;; TODO: This is the current turntile name and is fragile
-             #:when (typeof (local-expand #'e 'expression null))))
+    (pattern e:expr #:when (cur-type-infer #'e)))
 
   ;; TODO: Enrich with
   ;; - binding annotations
