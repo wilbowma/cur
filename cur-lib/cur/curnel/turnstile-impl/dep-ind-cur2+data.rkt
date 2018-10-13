@@ -58,7 +58,7 @@
     (stx-map
      (λ (x+τs)
        (stx-filtermap
-        (syntax-parser [(x τ) (and (free-id=? #'τ TY) #'x)])
+        (syntax-parser [(x τ) (and (identifier? #'τ) (free-id=? #'τ TY) #'x)])
         x+τs))
      x+τss))
   ;; x+τss = (([x τ] ...) ...)
