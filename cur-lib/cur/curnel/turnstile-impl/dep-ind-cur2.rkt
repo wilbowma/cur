@@ -44,13 +44,17 @@
   -------------
   [≻ #,(syntax-property
         (syntax-property 
-         #'(Type- 'n) ':
+         (syntax/loc this-syntax
+           (Type- 'n)) ':
          (syntax-property
-          #'(Type n+1)
+          (syntax/loc this-syntax
+            (Type n+1))
           'orig
-          (list #'(Type n+1))))
+          (list (syntax/loc this-syntax
+                  (Type n+1)))))
         'orig
-        (list #'(Type n)))]])
+        (list (syntax/loc this-syntax
+                (Type n))))]])
 
 ;; for convenience, Type that is a supertype of all (Type n)
 ;; TODO: get rid of this?
