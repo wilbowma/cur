@@ -33,26 +33,29 @@ Syntax for BNF grammars in Cur.
         (displayln x)
         x)))
 
+  (define-syntax-class bnf-nt
+    (pattern x:id
+             #:when (bnf-nonterminal? (syntax-local-value #'x (lambda () #f)))))
+
   (define-syntax-class free-id
     (pattern x:id
-             #:when (observe
-                     (with-handlers ([exn:fail:syntax:unbound? (lambda (_) #t)])
-                       (local-expand #'x 'expression null)
-                       #f))))
+             #:when (with-handlers ([exn:fail:syntax:unbound? (lambda (_) #t)])
+                      (local-expand #'x 'expression null)
+                      #f)))
 
   ;; TODO: This should be provided by reflection API
   (define-syntax-class cur-type
     (pattern e:expr
              ;; TODO: This is the current turntile name and is fragile
-             #:when (observe (typeof (local-expand #'e 'expression null)))))
+             #:when (typeof (local-expand #'e 'expression null))))
 
   ;; TODO: Enrich with
   ;; - binding annotations
   ;; - constructor name annotations
 
   ;; A BNF-Expr is a syntax object representing one of:
-  ;; - Free-Id
   ;; - A BNF nonterminal
+  ;; - Free-Id
   ;; - A Cur Type
   ;; TODO: No recursive structure? Couldn't figure out how to interpret it.
 
@@ -84,14 +87,21 @@ Syntax for BNF grammars in Cur.
   ;; Parse a BNF-Expr as an argument in a BNF-Production
   (define (parse-bnf-expr-arg nt stx)
     (syntax-parse stx
+      [N:bnf-nt (bnf-nonterminal-name (syntax-local-value #'N))]
       [x:free-id
        (bnf-nonterminal-name nt)]
-      [e:cur-type stx]
-      [N:id (bnf-nonterminal-name (syntax-local-value #'N))]))
+      [e:cur-type stx]))
 
   ;; Parse a BNF-Expr as a BNF-Production
   (define (parse-bnf-expr nt stx)
     (syntax-parse stx
+      [N:bnf-nt
+       (let ([N-type (bnf-nonterminal-name (syntax-local-value #'N))]
+             [nt-type (bnf-nonterminal-name nt)])
+         (bnf-production
+          (format-id stx "~a->~a" N-type nt-type)
+          (quasisyntax/loc stx
+            (-> N-type #,nt-type))))]
       [x:free-id
        (bnf-production (syntax/loc stx x) (bnf-nonterminal-name nt))]
       [e:cur-type
@@ -100,13 +110,6 @@ Syntax for BNF grammars in Cur.
           (format-id stx "~a->~a" #'e nt-type)
           (quasisyntax/loc stx
             (-> e #,nt-type))))]
-      [N:id
-       (let ([N-type (bnf-nonterminal-name (syntax-local-value #'N))]
-             [nt-type (bnf-nonterminal-name nt)])
-         (bnf-production
-          (format-id stx "~a->~a" N-type nt-type)
-          (quasisyntax/loc stx
-            (-> N-type #,nt-type))))]
       ))
 
   (struct bnf-nonterminal (name parser)
@@ -123,8 +126,7 @@ Syntax for BNF grammars in Cur.
     [(_ name:id literal)
      (bnf-nonterminal-parser (syntax-local-value #'name) #'literal)]))
 
-(require racket/trace)
-(trace-define-syntax (define-data/bnf stx)
+(define-syntax (define-data/bnf stx)
   (syntax-parse stx
     [(_ name:id (nt:id nts:id ...)
         (~optional (~datum ::=))
@@ -138,13 +140,14 @@ Syntax for BNF grammars in Cur.
            (define bnf-prods (map (curry parse-bnf-production bnf-nt) (attribute e)))]
      #:with (c ...) (map bnf-production-ctor bnf-prods)
      #:with (t ...) (map bnf-production-type bnf-prods)
-     #`(begin
+     (quasisyntax/loc this-syntax
+       (begin
          ;(define-for-syntax (parser stx) (curry f (list #'c ...)))
          (define-syntax nt (bnf-nonterminal #'name #f))
          (define-syntax nts (make-variable-like-transformer #'nt)) ...
-         
-         #,(syntax/loc stx
-             (define-datatype name : (Type 0) (c : t) ...)))]))
+
+         #,(quasisyntax/loc this-syntax
+             (define-datatype name : #,(syntax/loc this-syntax (Type 0)) (c : t) ...))))]))
 
 (require (only-in racket/base module+))
 
@@ -153,8 +156,11 @@ Syntax for BNF grammars in Cur.
   z
   (s z)
 
-  ;; TODO Error in turnstile
-;  (define-data/bnf List (L) ::= nil (cons Nat L))
-;  nil
-;  (cons z nil)
+  (define-data/bnf List (L) ::= nil (cons N L))
+  nil
+  (cons z nil)
+  ;(cons nil nil) -> type error
+
+  (define-data/bnf Arith-Term (e) ::= Nat (+ e e) (- e e) (* e e) error)
+  (Nat->Arith-Term z)
   )
