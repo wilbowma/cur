@@ -15,20 +15,24 @@
 ;; - constructor is curried (eg, can partially apply)
 (define-syntax define-cur-constructor
   (syntax-parser
-    [(_ name (~datum :) ty) #'(define-cur-constructor name : ty #:extra ())]
+    [(_ name (~datum :) ty)
+     (syntax/loc this-syntax
+       (define-cur-constructor name : ty #:extra ()))]
     [(_ name (~datum :) ty #:extra . extra-info)
      #:with (~Π [A+i : τ] ... τ-out) ((current-type-eval) #'ty)
      #:with name/internal (fresh #'name)
      #:with name/internal-expander (mk-~ #'name/internal)
      #:with name-expander (mk-~ #'name)
-      #'(begin-
+     (syntax/loc this-syntax
+       (begin-
          (define-type name/internal : [A+i : τ] ... -> τ-out #:extra . extra-info)
          (define-syntax name
            (make-variable-like-transformer
+            ;; TODO: This is loosing source location information
             #'(λ [A+i : τ] ... (name/internal A+i ...))))
          (begin-for-syntax
            (define-syntax name-expander
-             (make-rename-transformer #'name/internal-expander))))]))
+             (make-rename-transformer #'name/internal-expander)))))]))
 
 ;; TmpTy is a placeholder for undefined names
 (struct TmpTy- ())
@@ -126,11 +130,15 @@
    --------
    [≻ (begin-
         ;; define the type, eg "Nat"
-        (define-cur-constructor TY : τ #:extra elim-TY (([x τin] ...) ((xrec) ...)) ...)
+        #,(syntax/loc #'TY
+            (define-cur-constructor TY : τ #:extra elim-TY (([x τin] ...) ((xrec) ...)) ...))
 
         ;; define the data constructors, eg Z and S
-        (define-cur-constructor C : τC) ...
-          
+        #,@(for/list ([C (attribute C)]
+                      [τC (attribute τC)])
+             (quasisyntax/loc C
+               (define-cur-constructor #,C : #,τC)))
+
         ;; elimination form
         (define-typerule/red (elim-TY v P m ...) ≫
           [⊢ v ≫ v- ⇐ TY]
