@@ -168,8 +168,7 @@
     [x:id
      #:do [(when debug-reflect? (displayln (format "id: ~a\n\n" (syntax->datum this-syntax))))]
      (cur-reflect-id syn)]
-    [Type:expanded-Type
-     #:with i #'Type.n
+    [(~Type i)
      #:do [(when debug-reflect? (displayln (format "Type stx class: ~a\n\n" (syntax->datum this-syntax))))]
      #'(cur-Type i)]
     [(#%plain-lambda (x:id) body)
