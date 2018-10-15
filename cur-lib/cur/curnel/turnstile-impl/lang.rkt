@@ -80,8 +80,11 @@
 
 
 
-(require "reflection.rkt")
-(provide (all-from-out "reflection.rkt"))
+(require
+ (for-syntax "reflection.rkt"))
+(provide
+ (for-syntax
+  (all-from-out "reflection.rkt")))
 
 ;; (define-syntax define+provide-placeholders
 ;;   (syntax-parser
