@@ -7,17 +7,17 @@
  syntax/stx
  racket/list
  ;"type-reconstruct.rkt"
- "eval.rkt"
+; "eval.rkt"
 ; "runtime-utils.rkt"
- (rename-in "equiv.rkt" [cur-equal? _cur-equal?])
+; (rename-in "equiv.rkt" [cur-equal? _cur-equal?])
  "stxutils.rkt"
 ; (for-template "type-check.rkt")
  ;(for-template "runtime.rkt")
  (only-in macrotypes/stx-utils transfer-props)
- (for-template (only-in turnstile/lang infer typecheck? type=?))
- (for-template turnstile/examples/dep-ind-cur)
+ (for-template (only-in macrotypes/typecheck infer typecheck? type=?))
+; (for-template turnstile/examples/dep-ind-cur)
  (for-template macrotypes/stx-utils)
- (for-template "cur-to-turnstile.rkt")
+ (for-template "dep-ind-cur2.rkt")
  (for-template (only-in racket/base quote #%expression void #%plain-lambda #%plain-app list))
  )
 
@@ -44,9 +44,9 @@
 (define debug-scopes? #f)
 
 
-(require racket/trace debug-scopes)
-(provide add-scopes)
-(define (add-scopes maybe-ls)
+;(require racket/trace debug-scopes)
+#;(provide add-scopes)
+#;(define (add-scopes maybe-ls)
   (cond
     [(syntax? maybe-ls)
      (+scopes maybe-ls)]
@@ -54,11 +54,11 @@
      (cons (add-scopes (car maybe-ls))
            (add-scopes (cdr maybe-ls)))]
     [else maybe-ls]))
-(current-trace-print-args
+#;(current-trace-print-args
  (let ([ctpa (current-trace-print-args)])
    (lambda (s l kw l2 n)
      (ctpa s (map (compose add-scopes) l) kw l2 n))))
-(current-trace-print-results
+#;(current-trace-print-results
  (let ([ctpr (current-trace-print-results)])
    (lambda (s l n)
      (ctpr s (map (compose add-scopes) l) n))))
@@ -89,7 +89,7 @@
          [es-ls (syntax->list (third expanded))]
          [τs-ls (fourth expanded)]
          [env-ids (reverse (map car env))])
-   (when debug-scopes?
+   #;(when debug-scopes?
      (printf "cur-type-infer syn ~s~n" (add-scopes syn))
      (printf "cur-type-infer env ~s~n" (add-scopes env-ids))
      (printf "cur-type-infer xs ~s~n" (add-scopes xs-ls))
@@ -173,7 +173,7 @@
      #:do [(when debug-reflect? (displayln (format "Type stx class: ~a\n\n" (syntax->datum this-syntax))))]
      #'(cur-Type i)]
     [(#%plain-lambda (x:id) body)
-     #:with (~Π ([y : t]) _) (syntax-property syn ':)
+     #:with (~Π/1 (y : t) _) (syntax-property syn ':)
      #:do [(when debug-reflect?(displayln (format "lambda: ~a\n\n" (syntax->datum this-syntax))))]
      #`(cur-λ (x : #,(cur-reflect #'t)) #,(cur-reflect #'body))]
     [pi:expanded-Π
@@ -199,7 +199,7 @@
 
 (define-syntax-class expanded-Π #:attributes (arg τ_arg body)
   #:commit
-  (pattern (~Π ([x : arg-type]) body-type)
+  (pattern (~Π/1 (x : arg-type) body-type)
            #:attr arg #'x
            #:attr τ_arg #'arg-type
            #:attr body #'body-type))
@@ -255,7 +255,7 @@
          [xs-ls (syntax->list (second expanded))]
          [es-ls (syntax->list (third expanded))]
          [env-ids (reverse (map car env))])
-    (when debug-scopes?
+    #;(when debug-scopes?
       (printf "syn ~s~n" (add-scopes syn))
       (printf "env ~s~n" (add-scopes env-ids))
       (printf "xs ~s~n" (add-scopes xs-ls))
