@@ -121,7 +121,7 @@ Syntax for BNF grammars in Cur.
 (define-syntax (bnf stx)
   (syntax-parse stx
     [(_ name:id literal)
-     (bnf-nonterminal-parser (syntax-local-value #'name) #'literal)]))
+     ((bnf-nonterminal-parser (syntax-local-value #'name)) #'literal)]))
 
 (define-syntax (define-data/bnf stx)
   (syntax-parse stx
@@ -129,18 +129,17 @@ Syntax for BNF grammars in Cur.
         (~optional (~datum ::=))
         e
         ...
-        ;; TODO: Parser
-        #;(~optional
-         ;; TODO: Check that f has the right type?
-         (~seq #:parser f)))
+        ;; TODO: Optional;
+        ;; TODO: Check that f has the right type?
+        (~seq #:parser f))
      #:do [(define bnf-nt (bnf-nonterminal #'name #f))
            (define bnf-prods (map (curry parse-bnf-production bnf-nt) (attribute e)))]
      #:with (c ...) (map bnf-production-ctor bnf-prods)
      #:with (t ...) (map bnf-production-type bnf-prods)
      (quasisyntax/loc this-syntax
        (begin
-         ;(define-for-syntax (parser stx) (curry f (list #'c ...)))
-         (define-syntax nt (bnf-nonterminal #'name #f))
+         (define-for-syntax (parser stx) (f stx (list #'c ...)))
+         (define-syntax nt (bnf-nonterminal #'name parser))
          (define-syntax nts (make-variable-like-transformer #'nt)) ...
 
          #,(quasisyntax/loc this-syntax
@@ -149,15 +148,42 @@ Syntax for BNF grammars in Cur.
 (require (only-in racket/base module+))
 
 (module+ test
-  (define-data/bnf Nat (N) ::= z (s N))
+  (require (for-syntax (only-in racket/list first)))
+  (define-data/bnf Nat (N) ::= z (s N)
+    #:parser (lambda (stx ctors)
+               stx))
   z
+  (bnf N z)
   (s z)
+  (bnf N (s z))
 
-  (define-data/bnf List (L) ::= nil (cons N L))
+  (define-data/bnf List (L) ::= nil (cons N L)
+    #:parser (lambda (stx ctors)
+               stx))
   nil
   (cons z nil)
   ;(cons nil nil) -> type error
 
-  (define-data/bnf Arith-Term (e) ::= Nat (+ e e) (- e e) (* e e) error)
+  (begin-for-syntax
+    (define-syntax-class (of-cur-type t)
+      (pattern e:expr #:when (cur-type-check? #'e t)))
+
+    (define-syntax ~of-cur-type
+      (pattern-expander
+       (lambda (stx)
+         (syntax-case stx ()
+           [(type e)
+            #'(~var e (of-cur-type #'type))])))))
+
+  (define-data/bnf Arith-Term (e) ::= Nat (+ e e) (- e e) (* e e) error
+    #:parser (lambda (stx ctors)
+               (syntax-parse stx
+                 [(~of-cur-type Nat e)
+                  (quasisyntax/loc stx
+                    (#,(first ctors)
+                     e))]
+                 [_ stx])))
+
   (Nat->Arith-Term z)
+  (bnf e z)
   )
