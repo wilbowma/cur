@@ -182,8 +182,12 @@ Syntax for BNF grammars in Cur.
                   (quasisyntax/loc stx
                     (#,(first ctors)
                      e))]
+                 ;; TODO: Work recursively
+                 ;; TODO: Inline operators
                  [_ stx])))
 
   (Nat->Arith-Term z)
+  (+ (Nat->Arith-Term z) (Nat->Arith-Term z))
   (bnf e z)
+  (bnf e (+ z z))
   )
