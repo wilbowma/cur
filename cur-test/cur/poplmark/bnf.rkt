@@ -164,21 +164,21 @@ Syntax for BNF grammars in Cur.
   (cons z nil)
   ;(cons nil nil) -> type error
 
+  #;(define-syntax ~of-cur-type
+    (pattern-expander
+     (lambda (stx)
+       (syntax-case stx ()
+         [(type e)
+          #'(~var e (of-cur-type #'type))]))))
+
   (begin-for-syntax
     (define-syntax-class (of-cur-type t)
-      (pattern e:expr #:when (cur-type-check? #'e t)))
-
-    (define-syntax ~of-cur-type
-      (pattern-expander
-       (lambda (stx)
-         (syntax-case stx ()
-           [(type e)
-            #'(~var e (of-cur-type #'type))])))))
+      (pattern e:expr #:when (cur-type-check? #'e t))))
 
   (define-data/bnf Arith-Term (e) ::= Nat (+ e e) (- e e) (* e e) error
     #:parser (lambda (stx ctors)
                (syntax-parse stx
-                 [(~of-cur-type Nat e)
+                 [(~var e (of-cur-type #'Nat))
                   (quasisyntax/loc stx
                     (#,(first ctors)
                      e))]
