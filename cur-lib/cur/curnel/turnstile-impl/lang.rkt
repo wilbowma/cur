@@ -51,8 +51,14 @@
 
 ;; TODO: currently, dont expand TY or tyC, bc of unbound TY
 ;; - but this means that curried form wont be handled
-(define-typed-syntax (data TY:id (~datum :) n:exact-nonnegative-integer ty
-                           [C:id (~datum :) tyC] ...) ≫
+(define-typed-syntax data
+  [(_ TY:id (~datum :) n:exact-nonnegative-integer ty
+      [C:id (~datum :) tyC] ...) ≫
+   #:when (zero? (stx-e #'n)) ; simple case, no params
+  -----------------
+  [≻ (define-datatype TY : ty [C : tyC] ...)]]
+  [(_ TY:id (~datum :) n:exact-nonnegative-integer ty
+      [C:id (~datum :) tyC] ...) ≫
   ;; [⊢ ty ≫ ty- ⇐ Type] ; use unexpanded
   ;; [⊢ tyC ≫ tyC- ⇐ Type] ... ; ow, must use ~unbound as in dep-ind-cur2+data2
   #:with [([A tyA] ...) ty-rst] (take-Π #'ty (stx-e #'n))
@@ -65,7 +71,7 @@
   ;;            [C : [x : tyx] ... -> tyC0] ...)))]
   -----------------
   [≻ (define-datatype TY [A : tyA] ... : [i : tyi] ... -> ty0
-       [C : [x : tyx] ... -> tyC0] ...)])
+       [C : [x : tyx] ... -> tyC0] ...)]])
 
 (define-typed-syntax (elim ty:id motive (method ...) target) ≫
   #:with elim-Name (format-id #'ty "elim-~a" #'ty)
