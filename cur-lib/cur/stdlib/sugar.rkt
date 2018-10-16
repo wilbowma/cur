@@ -117,6 +117,7 @@
 ;; - check smaller arg for rec calls
 ;; - check coverage of pats
 ;; - check that body has type ty_out; currently, mismatch wont error
+;;(require (for-syntax racket/pretty))
 (define-syntax define/rec/match 
   (syntax-parser
     [(_ name:id
@@ -126,6 +127,9 @@
         [y (~datum :) ty_in2] ...
         (~datum ->) ty_out
         [pat ... (~datum =>) body] ...)
+     #:fail-unless (or (zero? (stx-length #'(x ...)))
+                       (zero? (stx-length #'(y ...))))
+                   "cannot have both pre and post pattern matching args"
      #:with (x0 ...) (generate-temporaries #'(ty-to-match ...))
      #:with (x0- ...) (generate-temporaries #'(x0 ...))
      #:with (x- ...) (generate-temporaries #'(x ...))
@@ -133,6 +137,8 @@
      #:with ((x-for-pat ...) ...) (stx-map (λ _ #'(x ...)) #'((pat ...) ...))
      #:with (ys-for-pat ...) (stx-map (λ _ #'(y ...)) #'((pat ...) ...))
      #:with name-eval (mk-eval #'name)
+     #:with (body2 ...) (subst #'name-eval #'name #'(body ...))
+     ;; TODO: dont need to typecheck again on recursive call?
      #:with ((cpat ...) ...) (stx-map (λ (ps) (stx-map pat->cpat ps)) #'((pat ...) ...))
      #:with (red-pat ...) #'((#%plain-app x-for-pat ... cpat ... . ys-for-pat) ...)
      #:with OUT
@@ -140,7 +146,7 @@
          ;; this macro uses the patvar reuse technique
          ;; ie, references to x in x0 will be instantiated to the type bound to x
          (define-typed-syntax name
-           [(_ x ... x0 ... y ...) ≫
+           [(_ x ... x0 ... y ... ~!) ≫
             [⊢ x ≫ x- ⇐ ty_in1] ...
             [⊢ x0 ≫ x0- ⇐ ty-to-match] ...
             [⊢ y ≫ y- ⇐ ty_in2] ...
@@ -156,7 +162,6 @@
          (define-red name-eval [red-pat ~> body] ...))
 ;     #:do[(pretty-print (syntax->datum #'OUT))]
      #'OUT]))
-
             
 ;; (provide
 ;;   Type
