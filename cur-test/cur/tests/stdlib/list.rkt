@@ -39,46 +39,46 @@
  : Nat)
 
 ;; list-ref
-(check-type (list-ref Bool (nil Bool) z)
+(check-type (list-ref Bool z (nil Bool))
             : (Maybe Bool)
             -> (none Bool))
-(check-type (list-ref Bool (nil Bool) (s z))
+(check-type (list-ref Bool (s z) (nil Bool))
             : (Maybe Bool)
             -> (none Bool))
-(check-type (list-ref Bool (nil Bool) (s (s z)))
+(check-type (list-ref Bool (s (s z)) (nil Bool))
             : (Maybe Bool)
             -> (none Bool))
-(check-type (list-ref Bool (cons Bool true (nil Bool)) z)
+(check-type (list-ref Bool z (cons Bool true (nil Bool)))
             : (Maybe Bool)
             -> (some Bool true))
-(check-type (list-ref Bool (cons Bool false (cons Bool true (nil Bool))) z)
+(check-type (list-ref Bool z (cons Bool false (cons Bool true (nil Bool))))
             : (Maybe Bool)
             -> (some Bool false))
-(check-type (list-ref Bool (cons Bool false (cons Bool true (nil Bool))) (s z))
+(check-type (list-ref Bool (s z) (cons Bool false (cons Bool true (nil Bool))))
             : (Maybe Bool)
             -> (some Bool true))
-(check-type (list-ref Bool (cons Bool false (cons Bool true (nil Bool))) (s (s z)))
+(check-type (list-ref Bool (s (s z)) (cons Bool false (cons Bool true (nil Bool))))
             : (Maybe Bool)
             -> (none Bool))
 
 ;; list-ref: non-full applications
-(check-type list-ref : (Π [A : Type] (-> (List A) Nat (Maybe A))))
-(check-type (list-ref Bool) : (-> (List Bool) Nat (Maybe Bool)))
-(check-type (list-ref Nat) : (-> (List Nat) Nat (Maybe Nat)))
-(check-type (list-ref (List Nat)) : (-> (List (List Nat)) Nat (Maybe (List Nat))))
-(check-type (list-ref Bool (nil Bool)) : (-> Nat (Maybe Bool)))
+(check-type list-ref : (Π [A : Type] (-> Nat (List A) (Maybe A))))
+(check-type (list-ref Bool) : (-> Nat (List Bool) (Maybe Bool)))
+(check-type (list-ref Nat) : (-> Nat (List Nat) (Maybe Nat)))
+(check-type (list-ref (List Nat)) : (-> Nat (List (List Nat)) (Maybe (List Nat))))
+(check-type (list-ref Bool z) : (-> (List Bool) (Maybe Bool)))
 ;; TODO: fix this err msg
-(typecheck-fail (list-ref Bool (nil Nat))
+(typecheck-fail (list-ref Bool z (nil Nat))
 ;                #:with-msg "expected (List Bool), given (List Nat)")
-                #:with-msg "expected \\(List A\\), given \\(List A\\)")
-(check-type ((list-ref Bool (nil Bool)) z) : (Maybe Bool) -> (none Bool))
+                #:with-msg "expected \\(List Bool\\), given \\(List A\\)")
+(check-type ((list-ref Bool z) (nil Bool)) : (Maybe Bool) -> (none Bool))
 
 (check-type (length Nat (nil Nat)) : Nat -> 0)
 (check-type (length Bool (nil Bool)) : Nat -> 0)
 ;; TODO: fix this err msg
 (typecheck-fail (length Bool (nil Nat))
 ;                #:with-msg "expected (List Bool), given (List Nat)")
-                #:with-msg "expected \\(List A\\), given \\(List A\\)")
+                #:with-msg "expected \\(List Bool\\), given \\(List A\\)")
 (check-type (length Nat (cons Nat z (nil Nat))) : Nat -> 1)
 
 (check-type
@@ -87,12 +87,12 @@
  -> (nil Nat))
 
 (check-type
- (list-append Nat (nil Nat) (cons Nat z (nil Nat)))
+ (list-append Nat (cons Nat z (nil Nat)) (nil Nat))
  : (List Nat)
  -> (cons Nat z (nil Nat)))
 
 (check-type
- (list-append Nat (cons Nat z (nil Nat)) (cons Nat (s z) (nil Nat)))
+ (list-append Nat (cons Nat (s z) (nil Nat)) (cons Nat z (nil Nat)))
  : (List Nat)
  -> (cons Nat z (cons Nat (s z) (nil Nat))))
 
@@ -100,3 +100,16 @@
  (length Nat (list-append Nat (cons Nat z (nil Nat)) (cons Nat (s z) (nil Nat))))
  : Nat
  -> 2)
+
+;; list-append: non-full applications
+;; - slightly differs from list-ref bc post-non-matching arg uses tyvar (ie, ls2)
+(check-type (list-append Nat) : (-> (List Nat) (List Nat) (List Nat)))
+(check-type ((list-append Nat) (nil Nat)) : (-> (List Nat) (List Nat)))
+(check-type (((list-append Nat) (nil Nat)) (nil Nat)) : (List Nat) -> (nil Nat))
+(typecheck-fail (((list-append Nat) (nil Nat)) (nil Bool))
+                ;; TODO: fixme
+                #:with-msg "expected \\(List A\\), given \\(List A\\)")
+
+;; non-full app, with non-nil args: exercises the 2nd match clause
+(check-type (cons Nat 1 (nil Nat)) : (List Nat))
+(check-type ((list-append Nat) (cons Nat 1 (nil Nat))) : (-> (List Nat) (List Nat)))

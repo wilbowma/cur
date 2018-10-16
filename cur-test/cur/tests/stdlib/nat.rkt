@@ -33,15 +33,15 @@
 (check-type ((mult 0) 0) : Nat -> 0)
 
 (check-type (exp z z) : Nat -> (s z))
-(check-type (exp (s z) z) : Nat -> z)
-(check-type (exp (s (s z)) z) : Nat -> z)
+(check-type (exp z (s z)) : Nat -> z)
+(check-type (exp z (s (s z))) : Nat -> z)
 (check-type (exp (s z) (s z)) : Nat -> (s z))
-(check-type (exp (s (s z)) (s z)) : Nat -> (s z))
+(check-type (exp (s z) (s (s z))) : Nat -> (s z))
 (check-type (exp (s (s z)) (s (s z))) : Nat -> (s (s (s (s z)))))
 
 (check-type exp : (-> Nat Nat Nat))
 (check-type (exp 0) : (-> Nat Nat))
-(check-type ((exp 0) 2) : Nat -> 1)
+(check-type ((exp 2) 0) : Nat -> 1)
 
 (check-type (square z) : Nat -> z)
 (check-type (square (s z)) : Nat -> (s z))
