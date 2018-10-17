@@ -101,9 +101,10 @@
 
 
 (define (cur-type-check? term expected-type #:local-env [env '()])
-  (let ([inferred-type (turnstile-infer term #:local-env env)])
-    ;(displayln (format "inferred: ~a\nexpected: ~a" (syntax->datum inferred-type) (syntax->datum expected-type)))
-    (typecheck? inferred-type (cur-expand expected-type #:local-env env))))
+  (with-handlers ([values (lambda _ #f)])
+    (let ([inferred-type (turnstile-infer term #:local-env env)])
+      ;(displayln (format "inferred: ~a\nexpected: ~a" (syntax->datum inferred-type) (syntax->datum expected-type)))
+      (typecheck? inferred-type (cur-expand expected-type #:local-env env)))))
 
 (define (cur->datum syn)
   (let ([expanded (cur-expand syn)])
