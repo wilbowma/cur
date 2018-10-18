@@ -2,7 +2,7 @@
 (require cur/curnel/turnstile-impl/dep-ind-cur2+bool
          (submod cur/curnel/turnstile-impl/dep-ind-cur2+bool tauto)
          cur/curnel/turnstile-impl/dep-ind-cur2+sugar
-         turnstile/rackunit-typechecking)
+         rackunit/turnstile)
 
 (check-type False : Type)
 (check-type True : Type)

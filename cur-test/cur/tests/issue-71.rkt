@@ -1,6 +1,6 @@
 #lang cur
 (require cur/stdlib/sugar
-         turnstile/rackunit-typechecking)
+         rackunit/turnstile)
 
 ;; Paulin-Mohring equality. A good test of proper parameter/index handling
 (data pm= : 2 (Π (A : (Type 0)) (Π (a : A) (Π (b : A) (Type 0))))

@@ -1,8 +1,8 @@
 #lang cur
 (require
- turnstile/rackunit-typechecking
  cur/stdlib/sugar
- cur/stdlib/bool)
+ cur/stdlib/bool
+ rackunit/turnstile)
 
 (check-type (if true false true) : Bool -> false)
 (check-type (if false false true) : Bool -> true)

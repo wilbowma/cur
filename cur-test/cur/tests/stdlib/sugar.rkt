@@ -1,7 +1,7 @@
 #lang cur
 (require
- turnstile/rackunit-typechecking
- cur/stdlib/sugar)
+ cur/stdlib/sugar
+ rackunit/turnstile)
 
 (check-type
  (λ (x : (Type 1)) x)

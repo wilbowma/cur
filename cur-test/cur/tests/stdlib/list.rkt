@@ -1,11 +1,11 @@
 #lang cur
 (require
- turnstile/rackunit-typechecking
  cur/stdlib/sugar
  cur/stdlib/bool
  cur/stdlib/nat
  cur/stdlib/maybe
- cur/stdlib/list)
+ cur/stdlib/list
+ rackunit/turnstile)
 
 (check-type (nil Nat) : (List Nat) -> (nil Nat))
 (check-not-type (nil Nat) : (List Bool))

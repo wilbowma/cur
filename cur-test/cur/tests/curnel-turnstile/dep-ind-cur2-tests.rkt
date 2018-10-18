@@ -2,7 +2,7 @@
 (require cur/curnel/turnstile-impl/dep-ind-cur2+eq
          cur/curnel/turnstile-impl/dep-ind-cur2+data
          cur/curnel/turnstile-impl/dep-ind-cur2+sugar
-         turnstile/rackunit-typechecking)
+         rackunit/turnstile)
 
 ; Π → λ ∀ ≻ ⊢ ≫ ⇒
 
