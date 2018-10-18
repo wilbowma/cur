@@ -2,7 +2,7 @@
 (require
  cur/stdlib/nat
  cur/stdlib/sugar
- turnstile/rackunit-typechecking)
+ rackunit/turnstile)
 
 (data Vect : 1 (Π (A : (Type 0)) (Π (n : Nat) (Type 0)))
       [nil : (Π (A : (Type 0)) (Vect A 0))]

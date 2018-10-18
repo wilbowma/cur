@@ -5,7 +5,6 @@
     ("turnstile-lib" #:version "0.3.1")
     ("macrotypes-lib" #:version "0.3.1")
     ))
-
 (define build-deps '())
 (define pkg-desc "implementation (no documentation, tests) part of \"cur\".")
 (define version "0.41")

@@ -5,7 +5,7 @@
  cur/stdlib/bool
  cur/stdlib/nat
  cur/stdlib/equality
- turnstile/rackunit-typechecking)
+ rackunit/turnstile)
 
 (check-type
  (elim ML-= (λ (x : Bool) (y : Bool) (p : (ML-= Bool x y)) Nat)

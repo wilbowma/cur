@@ -1,10 +1,10 @@
 #lang cur
 
 (require
- turnstile/rackunit-typechecking
  cur/stdlib/sugar
  cur/stdlib/bool
- cur/stdlib/maybe)
+ cur/stdlib/maybe
+ rackunit/turnstile)
 
 (check-type (some true) : (Maybe Bool) -> (some Bool true))
 (check-type

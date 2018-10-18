@@ -1,5 +1,5 @@
 #lang cur
-(require turnstile/rackunit-typechecking)
+(require rackunit/turnstile)
 
 (define-datatype Nat : (Type 0)
   (z : Nat)

@@ -1,7 +1,7 @@
 #lang s-exp cur/curnel/turnstile-impl/dep-ind-cur2
 (require cur/curnel/turnstile-impl/dep-ind-cur2+sugar
          cur/curnel/turnstile-impl/dep-ind-cur2+data2
-         turnstile/rackunit-typechecking)
+         rackunit/turnstile)
 
 ;; define-datatype TODO:
 ;; - not specifying constructors results in define-red err

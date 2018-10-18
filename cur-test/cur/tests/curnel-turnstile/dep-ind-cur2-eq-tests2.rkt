@@ -1,7 +1,7 @@
 #lang s-exp cur/curnel/turnstile-impl/dep-ind-cur2
 (require cur/curnel/turnstile-impl/dep-ind-cur2+sugar
          cur/curnel/turnstile-impl/dep-ind-cur2+data2
-         turnstile/rackunit-typechecking)
+         rackunit/turnstile)
 
 ; Π → λ ∀ ≻ ⊢ ≫ ⇒
 

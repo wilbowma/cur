@@ -4,7 +4,7 @@
  cur/stdlib/sugar
  cur/stdlib/bool
  cur/stdlib/nat
- turnstile/rackunit-typechecking)
+ rackunit/turnstile)
 
 (check-type True : Type -> True)
 (check-type pf:anything-implies-true : thm:anything-implies-true)

@@ -2,7 +2,7 @@
 
 (require
  cur/stdlib/sugar
- turnstile/rackunit-typechecking)
+ rackunit/turnstile)
 
 (data Nat : 0 Type
   (z : Nat)
