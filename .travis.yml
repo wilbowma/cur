@@ -16,7 +16,9 @@ before_install:
   - export PATH="${RACKET_DIR}/bin:${PATH}"
   # install Turnstile, use `cur` branch`
   - git clone -b cur https://github.com/stchang/macrotypes.git
-  - raco pkg install --auto -n turnstile macrotypes/
+  - raco pkg install --auto macrotypes/macrotypes-lib/
+  - raco pkg install --auto macrotypes/turnstile-lib/
+  - raco pkg install --auto macrotypes/rackunit-macrotypes-lib/
 
 install:
  - raco pkg install --auto cur-lib/
