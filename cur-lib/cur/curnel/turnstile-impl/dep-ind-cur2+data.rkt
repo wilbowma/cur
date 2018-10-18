@@ -119,9 +119,9 @@
    ;; recursive args of each C; where (xrec ...) ⊆ (x ...)
    #:with ((xrec ...) ...) (find-recur #'TY #'(([x τin] ...) ...))
    ;; elim methods and method types
-   #:with (m ...) (fresh #'(C ...))
-   #:with (m- ...) (fresh #'(m ...))
-   #:with (τm ...) (fresh #'(m ...))
+   #:with (m ...) (generate-temporaries #'(C ...))
+   #:with (m- ...) (generate-temporaries #'(m ...))
+   #:with (τm ...) (generate-temporaries #'(m ...))
    #:with elim-TY (format-id #'TY "elim-~a" #'TY)
    #:with eval-TY (format-id #'TY "eval-~a" #'TY)
    #:with TY/internal (fresh #'TY)
@@ -186,28 +186,28 @@
    #:with (((xrec irec ...) ...) ...)
           (find-recur/i #'TY (stx-length #'(i ...)) #'(([i+x τin] ...) ...))
    ;; ---------- pre-generate other patvars; makes nested macros below easier to read
-   #:with (A- ...) (fresh #'(A ...))
-   #:with (i- ...) (fresh #'(i ...))
+   #:with (A- ...) (generate-temporaries #'(A ...))
+   #:with (i- ...) (generate-temporaries #'(i ...))
    ;; inst'ed τin and τout (with A ...)
-   #:with ((τin/A ...) ...) (stx-map fresh #'((τin ...) ...))
-   #:with (τout/A ...) (fresh #'(C ...))
+   #:with ((τin/A ...) ...) (stx-map generate-temporaries #'((τin ...) ...))
+   #:with (τout/A ...) (generate-temporaries #'(C ...))
    ; τoutA matches the A and τouti matches the i in τout/A,
    ; - ie τout/A = (TY τoutA ... τouti ...)
    ; - also, τoutA refs (ie bound-id=) CA and τouti refs i in i+x ...
-   #:with ((τoutA ...) ...) (stx-map (lambda _ (fresh #'(A ...))) #'(C ...))
-   #:with ((τouti ...) ...) (stx-map (lambda _ (fresh #'(i ...))) #'(C ...))
+   #:with ((τoutA ...) ...) (stx-map (lambda _ (generate-temporaries #'(A ...))) #'(C ...))
+   #:with ((τouti ...) ...) (stx-map (lambda _ (generate-temporaries #'(i ...))) #'(C ...))
    ;; differently named `i`, to match type of P
-   #:with (j ...) (fresh #'(i ...))
+   #:with (j ...) (generate-temporaries #'(i ...))
    ; dup (A ...) C times, again for ellipses matching
    #:with ((A*C ...) ...) (stx-map (lambda _ #'(A ...)) #'(C ...))
-   #:with (m ...) (fresh #'(C ...))
-   #:with (τ1 ...) (fresh #'(C ...))
-   #:with (m- ...) (fresh #'(C ...))
+   #:with (m ...) (generate-temporaries #'(C ...))
+   #:with (τ1 ...) (generate-temporaries #'(C ...))
+   #:with (m- ...) (generate-temporaries #'(C ...))
    #:with TY- (mk-- #'TY)
    #:with TY-patexpand (mk-~ #'TY)
    #:with elim-TY (format-id #'TY "elim-~a" #'TY)
    #:with eval-TY (format-id #'TY "match-~a" #'TY)
-   #:with (τm ...) (fresh #'(m ...))
+   #:with (τm ...) (generate-temporaries #'(m ...))
    #:with (C-expander ...) (stx-map mk-~ #'(C ...))
    ;; these are all the generated definitions that implement the define-datatype
    #:with OUTPUT-DEFS
