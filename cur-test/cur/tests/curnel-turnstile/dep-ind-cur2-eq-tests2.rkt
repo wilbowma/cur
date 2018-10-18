@@ -12,7 +12,7 @@
 (define-datatype my= [A : (Type 0)] : [a : A] [b : A] -> (Type 0)
   (my-refl : [a : A] -> (my= A a a)))
 
-(define-datatype Nat : *
+(define-datatype Nat : Type
   [Z : Nat]
   [S : (→ Nat Nat)])
 
