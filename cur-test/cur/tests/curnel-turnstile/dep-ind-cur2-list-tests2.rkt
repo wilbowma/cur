@@ -8,24 +8,24 @@
 ;; same as dep-ind-cur2-list-tests, except uses dep-ind-cur2+data2
 ;; (currying tests commented out)
 
-(define-datatype Nat : *
+(define-datatype Nat : Type
   [Z : Nat]
   [S : (→ Nat Nat)])
 
 ;; (→ Nat) same as Nat
-(define-datatype Nat2 : *
+(define-datatype Nat2 : Type
   [Z2 : (→ Nat2)]
   [S2 : (→ Nat2 Nat2)])
 
 ;; some basic tests
-(check-type Nat : *)
+(check-type Nat : Type)
 ;; this test wont work if define-datatype uses define-base-type
-(check-type (λ [x : Nat] Nat) : (→ Nat *))
+(check-type (λ [x : Nat] Nat) : (→ Nat Type))
 
 ;; some basic tests
-(check-type Nat2 : *)
+(check-type Nat2 : Type)
 ;; this test wont work if define-datatype uses define-base-type
-(check-type (λ [x : Nat2] Nat2) : (→ Nat2 *))
+(check-type (λ [x : Nat2] Nat2) : (→ Nat2 Type))
 
 ;; constructors require 3 sets of args:
 ;; 1) params
@@ -101,7 +101,7 @@
 (check-type (len/Nat (cons Nat Z (null Nat))) : Nat -> (S (Z)))
 
 (define len
-  (λ [A : *]
+  (λ [A : Type]
     (λ [lst : (List A)]
       (elim-List lst
                  (λ [l : (List A)] Nat)
@@ -114,7 +114,7 @@
 (check-type ((len Nat) (cons Nat (Z) ((null Nat)))) : Nat -> (S (Z)))
 
 ;; test that elim matches on constructor name, and not arity
-(define-datatype Test : *
+(define-datatype Test : Type
   [A : (→ Test)]
   [B : (→ Test)])
 
@@ -138,8 +138,8 @@
   [nil : (Vect A Z)]
   [cns : [k : Nat] [x99 : A] [xs99 : (Vect A k)] -> (Vect A (S k))])
 
-(check-type nil : (Π [A : *] (Vect A Z)))
-(check-type cns : (Π [A : *] [k : Nat] (→ A (Vect A k) (Vect A (S k)))))
+(check-type nil : (Π [A : Type] (Vect A Z)))
+(check-type cns : (Π [A : Type] [k : Nat] (→ A (Vect A k) (Vect A (S k)))))
 
 (check-type (nil Nat) : (→ (Vect Nat (Z))))
 (check-type (nil Nat) : (Vect Nat Z))
@@ -227,7 +227,7 @@
  -> (nil Nat))
 
 (define vappend
-  (λ [A : *]
+  (λ [A : Type]
     (λ [n : Nat][m : Nat]
       (λ [xs : (Vect A n)][ys : (Vect A m)]
         (elim-Vect xs

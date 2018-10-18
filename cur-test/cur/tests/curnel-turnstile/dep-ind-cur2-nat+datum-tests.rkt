@@ -18,7 +18,7 @@
 (check-type 2 : Nat -> 2)
 
 (define nat-rec
-  (λ [C : *]
+  (λ [C : Type]
     (λ [zc : C][sc : (→ C C)]
       (λ [n : Nat]
         (elim-Nat n
