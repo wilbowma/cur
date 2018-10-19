@@ -28,13 +28,14 @@
 ;(C Type) ; data2 err: expected T given A
 ;(T Type)  ; data2 err: expected Type 1, given Type
 
-;; error description: another binder uses A
-(define-datatype TY [A : (Π [A : Type] Type)] : -> Type
-  [C : (TY A)])
+;; ;; error description: another binder uses A
+;; (define-datatype TY [A : (Π [A : Type] Type)] : -> Type
+;;   [C : (TY A)])
 
-(check-type (C (λ [x : Type] x)) : (TY (λ [x : Type] x)))
+;; (check-type (C (λ [x : Type] x)) : (TY (λ [x : Type] x)))
 
-;; data2 err: A gets subst with arg, eg (Π [(λ [x : Type] x) : Type] Type)
-(check-type (TY (λ [x : Type] x)) : Type) ; BAD ; 2018-06-24: fixed
+;; ;; data2 err: A gets subst with arg, eg (Π [(λ [x : Type] x) : Type] Type)
+;; ;; due to pattern-var-sub trick, use expanded/fresh vars to avoid this
+;; (check-type (TY (λ [x : Type] x)) : Type) ; BAD ; 2018-06-24: fixed
 
-(check-type (λ [x : Type]  x) : (Π [A : Type] Type))
+;; (check-type (λ [x : Type]  x) : (Π [A : Type] Type))
