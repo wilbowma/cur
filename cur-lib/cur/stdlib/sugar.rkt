@@ -163,7 +163,7 @@
 ;     #:do[(pretty-print (syntax->datum #'OUT))]
      #'OUT]))
             
-;; (provide
+(provide
 ;;   Type
 ;;   ->
 ;;   lambda
@@ -191,9 +191,9 @@
 ;;   step-n
 ;;   query-type
 
-;;   ;; extension abstractions
-;;   (for-syntax
-;;    cur-match))
+  ;; extension abstractions
+  (for-syntax
+   cur-match))
 
 ;; (require
 ;;   (only-in "../main.rkt"
@@ -845,9 +845,10 @@
 ;;        (printf "\"~a\" has type \"~a\"~n" (syntax->datum #'term) (syntax->datum (cur-type-infer #'term)))
 ;;        #'(void))]))
 
-;; (begin-for-syntax
-;;   (define-syntax (cur-match syn)
-;;     (syntax-case syn ()
-;;       [(_ syn [pattern body] ...)
-;;        #'(syntax-parse (cur-expand syn)
-;;            [pattern body] ...)])))
+(begin-for-syntax
+  (require (for-syntax racket/base))
+  (define-syntax (cur-match syn)
+    (syntax-case syn ()
+      [(_ syn [pattern body] ...)
+       #'(syntax-parse (expand/df syn)
+           [pattern body] ...)])))

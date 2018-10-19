@@ -13,7 +13,9 @@
  (for-syntax "utils.rkt"
              "../curnel/racket-impl/stxutils.rkt"
              "../curnel/racket-impl/runtime-utils.rkt"
-             (for-syntax syntax/parse)))
+             racket/dict
+             racket/match
+             (for-syntax racket/base syntax/parse)))
 
 (provide (for-syntax reflexivity
                      rewrite
