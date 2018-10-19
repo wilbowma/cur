@@ -36,18 +36,33 @@
 
 (begin-for-syntax
   (define (take-Π t n)
-    (let L ([As null] [ty t] [n n])
-      (if (zero? n)
-          (list (reverse As) ty)
-          (syntax-parse ty
-            [((~literal Π) [x : τ] rst)
-             (L (cons #'[x τ] As) #'rst (sub1 n))]))))
+    (syntax-parse t
+      [((~and (~literal Π) P) [x:id (~and (~datum :) tag) τ] ... ; sugared stx
+                              (~and (~not [_ (~datum :) _])
+                                    (~not ((~literal Π) . _))
+                                    tout))
+       (list (stx-take #'([x τ] ...) n)
+             #`(P #,@(stx-drop #'([x tag τ] ...) n) tout))]
+      [_                                           ; nested stx
+       (let L ([As null] [ty t] [n n])
+         (if (zero? n)
+             (list (reverse As) ty)
+             (syntax-parse ty
+               [((~literal Π) [x : τ] rst)
+                (L (cons #'[x τ] As) #'rst (sub1 n))])))]))
   (define (split-Π t)
-    (let L ([is null] [ty t])
-      (syntax-parse ty
-        [((~literal Π) [x : τ] rst)
-         (L (cons #'[x τ] is) #'rst)]
-        [_ (list (reverse is) ty)]))))
+    (syntax-parse t
+      [((~literal Π) [x:id (~datum :) τ] ... ; sugared stx
+                     (~and (~not [_ (~datum :) _])
+                           (~not ((~literal Π) . _))
+                           tout))
+       (list #'([x τ] ...) #'tout)]
+      [_                                    ; nested stx
+       (let L ([is null] [ty t])
+         (syntax-parse ty
+           [((~literal Π) [x : τ] rst)
+            (L (cons #'[x τ] is) #'rst)]
+           [_ (list (reverse is) ty)]))])))
 
 ;; TODO: currently, dont expand TY or tyC, bc of unbound TY
 ;; - but this means that curried form wont be handled
@@ -65,10 +80,6 @@
   #:with [([i tyi] ...) ty0] (split-Π #'ty-rst)
   #:with ([_ tyC-rst] ...) (stx-map (λ (t) (take-Π t (stx-e #'n))) #'(tyC ...))
   #:with ([([x tyx] ...) tyC0] ...) (stx-map split-Π #'(tyC-rst ...))
-  ;; #:do[(displayln
-  ;;       (stx->datum
-  ;;        #'(define-datatype TY [A : tyA] ... : [i : tyi] ... -> ty0
-  ;;            [C : [x : tyx] ... -> tyC0] ...)))]
   -----------------
   [≻ (define-datatype TY [A : tyA] ... : [i : tyi] ... -> ty0
        [C : [x : tyx] ... -> tyC0] ...)]])
