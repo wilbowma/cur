@@ -1,7 +1,11 @@
 #lang s-exp "../main.rkt"
 (require
  (for-syntax "utils.rkt"
-             "../curnel/racket-impl/stxutils.rkt")
+             "../curnel/racket-impl/stxutils.rkt"
+             racket/match
+             racket/dict
+             racket/list
+             (for-syntax racket/base))
  "../stdlib/sugar.rkt"
  "../curnel/racket-impl/reflection.rkt" ; simpl needs cur-normalize
  "../curnel/racket-impl/runtime.rkt" ; destruct needs constant-info

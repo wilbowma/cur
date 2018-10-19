@@ -10,8 +10,10 @@
   (for-syntax "utils.rkt"
               "../curnel/racket-impl/stxutils.rkt"
               "../curnel/racket-impl/runtime-utils.rkt"
+              racket/dict
+              racket/match
               syntax/stx
-              (for-syntax syntax/parse)))
+              (for-syntax racket/base syntax/parse)))
 
 (provide (for-syntax reflexivity
                      replace

@@ -4,7 +4,8 @@
 (require
  "../stdlib/sugar.rkt"
  "../curnel/racket-impl/runtime.rkt"
- (only-in racket [define r:define]))
+ (only-in racket [define r:define])
+ (for-syntax racket/match racket/list))
 
 (provide
  define-theorem
