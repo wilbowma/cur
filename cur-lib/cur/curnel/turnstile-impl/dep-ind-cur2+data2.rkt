@@ -55,7 +55,6 @@
     [:id (assign-type #'TmpTy- #'Type)]
     ;; TODO: orig will get stuck with eg, (TmpTy A)
     [(_ . args) (assign-type (syntax/loc this-syntax (app/eval TmpTy- . args)) #'Type)]))
-(define-for-syntax TmpTy+ (expand/df #'TmpTy))
 
 ;; use this macro to expand e, which contains references to unbound X
 (define-syntax (with-unbound stx)
@@ -65,82 +64,24 @@
      #:with e/tmp (subst #'TmpTy #'X #'e)
      ;; expand with the tmp id
       (expand/df #'e/tmp)]))
-#;(define-syntax (drop-params stx)
-  (syntax-parse stx
-    [(_ (A ...) τ)
-     (prune #'τ (stx-length #'(A ...)))]))
-;; must be used with with-unbound
-(begin-for-syntax
-  (require turnstile/more-utils)
-  (define-syntax ~unbound
-    (pattern-expander
-     (syntax-parser
-       [(_ X:id pat)
-        ;; un-subst tmp id in expanded stx with type X
-        #'(~and TMP
-                (~parse pat (reflect (subst #'X TmpTy+ #'TMP free-id=?))))])))
-  (define fix-with-unbound-orig
-    (syntax-parser
-      [_
-       #:with ((~literal with-unbound) _ t) (get-orig this-syntax)
-       (add-orig this-syntax #'t)]
-      [_ this-syntax]))
-  (define-syntax ~unbound2
-    (pattern-expander
-     (syntax-parser
-       [(_ X:id pat)
-        ;; un-subst tmp id in expanded stx with type X
-        #'(~and TMP
-                (~parse pat
-                        (fix-with-unbound-orig
-                        (let L ([stx #'TMP])
-                          (syntax-parse stx
-;                            [_ #:do[(printf "unbound2: ~a\n" (stx->datum stx))] #:when #f #'debugging]
-                            ;; TODO: use ~plain-app/c
-#;                            [(~plain-app/c tty:id x (... ...))
-                             #:when (free-id=? #'tty TmpTy+)
-                             (transfer-props stx #'(X x (... ...)) #:except null)]
-                              [tty:id #:when (free-id=? #'tty TmpTy+) #'X]
-                              [((~literal #%plain-app) tty:id . rst)
-                             #:when (free-id=? #'tty TmpTy+)
-                               (transfer-props stx #'(X . rst) #:except null)]
-                              [((~literal #%plain-app) ((~literal #%plain-app) tty:id x (... ...)) . rst)
-                               #:when (free-id=? #'tty TmpTy+)
-                               (transfer-props stx #'(X x (... ...) . rst) #:except null)]
-                              [((~literal #%plain-app) ((~literal #%plain-app) ((~literal #%plain-app) tty:id x1) x2) x3)
-                               #:when (free-id=? #'tty TmpTy+)
-                               (transfer-props stx (syntax/loc stx (X x1 x2 x3)) #:except null)]
-                                #;[((~literal #%plain-app) ((~literal #%plain-app) ((~literal #%plain-app) tty:id x1) x2) x3)
-                               #:when (free-id=? #'tty TmpTy+)
-                               #:with mk-X (format-id #'X "mk-~a" #'X)
-                               (transfer-props stx #'(mk-X x1 x2 x3) #:except null)]
-                            [(e (... ...)) (transfer-props stx #`#,(stx-map L #'(e (... ...))) #:except null)]
-                            [_ stx]))))
-                #;(~parse pat (subst #'X TmpTy+ #'TMP free-id=?)))])))
-  ;; convert tscope/tscopes into Π and check Π
-  (define (check-well-formed TY tscope tscopes)
-    (syntax-parse tscope
-      [([A (~datum :) τA] ...)
-       (syntax-parse tscopes
-         [(([i (~datum :) τi] ...) ...)
-          (syntax-parse TY
-            [T
-          #:with (tmp ...) (generate-temporaries tscopes)
-          #:with ((~unbound2 T (~Π [X : τ] ... _)) _)
-                 (infer+erase #'(with-unbound T (Π [A : τA] ... [tmp : (Π [i : τi] ... Type)] ... Type)))
-          #:with (([A- τA-] ...)
-                  ([_ (~Π [i- : τi-] ... _)] ...))
-                 (stx-split-at #'([X τ] ...) (stx-length #'(A ...)))
-          #'(([A- τA-] ...)
-             (([i- τi-] ...) ...))])])]))
-  ; reflect Type type back to surface
-  ; - works around expander problem where type gets dropped during provide+require
-  (define reflect-Type
-    (syntax-parser
-      [(~Type n) #'(Type n)]
-      [t #'t]))
-  )
 
+;; TODO: problem: use unexpanded A ... and τA ..., or expanded A2 and τA2 ?
+;; - must expand:
+;;   - ow var capture possible (eg binder types) due to patvar trick in output macros
+;;     - manual subst will capture as well
+;;     - (cant use function application to inst bc of mixing expanded (P-) and unexpanded terms)
+;;   - eg (define-datatype TY [A : Type] [B : (Π [A : Type] A)] -> Type)
+;;     - the 2nd A binding will get replaced with whatever the first A arg is
+;;       - eg (TY (Π [X : Type] X) _) -> "non-id err" due to  (Π [(Π [X : Type] X) : Type] _)
+;;   - see also dep-ind-cur2+data2-tests
+;; - must not expand:
+;;   - passing already-expanded types to define-type (and other forms)
+;;     may result in loss of types of types when crossing module boundry
+;;     - bc stx props not preserved deeply
+;;   - eg, run stdlib/sigma tests when giving expanded types to define-type
+;; - workaround:
+;;   - dont expand, until expander is fixed
+;;   - but manually check for captured binders (TODO)
 (define-typed-syntax define-datatype
   ;; simple datatypes, eg Nat -------------------------------------------------
   ;; - ie, `TY` is an id with no params or indices
@@ -151,45 +92,17 @@
   ;; - indices i ...
   ;; - ie, TY is a type constructor with type (Π [A : τA] ... [i τi] ... τ)
   ;; --------------------------------------------------------------------------
-  [(_ TY:id [A:id Atag:id τA] ... (~datum :) ; params
-            [i:id itag:id τi] ... ; indices
+  [(_ TY:id [A:id Atag:id τA] ... (~datum :) ; params: τA may reference preceding A
+            [i:id itag:id τi] ... ; indices: τis may reference As and preceding i
             (~datum ->) τ
-            (~or* (~and [C:id (~datum :) τout]
-                        (~parse ([i+x i+xtag τin]...) #'())
-                                #;(~parse (i+xtag ...) #'())
-                        #;(~parse (τin ...) #'()))
-                  ;; i+x may reference A
-                 [C:id (~datum :) [i+x:id i+xtag:id τin] ... (~datum ->) τout]) ...) ≫
-   ;; TODO: support this pattern with Turnstile?, but needs fold over trees, eg
-   #;[⊢ [A ≫ A2 : τA ≫ τA2 ⇐ Type] ... ([i ≫ i2 : τi ≫ τi2 ⇐ Type] ... τ ≫ τ2 ⇐ Type)
-                                      ([i+x ≫ i+x2 : τin ≫ τin2 ⇐ Type] ... τout ≫ τout2 ⇐ Type) ...]
+            (~or* (~and [C:id (~datum :) τout] (~parse ([i+x i+xtag τin]...) #'()))
+                  ;; τin ... τout may reference A ... and preceding i+x ...
+                  [C:id (~datum :) [i+x:id i+xtag:id τin] ... (~datum ->) τout]) ...) ≫
 
-   ;; method 3: nested telescope
-   [[A ≫ A2 Atag τA ≫ τA2_] ... ⊢
-    [[i ≫ i2 itag τi ≫ τi2] ... ⊢ τ ≫ τ2 ⇐ TypeTop]
-    [[i+x ≫ i+x2 i+xtag (with-unbound TY τin) ≫ (~unbound2 TY τin2)] ... ⊢ (with-unbound TY τout) ≫ (~unbound2 TY τout2) ⇐ TypeTop] ...]
-   ;; this fixes (some) dropped types during provide+require
-   #:with (τA2 ...) (stx-map reflect-Type #'(τA2_ ...))
-   ;; method 2: infer + #:with-idc
-   ;; #:with (~and (~unbound2 TY i+e-res)
-   ;;              (~unbound2 TY
-   ;;                        (((A2 ...) (τA2 ...) () (i2 ...) (τi2 ...) (τ2) _)
-   ;;                         (_  _               () (i+x2 ...) (τin2 ...) (τout2) _) ...)))
-   ;; (let ([idc (ctx->idc #'(#;[TY : (Π [A : τA] ... [i : τi] ... τ)]
-   ;;                         [A : τA] ...))])
-   ;;   (for/list ([t (syntax->list #'(τ (with-unbound TY τout) ...))]
-   ;;              [ctx (syntax->list #'(([i : τi] ...) ([i+x : (with-unbound TY τin)] ...) ...))])
-   ;;     (infer (list t) #:ctx ctx #:with-idc idc)))
-   ;; #:do[(pretty-print (stx->datum #'i+e-res))]
-   
-   ;; method 1: check-well-formed and wrap with Π
-   ;; #:with (dummy ...) (generate-temporaries #'(C ...))
-   ;; #:with (([A2 τA2] ...)
-   ;;         (([i2 τi2] ... [_ τ2])
-   ;;          ([i+x2 τin2] ... [_ τout2]) ...))
-   ;;        (check-well-formed #'TY #'([A : τA] ...)
-   ;;                           #'(([i : τi] ... [dummy1 : τ])
-   ;;                              ([i+x : τin] ... [dummy : τout]) ...))
+   ;; validate types: use nested telescopes
+   [[A ≫ _ Atag τA ≫ _] ... ⊢
+    [[i ≫ _ itag τi ≫ _] ... ⊢ τ ≫ _ ⇐ TypeTop]
+    [[i+x ≫ _ i+xtag (with-unbound TY τin) ≫ _] ... ⊢ (with-unbound TY τout) ≫ _ ⇐ TypeTop] ...]
 
    ;; - each (xrec ...) is subset of (x ...) that are recur args,
    ;; ie, they are not fresh ids
@@ -199,16 +112,15 @@
    ;; ASSUME: indices cannot have type (TY ...), they are not recursive
    ;;         (otherwise, cannot include indices in args to find-recur/i)
    #:with (((xrec irec ...) ...) ...)
-          (find-recur/is #'TY (stx-length #'(i ...)) #'(([i+x2 τin2] ...) ...))
+          (find-recur/is #'TY (stx-length #'(i ...)) #'(([i+x τin] ...) ...))
+
    ;; ---------- pre-generate other patvars; makes nested macros below easier to read
    ;; i* = inferred (concrete) i in elim
    #:with (i* ...) (generate-temporaries #'(i ...))
    ; dup (A ...) C times, for ellipses matching
-   #:with ((A*C ...) ...) (stx-map (lambda _ #'(A ...)) #'(C ...))
-   #:with ((Atag*C ...) ...) (stx-map (lambda _ #'(Atag ...)) #'(C ...))
-   #:with ((τA*C ...) ...) (stx-map (λ _ #'(τA ...)) #'(C ...))
-   #:with ((A*C2 ...) ...) (stx-map (lambda _ #'(A2 ...)) #'(C ...))
-   #:with ((τA*C2 ...) ...) (stx-map (λ _ #'(τA2 ...)) #'(C ...))
+   #:with ((AxC ...) ...) (stx-map (lambda _ #'(A ...)) #'(C ...))
+   #:with ((AtagxC ...) ...) (stx-map (lambda _ #'(Atag ...)) #'(C ...))
+   #:with ((τAxC ...) ...) (stx-map (λ _ #'(τA ...)) #'(C ...))
    #:with (m ...) (generate-temporaries #'(C ...))
    #:with (m- ...) (generate-temporaries #'(C ...))
    #:with TY-patexpand (mk-~ #'TY)
@@ -224,18 +136,17 @@
                              (λ (ts)
                                (or (and (stx-pair? ts) (stx-drop ts (add1 (stx-length #'(A ...)))))
                                    #'()))
-                             #'(τout2 ...))
+                             #'(τout ...))
 
    ;; these are all the generated definitions that implement the define-datatype
    #:with OUTPUT-DEFS
     #'(begin-
         ;; define the type
-;        (define-type TY : [A : τA] ... [i : τi] ... -> τ)
-        (define-type TY : [A2 Atag τA2] ... [i2 itag τi2] ... -> τ2 #:extra elim-TY (([i+x2 τin2] ...) ((xrec irec ...) ...)) ...)
+        (define-type TY : [A Atag τA] ... [i itag τi] ... -> τ
+          #:extra elim-TY (([i+x τin] ...) ((xrec irec ...) ...)) ...)
 
         ;; define the data constructors
-;        (define-data-constructor C : [A*C : τA*C] ... [i+x : τin] ... -> τout) ...
-        (define-data-constructor C : [A*C2 Atag*C τA*C2] ... [i+x2 i+xtag τin2] ... -> τout2) ...
+        (define-data-constructor C : [AxC AtagxC τAxC] ... [i+x i+xtag τin] ... -> τout) ...
 
         ;; define eliminator-form elim-TY
         ;; v = target
@@ -258,26 +169,28 @@
           ;; this means every patvar in define-datatype input pattern that references A
           ;; is now instantiated with inferred A
           ;; (see also comments below)
-          [⊢ v ≫ v- ⇒ (TY-patexpand A2 ... i* ...)]
+          [⊢ v ≫ v- ⇒ (TY-patexpand A ... i* ...)]
           
           ;; τi instantiated with A ... from v-
-          [⊢ P ≫ P- ⇐ (Π [i2 itag τi2] ... (→ (TY A2 ... i2 ...) Type))]
+          [⊢ P ≫ P- ⇐ (Π [i itag τi] ... (→ (TY A ... i ...) Type))]
 
           ;; each m is curried fn consuming 3 (possibly empty) sets of args:
           ;; 1,2) i+x  - indices of the tycon, and args of each constructor `C`
           ;;             the indices may not be included, when not needed by the xs
           ;; 3) IHs - for each xrec ... (which are a subset of i+x ...)
           #:with (τm ...)
-                 #'((Π [i+x2 i+xtag τin2] ... ; constructor args ; ASSUME: i+x includes indices
-                       (→ (P- irec ... xrec) ... ; IHs
-                          (P- τouti ... (C A*C2 ... i+x2 ...)))) ...)
+                 #'( (Π [i+x i+xtag τin] ... ; constructor args ; ASSUME: i+x includes indices
+                        (→ (P- irec ... xrec) ... ; IHs
+                           (P- τouti ... (C AxC ... i+x ...))))
+                     ...)
           [⊢ m ≫ m- ⇐ τm] ...
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (P- i* ... v-)]
+
           #:where eval-TY ; elim reduction rule
-          [(#%plain-app (C-expander A*C2 ... i+x2 ...) P m ...) ; elim redex
-           ~> (app/eval m i+x2 ... (eval-TY xrec P m ...) ...)] ...)
+          [(#%plain-app (C-expander AxC ... i+x ...) P m ...) ; elim redex
+           ~> (app/eval m i+x ... (eval-TY xrec P m ...) ...)] ...)
         )
+;    #:do[(pretty-print (stx->datum #'OUTPUT-DEFS))]
    --------
    [≻ OUTPUT-DEFS]])
-
