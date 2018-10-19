@@ -38,7 +38,7 @@
               #`(define-syntax (#,name syn)
                   (syntax-case syn ()
                     [(_ arg args (... ...))
-                     #`(#,(format-id syn "~a-~a" '#,name (cur-type-infer #'arg))
+                     #`(#,(format-id syn "~a-~a" '#,name (get-orig (typeof (expand/df #'arg))))
                         arg
                         args (... ...))]))))]))
 
@@ -57,17 +57,19 @@
      #`(begin
          #,@(for/list ([def (syntax->list #'(defs ...))])
               (let-values ([(name body) (process-def def)])
-                (unless (cur-type-check?
-                          body
+                ;; TODO: revert once cur reflection lib is ported?
+                (unless (typecheck?
+                         (typeof (expand/df body))
+                         ((current-type-eval)
                           #`(#,(dict-ref
-                                 (dict-ref typeclasses (syntax->datum #'class))
-                                 name)
-                             param))
+                                (dict-ref typeclasses (syntax->datum #'class))
+                                name)
+                             param)))
                   (raise-syntax-error
                     'impl
                     ;"Invalid implementation of typeclass ~a. Must have type ~a."
                     "Invalid implementation of typeclass."
                     #'class
                     #'body))
-                #`(define #,(format-id syn "~a-~a" name (cur-expand #'param))
+                #`(define #,(format-id syn "~a-~a" name #'param)
                     #,body))))]))
