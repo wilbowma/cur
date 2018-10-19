@@ -21,14 +21,31 @@
  snd1
  snd)
 
-(data Σ0 : 2 (-> (A : (Type 0)) (P : (-> A (Type 0))) (Type 0))
-      (pair0 : (-> (A : (Type 0)) (P : (-> A (Type 0))) (a : A) (b : (P a)) (Σ0 A P))))
+(data Σ0 : 2 (Π (A : (Type 0)) (P : (-> A (Type 0))) (Type 0))
+      (pair0 : (Π (A : (Type 0)) (P : (-> A (Type 0))) (a : A) (b : (P a)) (Σ0 A P))))
 
-(data Σ1 : 2 (-> (A : (Type 1)) (P : (-> A (Type 1))) (Type 1))
-      (pair1 : (-> (A : (Type 1)) (P : (-> A (Type 1))) (a : A) (b : (P a)) (Σ1 A P))))
+(data Σ1 : 2 (Π (A : (Type 1)) (P : (-> A (Type 1))) (Type 1))
+        (pair1 : (Π (A : (Type 1)) (P : (-> A (Type 1))) (a : A) (b : (P a)) (Σ1 A P))))
+
+#;(define-datatype Σ0 (A : (Type 0)) (P : (-> A (Type 0))) : -> (Type 0)
+  (pair0 : (a : A) (b : (P a)) -> (Σ0 A P)))
+
+#;(define-datatype Σ1 (A : (Type 1)) (P : (-> A (Type 1))) : -> (Type 1)
+  (pair1 : (a : A) (b : (P a)) -> (Σ1 A P)))
 
 ;; TODO: As demo, write macro that generates version of Σ for every universe level
-(define-syntax (Σ syn)
+(define-typed-syntax Σ
+  [(_ (x:id (~datum :) A) B) ≫
+   [⊢ A ≫ _ ⇒ (~Type i)]
+   #:with name (format-id this-syntax "Σ~a" (syntax->datum #'i))
+   -----------
+   [≻ (name A (λ (x : A) B))]]
+  [(_ A B) ≫
+   [⊢ A ≫ _ ⇒ (~Type i)]
+   #:with name (format-id this-syntax "Σ~a" (syntax->datum #'i))
+   ---------
+   [≻ (name A B)]])
+#;(define-syntax (Σ syn)
   (syntax-parse syn
     #:datum-literals (:)
     #:literals (typed-Type)
@@ -41,7 +58,12 @@
      #:with name (format-id syn "Σ~a" (syntax->datum #'i))
      #`(name A B)]))
 
-(define-syntax (pair syn)
+(define-typed-syntax (pair P a b) ≫
+  [⊢ a ≫ a- ⇒ A (⇒ : (~Type i))]
+  #:with name (format-id this-syntax "pair~a" (syntax->datum #'i))
+  -----------
+  [≻ (name A P a b)])
+#;(define-syntax (pair syn)
   (syntax-parse syn
     #:datum-literals ()
     #:literals (typed-Type)
@@ -70,7 +92,15 @@
 ;; TODO: Gosh there is a pattern here... but probably amounts to trying to invent universe templates
 ;; and I should just add universe polymorphism.
 ;; TODO: There is also some pattern here for implicit parameters...
-(define-syntax (fst syn)
+
+(define-typed-syntax (fst p) ≫
+  [⊢ p ≫ p- ⇒ t]
+  #:with (~or (~Σ0 A P) (~Σ1 A P)) #'t
+  #:with (~Type i) (typeof #'A)
+  #:with name (format-id this-syntax "fst~a" (syntax->datum #'i))
+  -----------
+  [≻ (name A P p)])
+#;(define-syntax (fst syn)
   (syntax-parse syn
     #:literals (typed-Type typed-app)
     [(_ p)
@@ -79,7 +109,14 @@
      #:with name (format-id syn "fst~a" (syntax->datum #'i))
      #`(name A P p)]))
 
-(define-syntax (snd syn)
+(define-typed-syntax (snd p) ≫
+  [⊢ p ≫ p- ⇒ t]
+  #:with (~or (~Σ0 A P) (~Σ1 A P)) #'t
+  #:with (~Type i) (typeof #'A)
+  #:with name (format-id this-syntax "snd~a" (syntax->datum #'i))
+  -----------
+  [≻ (name A P p)])
+#;(define-syntax (snd syn)
   (syntax-parse syn
     #:literals (typed-Type typed-app)
     [(_ p)

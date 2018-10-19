@@ -6,6 +6,5 @@
     "tests/ntac/"
     "tests/ntac.rkt"
     "tests/olly.rkt"
-    "tests/stdlib/sigma.rkt"
     "tests/stdlib/typeclass.rkt"
     "tests/stlc.rkt"))
