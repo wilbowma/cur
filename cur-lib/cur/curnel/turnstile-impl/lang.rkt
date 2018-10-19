@@ -19,7 +19,8 @@
 
 (require (only-in turnstile/base
                   define-typed-syntax get-orig assign-type
-                  subst substs typecheck? typechecks? typeof)
+                  subst substs typecheck? typechecks? typeof
+                  current-type-eval expand/df)
          turnstile/eval
          (only-in turnstile/typedefs get-type-info)
          (for-syntax macrotypes/stx-utils syntax/stx))
