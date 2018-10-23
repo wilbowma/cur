@@ -70,8 +70,8 @@
                   zc
                   (λ [x : Nat] sc))))))
 ;; (→ C) same as C
-(check-type nat-rec : (∀ C (→ (→ C) (→ C C) (→ Nat C))))
-(check-type nat-rec : (∀ C (→ C (→ C C) (→ Nat C))))
+(check-type nat-rec : (∀ [C : (Type 0)] (→ (→ C) (→ C C) (→ Nat C))))
+(check-type nat-rec : (∀ [C : (Type 0)] (→ C (→ C C) (→ Nat C))))
 
 ;; nat-rec with no annotations
 (check-type
@@ -82,7 +82,7 @@
                   (λ x C)
                   zc
                   (λ x sc)))))
-  : (∀ C (→ C (→ C C) (→ Nat C))))
+  : (∀ [C : (Type 0)] (→ C (→ C C) (→ Nat C))))
 ;; (λ zc) same as zc
 (check-type
   (λ C
@@ -92,7 +92,7 @@
                   (λ x C)
                   (λ zc)
                   (λ x sc)))))
-  : (∀ C (→ C (→ C C) (→ Nat C))))
+  : (∀ [C : (Type 0)] (→ C (→ C C) (→ Nat C))))
 
 (check-type (nat-rec Nat) : (→ (→ Nat) (→ Nat Nat) (→ Nat Nat)))
 (check-type (nat-rec Nat) : (→ Nat (→ Nat Nat) (→ Nat Nat)))

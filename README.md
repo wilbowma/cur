@@ -8,8 +8,8 @@ this branch: `turnstile-core`
 
 Differences Between Legacy Cur Legacy and Cur with Turnstile Core
 =================================================================
-Lega: forall same as Pi
-Turn: forall has no annotations
+Legacy: -> alias for Pi 
+Turn: -> is regular arrow type
 
 Turn:
 - `match` requires #:return

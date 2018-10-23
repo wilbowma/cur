@@ -3,11 +3,10 @@
 (require (for-syntax macrotypes/stx-utils syntax/stx))
 
 ;; differs from curnel/racket-impl:
-;; ∀ syntax requires only ids in binding pos (no types)
-;; - in racket-impl: ∀ = Π
+;; -> is normal arrow type and not alias for Π,
+;; but ∀ and forall is alias for Π
 
 (provide (all-from-out cur/curnel/turnstile-impl/dep-ind-cur2+sugar)
-         (rename-out [∀ forall] [λ lambda])
          let
          match
          define/rec/match)
