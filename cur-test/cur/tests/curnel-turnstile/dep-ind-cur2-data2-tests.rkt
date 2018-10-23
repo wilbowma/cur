@@ -10,7 +10,7 @@
 ;; data1 err: stx parse dup attr
 ;; (require "../dep-ind-cur2+data2.rkt")
 #;(define-datatype T [A : Type] : [A : Type] -> Type
-  [C : (∀ A B (T A B))])
+  [C : (∀ [A : Type] [B : Type] (T A B))])
 
 ;; data2 err: stx parse dup attr
 #;(define-datatype T [A : Type] : [A : Type] -> Type

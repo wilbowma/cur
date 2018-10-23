@@ -37,11 +37,11 @@
   [null : (List A)]
   [cons : [x : A] [xs : (List A)] -> (List A)])
 
-(check-type null : (∀ A (List A)))
+(check-type null : (∀ [A : (Type 0)] (List A)))
 ;; TODO? null \neq null right now
 ;; bc each reference expands to a different fn
-(check-type null : (∀ A (List A)) );-> null)
-(check-type cons : (∀ A (→ A (List A) (List A))))
+(check-type null : (∀ [A : (Type 0)] (List A)) );-> null)
+(check-type cons : (∀ [A : (Type 0)] (→ A (List A) (List A))))
 (check-type (null Nat) : (List Nat))
 (check-type (null Nat) : (List Nat) -> (null Nat))
 ;; TODO: should these next 2 work?
@@ -242,7 +242,7 @@
 
 (check-type
  vappend
- : (∀ B
+ : (∀ [B : (Type 0)]
       (Π [n : Nat][m : Nat]
          (→ (Vect B n) (Vect B m) (Vect B (plus n m))))))
 
