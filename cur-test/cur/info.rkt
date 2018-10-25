@@ -4,6 +4,5 @@
 (define test-omit-paths
   '("tests/curnel/"
     "tests/ntac/"
-    "tests/ntac.rkt"
     "tests/olly.rkt"
     "tests/stlc.rkt"))

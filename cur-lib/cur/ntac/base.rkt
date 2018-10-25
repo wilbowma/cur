@@ -189,7 +189,8 @@
      #:with delta-y (format-id #'y "delta:~a" #'y #:source #'y)
      #:with delta-x (format-id #'x "delta:~a" #'x #:source #'x)
      (quasisyntax/loc stx
-       (begin (define y (ntac ty ps ...))
+       (define x (ntac ty ps ...))
+       #;(begin (define y (ntac ty ps ...))
               (r:define x y)
               (define-for-syntax delta-x delta-y)
               (define-for-syntax x
@@ -199,6 +200,6 @@
               (:: x ty)))]))
 
 ;; For inline ntac
-(define-syntax (ntac stx)
-  (syntax-case stx ()
+(define-syntax ntac
+  (syntax-parser
     [(_ ty . pf) (ntac-proc #'ty #'pf)]))

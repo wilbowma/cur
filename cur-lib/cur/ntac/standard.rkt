@@ -2,14 +2,14 @@
 (require
  (for-syntax "utils.rkt"
              "../curnel/racket-impl/stxutils.rkt"
+             (only-in macrotypes/stx-utils stx-appendmap)
              racket/match
              racket/dict
              racket/list
              (for-syntax racket/base))
  "../stdlib/sugar.rkt"
- "../curnel/racket-impl/reflection.rkt" ; simpl needs cur-normalize
+ "../curnel/turnstile-impl/reflection.rkt" ; simpl needs cur-normalize
  "../curnel/racket-impl/runtime.rkt" ; destruct needs constant-info
- (only-in "../curnel/racket-impl/type-check.rkt" cur-pretty-print)
  "base.rkt")
 
 (begin-for-syntax
@@ -122,7 +122,7 @@
   ;; TODO: ntt-match(-define) to hide this extra argument. Maybe also add ntt- to constructors in pattern?
   (match-define (ntt-hole _ goal) pt)
   (ntac-match goal
-   [(forall (x:id : P:expr) body:expr)
+   [(~Π/1 (x:id : P:expr) body:expr)
     (let ()
       (define the-name (or name #'x))
       (make-ntt-apply
@@ -194,7 +194,7 @@
   (define (obvious ctxt pt)
     (match-define (ntt-hole _ goal) pt)
     (ntac-match goal
-      [(forall (a : P) body)
+      [(~Π/1 (a : P) body)
        ((intro) ctxt pt)]
       [a:id
        (assumption ctxt pt)]))
