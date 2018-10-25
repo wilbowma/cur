@@ -10,11 +10,12 @@
 ; "eval.rkt"
 ; "runtime-utils.rkt"
 ; (rename-in "equiv.rkt" [cur-equal? _cur-equal?])
- "stxutils.rkt"
+; "stxutils.rkt"
 ; (for-template "type-check.rkt")
  ;(for-template "runtime.rkt")
  (only-in macrotypes/stx-utils transfer-props)
  (for-template (only-in macrotypes/typecheck infer typecheck? type=?))
+ (for-template (only-in macrotypes/typecheck-core typeof subst substs))
 ; (for-template turnstile/examples/dep-ind-cur)
  (for-template macrotypes/stx-utils)
  (for-template "dep-ind-cur2.rkt")
@@ -37,6 +38,7 @@
  cur-normalize
  cur-rename
  cur-reflect-id
+ cur-pretty-print
  ;;cur-step
  cur-equal?)
 (define debug-reflect? #f)
@@ -97,13 +99,13 @@
      (printf "τs ~s~n"(add-scopes τs-ls))
      (printf "cur-type-infer subst ~s~n" (add-scopes (subst* env-ids xs-ls (first τs-ls))))
      (printf "cur-type-infer transfer ~s~n" (add-scopes (transfer-props syn (subst* env-ids xs-ls (first τs-ls))))))
-    (cur-reflect (cur-expand (transfer-props (first τs-ls) (subst* env-ids xs-ls  (first τs-ls))) #:local-env env)))))
+    (cur-reflect (cur-expand (transfer-props (first τs-ls) (substs env-ids xs-ls  (first τs-ls))) #:local-env env)))))
 
 
 (define (cur-type-check? term expected-type #:local-env [env '()])
   (let ([inferred-type (turnstile-infer term #:local-env env)])
     ;(displayln (format "inferred: ~a\nexpected: ~a" (syntax->datum inferred-type) (syntax->datum expected-type)))
-    (typecheck? inferred-type (cur-expand expected-type #:local-env env))))
+    (typecheck? inferred-type expected-type #;(cur-expand expected-type #:local-env env))))
 
 (define (cur->datum syn)
   (let ([expanded (cur-expand syn)])
@@ -266,5 +268,70 @@
       (printf "transfer ~s~n" (add-scopes (transfer-props syn (subst* env-ids xs-ls (first es-ls)))))
       #;(displayln (format "in cur-expand, syn: ~a\n\n env-ids: ~a \n\n expanded: ~a \n\n xs-ls: ~a \n\n es-ls: ~a"
                            syn env-ids expanded xs-ls es-ls)))
-(transfer-props syn (subst* env-ids xs-ls (first es-ls))))
+(transfer-props syn (substs env-ids xs-ls (first es-ls))))
   ))
+
+(define (uncurry TY ty) ; uncurry, so long as ty is a TY type
+  (syntax-parse ty
+    [((~literal #%plain-app)
+      TY2:id tyin
+      ((~literal #%plain-lambda) (X) ((~literal #%plain-app) (~literal list) body)))
+     #:when (free-identifier=? TY #'TY2)
+     #`([X : #,(cur-pretty-print #'tyin)] . #,(uncurry TY #'body))]
+    [_ (list (cur-pretty-print ty))]))
+
+(define pretty-print-type
+  (syntax-parser
+ ;   [t #:do[(printf "printing type: ~a\n" (syntax->datum #'t))] #:when #f #'debugging]
+    [X:id #'X]
+    [(~Type _) #'Type]
+    [((~literal #%plain-app) ; no binders, no args
+      TY:id
+      ((~literal #%plain-app) (~literal list)))
+     #'TY]
+    [((~literal #%plain-app) ; no binders
+      TY:id
+      ((~literal #%plain-app) (~literal list) ty ...))
+     #`(TY #,@(stx-map cur-pretty-print #'(ty ...)))]
+    [(~and ; binding types, uncurry
+      ty
+      ((~literal #%plain-app) TY:id _ ... ((~literal #%plain-lambda) . _)))
+     #`(TY . #,(uncurry #'TY #'ty))]))
+
+(define Type?
+  (syntax-parser
+    [((~literal #%plain-app) _:id _ ((~literal #%plain-lambda) (_:id) . _)) #t]
+    [((~literal #%plain-app) _:id ((~literal #%plain-app) (~literal list) . _)) #t]
+    [(~Type _) #t]
+    [_ #f]))
+
+(define cur-pretty-print
+  (syntax-parser
+;      [tmp #:do[(printf "printing: ~a\n" (syntax->datum #'tmp))] #:when #f #'debugging]
+    [t #:when (Type? #'t) (pretty-print-type #'t)]
+    [((~literal #%plain-app) ((~literal #%plain-app) e ...) . rst)
+     (cur-pretty-print #'(#%plain-app e ... . rst))]
+    [((~literal #%plain-app) e)
+     (cur-pretty-print #'e)]
+    [((~literal #%plain-app) e ...)
+     #`#,(stx-map cur-pretty-print #'(e ...))]
+    [((~literal typed-elim) e ...)
+     #`(new-elim . #,(stx-map cur-pretty-print #'(e ...)))]
+    [((~literal typed-λ) [x:id : t] e)
+     ;; truncate long x names to max 4 chars
+     #:do[(define x-str (symbol->string (syntax->datum #'x)))
+          (define x-len (string-length x-str))]
+     #:with y (format-id #'x "~a" (substring x-str 0 (min x-len 4)))
+     #`(λ [y : #,(cur-pretty-print #'t)]
+         #,(cur-pretty-print (subst #'y #'x #'e)))]
+    [((~literal typed-Π) [x:id : t] e)
+     ;; truncate long x names to max 4 chars
+     #:do[(define x-str (symbol->string (syntax->datum #'x)))
+          (define x-len (string-length x-str))]
+     #:with y (format-id #'x "~a" (substring x-str 0 (min x-len 4)))
+     #`(Π [y : #,(cur-pretty-print #'t)]
+          #,(cur-pretty-print (subst #'y #'x #'e)))]
+    [(e ...)
+     #`#,(stx-map cur-pretty-print #'(e ...))]
+    [e #'e]))
+

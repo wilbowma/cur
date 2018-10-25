@@ -849,5 +849,5 @@
   (define-syntax (cur-match syn)
     (syntax-case syn ()
       [(_ syn [pattern body] ...)
-       #'(syntax-parse (expand/df syn)
+       #'(syntax-parse syn
            [pattern body] ...)])))
