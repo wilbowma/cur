@@ -16,6 +16,7 @@
  (only-in macrotypes/stx-utils transfer-props)
  (for-template (only-in macrotypes/typecheck infer typecheck? type=?))
  (for-template (only-in macrotypes/typecheck-core typeof subst substs))
+ (for-template turnstile/typedefs)
 ; (for-template turnstile/examples/dep-ind-cur)
  (for-template macrotypes/stx-utils)
  (for-template "dep-ind-cur2.rkt")
@@ -271,39 +272,10 @@
 (transfer-props syn (substs env-ids xs-ls (first es-ls))))
   ))
 
-(define (uncurry TY ty) ; uncurry, so long as ty is a TY type
- ; (printf "uncurry: ~a\n" (syntax->datum ty))
-  (syntax-parse ty
-    [((~literal #%plain-app)
-      TY2:id tyin
-      ((~literal #%plain-lambda) (X) body))
-     #:when (free-identifier=? TY #'TY2)
-     #`([X : #,(cur-pretty-print #'tyin)] . #,(uncurry TY #'body))]
-    [_ (list (cur-pretty-print ty))]))
-
-(define pretty-print-type
-  (syntax-parser
-;   [t #:do[(printf "printing type: ~a\n" (syntax->datum #'t))] #:when #f #'debugging]
-    [X:id #'X]
-    [(~Type _) #'Type]
-    [(~and ty ; binding types, uncurry it
-      ((~literal #%plain-app) TY:id _ ((~literal #%plain-lambda) . _)))
-     #`(TY . #,(uncurry #'TY #'ty))]
-    [((~literal #%plain-app) TY:id) #'TY] ; no binders, no args
-    [((~literal #%plain-app) TY:id ty ...) ; no binders
-     #`(TY #,@(stx-map cur-pretty-print #'(ty ...)))]))
-
-(define Type?
-  (syntax-parser
-    [((~literal #%plain-app) _:id _ ((~literal #%plain-lambda) (_:id) _)) #t]
-    [((~literal #%plain-app) _:id . _) #t]
-    [(~Type _) #t]
-    [_ #f]))
-
 (define cur-pretty-print
   (syntax-parser
-;      [tmp #:do[(printf "printing: ~a\n" (syntax->datum #'tmp))] #:when #f #'debugging]
-    [t #:when (Type? #'t) (pretty-print-type #'t)]
+    [X:id #'X]
+    [ty #:when (has-type-info? #'ty) (resugar-type #'ty)]
     [((~literal #%plain-app) ((~literal #%plain-app) e ...) . rst)
      (cur-pretty-print #'(#%plain-app e ... . rst))]
     [((~literal #%plain-app) e)

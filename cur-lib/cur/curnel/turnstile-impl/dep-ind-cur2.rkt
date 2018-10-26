@@ -19,7 +19,7 @@
 
 ;; set (Type n) : (Type n+1)
 ;; Type = (Type 0)
-(struct Type- (n) #:transparent) ; runtime representation
+(struct Type- (n) #:transparent #:omit-define-syntaxes) ; runtime representation
 (begin-for-syntax
   (define Type-id (expand/df #'Type-))
   (define-syntax ~Type
@@ -34,8 +34,8 @@
                   (~fail #:unless (stx-datum-equal? #;free-identifier=? #'C Type-id)
                               (format "type mismatch, expected Type, given ~a"
                                       (syntax->datum #'C))))
-            ((~literal quote) n)))]
-       ))))
+            ((~literal quote) n)))])))
+  (define Type- (type-info #f (λ _ #'Type)))) ; type info
 
 (define-typed-syntax Type
   [:id ≫ --- [≻ (Type 0)]]

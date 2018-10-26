@@ -64,7 +64,7 @@
 (define-typed-syntax (match e #:return τout . clauses) ≫
 ;  #:do[(printf "matching ~a\n" this-syntax)]
   [⊢ e ≫ e- ⇒ τin]
-  #:do[(define exinfo (get-type-info #'τin))]
+  #:do[(define exinfo (get-match-info #'τin))]
 ;  #:do[(displayln exinfo)]
   #:fail-unless exinfo (format "could not infer extra info from type ~a" (stx->datum #'τ))
   #:with (elim-Name ei ...) exinfo

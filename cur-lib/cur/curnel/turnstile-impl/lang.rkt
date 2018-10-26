@@ -24,7 +24,7 @@
                   subst substs typecheck? typechecks? typeof
                   current-type-eval expand/df)
          turnstile/eval
-         (only-in turnstile/typedefs get-type-info)
+         turnstile/typedefs
          (for-syntax macrotypes/stx-utils syntax/stx))
 (provide (all-from-out turnstile/base turnstile/eval turnstile/typedefs))
 
@@ -94,7 +94,7 @@
 
 (define-typed-syntax (new-elim target motive method ...) ≫
   [⊢ target ≫ target- ⇒ τ]
-  #:with (elim-Name . _) (get-type-info #'τ)
+  #:with (elim-Name . _) (get-match-info #'τ)
   ---
   [≻ (elim-Name target- motive method ...)])
 
