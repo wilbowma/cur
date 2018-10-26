@@ -40,9 +40,9 @@
 (begin-for-syntax
   (define (take-Π t n)
     (syntax-parse t
-      [((~and (~literal Π) P) [x:id (~and (~datum :) tag) τ] ... ; sugared stx
+      [((~and (~datum Π) P) [x:id (~and (~datum :) tag) τ] ... ; sugared stx
                               (~and (~not [_ (~datum :) _])
-                                    (~not ((~literal Π) . _))
+                                    (~not ((~datum Π) . _))
                                     tout))
        (list (stx-take #'([x τ] ...) n)
              #`(P #,@(stx-drop #'([x tag τ] ...) n) tout))]
@@ -51,19 +51,19 @@
          (if (zero? n)
              (list (reverse As) ty)
              (syntax-parse ty
-               [((~literal Π) [x : τ] rst)
+               [((~datum Π) [x : τ] rst)
                 (L (cons #'[x τ] As) #'rst (sub1 n))])))]))
   (define (split-Π t)
     (syntax-parse t
-      [((~literal Π) [x:id (~datum :) τ] ... ; sugared stx
+      [((~datum Π) [x:id (~datum :) τ] ... ; sugared stx
                      (~and (~not [_ (~datum :) _])
-                           (~not ((~literal Π) . _))
+                           (~not ((~datum Π) . _))
                            tout))
        (list #'([x τ] ...) #'tout)]
       [_                                    ; nested stx
        (let L ([is null] [ty t])
          (syntax-parse ty
-           [((~literal Π) [x : τ] rst)
+           [((~datum Π) [x : τ] rst)
             (L (cons #'[x τ] is) #'rst)]
            [_ (list (reverse is) ty)]))])))
 

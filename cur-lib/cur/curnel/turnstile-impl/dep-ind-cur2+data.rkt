@@ -1,5 +1,5 @@
 #lang turnstile/lang
-(require (except-in "dep-ind-cur2.rkt" λ #%app)
+(require (except-in "dep-ind-cur2.rkt" λ #%app Π ~Π)
          (except-in "dep-ind-cur2+sugar.rkt" define)
          turnstile/eval turnstile/typedefs turnstile/more-utils)
 
@@ -45,12 +45,12 @@
 
 ;; helper syntax fns
 (begin-for-syntax
-  ;; drops first n bindings in Π/1 type
+  ;; drops first n bindings in Π type
   (define (prune t n)
     (if (zero? n)
         t
         (syntax-parse t
-          [(~Π/1 [_ : _] t1)
+          [(~Π [_ : _] t1)
            (prune #'t1 (sub1 n))])))
   ;; x+τss = (([x τ] ...) ...)
   ;; returns subset of each (x ...) that is recursive, ie τ = TY
@@ -160,7 +160,7 @@
   ;; defines inductive type family `TY`, with:
   ;; - params A ...
   ;; - indices i ...
-  ;; - ie, TY is a type constructor with type (Π/1 [A : τA] ... [i τi] ... τ)
+  ;; - ie, TY is a type constructor with type (Π [A : τA] ... [i τi] ... τ)
   ;; --------------------------------------------------------------------------
   [(_ TY:id [A:id (~datum :) τA] ... (~datum :) ; params
             [i:id (~datum :) τi] ... ; indices

@@ -9,7 +9,7 @@
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
 (provide Type (for-syntax ~Type) TypeTop
-         Π (for-syntax ~Π ~Π/1)
+         Π (for-syntax ~Π)
          (rename-out [λ/1 λ] [app #%app] [app/eval app/eval/1] [typed-define define])
          ann provide module* submod for-syntax begin-for-syntax)
 
@@ -61,7 +61,7 @@
 (define-syntax TypeTop (make-variable-like-transformer #'(Type 99)))
 
 ;; old Π/c now Π, old Π now Π/1
-(define-type Π #:with-binders ([X : TypeTop] #:telescope) : TypeTop -> Type)
+(define-type Π #:with-binders [X : TypeTop] : TypeTop -> Type)
 
 ;; type check relation --------------------------------------------------------
 ;; - must come after type defs
@@ -80,7 +80,7 @@
      (or (type=? t1+ t2) ; equality
          (syntax-parse (list t1+ t2)
            [((~Type n) (~Type m)) (<= (stx-e #'n) (stx-e #'m))]
-           [((~Π/1 [x1 : τ_in1] τ_out1) (~Π/1 [x2 : τ_in2] τ_out2))
+           [((~Π [x1 : τ_in1] τ_out1) (~Π [x2 : τ_in2] τ_out2))
             (and (type=? #'τ_in1 #'τ_in2)
                  (typecheck? (subst #'x2 #'x1 #'τ_out1) #'τ_out2))]
            [_ #;[(printf "failed to type check: ~a\n" (syntax->datum this-syntax))] #f])))))
@@ -88,12 +88,12 @@
 ;; lambda and #%app -----------------------------------------------------------
 (define-typed-syntax λ/1
   ;; expected ty only
-  [(_ y:id e) ⇐ (~Π/1 [x:id : τ_in] τ_out) ≫
+  [(_ y:id e) ⇐ (~Π [x:id : τ_in] τ_out) ≫
    [[x ≫ x- : τ_in] ⊢ #,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]
    ---------
    [⊢ (λ- (x-) e-)]]
   ;; both expected ty and annotations
-  [(_ [y:id (~datum :) τ_in*] e) ⇐ (~Π/1 [x:id : τ_in] τ_out) ≫
+  [(_ [y:id (~datum :) τ_in*] e) ⇐ (~Π [x:id : τ_in] τ_out) ≫
    [⊢ τ_in* ≫ τ_in** ⇐ Type]
    #:when (typecheck? #'τ_in** #'τ_in)
    [[x ≫ x- : τ_in] ⊢ #,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]
@@ -103,10 +103,10 @@
   [(_ [x:id (~datum :) τ_in] e) ≫
    [[x ≫ x- : τ_in] ⊢ [e ≫ e- ⇒ τ_out] [τ_in ≫ τ_in- ⇒ _]]
    -------
-   [⊢ (λ- (x-) e-) ⇒ (Π/1 [x- : τ_in-] τ_out)]])
+   [⊢ (λ- (x-) e-) ⇒ (Π [x- : τ_in-] τ_out)]])
 
 (define-typerule/red (app e_fn e_arg) ≫
-  [⊢ e_fn ≫ e_fn- ⇒ (~Π/1 [X : τ_in] τ_out)]
+  [⊢ e_fn ≫ e_fn- ⇒ (~Π [X : τ_in] τ_out)]
   [⊢ e_arg ≫ e_arg- ⇐ τ_in]
   #:with τ_out- (reflect (subst #'e_arg- #'X #'τ_out)) ; TODO: fix orig
   -----------------------------

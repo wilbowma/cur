@@ -122,7 +122,7 @@
   ;; TODO: ntt-match(-define) to hide this extra argument. Maybe also add ntt- to constructors in pattern?
   (match-define (ntt-hole _ goal) pt)
   (ntac-match goal
-   [(~Π/1 (x:id : P:expr) body:expr)
+   [(~Π (x:id : P:expr) body:expr)
     (let ()
       (define the-name (or name #'x))
       (make-ntt-apply
@@ -194,7 +194,7 @@
   (define (obvious ctxt pt)
     (match-define (ntt-hole _ goal) pt)
     (ntac-match goal
-      [(~Π/1 (a : P) body)
+      [(~Π (a : P) body)
        ((intro) ctxt pt)]
       [a:id
        (assumption ctxt pt)]))
