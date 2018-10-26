@@ -1,18 +1,33 @@
 #lang turnstile/lang
 (require turnstile/more-utils
+         (for-syntax turnstile/more-utils)
          "dep-ind-cur2.rkt")
 
 ;; dep-ind-cur2 library, adding some sugar like auto-currying
 
-(provide →
- (rename-out [λ/c λ] [app/c #%app] [app/eval/c app/eval] [define/c define]
-             [→ ->] [Π Pi] [Π ∀] [Π forall] [λ/c lambda]))
+(provide → (for-syntax (rename-out [~Π/c ~Π]))
+ (rename-out [Π/c Π] [λ/c λ] [app/c #%app] [app/eval/c app/eval] [define/c define]
+             [→ ->] [Π/c Pi] [Π/c ∀] [Π/c forall] [λ/c lambda]))
+
+(define-nested/R Π/c Π)
+
+(begin-for-syntax
+  ;; curried expander
+  (define-syntax ~Π/c
+    (pattern-expander
+     (syntax-parser
+       [(_ t) #'t]
+       [(_ (~var b x+τ) t_out) #'(~Π b t_out)]
+       [(_ (~var b x+τ) (~and (~literal ...) ooo) t_out)
+        #'(~and TMP
+                (~parse ([b.x (~datum :) b.τ] ooo t_out)
+                        (stx-parse/fold #'TMP (~Π b rst))))]))))
 
 ;; abbrevs for Π/c
 ;; (→ τ_in τ_out) == (Π (unused : τ_in) τ_out)
 (define-simple-macro (→ τ_in ... τ_out)
   #:with (X ...) (generate-temporaries #'(τ_in ...))
-  (Π [X : τ_in] ... τ_out))
+  (Π/c [X : τ_in] ... τ_out))
 ;; ;; (∀ (X) τ) == (∀ ([X : Type]) τ)
 ;; (define-simple-macro (∀ X ...  τ)
 ;;   (Π [X : Type] ... τ))

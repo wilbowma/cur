@@ -174,7 +174,7 @@
      #:do [(when debug-reflect? (displayln (format "Type stx class: ~a\n\n" (syntax->datum this-syntax))))]
      #'(cur-Type i)]
     [(#%plain-lambda (x:id) body)
-     #:with (~Π/1 (y : t) _) (syntax-property syn ':)
+     #:with (~Π (y : t) _) (syntax-property syn ':)
      #:do [(when debug-reflect?(displayln (format "lambda: ~a\n\n" (syntax->datum this-syntax))))]
      #`(cur-λ (x : #,(cur-reflect #'t)) #,(cur-reflect #'body))]
     [pi:expanded-Π
@@ -200,7 +200,7 @@
 
 (define-syntax-class expanded-Π #:attributes (arg τ_arg body)
   #:commit
-  (pattern (~Π/1 (x : arg-type) body-type)
+  (pattern (~Π (x : arg-type) body-type)
            #:attr arg #'x
            #:attr τ_arg #'arg-type
            #:attr body #'body-type))
@@ -272,36 +272,31 @@
   ))
 
 (define (uncurry TY ty) ; uncurry, so long as ty is a TY type
+ ; (printf "uncurry: ~a\n" (syntax->datum ty))
   (syntax-parse ty
     [((~literal #%plain-app)
       TY2:id tyin
-      ((~literal #%plain-lambda) (X) ((~literal #%plain-app) (~literal list) body)))
+      ((~literal #%plain-lambda) (X) body))
      #:when (free-identifier=? TY #'TY2)
      #`([X : #,(cur-pretty-print #'tyin)] . #,(uncurry TY #'body))]
     [_ (list (cur-pretty-print ty))]))
 
 (define pretty-print-type
   (syntax-parser
- ;   [t #:do[(printf "printing type: ~a\n" (syntax->datum #'t))] #:when #f #'debugging]
+;   [t #:do[(printf "printing type: ~a\n" (syntax->datum #'t))] #:when #f #'debugging]
     [X:id #'X]
     [(~Type _) #'Type]
-    [((~literal #%plain-app) ; no binders, no args
-      TY:id
-      ((~literal #%plain-app) (~literal list)))
-     #'TY]
-    [((~literal #%plain-app) ; no binders
-      TY:id
-      ((~literal #%plain-app) (~literal list) ty ...))
-     #`(TY #,@(stx-map cur-pretty-print #'(ty ...)))]
-    [(~and ; binding types, uncurry
-      ty
-      ((~literal #%plain-app) TY:id _ ... ((~literal #%plain-lambda) . _)))
-     #`(TY . #,(uncurry #'TY #'ty))]))
+    [(~and ty ; binding types, uncurry it
+      ((~literal #%plain-app) TY:id _ ((~literal #%plain-lambda) . _)))
+     #`(TY . #,(uncurry #'TY #'ty))]
+    [((~literal #%plain-app) TY:id) #'TY] ; no binders, no args
+    [((~literal #%plain-app) TY:id ty ...) ; no binders
+     #`(TY #,@(stx-map cur-pretty-print #'(ty ...)))]))
 
 (define Type?
   (syntax-parser
-    [((~literal #%plain-app) _:id _ ((~literal #%plain-lambda) (_:id) . _)) #t]
-    [((~literal #%plain-app) _:id ((~literal #%plain-app) (~literal list) . _)) #t]
+    [((~literal #%plain-app) _:id _ ((~literal #%plain-lambda) (_:id) _)) #t]
+    [((~literal #%plain-app) _:id . _) #t]
     [(~Type _) #t]
     [_ #f]))
 

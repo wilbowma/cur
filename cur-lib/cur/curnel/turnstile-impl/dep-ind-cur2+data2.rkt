@@ -1,5 +1,5 @@
 #lang turnstile/lang
-(require (except-in "dep-ind-cur2.rkt" λ #%app)
+(require (except-in "dep-ind-cur2.rkt" λ #%app Π ~Π)
          (except-in "dep-ind-cur2+sugar.rkt" define)
          (only-in "dep-ind-cur2+data.rkt" [define-datatype define-datatype1])
          turnstile/eval turnstile/typedefs turnstile/more-utils)

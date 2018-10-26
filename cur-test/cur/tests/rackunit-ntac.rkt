@@ -1,6 +1,6 @@
 #lang racket/base
 
-(provide check-ntac-trace)
+(provide check-ntac-trace ntac/trace)
 
 (require (for-syntax racket/base
                      racket/port
