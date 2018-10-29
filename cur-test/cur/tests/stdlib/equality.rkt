@@ -7,6 +7,14 @@
  cur/stdlib/equality
  rackunit/turnstile)
 
+(check-type PM-sym : (∀ [A : Type] [x : A] [y : A]
+                        (-> (== A x y)
+                            (== A y x))))
+
+(check-type PM-trans : (∀ [A : Type] [x : A] [y : A] [z : A]
+                        (-> (== A x y) (== A y z)
+                            (== A x z))))
+
 (check-type
  (elim ML-= (λ (x : Bool) (y : Bool) (p : (ML-= Bool x y)) Nat)
        ((λ (x : Bool) z))

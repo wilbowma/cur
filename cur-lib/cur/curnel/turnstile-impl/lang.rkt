@@ -25,7 +25,8 @@
                   current-type-eval expand/df)
          turnstile/eval
          turnstile/typedefs
-         (for-syntax macrotypes/stx-utils syntax/stx))
+         (for-syntax macrotypes/stx-utils syntax/stx
+                     (for-syntax racket/base syntax/parse)))
 (provide (all-from-out turnstile/base turnstile/eval turnstile/typedefs))
 
 (require "dep-ind-cur2+data2.rkt")
@@ -38,12 +39,19 @@
 (provide data elim new-elim)
 
 (begin-for-syntax
+  (define-syntax ~Π/unexpanded
+    ;; TODO: make these ~literal
+    (let ([out-pat #'(~or (~datum Π) (~datum Pi) (~datum ∀) (~datum forall))])
+      (pattern-expander
+       (syntax-parser
+         [:id out-pat]
+         [(_ . rst) #`(#,out-pat . rst)]))))
   (define (take-Π t n)
     (syntax-parse t
-      [((~and (~datum Π) P) [x:id (~and (~datum :) tag) τ] ... ; sugared stx
-                              (~and (~not [_ (~datum :) _])
-                                    (~not ((~datum Π) . _))
-                                    tout))
+      [((~and ~Π/unexpanded P) [x:id (~and (~datum :) tag) τ] ... ; sugared stx
+                               (~and (~not [_ (~datum :) _])
+                                     (~not (~Π/unexpanded . _))
+                                     tout))
        (list (stx-take #'([x τ] ...) n)
              #`(P #,@(stx-drop #'([x tag τ] ...) n) tout))]
       [_                                           ; nested stx
@@ -51,19 +59,19 @@
          (if (zero? n)
              (list (reverse As) ty)
              (syntax-parse ty
-               [((~datum Π) [x : τ] rst)
+               [(~Π/unexpanded [x : τ] rst)
                 (L (cons #'[x τ] As) #'rst (sub1 n))])))]))
   (define (split-Π t)
     (syntax-parse t
-      [((~datum Π) [x:id (~datum :) τ] ... ; sugared stx
+      [(~Π/unexpanded [x:id (~datum :) τ] ... ; sugared stx
                      (~and (~not [_ (~datum :) _])
-                           (~not ((~datum Π) . _))
+                           (~not (~Π/unexpanded . _))
                            tout))
        (list #'([x τ] ...) #'tout)]
       [_                                    ; nested stx
        (let L ([is null] [ty t])
          (syntax-parse ty
-           [((~datum Π) [x : τ] rst)
+           [(~Π/unexpanded [x : τ] rst)
             (L (cons #'[x τ] is) #'rst)]
            [_ (list (reverse is) ty)]))])))
 
