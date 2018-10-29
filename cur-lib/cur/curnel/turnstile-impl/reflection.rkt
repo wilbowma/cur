@@ -117,8 +117,9 @@
 
 (define (cur-normalize syn #:local-env [env '()])
     (let ([evaled (cur-expand syn #:local-env env)])
-    #;(displayln (format "in cur-normalize, syn: ~a, evaled: ~a" syn evaled))
-      (cur-reflect evaled)))
+      #;(displayln (format "in cur-normalize, syn: ~a, evaled: ~a" syn evaled))
+      evaled
+    #;(cur-reflect evaled)))
 
 (define (cur-equal? term1 term2 #:local-env [env '()])
   (let ([term1-evaled (cur-expand term1 #:local-env env)]
