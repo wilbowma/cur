@@ -5,11 +5,12 @@
  "../stdlib/equality.rkt"
  "base.rkt"
  "standard.rkt"
- "../curnel/racket-impl/runtime.rkt"
- "../curnel/racket-impl/type-check.rkt"
-  (for-syntax "utils.rkt"
-              "../curnel/racket-impl/stxutils.rkt"
-              "../curnel/racket-impl/runtime-utils.rkt"
+; "../curnel/racket-impl/runtime.rkt"
+; "../curnel/racket-impl/type-check.rkt"
+  (for-syntax (only-in "utils.rkt" transfer-scopes find-in)
+;              "../curnel/racket-impl/stxutils.rkt"
+   ;              "../curnel/racket-impl/runtime-utils.rkt"
+   (only-in macrotypes/typecheck-core subst substs)
               racket/dict
               racket/match
               syntax/stx
@@ -30,12 +31,6 @@
                                  [by-rewrite/thm/normalized by-rewriteR/thm/normalized])))
 
 (begin-for-syntax
-
-  (define-syntax ~==
-    (pattern-expander
-     (syntax-parser
-       [(_ ty a b)
-        #'(_ (_ (_ (~literal ==) ty) a) b)])))
 
   (define (reflexivity ptz)
     (match-define (ntt-hole _ goal) (nttz-focus ptz))
@@ -233,12 +228,12 @@
            ;; prevent accidental capture (why is this needed?)
            (~parse xs* (generate-temporaries #'(x0 ...)))
            ;; instantiate the left/right components of the thm with es
-           (~parse L (subst* (syntax->list #'es)
+           (~parse L (substs (syntax->list #'es)
                              (syntax->list #'xs*)
-                             (subst* (syntax->list #'xs*) (syntax->list #'(x0 ...)) #'L/uninst)))
-           (~parse R (subst* (syntax->list #'es)
+                             (substs (syntax->list #'xs*) (syntax->list #'(x0 ...)) #'L/uninst)))
+           (~parse R (substs (syntax->list #'es)
                              (syntax->list #'xs*)
-                             (subst* (syntax->list #'xs*) (syntax->list #'(x0 ...)) #'R/uninst)))))
+                             (substs (syntax->list #'xs*) (syntax->list #'(x0 ...)) #'R/uninst)))))
          (flatten-Π #'nested-∀-thm))))
       ;; set L and R as source/target term, depending on specified direction
       (with-syntax* ([(tgt src) (if left? #'(R L) #'(L R))]
@@ -251,14 +246,14 @@
         (make-ntt-apply
          goal
          (list
-          (make-ntt-hole (subst-term #'src #'tgt goal)))
+          (make-ntt-hole (subst #'src #'tgt goal)))
          (λ (body-pf)
            (quasisyntax/loc goal
              (new-elim
               THM
               (λ [tgt-id : TY]
                 (λ [H : (== TY src tgt-id)]
-                  #,(subst-term #'tgt-id #'tgt goal)))
+                  #,(subst #'tgt-id #'tgt goal)))
               #,body-pf)))))]))
 
   (define ((replace ty_ from_ to_) ctxt pt)
@@ -271,7 +266,7 @@
       (make-ntt-apply
        goal
        (list
-        (make-ntt-hole (subst-term to from goal))
+        (make-ntt-hole (subst to from goal))
         (make-ntt-hole (quasisyntax/loc goal (== #,ty #,to #,from))))
        (lambda (body-pf arg-pf)
          (quasisyntax/loc goal
@@ -280,7 +275,7 @@
                H
                (λ [tgt-id : #,ty]
                  (λ [H : (== #,ty #,to tgt-id)]
-                   #,(subst-term #'tgt-id from goal)))
+                   #,(subst #'tgt-id from goal)))
                #,body-pf))
             #,arg-pf))))))
 

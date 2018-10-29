@@ -93,16 +93,16 @@
 
 (begin-for-syntax
 
-  (define ((assert H ty_) ctxt pt)
+  (define ((assert H ty) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
 
     ;; ty_ has the wrong scopes (bc of eval I think)
     ;; workaround by transferring scopes from goal (except for bindings in ctx)
-    (define ty (transfer-scopes goal ty_ ctxt))
+;    (define ty (transfer-scopes goal ty_ ctxt))
     (make-ntt-apply
      goal
      (list
-      (make-ntt-hole ty)
+      (make-ntt-hole (cur-normalize ty #:local-env (ctxt->env ctxt)))
       (make-ntt-context
        (λ (old-ctxt)
          (dict-set old-ctxt H ty))
