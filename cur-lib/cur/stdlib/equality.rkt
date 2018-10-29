@@ -1,67 +1,44 @@
 #lang s-exp "../main.rkt"
 
+(provide == refl elim-== PM-sym PM-trans
+         ML-= ML-refl elim-ML-=
+         (for-syntax ~== ~ML-= (rename-out [~== ~PM-=]))
+         (rename-out [== PM-=]
+                     [refl PM-refl]
+                     [elim-== elim-PM-=]
+                     [PM-sym sym]
+                     [PM-trans trans]))
 
 (require "sugar.rkt")
-(provide PM-= PM-refl PM-sym PM-trans ML-= ML-refl
-         elim-ML-= elim-PM-=
-         (rename-out
-          [PM-= ==]
-          [PM-refl refl]
-          [PM-sym sym]
-          [PM-trans trans]))
 
 ; Paulin-Mohring (coq) equality
-(define-datatype PM-= [A : (Type 0)] [a : A] : [b : A] -> (Type 0)
-  (PM-refl : -> (PM-= A a a)))
-#;(data PM-= : 2 (forall (A : Type) (x : A) [y : A] Type)
-  (PM-refl : (forall (A : Type) (x : A) (PM-= A x x))))
+(data == : 2 (forall (A : Type) (x : A) (y : A) Type)
+  (refl : (forall (A : Type) (x : A) (== A x x))))
 
 ;; pm symmetry
 (define PM-sym
-  (λ [A : (Type 0)]
+  (λ [A : Type]
     (λ [x : A] [y : A]
-       (λ [e : (PM-= A x y)]
-         (elim-PM-=
+       (λ [e : (== A x y)]
+         (new-elim
           e
           (λ [b : A]
-            (λ [e2 : (PM-= A x b)]
-              (PM-= A b x)))
-          (PM-refl A x))))))
-#;(define PM-sym
-  (λ [A : Type]
-    (λ [n : A] [m : A]
-     (λ [n=m : (PM-= A n m)]
-       (new-elim
-        n=m
-        (λ [m : A]
-           (λ [n=m : (PM-= A n m)]
-             (PM-= A m n)))
-        (PM-refl A n))))))
+            (λ [e2 : (== A x b)]
+              (== A b x)))
+          (refl A x))))))
 
 ;; pm transitivity (using pm-sym)
 (define PM-trans
- (λ [A : (Type 0)]
+ (λ [A : Type]
    (λ [x : A] [y : A] [z : A]
-      (λ [e1 : (PM-= A x y)] [e2 : (PM-= A y z)]
-         (elim-PM-=
+      (λ [e1 : (== A x y)] [e2 : (== A y z)]
+         (new-elim
           (PM-sym A x y e1)
           (λ [b : A]
-            (λ [e : (PM-= A y b)]
-              (PM-= A b z)))
+            (λ [e : (== A y b)]
+              (== A b z)))
           e2)))))
-#;(: PM-trans (-> (A : Type) (a : A) (b : A) (c : A)
-                (PM-= A a b) (PM-= A b c)
-                (PM-= A a c)))
-#;(define (PM-trans A a b c H1 H2)
-  ((new-elim
-    H1
-    (λ [b : A] [a=b : (PM-= A a b)]
-       (-> (PM-= A b c) (PM-= A a c)))
-    (λ (H3 : (PM-= A a c)) H3)) H2))
 
 ;; Martin-Lof equality, I think
-(define-datatype ML-= [A : (Type 0)] : [a : A] [b : A] -> (Type 0)
-  (ML-refl : [a : A] -> (ML-= A a a)))
-
-#;(data ML-= : 1 (forall (A : Type) (x : A) (-> A Type))
-      (ML-refl : (forall (A : Type) (x : A) (ML-= A x x))))
+(data ML-= : 1 (forall (A : Type) (x : A) (y : A) Type)
+  (ML-refl : (forall (A : Type) (x : A) (ML-= A x x))))
