@@ -1,7 +1,7 @@
 #lang cur
 
 (require
- "rackunit-ntac.rkt"
+ "ntac/rackunit-ntac.rkt"
  rackunit/turnstile
  cur/stdlib/nat
  cur/stdlib/bool
