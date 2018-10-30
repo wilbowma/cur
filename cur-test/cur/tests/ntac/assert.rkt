@@ -5,7 +5,7 @@
          cur/ntac/base
          cur/ntac/standard
          cur/ntac/rewrite
-         "../rackunit-ntac.rkt")
+         "rackunit-ntac.rkt")
 
 ;; basic assert examples
 
