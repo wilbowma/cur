@@ -8,11 +8,12 @@
  "../stdlib/equality.rkt"
  "base.rkt"
  "standard.rkt"
- "../curnel/racket-impl/runtime.rkt"
- "../curnel/racket-impl/type-check.rkt"
+; "../curnel/racket-impl/runtime.rkt"
+; "../curnel/racket-impl/type-check.rkt"
  (for-syntax "utils.rkt"
+             (only-in macrotypes/typecheck-core subst substs)
              "../curnel/racket-impl/stxutils.rkt"
-             "../curnel/racket-impl/runtime-utils.rkt"
+ ;            "../curnel/racket-impl/runtime-utils.rkt"
              racket/dict
              racket/match
              (for-syntax racket/base syntax/parse)))
@@ -31,16 +32,10 @@
 
 (begin-for-syntax
 
-  (define-syntax ~==
-    (pattern-expander
-     (syntax-parser
-       [(_ ty a b)
-        #'(_ (_ (_ (~literal ML-=) ty) a) b)])))
-
   (define (reflexivity ptz)
     (match-define (ntt-hole _ goal) (nttz-focus ptz))
     (ntac-match goal
-     [(~== ty a b) ((fill (exact #'(ML-refl ty a))) ptz)]))
+     [(~ML-= ty a b) ((fill (exact #'(ML-refl ty a))) ptz)]))
 
   ;; rewrite tactics ----------------------------------------------------------
 
@@ -128,7 +123,7 @@
     (ntac-match H
      [(~or
        ; already-instantiated thm
-       (~and (~== TY L R)
+       (~and (~ML-= TY L R)
              (~parse es es_)) ; es should be #'()
        ; ∀ thm, instantiate with given es
        (~and
@@ -138,7 +133,7 @@
           [x0:id _ ty0] ... ; flattened bindings
           (~and
            (~or ((~literal ML-=) TY L_ R_)  ; unexpanded ML-=
-                (~== TY L_ R_)) ; expanded ML-=
+                (~ML-= TY L_ R_)) ; expanded ML-=
            ;; TODO: why are the scopes on es_ not right? bc of eval?
            ;; - eg, they dont see the intros
            ;; - WORKAROUND for now: manually add them, creating es
@@ -174,12 +169,12 @@
            ;; prevent accidental capture (why is this needed?)
            (~parse xs* (generate-temporaries #'(x0 ...)))
            ;; instantiate the left/right components of the thm with es
-           (~parse L (subst* (syntax->list #'es)
+           (~parse L (substs (syntax->list #'es)
                              (syntax->list #'xs*)
-                             (subst* (syntax->list #'xs*) (syntax->list #'(x0 ...)) #'L_)))
-           (~parse R (subst* (syntax->list #'es)
+                             (substs (syntax->list #'xs*) (syntax->list #'(x0 ...)) #'L_)))
+           (~parse R (substs (syntax->list #'es)
                              (syntax->list #'xs*)
-                             (subst* (syntax->list #'xs*) (syntax->list #'(x0 ...)) #'R_)))))
+                             (substs (syntax->list #'xs*) (syntax->list #'(x0 ...)) #'R_)))))
          (flatten-Π #'nested-∀-thm))))
       ;; set a_ and b_ as source/target term, depending on specified direction
       (with-syntax* ([(tgt src) (if left? #'(R L) #'(L R))]

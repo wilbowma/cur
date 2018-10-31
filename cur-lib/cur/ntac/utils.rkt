@@ -21,6 +21,12 @@
     [else ; literals and non-ctxt ids
      (datum->syntax src (syntax->datum stx))]))
 
+(define (transfer-type from to)
+  (syntax-property
+   to
+   ':
+   (syntax-property from ':)))
+
 #;(require racket/contract)
 (define (stx=? e1 e2 [id=? free-identifier=?])
   #;(->* (syntax? syntax?) ((-> identifier? identifier? boolean?)) boolean?)
@@ -63,7 +69,13 @@
                      (not (free-id-set-member? bvs #'e))))
      v]
     [((~and (~datum λ) lam) (z:id : ty) e)
-     #`(lam (z : #,(subst-term v e0 #'ty bvs)) #,(subst-term v e0 #'e (free-id-set-add bvs #'z)))]
+     (transfer-type
+      syn
+      #`(lam (z : #,(subst-term v e0 #'ty bvs))
+         #,(subst-term v e0 #'e (free-id-set-add bvs #'z))))]
     [(e ...)
-     (datum->syntax syn (map (λ (e1) (subst-term v e0 e1 bvs)) (attribute e)))]
+     (transfer-type
+      syn
+      (datum->syntax syn
+        (map (λ (e1) (subst-term v e0 e1 bvs)) (attribute e))))]
     [_ syn]))
