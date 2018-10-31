@@ -143,7 +143,7 @@
     #'(begin-
         ;; define the type
         (define-type TY : [A Atag τA] ... [i itag τi] ... -> τ
-          #:extra elim-TY (([i+x τin] ...) ((xrec irec ...) ...)) ...)
+          #:extra elim-TY (C ([i+x τin] ...) ((xrec irec ...) ...)) ...)
 
         ;; define the data constructors
         (define-data-constructor C : [AxC AtagxC τAxC] ... [i+x i+xtag τin] ... -> τout) ...
@@ -187,7 +187,7 @@
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (P- i* ... v-)]
 
-          #:where eval-TY ; elim reduction rule
+          #:where eval-TY #:display-as elim-TY ; elim reduction rule
           [(#%plain-app (C-expander AxC ... i+x ...) P m ...) ; elim redex
            ~> (app/eval m i+x ... (eval-TY xrec P m ...) ...)] ...)
         )
