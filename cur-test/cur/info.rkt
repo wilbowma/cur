@@ -3,7 +3,6 @@
 (define compile-omit-paths 'all)
 (define test-omit-paths
   '("tests/curnel/"
-    "tests/ntac/destruct.rkt"
     "tests/ntac/Induction-no-Basics.rkt"
     "tests/ntac/leb.rkt"
     "tests/ntac/ML-reflexivity.rkt"

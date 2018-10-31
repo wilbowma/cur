@@ -1,15 +1,16 @@
 #lang s-exp "../main.rkt"
 (require
  (for-syntax "utils.rkt"
-             "../curnel/racket-impl/stxutils.rkt"
              (only-in macrotypes/stx-utils stx-appendmap)
+             (only-in macrotypes/typecheck-core subst substs)
              racket/match
              racket/dict
              racket/list
+             syntax/stx
              (for-syntax racket/base))
  "../stdlib/sugar.rkt"
  "../curnel/turnstile-impl/reflection.rkt" ; simpl needs cur-normalize
- "../curnel/racket-impl/runtime.rkt" ; destruct needs constant-info
+  "../curnel/racket-impl/runtime.rkt" ; destruct needs constant-info
  "base.rkt")
 
 (begin-for-syntax
@@ -229,22 +230,12 @@
 
   (define ((destruct name [param-namess #f]) ctxt pt)
     (define name-ty (dict-ref ctxt name))
-    (define c-info (syntax-local-eval name-ty))
+    (define/syntax-parse (_ [C ([_ τ] ...) _] ...) (get-match-info name-ty))
 
-    (define Cs
-      (constant-info-constructor-ls c-info))
-    (define C-types
-      (map
-       identifier-info-type
-       (map syntax-local-eval Cs)))
-    (define paramss
-      (if param-namess
-          (syntax->list param-namess)
-          (map (λ _ #'()) Cs))
-      ;; TODO: verify param-namess against result of constant-info-index-name-ls
-      #;(map constant-info-index-name-ls (map syntax-local-eval Cs)))
+    (define Cs #'(C ...))
+    (define paramss (or param-namess (stx-map (λ _ #'()) Cs)))
     (define pats
-      (map
+      (stx-map
        (λ (C ps)
          (if (null? (syntax->list ps))
              C
@@ -255,100 +246,33 @@
 
     (make-ntt-apply
      goal
-     (map
-      (λ (pat C-type params)
+     (stx-map
+      (λ (pat C-types params)
         (make-ntt-context
          (λ (old-ctxt)
-           (foldr
-            dict-set/flip
-            old-ctxt
-            (syntax->list params)
-            (pi->anns C-type)))
-         (make-ntt-hole
-          (subst pat name goal))))
-      pats
-      C-types
-      paramss)
-     (λ pfs
-       (quasisyntax/loc goal
-         (match #,name #:in #,name-ty #:return #,goal
-                . #,(map
-                     (λ (pat pf) #`[#,pat #,pf])
-                     pats
-                     pfs))))))
-
-  ;; same as by-destruct except uses `new-elim` instead of `match`
-  (define-syntax (by-destruct/elim syn)
-    (syntax-case syn ()
-      [(_ x)
-       #`(fill (destruct/elim #'x))]
-      [(_ x #:as param-namess)
-       #`(fill (destruct/elim #'x #'param-namess))]))
-
-  ;; TODO: combine this with induction (below)
-  (define ((destruct/elim name [param-namess #f]) ctxt pt)
-    (define name-ty (dict-ref ctxt name))
-    (define c-info (syntax-local-eval name-ty))
-
-    (define Cs
-      (constant-info-constructor-ls c-info))
-    (define C-infos (map syntax-local-eval Cs))
-    (define C-types (map identifier-info-type C-infos))
-
-    (define paramss
-      (if param-namess
-          (syntax->list param-namess)
-          (map (λ _ #'()) Cs))
-      ;; TODO: verify param-namess against result of constant-info-index-name-ls
-      #;(map constant-info-index-name-ls (map syntax-local-eval Cs)))
-    (define pats
-      (map
-       (λ (C ps)
-         (if (null? (syntax->list ps))
-             C
-             #`(#,C . #,ps)))
-       Cs paramss))
-
-    (match-define (ntt-hole _ goal) pt)
-
-    (make-ntt-apply
-     goal
-     (map
-      (λ (pat C-type params)
-        (make-ntt-context
-         (lambda (old-ctxt)
-           ; drop `name` from ctxt
-           (dict-remove
+           (dict-remove ; dont need the destructed term in env for subgoals
             (foldr
              dict-set/flip
              old-ctxt
              (syntax->list params)
-             (pi->anns C-type))
+             (syntax->list C-types))
             name))
          (make-ntt-hole
-          (subst pat name goal))))
+          (cur-normalize
+           (reflect (subst pat name goal))
+           #:local-env (ctxt->env ctxt)))))
       pats
-      C-types
+      #'((τ ...) ...)
       paramss)
      (λ pfs
        (quasisyntax/loc goal
-         (new-elim #,name
-                   (λ [#,name : #,name-ty] #,goal)
-                   .
-                   #,(map
-                      ;; TODO: add IHs?
-                      (λ (params C-type pf)
-                        (if (null? (syntax->list params))
-                            pf
-                            #`(λ #,@(map
-                                     (λ (p ty) #`[#,p : #,ty])
-                                     (syntax->list params)
-                                     (pi->anns C-type))
-                                #,pf)))
-                      paramss
-                      C-types
-                      pfs))))))
+         (match #,name #:as #,name #:in #,name-ty #:return #,goal
+                . #,(stx-map
+                     (λ (pat pf) #`[#,pat #,pf])
+                     pats
+                     pfs))))))
 
+  ;; TODO: fixme, see destruct
   ;; copied from by-destruct/elim
   (define-syntax (by-induction syn)
     (syntax-case syn ()

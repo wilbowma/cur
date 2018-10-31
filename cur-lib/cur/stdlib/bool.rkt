@@ -1,7 +1,9 @@
 #lang s-exp "../main.rkt"
 (require "sugar.rkt")
 
-(provide Bool true false if not and or)
+(provide Bool elim-Bool true false
+         (for-syntax ~true ~false)
+         if not and or)
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
