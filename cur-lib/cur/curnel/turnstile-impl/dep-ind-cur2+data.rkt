@@ -131,7 +131,7 @@
    [≻ (begin-
         ;; define the type, eg "Nat"
         #,(syntax/loc #'TY
-            (define-type TY : τ #:extra elim-TY (([x τin] ...) ((xrec) ...)) ...))
+            (define-type TY : τ #:extra elim-TY (C ([x τin] ...) ((xrec) ...)) ...))
 
         ;; define the data constructors, eg Z and S
         #,@(for/list ([C (attribute C)]
@@ -152,7 +152,7 @@
           [⊢ m ≫ m- ⇐ τm] ...
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (P- v-)]
-          #:where eval-TY ; elim reduction rule
+          #:where eval-TY #:display-as elim-TY ; elim reduction rule
           [(#%plain-app (C-expander x ...) P m ...) ; elim redex
            ~> (app/eval m x ... (eval-TY xrec P m ...) ...)] ...)
         )]]
@@ -275,7 +275,7 @@
           [⊢ m ≫ m- ⇐ τm] ...
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (P- i ... v-)]
-          #:where eval-TY ; elim reduction rule
+          #:where eval-TY #:display-as elim-TY ; elim reduction rule
           [(#%plain-app (C-expander CA ... i+x ...) P m ...) ; elim redex
            ~> (app/eval m i+x ... (eval-TY xrec P m ...) ...)] ...)
         )

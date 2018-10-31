@@ -31,11 +31,11 @@
     (syntax-parse (list ty clause)
       [(_ [x:id body]) #'body] ; no subst, bc x is just nullary constructor
       ;; TODO: combine the following 4 cases
-      [((([y:id τin] ...) ()) ; no rec, no anno
+      [((_ ([y:id τin] ...) ()) ; no rec, no anno
         [(con:id x:id ...) body])
        #:with body* (substs #'(y ...) #'(x ...) #'body)
        #`(λ [y : τin] ... body*)]
-      [((([y:id τin] ...) ()) ; no rec, with anno
+      [((_ ([y:id τin] ...) ()) ; no rec, with anno
         [(con:id [x:id tag:id ty] ...) body])
        ;; TODO: for this to work, must inst τin
        ;; - add params to extra info?
@@ -43,12 +43,12 @@
        ;;                "match: pattern annotation type mismatch"
        #:with body* (substs #'(y ...) #'(x ...) #'body)
        #`(λ [y : ty] ... body*)]
-      [((([y:id τin] ...) ((yrec))) ; rec, no anno
+      [((_ ([y:id τin] ...) ((yrec))) ; rec, no anno
         [(con:id x:id ...) body])
        #:with yrec* (generate-temporary #'yrec)
        #:with body* (substs #'(y ...) #'(x ...) #'body)
        #`(λ [y : τin] ... [yrec* : #,τout] body*)]
-      [((([y:id τin] ...) ((yrec))) ; rec, with anno
+      [((_ ([y:id τin] ...) ((yrec))) ; rec, with anno
         [(con:id [x:id tag:id ty] ...) body])
        ;; TODO: for this to work, must inst τin
        ;; - add params to extra info?
@@ -61,9 +61,21 @@
 ;; TODO:
 ;; - for now, explicit #:return arg required
 ;; - assuming clauses appear in order
-(define-typed-syntax (match e #:return τout . clauses) ≫
-;  #:do[(printf "matching ~a\n" this-syntax)]
-  [⊢ e ≫ e- ⇒ τin]
+;; - must use #:as for return type that uses `e`
+(define-typed-syntax match
+  [(_ e (~optional (~seq #:as x) #:defaults ([x #'x])) #:return τout . clauses) ≫
+   [⊢ e ≫ e- ⇒ τin]
+   -----
+   [≻ (match+ e- #:as x #:in τin #:return τout . clauses)]]
+  [(_ e (~optional (~seq #:as x) #:defaults ([x #'x])) #:in τin #:return τout . clauses) ≫
+   [⊢ e ≫ e- ⇐ τin]
+   -----
+   [≻ (match+ e- #:as x #:in #,(typeof #'e-) #:return τout . clauses)]])
+
+(require (for-syntax racket/pretty))
+;; the main match form
+;; e- and τin already expanded
+(define-typed-syntax (match+ e #:as x #:in τin #:return τout . clauses) ≫
   #:do[(define exinfo (get-match-info #'τin))]
 ;  #:do[(displayln exinfo)]
   #:fail-unless exinfo (format "could not infer extra info from type ~a" (stx->datum #'τ))
@@ -88,7 +100,8 @@
 ;;                         #'elim-Name
 ;;                         (datum->syntax this-syntax (syntax->datum #'elim-Name)))
 ;; ;  #:do[(displayln (identifier-binding #'elim-Name*))]
-  #:with out #'(elim-Name e- (λ [x : τin] τout) m ...)
+  #:with out (quasisyntax/loc this-syntax
+               (elim-Name e (λ [x : τin] τout) m ...))
 ;  #:do[(pretty-print (syntax->datum #'out))]
   ------------
   [≻ out])
@@ -158,7 +171,7 @@
             [≻ ((λ [x : ty_in1] ... [x0 : ty-to-match] ... [y : ty_in2] ...
                   (name x ... x0 ... y ...))
                 arg (... ...))]])
-         (define-red name-eval [red-pat ~> body] ...))
+         (define-red name-eval #:display-as name [red-pat ~> body] ...))
 ;     #:do[(pretty-print (syntax->datum #'OUT))]
      #'OUT]))
             
