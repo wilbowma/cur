@@ -6,9 +6,10 @@
          cur/stdlib/nat
          cur/ntac/base
          cur/ntac/standard
-         cur/ntac/ML-rewrite)
+         cur/ntac/ML-rewrite
+         "rackunit-ntac.rkt")
 
-;; tests rewrite/thm
+;; tests rewrite
 
 ;;plus-0-n raw term
 (define plus-0-n-term  (λ [n : Nat] (refl Nat n)))
@@ -24,7 +25,7 @@
 
 
 ;; mult-0-plus
-;; - uses rewrite/thm
+;; - uses rewrite
 ;; raw term
 
 (::
@@ -60,7 +61,7 @@
 (define-theorem mult-0-plus
   (∀ [n : Nat] [m : Nat]
      (== Nat (mult (plus 0 n) m) (mult n m)))
+  (by-intro n)
   by-intro
-  by-intro
-  (by-rewrite/thm plus-0-n n)
+  (by-rewrite plus-0-n n)
   reflexivity)

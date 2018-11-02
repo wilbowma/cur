@@ -6,23 +6,19 @@
          cur/ntac/base
          cur/ntac/standard
          cur/ntac/ML-rewrite
-         rackunit)
+         rackunit/turnstile)
 
-;; example that needs double recursion
-(define (leb [n : Nat])
-  (match n #:in Nat #:return (-> Nat Bool)
-    [z
-     (λ [m : Nat] true)]
-    [(s n*)
-     (λ [m : Nat]
-       (match m #:in Nat #:return Bool
-         [z false]
-         [(s m*) ((leb n*) m*)]))]))
+;; <= (example needing recursion on more than on arg)
+(define/rec/match leb : Nat Nat -> Bool
+  [z z => true]
+  [z (s _) => true]
+  [(s _) z => false]
+  [(s n-1) (s m-1) => (leb n-1 m-1)])
 
-(check-equal? ((leb 2) 2) true)
-(:: ((leb 2) 2) Bool)
-(:: (ML-refl Bool true)
-    (ML-= Bool (leb 2 2) true))
+(check-type ((leb 2) 2) : Bool -> true)
+(check-type ((leb 2) 2) : Bool)
+(check-type (ML-refl Bool true)
+            : (ML-= Bool (leb 2 2) true))
 
 (define-theorem test-leb1
   (ML-= Bool (leb 2 2) true)

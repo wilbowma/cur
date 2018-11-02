@@ -7,7 +7,9 @@
          cur/stdlib/nat
          cur/ntac/base
          cur/ntac/standard
-         cur/ntac/ML-rewrite)
+         cur/ntac/ML-rewrite
+;         rackunit/turnstile
+         "rackunit-ntac.rkt")
 
 ;; separate tests for rewrite tactic
 

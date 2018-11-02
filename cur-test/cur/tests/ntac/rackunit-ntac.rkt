@@ -1,8 +1,13 @@
 #lang racket/base
 
-(provide check-ntac-fail check-ntac-trace ntac/trace)
+;; this file contains shim test forms for old cur test files,
+;; and some new test forms, eg check-ntac-trace
+
+(provide check-ntac-fail check-ntac-trace ntac/trace :: check-equal?)
 
 (require rackunit
+         (only-in rackunit/turnstile check-type)
+         syntax/parse/define
          (for-syntax racket/base
                      racket/port
                      racket/string
@@ -12,6 +17,8 @@
                      macrotypes/stx-utils)
          (only-in cur/ntac/base ntac)
          (only-in cur/ntac/standard exn:fail:ntac:goal?))
+
+(define-simple-macro (:: e t) (check-type e : t))
 
 (define-syntax check-ntac-fail
   (syntax-parser

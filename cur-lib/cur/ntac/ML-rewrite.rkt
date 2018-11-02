@@ -17,6 +17,7 @@
  (for-syntax "utils.rkt"
              (only-in macrotypes/typecheck-core subst substs)
              macrotypes/stx-utils
+             cur/curnel/turnstile-impl/stxutils
              racket/dict
              racket/match
              (for-syntax racket/base syntax/parse)))
@@ -58,7 +59,8 @@
   ;; - if left? = #t, flip and replace "R" with "L" (ie coq rewrite <-)
   (define ((rewrite name #:left? [left? #f] #:inst-args [inst-args #'()]) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
-    (ntac-match (or (dict-ref ctxt name #f) ; thm in ctx
+    (define local-thm? (dict-ref ctxt name #f))
+    (ntac-match (or local-thm? ; thm in ctx
                     (typeof (expand/df name))) ; prev proved thm
      [(~or
        (~ML-= TY L R) ; already-instantiated thm
@@ -79,10 +81,11 @@
         ;; if not ∀ thm, remove name as well, since it can't be used again
         ;; TODO (cur question):
         ;  why is it necessary to manually propagate the unused ids like this?
-        (let* ([used-ids (if (and (identifier? #'tgt) (dict-has-key? ctxt #'tgt))
-                             (if #f (list #'tgt) (list name #'tgt))
-                             (if #f null (list name)))]
-               [unused-ids (foldr stx-remove
+        (let* ([used-ids (if (and (identifier? #'tgt) (dict-has-key? ctxt #'tgt)
+                                  (not (find-in #'tgt #'src))) ; tgt \notin src
+                             (if (not local-thm?) (list #'tgt) (list name #'tgt))
+                             (if (not local-thm?) null (list name)))]
+               [unused-ids (foldr remove-id
                                   (dict-keys ctxt)
                                   (if (and (identifier? #'src) (dict-has-key? ctxt #'src))
                                       (cons #'src used-ids)
@@ -90,11 +93,18 @@
           (make-ntt-apply
            goal
            (list
-            (make-ntt-hole
-             (cur-normalize
-              (reflect
-               (subst-term #'src #'tgt goal))
-              #:local-env (ctxt->env ctxt))))
+            (make-ntt-context
+              (lambda (old-ctxt)
+                ;; TODO (cur question):
+                ;; this is still needed to avoid typecheck errs,
+                ;; try removing this and running plus-id-exercise in ML-rewrite tests
+                ;; - also, it makes display-focus output different from coq
+                (foldr dict-remove/flip old-ctxt used-ids))
+              (make-ntt-hole
+               (cur-normalize
+                (reflect
+                 (subst-term #'src #'tgt goal))
+                #:local-env (ctxt->env ctxt)))))
            (λ (body-pf)
              (quasisyntax/loc goal
                ((new-elim
