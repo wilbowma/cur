@@ -12,7 +12,7 @@
 (define (dict-set/flip k v dict) (dict-set dict k v))
 
 ;; transfer scopes from src to each stxobj in stx, except for ids in ctxt
-(define (transfer-scopes src stx ctxt)
+#;(define (transfer-scopes src stx ctxt)
   (cond
     [(and (identifier? stx) (dict-has-key? ctxt stx)) stx]
     [(pair? (syntax-e stx))
@@ -32,7 +32,14 @@
   #;(->* (syntax? syntax?) ((-> identifier? identifier? boolean?)) boolean?)
   (cond
     [(and (identifier? e1) (identifier? e2))
-     (id=? e1 e2)]
+     (define ref-name1 (syntax-property e1 'reflect))
+     (define ref-name2 (syntax-property e2 'reflect))
+     (define display-name1 (and ref-name1 (syntax-property ref-name1 'display-as)))
+     (define display-name2 (and ref-name2 (syntax-property ref-name2 'display-as)))
+     (or (and ref-name1 ref-name2 (id=? ref-name1 ref-name2))
+         (and ref-name1 (id=? display-name1 e2))
+         (and ref-name2 (id=? e1 display-name2))         
+         (id=? e1 e2))]
     [(and (number? (syntax-e e1)) (number? (syntax-e e2)))
      (= (syntax-e e1) (syntax-e e2))]
     [(and (stx-pair? e1) (stx-pair? e2))

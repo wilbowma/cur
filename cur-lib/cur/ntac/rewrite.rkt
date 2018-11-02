@@ -1,20 +1,5 @@
 #lang s-exp "../main.rkt"
 ;; Rewrite, using PM equality (the "standard" one)
-(require
- "../stdlib/sugar.rkt"
- "../stdlib/equality.rkt"
- "base.rkt"
- "standard.rkt"
-; "../curnel/racket-impl/runtime.rkt"
-; "../curnel/racket-impl/type-check.rkt"
-  (for-syntax "utils.rkt"
-;              "../curnel/racket-impl/stxutils.rkt"
-   ;              "../curnel/racket-impl/runtime-utils.rkt"
-   (only-in macrotypes/typecheck-core subst substs)
-              racket/dict
-              racket/match
-              syntax/stx
-              (for-syntax racket/base syntax/parse)))
 
 (provide (for-syntax reflexivity
                      replace
@@ -22,13 +7,19 @@
                      by-replace
                      by-rewrite
                      by-rewriteL
-                     by-rewrite/thm
-                     by-rewriteL/thm
-                     by-rewrite/thm/normalized
-                     by-rewriteL/thm/normalized
-                     (rename-out [by-rewrite by-rewriteR]
-                                 [by-rewrite/thm by-rewriteR/thm]
-                                 [by-rewrite/thm/normalized by-rewriteR/thm/normalized])))
+                     (rename-out [by-rewrite by-rewriteR])))
+
+(require
+ "../stdlib/sugar.rkt"
+ "../stdlib/equality.rkt"
+ "base.rkt"
+ "standard.rkt"
+  (for-syntax "utils.rkt"
+              (only-in macrotypes/typecheck-core subst substs)
+              racket/dict
+              racket/match
+              syntax/stx
+              (for-syntax racket/base syntax/parse)))
 
 (begin-for-syntax
 
@@ -43,70 +34,21 @@
   (define-syntax (by-rewrite syn)
     (syntax-case syn ()
       [(_ H . es)
-       #`(fill (rewrite #'H #:es #'es))]))
+       #`(fill (rewrite #'H #:inst-args #'es))]))
 
   (define-syntax (by-rewriteL syn)
     (syntax-case syn ()
       [(_ H . es)
-       #`(fill (rewrite #'H #:left? #t #:es #'es))]))
-
-  (define-syntax (by-rewrite/thm syn)
-    (syntax-case syn ()
-      [(_ thm . es)
-       #`(let ([thm-info (syntax-local-eval #'thm)])
-           (fill (rewrite #'thm
-                          #:thm-name (theorem-info-name thm-info)
-                          #:thm (theorem-info-orig thm-info)
-                          #:es #'es)))]))
-
-  (define-syntax (by-rewrite/thm/normalized syn)
-    (syntax-case syn ()
-      [(_ thm . es)
-       #`(let ([thm-info (syntax-local-eval #'thm)])
-           (fill (rewrite #'thm
-                          #:thm-name (theorem-info-name thm-info)
-                          #:thm (cur-reflect (identifier-info-type thm-info))
-                          #:es #'es)))]))
-
-  (define-syntax (by-rewriteL/thm syn)
-    (syntax-case syn ()
-      [(_ thm . es)
-       #`(let ([thm-info (syntax-local-eval #'thm)])
-           (fill (rewrite #'thm
-                          #:thm-name (theorem-info-name thm-info)
-                          #:thm (theorem-info-orig thm-info)
-                          #:es #'es
-                          #:left? #t)))]))
-
-  (define-syntax (by-rewriteL/thm/normalized syn)
-    (syntax-case syn ()
-      [(_ thm . es)
-       #`(let ([thm-info (syntax-local-eval #'thm)])
-           (fill (rewrite #'thm
-                          #:thm-name (theorem-info-name thm-info)
-                          #:thm (cur-reflect (identifier-info-type thm-info))
-                          #:es #'es
-                          #:left? #t)))]))
+       #`(fill (rewrite #'H #:left? #t #:inst-args #'es))]))
 
   ;; internal rewrite tactic --------------------
   ;; - surface tactics all defined in terms of this one
-
-  (define (flatten-Π p)
-    (let loop ([p p][binds null])
-      (syntax-parse p
-        [(_ (~and b [_:id (~datum :) ty]) rst)
-         (loop #'rst (cons #'b binds))] ; unexpanded
-        #;[(plain-app Π ty (plain-lam (x:id) rst))
-         (loop #'rst (cons #'[x : ty] binds))] ; expanded
-        [body
-         #`(Π #,@(reverse binds) body)])))
-
 
   ;; unify
   ;; tries to unify e1 with e2, where bvs closes over e1
   ;; returns list of (stx)pairs [x e], where x \in bvs, and e \in e2,
   ;; or #f if the args cannot be unified
-  (define ((unify bvs) e1 e2)
+#;  (define ((unify bvs) e1 e2)
     ;; (printf "unify1: ~a\n" (syntax->datum e1))
     ;; (printf "unify2: ~a\n" (syntax->datum e2))
     (syntax-parse (list e1 e2)
@@ -142,21 +84,16 @@
   ;; L/R then marked as "source" and "target":
   ;; - [default] L = tgt, R = src, ie, replace "L" with "R" (ie coq rewrite ->)
   ;; - if left? = #t, flip and replace "R" with "L" (ie coq rewrite <-)
-  (define ((rewrite name
-                    #:thm-name [real-name #f] ; ie, define-theorem name
-                    #:thm [thm #f]
-                    #:left? [left? #f]
-                    #:es [es_ #'()])
-           ctxt pt)
+  (define ((rewrite name #:left? [left? #f] #:inst-args [inst-args #'()]) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
-    (define H (or thm (dict-ref ctxt name)))
-    (ntac-match H
+    (ntac-match (or (dict-ref ctxt name #f) ; thm in ctx
+                  (typeof (expand/df name))) ; prev proved tm
      [(~or
-       ; already-instantiated thm
-       (~and (~== TY L R)
-             (~parse es es_)) ; es should be #'()
+       (~== TY L R) ; already-instantiated thm
+       (~and (~Π [X : τX] ... body)
+             (~parse (~== TY L R) (substs inst-args #'(X ...) #'body)))
        ; ∀ thm
-       (~and
+#;       (~and
         nested-∀-thm
         (~parse ; flattened ∀-thm
          ((~datum Π)
@@ -239,14 +176,18 @@
       (with-syntax* ([(tgt src) (if left? #'(R L) #'(L R))]
                      [tgt-id (format-id #'tgt "~a" (generate-temporary))]
                      [H (format-id name "~a" (generate-temporary))]
-                     [thm/inst (if thm #`(#,real-name . es) #`(#,name . es))]
+                     [thm/inst #`(#,name . #,inst-args)]
                      [THM (if left?
                               #'thm/inst
                               #'(sym TY L R thm/inst))])
         (make-ntt-apply
          goal
          (list
-          (make-ntt-hole (subst-term #'src #'tgt goal)))
+          (make-ntt-hole
+           (cur-normalize
+            (reflect
+             (subst-term #'src #'tgt goal))
+             #:local-env (ctxt->env ctxt))))
          (λ (body-pf)
            (quasisyntax/loc goal
              (new-elim
@@ -256,17 +197,21 @@
                   #,(subst-term #'tgt-id #'tgt goal)))
               #,body-pf)))))]))
 
-  (define ((replace ty_ from_ to_) ctxt pt)
+  (define ((replace ty from to) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
-    (define ty (transfer-scopes goal ty_ ctxt))
-    (define from (transfer-scopes goal from_ ctxt))
-    (define to (transfer-scopes goal to_ ctxt))
+    ;; (define ty (transfer-scopes goal ty_ ctxt))
+    ;; (define from (transfer-scopes goal from_ ctxt))
+    ;; (define to (transfer-scopes goal to_ ctxt))
     (with-syntax ([tgt-id (format-id from "tgt")]
                   [H (format-id from "H")])
       (make-ntt-apply
        goal
        (list
-        (make-ntt-hole (subst-term to from goal))
+        (make-ntt-hole
+         (cur-normalize
+          (reflect
+           (subst-term to from goal))
+          #:local-env (ctxt->env ctxt)))
         (make-ntt-hole (quasisyntax/loc goal (== #,ty #,to #,from))))
        (lambda (body-pf arg-pf)
          (quasisyntax/loc goal

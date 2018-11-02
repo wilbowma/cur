@@ -33,7 +33,7 @@
    (struct-out nttz)
    make-nttz nttz-up nttz-down-context nttz-down-apply nttz-done?
 
-   (struct-out theorem-info)
+;   (struct-out theorem-info)
 
    ;; In case someone wants to redefine define-theorem
    new-proof-tree
@@ -179,15 +179,16 @@
   ;; `name` is the binder (thm name); `ty` is the surface stx of the thm
   ;; this is needed bc `name` is likely bound to a normalized
   ;; (and expanded) version of `ty`
-  (struct theorem-info identifier-info (name orig)))
+  ;  (struct theorem-info identifier-info (name orig))
+  )
 
 ;; Syntax
 (define-syntax (define-theorem stx)
   (syntax-parse stx
     [(_ x:id ty ps ...)
-     #:with y (generate-temporary #'x)
-     #:with delta-y (format-id #'y "delta:~a" #'y #:source #'y)
-     #:with delta-x (format-id #'x "delta:~a" #'x #:source #'x)
+     ;; #:with y (generate-temporary #'x)
+     ;; #:with delta-y (format-id #'y "delta:~a" #'y #:source #'y)
+     ;; #:with delta-x (format-id #'x "delta:~a" #'x #:source #'x)
      (quasisyntax/loc stx
        (define x (ntac ty ps ...))
        #;(begin (define y (ntac ty ps ...))
