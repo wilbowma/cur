@@ -256,9 +256,7 @@
       (-> (== Bool (and b c) (or b c))
           (== Bool b c))))
 
-;(define-theorem andb-eq-orb
-;; make sure elims print as elim and not eval
-(check-ntac-trace
+(define-theorem andb-eq-orb
  (∀ [b : Bool] [c : Bool]
     (-> (== Bool (and b c) (or b c))
         (== Bool b c)))
@@ -271,38 +269,4 @@
  reflexivity
  ; subgoal 2 --------
  by-intro
- by-assumption
- ~>
- --------------------------------
- (Π (b : Bool) (c : Bool) (temp164 : (ML-= Bool (elim-Bool b (λ (Bool165) Bool) c false) (elim-Bool b (λ (Bool166) Bool) true c))) (ML-= Bool b c))
-
- b : Bool
- --------------------------------
- (Π (c : Bool) (temp164 : (ML-= Bool (elim-Bool b (λ (Bool165) Bool) c false) (elim-Bool b (λ (Bool166) Bool) true c))) (ML-= Bool b c))
-
- b : Bool
- c : Bool
- --------------------------------
- (Π (temp164 : (ML-= Bool (elim-Bool b (λ (Bool165) Bool) c false) (elim-Bool b (λ (Bool166) Bool) true c))) (ML-= Bool b c))
-
- c : Bool
- --------------------------------
- (Π (temp164 : (ML-= Bool c true)) (ML-= Bool true c))
-
- c : Bool
- H : (ML-= Bool c true)
- --------------------------------
- (ML-= Bool true c)
-
- --------------------------------
- (ML-= Bool true true)
-
- c : Bool
- --------------------------------
- (Π (temp164 : (ML-= Bool false c)) (ML-= Bool false c))
-
- c : Bool
- temp164 : (ML-= Bool false c)
- --------------------------------
- (ML-= Bool false c)
- )
+ by-assumption)

@@ -1,7 +1,7 @@
 #lang s-exp "../main.rkt"
 (require
  (for-syntax "utils.rkt"
-             (only-in macrotypes/stx-utils stx-appendmap)
+             (except-in macrotypes/stx-utils)
              (only-in macrotypes/typecheck-core subst substs)
              racket/match
              racket/dict
@@ -97,17 +97,15 @@
   (define ((assert H ty) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
 
-    ;; ty_ has the wrong scopes (bc of eval I think)
-    ;; workaround by transferring scopes from goal (except for bindings in ctx)
-;    (define ty (transfer-scopes goal ty_ ctxt))
     (make-ntt-apply
      goal
-     (list
-      (make-ntt-hole (cur-normalize ty #:local-env (ctxt->env ctxt)))
-      (make-ntt-context
-       (λ (old-ctxt)
-         (dict-set old-ctxt H ty))
-       (make-ntt-hole goal)))
+     (let ([ty+ (cur-normalize ty #:local-env (ctxt->env ctxt))])
+       (list
+        (make-ntt-hole ty+)
+        (make-ntt-context
+         (λ (old-ctxt)
+           (dict-set old-ctxt H ty+))
+         (make-ntt-hole goal))))
      (lambda (arg-pf body-pf)
        (quasisyntax/loc goal
          ((λ (#,H : #,ty)
@@ -164,7 +162,9 @@
 (define-for-syntax ((exact a) ctxt pt)
   (match-define (ntt-hole _ goal) pt)
   (unless (cur-type-check? a goal #:local-env (ctxt->env ctxt))
-    (raise-ntac-goal-exception "~v does not have type ~v" a goal))
+    (raise-ntac-goal-exception "~a does not have type ~a"
+                               (syntax->datum (resugar-type a))
+                               (syntax->datum (resugar-type goal))))
   (make-ntt-exact goal a))
 
 (begin-for-syntax
@@ -222,13 +222,9 @@
       [(_ x #:as param-namess)
        #`(fill (destruct #'x #'param-namess))]))
 
-  (define (pi->anns ty)
-    (syntax-parse ty
-      [t:cur-runtime-pi
-       (cons #'t.ann (pi->anns #'t.result))]
-      [_ null]))
-
   (define ((destruct name [param-namess #f]) ctxt pt)
+    (match-define (ntt-hole _ goal) pt)
+    
     (define name-ty (dict-ref ctxt name))
     (define/syntax-parse (_ [C ([_ τ] ...) _] ...) (get-match-info name-ty))
 
@@ -242,15 +238,13 @@
              #`(#,C . #,ps)))
        Cs paramss))
 
-    (match-define (ntt-hole _ goal) pt)
-
     (make-ntt-apply
      goal
      (stx-map
       (λ (pat C-types params)
         (make-ntt-context
          (λ (old-ctxt)
-           (dict-remove ; dont need the destructed term in env for subgoals
+           (dict-remove ; drop destructed term (`name`) in env for subgoals
             (foldr
              dict-set/flip
              old-ctxt
@@ -272,86 +266,71 @@
                      pats
                      pfs))))))
 
-  ;; TODO: fixme, see destruct
-  ;; copied from by-destruct/elim
   (define-syntax (by-induction syn)
     (syntax-case syn ()
       [(_ x #:as param-namess)
        #`(fill (induction #'x #'param-namess))]))
 
-  ;; initially copied from destruct/elim
-  (define ((induction name param-namess) ctxt pt)
-
+  ;; TODO: similar to destruct; merge somehow?
+  ;; TODO: use match or elim as proof term?
+  (define ((induction name paramss) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
 
     (define name-ty (dict-ref ctxt name))
-    (define c-info (syntax-local-eval name-ty))
-
-    ;; Cs = the (data constructors) for name-ty
-    (define Cs (constant-info-constructor-ls c-info))
-    (define C-infos (map syntax-local-eval Cs))
-    (define C-types (map identifier-info-type C-infos))
-
-    ;; for each C, param-names consists of:
-    ;; - args (index-name-ls)
-    ;; - IHs (recursive-index-ls)
-    (define C-IH-indexess (map constant-info-recursive-index-ls C-infos))
-    (define C-arities (map (compose length constant-info-index-name-ls) C-infos))
-
-    ;; TODO: verify param-namess against result of
-    ;; - constant-info-index-name-ls
-    ;; - constant-info-recursive-index-ls
-    (define paramss (syntax->list param-namess))
+    (define/syntax-parse (_ [C ([x τ] ...) ((xrec . _) ...)] ...) (get-match-info name-ty))
+    (define Cs #'(C ...))
+    (define pats
+      (stx-map
+       (λ (C τs ps)
+         (if (null? (syntax->list ps))
+             C
+             #`(#,C . #,(stx-take ps (stx-length τs)))))
+       Cs #'((τ ...) ...) paramss))
 
     ;; for each param, type is either
     ;; - argument types from C-type (if arg)
-    ;; - subst arg-name for name in goal (if IH)
-    ;;   - where arg-name specified by recursive-index-ls
+    ;; - subst xrec for name in goal (if IH)
+    ;;   - where xrec specified by the "match info"
     (define param-typess
-      (map
-       (λ (C-type C-IH-indexes params)
-         (define tys (pi->anns C-type))
-         (append
-          tys
-          (map
-           (λ (i)
-             (let ([n* (list-ref (syntax->list params) i)])
-               (subst n* name goal)))
-           C-IH-indexes)))
-       C-types
-       C-IH-indexess
-       paramss))
-
-    ;; combines C with its args,
-    ;; -ie drop the IHs from paramss
-    (define pats
-      (map
-       (λ (C ps arity)
-         (let ([args (take (syntax->list ps) arity)])
-           (if (null? args)
-               C
-               #`(#,C . #,args))))
-       Cs paramss C-arities))
+      (stx-map
+       (λ (params τs xs xrecs)
+         ;; params = regular C args + IHs
+         (match-define (list ps IHs) (stx-split-at params (stx-length τs)))
+         #`(#,@τs .
+            #,(for/list ([ih IHs])
+                (for/fold ([g goal])
+                          ([p ps] [x (in-stx-list xs)] #:when (stx-member x xrecs))
+                  (subst p name goal)
+                  #;(if (stx-member x xrecs)
+                      (subst p name goal)
+                      g)))))
+       paramss
+       #'((τ ...) ...)
+       #'((x ...) ...)
+       #'((xrec ...) ...)))
 
     (make-ntt-apply
      goal
-     (map
+     (stx-map
       (λ (pat params param-types)
+        (define (update-ctxt old-ctxt)
+          ; drop `name` from ctxt
+          ; but add bindings for:
+          ; - constructor arguments of `name`
+          ; - IHs for args with type name-ty
+          (dict-remove
+           (foldl
+            dict-set/flip
+            old-ctxt
+            (syntax->list params)
+            (syntax->list param-types))
+           name))
         (make-ntt-context
-         (lambda (old-ctxt)
-           ; drop `name` from ctxt
-           ; but add bindings for:
-           ; - constructor arguments of `name`
-           ; - IHs for args with type name-ty
-           (dict-remove
-            (foldl
-             dict-set/flip
-             old-ctxt
-             (syntax->list params)
-             param-types)
-            name))
+         update-ctxt
          (make-ntt-hole
-          (subst pat name goal))))
+          (cur-normalize
+           (reflect (subst pat name goal))
+           #:local-env (ctxt->env (update-ctxt ctxt))))))
       pats
       paramss
       param-typess)
@@ -361,7 +340,7 @@
           #,name
           (λ [#,name : #,name-ty] #,goal)
           .
-          #,(map
+          #,(stx-map
              (λ (params param-types pf)
                (if (null? (syntax->list params))
                    pf
@@ -369,7 +348,7 @@
                     (λ (p ty e) #`(λ [#,p : #,ty] #,e))
                     pf
                     (syntax->list params)
-                    param-types)))
+                    (syntax->list param-types))))
              paramss
              param-typess
              pfs)))))))
