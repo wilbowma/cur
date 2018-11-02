@@ -3,10 +3,6 @@
 (define compile-omit-paths 'all)
 (define test-omit-paths
   '("tests/curnel/"
-    "tests/ntac/leb.rkt"
-    "tests/ntac/ML-reflexivity.rkt"
-    "tests/ntac/ML-rewrite-2.rkt"
-    "tests/ntac/ML-rewrite.rkt"
     "tests/ntac/rewrite-forall.rkt"
     "tests/ntac/rewrite.rkt"
     "tests/ntac/rewrite-with-previous.rkt"

@@ -86,7 +86,7 @@
   (pattern body:expr))
 
 ;; Try to make readable fresh names.
-  (define fresh
+#;  (define fresh
     (let ([n 0])
       (lambda ([x #f])
         (set! n (add1 n))

@@ -9,8 +9,8 @@
              syntax/stx
              (for-syntax racket/base))
  "../stdlib/sugar.rkt"
- "../curnel/turnstile-impl/reflection.rkt" ; simpl needs cur-normalize
-  "../curnel/racket-impl/runtime.rkt" ; destruct needs constant-info
+ "../curnel/turnstile-impl/reflection.rkt" ; for cur-normalize, cur-type-check
+;  "../curnel/racket-impl/runtime.rkt" ; destruct needs constant-info
  "base.rkt")
 
 (begin-for-syntax
@@ -123,7 +123,7 @@
   (ntac-match goal
    [(~Π (x:id : P:expr) body:expr)
     (let ()
-      (define the-name (or name #'x))
+      (define the-name (or name (fresh #'x)))
       (make-ntt-apply
        goal
        (list
