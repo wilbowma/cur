@@ -239,24 +239,15 @@
 (ntac (ML-= bool (oddb 3) true) reflexivity)
 (ntac (ML-= bool (oddb 5) true) reflexivity)
 
-(define plus
-  (λ [n : nat] [m : nat]
-     (new-elim n
-               (λ [n : nat] nat)
-               m
-               (λ [n* : nat] [ih : nat]
-                  (S ih)))))
+(define/rec/match plus : nat [m : nat] -> nat
+  [O => m]
+  [(S n-1) => (S (plus n-1 m))])
 
 (check-equal? (plus 2 3) 5)
 
-(define mult
-  (λ [n : nat]
-    (λ [m : nat]
-      (new-elim n
-                (λ [x : nat] nat)
-                O
-                (λ [n* : nat] [ih : nat]
-                   (plus m ih))))))
+(define/rec/match mult : nat [m : nat] -> nat
+  [O => O]
+  [(S n-1) => (plus m (mult n-1 m))])
 
 (check-equal? (mult 1 1) 1)
 (check-equal? (mult 2 1) 2)

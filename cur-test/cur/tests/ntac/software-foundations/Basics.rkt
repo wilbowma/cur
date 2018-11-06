@@ -239,24 +239,15 @@
 (ntac (== bool (oddb 3) true) reflexivity)
 (ntac (== bool (oddb 5) true) reflexivity)
 
-(define plus
-  (λ [n : nat] [m : nat]
-     (new-elim n
-               (λ [n : nat] nat)
-               m
-               (λ [n* : nat] [ih : nat]
-                  (S ih)))))
+(define/rec/match plus : nat [m : nat] -> nat
+  [O => m]
+  [(S n-1) => (S (plus n-1 m))])
 
 (check-equal? (plus 2 3) 5)
 
-(define mult
-  (λ [n : nat]
-    (λ [m : nat]
-      (new-elim n
-                (λ [x : nat] nat)
-                O
-                (λ [n* : nat] [ih : nat]
-                   (plus m ih))))))
+(define/rec/match mult : nat [m : nat] -> nat
+  [O => O]
+  [(S n-1) => (plus m (mult n-1 m))])
 
 (check-equal? (mult 1 1) 1)
 (check-equal? (mult 2 1) 2)
@@ -269,20 +260,12 @@
   simpl
   reflexivity)
 
-(define minus
-  (λ [n : nat] [m : nat]
-     (new-elim n (λ [n : nat] nat)
-               O
-               (λ [m* : nat][ih : nat]
-                  (new-elim m
-                            (λ [n : nat] nat)
-                            n
-                            (λ [m* : nat] [ih* : nat]
-                               (new-elim ih*
-                                         (λ [n : nat] nat)
-                                         O
-                                         (λ [n* : nat] [ih : nat]
-                                            n*))))))))
+(define/rec/match minus : nat nat -> nat
+  [O O => O]
+  [O (S _) => O]
+  [(S n-1) O => (S n-1)]
+  [(S n-1) (S m-1) => (minus n-1 m-1)])
+
 (check-equal? (minus 4 1) 3)
 (check-equal? (minus 0 0) 0)
 (check-equal? (minus 1 1) 0)
