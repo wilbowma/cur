@@ -2,7 +2,7 @@
 
 (provide ;; #%module-begin
  provide require for-syntax
- all-from-out rename-out except-out
+ all-from-out rename-out except-out all-defined-out
  only-in except-in
  ;; begin-for-syntax
  ;; define-values begin define #%app λ
