@@ -255,19 +255,20 @@
      goal
      (stx-map
       (λ (pat C-types params)
-        (make-ntt-context
-         (λ (old-ctxt)
-           (dict-remove ; drop destructed term (`name`) in env for subgoals
-            (foldr
-             dict-set/flip
-             old-ctxt
-             (syntax->list params)
-             (syntax->list C-types))
-            name))
-         (make-ntt-hole
-          (cur-normalize
-           (reflect (subst pat name goal))
-           #:local-env (ctxt->env ctxt)))))
+        (define (update-ctxt old-ctxt)
+          (dict-remove ; drop destructed term (`name`) in env for subgoals
+           (foldr
+            dict-set/flip
+            old-ctxt
+            (syntax->list params)
+            (syntax->list C-types))
+           name))
+         (make-ntt-context
+          update-ctxt
+          (make-ntt-hole
+           (cur-normalize
+            (reflect (subst pat name goal))
+            #:local-env (ctxt->env (update-ctxt ctxt))))))
       pats
       #'((τ ...) ...)
       paramss)
