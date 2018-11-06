@@ -1,7 +1,7 @@
 #lang cur
 
 (require
- rackunit
+ "../rackunit-ntac.rkt"
  "Basics.rkt"
  cur/stdlib/equality
  cur/stdlib/sugar
@@ -40,23 +40,14 @@
   (by-rewriteL IH)
   reflexivity)
 
-;; doesnt work, requires simul recursion
-#;(define-theorem minus-diag
+(define-theorem minus-diag
   (∀ [n : nat] (== nat (minus n n) 0))
   (by-intro n)
-;  simpl
   (by-induction n #:as [() (n-1 IH)])
-  display-focus
   ;; subgoal 1
-  simpl
-  display-focus
   reflexivity
-  display-focus
   ;; subgoal 2
-  simpl
-  display-focus
   (by-rewrite IH)
-  display-focus
   reflexivity)
 
 (define-theorem mult_0_r
@@ -94,10 +85,10 @@
   (by-induction n #:as [() (n-1 IH)])
   ; subgoal 1
   simpl
-  (by-rewriteL/thm/normalized plus-n-0 m)
+  (by-rewriteL plus-n-0 m)
   reflexivity
   ; subgoal 2
   simpl
-  (by-rewriteL/thm/normalized plus-n-Sm m n-1)
+  (by-rewriteL plus-n-Sm m n-1)
   (by-rewrite IH)
   reflexivity)
