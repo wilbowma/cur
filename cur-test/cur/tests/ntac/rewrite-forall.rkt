@@ -5,8 +5,9 @@
 
          cur/ntac/base
          cur/ntac/standard
+         cur/ntac/rewrite
 
-         cur/ntac/rewrite)
+         "rackunit-ntac.rkt")
 
 ;; tests involving rewrite of a ∀ thm
 
@@ -171,14 +172,16 @@
   reflexivity
 )
 
+(define/rec/match not : Bool -> Bool
+  [true => false]
+  [false => true])
+
 (define-theorem negb-invol
   (forall [b : Bool] (== Bool (not (not b)) b))
   (by-intro b)
-  (by-destruct/elim b)
-  simpl
+  (by-destruct b)
   reflexivity
   ; -----------
-  simpl
   reflexivity)
 
 
@@ -191,7 +194,7 @@
   (by-intro b)
   (by-rewrite H b)
   (by-rewrite H (not b))
-  (by-rewrite/thm negb-invol b)
+  (by-rewrite negb-invol b)
   reflexivity)
 
 ;; rewrite in different order
@@ -204,18 +207,56 @@
   (by-intro b)
   (by-rewrite H (f b))
   (by-rewrite H b)
-  (by-rewrite/thm negb-invol b)
+  (by-rewrite negb-invol b)
   reflexivity)
 
 ;; dont supply instantiation; searches goal to auto-instantiate thm
-(define-theorem not-applied-twice/search
-  (∀ [f : (-> Bool Bool)]
-     (-> (∀ [x : Bool] (== Bool (f x) (not x)))
-         (∀ [b : Bool] (== Bool (f (f b)) b))))
-  (by-intro f)
-  (by-intro H)
-  (by-intro b)
-  (by-rewrite H)
-  (by-rewrite H)
-  (by-rewrite/thm negb-invol)
-  reflexivity)
+;(define-theorem not-applied-twice/search
+(check-ntac-trace
+ (∀ [f : (-> Bool Bool)]
+    (-> (∀ [x : Bool] (== Bool (f x) (not x)))
+        (∀ [b : Bool] (== Bool (f (f b)) b))))
+ (by-intro f)
+ (by-intro H)
+ (by-intro b)
+ (by-rewrite H)
+ (by-rewrite H)
+ (by-rewrite negb-invol)
+ reflexivity
+ ~>
+ --------------------------------
+ (Π (f : (-> Bool Bool)) (-> (Π (x : Bool) (== Bool (f x) (not x))) (Π (b : Bool) (== Bool (f (f b)) b))))
+
+ f : (-> Bool Bool)
+ --------------------------------
+ (-> (Π (x : Bool) (== Bool (f x) (not x))) (Π (b : Bool) (== Bool (f (f b)) b)))
+
+ f : (-> Bool Bool)
+ H : (Π (x : Bool) (== Bool (f x) (not x)))
+ --------------------------------
+ (Π (b : Bool) (== Bool (f (f b)) b))
+
+ f : (-> Bool Bool)
+ H : (Π (x : Bool) (== Bool (f x) (not x)))
+ b : Bool
+ --------------------------------
+ (== Bool (f (f b)) b)
+
+ f : (-> Bool Bool)
+ H : (Π (x : Bool) (== Bool (f x) (not x)))
+ b : Bool
+ --------------------------------
+ (== Bool (not (f b)) b)
+
+ f : (-> Bool Bool)
+ H : (Π (x : Bool) (== Bool (f x) (not x)))
+ b : Bool
+ --------------------------------
+ (== Bool (not (not b)) b)
+
+ f : (-> Bool Bool)
+ H : (Π (x : Bool) (== Bool (f x) (not x)))
+ b : Bool
+ --------------------------------
+ (== Bool b b))
+  

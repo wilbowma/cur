@@ -16,6 +16,7 @@
  "standard.rkt"
   (for-syntax "utils.rkt"
               (only-in macrotypes/typecheck-core subst substs)
+              macrotypes/stx-utils
               racket/dict
               racket/match
               syntax/stx
@@ -48,7 +49,7 @@
   ;; tries to unify e1 with e2, where bvs closes over e1
   ;; returns list of (stx)pairs [x e], where x \in bvs, and e \in e2,
   ;; or #f if the args cannot be unified
-#;  (define ((unify bvs) e1 e2)
+  (define ((unify bvs) e1 e2)
     ;; (printf "unify1: ~a\n" (syntax->datum e1))
     ;; (printf "unify2: ~a\n" (syntax->datum e2))
     (syntax-parse (list e1 e2)
@@ -76,110 +77,62 @@
   ;; The theorem "H" to use for the rewrite is either:
   ;; - `thm` arg --- from previously defined define-theorem
   ;; - or (dict-ref ctxt name) --- usually an IH
-  ;; H can have shape:
-  ;; - (== ty L R)
-  ;; - (∀ [x : ty] ... (== ty L R))
-  ;;   - x ... instantiated with `es`
-  ;; - or expanded versions of the above
+  ;; H must be expanded and can have shape:
+  ;; - (~== ty L R)
+  ;;   - already instantiated
+  ;; - (~Π [x : ty] ... (~== ty L R))
+  ;;   - x ... is instantiated with `es`
   ;; L/R then marked as "source" and "target":
   ;; - [default] L = tgt, R = src, ie, replace "L" with "R" (ie coq rewrite ->)
   ;; - if left? = #t, flip and replace "R" with "L" (ie coq rewrite <-)
-  (define ((rewrite name #:left? [left? #f] #:inst-args [inst-args #'()]) ctxt pt)
+  (define ((rewrite name #:left? [left-src? #f] #:inst-args [inst-args_ #'()]) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
     (ntac-match (or (dict-ref ctxt name #f) ; thm in ctx
-                  (typeof (expand/df name))) ; prev proved tm
+                    (typeof (expand/df name))) ; prev proved tm
      [(~or
-       (~== TY L R) ; already-instantiated thm
-       (~and (~Π [X : τX] ... body)
-             (~parse (~== TY L R) (substs inst-args #'(X ...) #'body)))
-       ; ∀ thm
-#;       (~and
-        nested-∀-thm
-        (~parse ; flattened ∀-thm
-         ((~datum Π)
-          [x0:id _ ty0] ... ; flattened bindings
-          (~and
-           (~or ((~literal ==) TY L/uninst R/uninst)  ; unexpanded ==
-                (~== TY L/uninst R/uninst)) ; expanded ==
-           ;; compute es, by either:
-           ;; - fixing hygiene in es_
-           ;; - or searching goal
-           (~parse
-            es
-            (if (= (length (syntax->list #'(x0 ...)))
-                   (length (syntax->list es_)))
-                ;; instantiate with given es_
-                ;; TODO: why are the scopes on es_ not right? bc of eval?
-                ;; - eg, they dont see the intros
-                ;; - workaround for now: manually add them, creating es
-                ;;   - to get the right scope, either:
-                ;;     - look up e in the ctxt (if id)
-                ;;     - find it in the goal
-                (map
-                 (λ (e) (or (and (identifier? e)
-                                 (for/first ([k (dict-keys ctxt)]
-                                             #:when (free-identifier=? k e))
-                                   k))
-                            (find-in e goal)))
-                 (syntax->list es_))
-                ;; find es in goal to instantiate thm with
-                (let ([x+es
-                       (find-in (if left? #'R/uninst #'L/uninst)
-                                goal
-                                (unify #'(x0 ...))
-                                #;(λ (x y)
-                                  (define res ((unify #'(x0 ...)) x y))
-                                  (and (not (null? res)) res)))])
-                  (map ; extract es
-                   (λ (x+es) (cadr (syntax-e (car x+es))))
-                   (filter ; filter out #f
-                    (λ (x) x)
-                    (map ; lookup in result of unification
-                     (λ (x)
-                       (member x (or x+es null)
-                               (λ (x x+e)
-                                 (free-identifier=? x (stx-car x+e)))))
-                     (syntax->list #'(x0 ...))))))))
-           ;; type check that given es match ty required by the thm
-           (~fail
-            #:unless (and
-                      (= (length (syntax->list #'(x0 ...)))
-                         (length (syntax->list #'es)))
-                      (andmap
-                       (λ (e ty) (cur-type-check? e ty #:local-env (ctxt->env ctxt)))
-                       (syntax->list #'es)
-                       (syntax->list #'(ty0 ...))))
-            (format
-             (string-append
-             "given terms ~a have wrong arity or types ~a; "
-             "or, failed to instantiate thm ~a: ~a "
-             "(try supplying explicit instantiation terms?)\n")
-             (syntax->datum es_)
-             (map
-              (λ (e)
-                (define ty (dict-ref ctxt e))
-                (and ty (syntax->datum ty)))
-              (syntax->list #'es))
-             (and real-name (syntax->datum real-name))
-             (and thm (syntax->datum thm))))
-           ;; prevent accidental capture (why is this needed?)
-           (~parse xs* (generate-temporaries #'(x0 ...)))
-           ;; instantiate the left/right components of the thm with es
-           (~parse L (substs (syntax->list #'es)
-                             (syntax->list #'xs*)
-                             (substs (syntax->list #'xs*) (syntax->list #'(x0 ...)) #'L/uninst)))
-           (~parse R (substs (syntax->list #'es)
-                             (syntax->list #'xs*)
-                             (substs (syntax->list #'xs*) (syntax->list #'(x0 ...)) #'R/uninst)))))
-         (flatten-Π #'nested-∀-thm))))
+       (~and (~== TY L R) ; already-instantiated thm
+             (~parse inst-args inst-args_))
+       (~and (~Π [X : τX] ... (~and body (~== TY thm/L/uninst thm/R/uninst)))
+             (~parse inst-args
+                     (if (= (stx-length #'(X ...)) (stx-length inst-args_))
+                         (stx-map
+                          (λ (e)
+                            (cur-normalize e #:local-env (ctxt->env ctxt)))
+                          inst-args_)
+                         ; else search
+                         (syntax-parse goal
+                           [(~== _ goal/L goal/R)
+                            (let ([x+es
+                                   (or
+                                    (find-in (if left-src? #'thm/R/uninst #'thm/L/uninst)
+                                             #'goal/L
+                                             (unify #'(X ...)))
+                                    (find-in (if left-src? #'thm/R/uninst #'thm/L/uninst)
+                                             #'goal/R
+                                             (unify #'(X ...))))])
+                              (map ; extract es
+                               (λ (x+es) (cadr (syntax-e (car x+es))))
+                               (filter ; filter out #f
+                                (λ (x) x)
+                                (map ; lookup in result of unification
+                                 (λ (x)
+                                   (member x (or x+es null)
+                                           (λ (x x+e)
+                                             (free-identifier=? x (stx-car x+e)))))
+                                 (syntax->list #'(X ...))))))])))
+             (~parse (L R) (substs
+                            #'inst-args
+                            #'(X ...)
+                            #'(thm/L/uninst thm/R/uninst)))))
       ;; set L and R as source/target term, depending on specified direction
-      (with-syntax* ([(tgt src) (if left? #'(R L) #'(L R))]
+      (with-syntax* ([(tgt src) (if left-src? #'(R L) #'(L R))]
                      [tgt-id (format-id #'tgt "~a" (generate-temporary))]
                      [H (format-id name "~a" (generate-temporary))]
-                     [thm/inst #`(#,name . #,inst-args)]
-                     [THM (if left?
+                     [thm/inst #`(#,name . inst-args)]
+                     [THM (if left-src?
                               #'thm/inst
                               #'(sym TY L R thm/inst))])
+
         (make-ntt-apply
          goal
          (list

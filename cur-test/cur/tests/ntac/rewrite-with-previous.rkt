@@ -4,9 +4,10 @@
          cur/stdlib/nat
          cur/ntac/base
          cur/ntac/standard
-         cur/ntac/rewrite)
+         cur/ntac/rewrite
+         "rackunit-ntac.rkt")
 
-;; tests for by-rewrite/thm 
+;; tests for by-rewrite 
 
 (define-theorem plus-0-n
   (forall [n : Nat] (== Nat (plus 0 n) n))
@@ -20,19 +21,16 @@
      (== Nat (mult (plus 0 n) m) (mult n m)))
   by-intro
   by-intro
-  (by-rewrite/thm plus-0-n)
+  (by-rewrite plus-0-n)
   reflexivity)
-
 
 (define-theorem plus-n-0
   (∀ [n : Nat] (== Nat n (plus n z)))
   (by-intro n)
-  simpl ;; this step doesnt do anything except get everything in expanded form
   (by-induction n #:as [() (n-1 IH)])
   ;; subgoal 1
   reflexivity
   ;; subgoal 2
-  simpl
   (by-rewriteL IH)
   reflexivity)
 
@@ -41,13 +39,10 @@
      (== Nat (s (plus n m)) (plus n (s m))))
   (by-intro n)
   (by-intro m)
-  simpl
   (by-induction n #:as [() (n-1 IH)])
   ;; subgoal 1
-  simpl
   reflexivity
   ;; subgoal 2
-  simpl
   (by-rewrite IH)
   reflexivity)
 
@@ -56,15 +51,12 @@
      (== Nat (plus n m) (plus m n)))
   (by-intro n)
   (by-intro m)
-  simpl
   (by-induction n #:as [() (n-1 IH)])
   ; subgoal 1
-  simpl
-  (by-rewriteL/thm/normalized plus-n-0 m)
+  (by-rewriteL plus-n-0 m)
   reflexivity
   ; subgoal 2
-  simpl
-  (by-rewriteL/thm/normalized plus-n-Sm m n-1)
+  (by-rewriteL plus-n-Sm m n-1)
   (by-rewrite IH)
   reflexivity)
 
@@ -74,15 +66,12 @@
      (== Nat (plus n m) (plus m n)))
   (by-intro n)
   (by-intro m)
-  simpl
   (by-induction n #:as [() (n-1 IH)])
   ; subgoal 1
-  simpl
-  (by-rewriteL/thm/normalized plus-n-0)
+  (by-rewriteL plus-n-0)
   reflexivity
   ; subgoal 2
-  simpl
-  (by-rewriteL/thm/normalized plus-n-Sm) ; 2 params to instantiate
+  (by-rewriteL plus-n-Sm) ; 2 params to instantiate
   (by-rewrite IH)
   reflexivity)
 
@@ -91,11 +80,9 @@
   (∀ [n : Nat] [m : Nat] [p : Nat]
      (== Nat (plus n (plus m p)) (plus (plus n m) p)))
   (by-intros n m p)
-  simpl
   (by-induction n #:as [() (n-1 IH)])
   ; goal 1, n = 0
   reflexivity
-  simpl
   (by-rewrite IH)
   reflexivity)
 
@@ -104,14 +91,14 @@
      (== Nat (plus n (plus m p))
              (plus m (plus n p))))
   (by-intros n m p)
-  (by-rewrite/thm plus-assoc n m p)
+  (by-rewrite plus-assoc n m p)
   (by-assert H (== Nat (plus n m) (plus m n)))
   ; proof of H
-  (by-rewrite/thm plus_comm n m)
+  (by-rewrite plus_comm n m)
   reflexivity
   ; proof of rest
   (by-rewrite H)
-  (by-rewriteL/thm plus-assoc m n p)
+  (by-rewriteL plus-assoc m n p)
   reflexivity)
 
 (define-theorem plus-swap/search
@@ -119,12 +106,12 @@
      (== Nat (plus n (plus m p))
              (plus m (plus n p))))
   (by-intros n m p)
-  (by-rewrite/thm plus-assoc) ; 3 params
+  (by-rewrite plus-assoc) ; 3 params
   (by-assert H (== Nat (plus n m) (plus m n)))
   ; proof of H
-  (by-rewrite/thm plus_comm) ; 2 params
+  (by-rewrite plus_comm) ; 2 params
   reflexivity
   ; proof of rest
   (by-rewrite H)
-  (by-rewriteL/thm plus-assoc) ; left? = #t, 3 params
+  (by-rewriteL plus-assoc) ; left? = #t, 3 params
   reflexivity)
