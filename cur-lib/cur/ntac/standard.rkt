@@ -3,9 +3,9 @@
  (for-syntax "utils.rkt"
              (except-in macrotypes/stx-utils)
              (only-in macrotypes/typecheck-core subst substs)
-             racket/match
              racket/dict
              racket/list
+             racket/match
              syntax/stx
              (for-syntax racket/base))
  "../stdlib/sugar.rkt"
@@ -55,7 +55,13 @@
      (printf "Not at hole.\n")])
   tz)
 
-(define-for-syntax (interactive ptz)
+(begin-for-syntax
+  (define current-proof null)
+  (define (reset-current-proof!)
+    (set! current-proof null))
+  (define (current-proof-add! stx)
+    (set! current-proof (cons stx current-proof)))
+(define (interactive ptz)
   (display-focus ptz)
   (define cmd-stx
     (let/ec esc
@@ -65,6 +71,7 @@
                           [(_ . cmd)
                            (esc #'cmd)]))])
         (read-eval-print-loop))))
+  (current-proof-add! cmd-stx)
   (define next-ptz
     (with-handlers ([exn:fail:ntac:goal?
                      (lambda (e)
@@ -72,8 +79,14 @@
                        ptz)])
       (eval-proof-step ptz cmd-stx)))
   (if (nttz-done? next-ptz)
-      next-ptz
-      (interactive next-ptz)))
+      (begin
+        (printf "complete proof script:\n")
+        (for-each
+         (λ (stx) (printf "~a\n" (syntax->datum stx)))
+         (reverse (stx->list current-proof)))
+        (reset-current-proof!)
+        next-ptz)
+      (interactive next-ptz))))
 
 (define-for-syntax ((fill t) ptz)
   (define new-foc (t (nttz-context ptz) (nttz-focus ptz)))
