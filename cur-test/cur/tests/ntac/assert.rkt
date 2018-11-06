@@ -23,7 +23,7 @@
  ~>
  
  --------------------------------
- (Π (x : Nat) (y : Nat) (temp1 : (== Nat x y)) (== Nat y x))
+ (Π (x : Nat) (y : Nat) (-> (== Nat x y) (== Nat y x)))
 
  x : Nat
  y : Nat

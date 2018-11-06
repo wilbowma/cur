@@ -26,7 +26,13 @@
 ;; abbrevs for Π/c
 ;; (→ τ_in τ_out) == (Π (unused : τ_in) τ_out)
 (define-simple-macro (→ τ_in ... τ_out)
-  #:with (X ...) (generate-temporaries #'(τ_in ...))
+  #:with (X ...) (stx-map
+                  (λ (x)
+                    (syntax-property
+                     (syntax-property x 'tmp #t)
+                     'display-as
+                     #'→))
+                  (generate-temporaries #'(τ_in ...)))
   (Π/c [X : τ_in] ... τ_out))
 ;; ;; (∀ (X) τ) == (∀ ([X : Type]) τ)
 ;; (define-simple-macro (∀ X ...  τ)

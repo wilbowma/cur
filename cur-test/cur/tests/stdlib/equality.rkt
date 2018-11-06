@@ -11,6 +11,10 @@
                         (-> (== A x y)
                             (== A y x))))
 
+;; this type checks that type transferred properly for nullary application
+;; ie (app/eval e) -> e
+(check-type (PM-sym Nat 1 1 (refl Nat 1)) : (== Nat 1 1))
+
 (check-type PM-trans : (∀ [A : Type] [x : A] [y : A] [z : A]
                         (-> (== A x y) (== A y z)
                             (== A x z))))
