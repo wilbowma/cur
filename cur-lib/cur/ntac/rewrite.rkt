@@ -95,10 +95,7 @@
        (~and (~Π [X : τX] ... (~and body (~== TY thm/L/uninst thm/R/uninst)))
              (~parse inst-args
                      (if (= (stx-length #'(X ...)) (stx-length inst-args_))
-                         (stx-map
-                          (λ (e)
-                            (cur-normalize e #:local-env (ctxt->env ctxt)))
-                          inst-args_)
+                         (stx-map (normalize/ctxt ctxt) inst-args_)
                          ; else search
                          (syntax-parse goal
                            [(~== _ goal/L goal/R)
@@ -121,7 +118,7 @@
                                              (free-identifier=? x (stx-car x+e)))))
                                  (syntax->list #'(X ...))))))])))
              (~parse (L R) (stx-map
-                            (λ (x) (cur-normalize (reflect x) #:local-env (ctxt->env ctxt)))
+                            (normalize/ctxt ctxt)
                             (substs
                             #'inst-args
                             #'(X ...)
@@ -136,12 +133,7 @@
                               #'(sym TY L R thm/inst))])
         (make-ntt-apply
          goal
-         (list
-          (make-ntt-hole
-           (cur-normalize
-            (reflect
-             (subst-term #'src #'tgt goal))
-             #:local-env (ctxt->env ctxt))))
+         (list (make-ntt-hole (normalize (subst-term #'src #'tgt goal) ctxt)))
          (λ (body-pf)
            (quasisyntax/loc goal
              (new-elim
@@ -161,11 +153,7 @@
       (make-ntt-apply
        goal
        (list
-        (make-ntt-hole
-         (cur-normalize
-          (reflect
-           (subst-term to from goal))
-          #:local-env (ctxt->env ctxt)))
+        (make-ntt-hole (normalize (subst-term to from goal) ctxt))
         (make-ntt-hole (quasisyntax/loc goal (== #,ty #,to #,from))))
        (lambda (body-pf arg-pf)
          (quasisyntax/loc goal

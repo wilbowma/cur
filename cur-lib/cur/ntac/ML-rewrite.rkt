@@ -100,11 +100,7 @@
                 ;; try removing this and running plus-id-exercise in ML-rewrite tests
                 ;; - also, it makes display-focus output different from coq
                 (foldr dict-remove/flip old-ctxt used-ids))
-              (make-ntt-hole
-               (cur-normalize
-                (reflect
-                 (subst-term #'src #'tgt goal))
-                #:local-env (ctxt->env ctxt)))))
+              (make-ntt-hole (normalize (subst-term #'src #'tgt goal) ctxt))))
            (λ (body-pf)
              (quasisyntax/loc goal
                ((new-elim

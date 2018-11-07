@@ -1,25 +1,23 @@
 #lang racket/base
 (require
  racket/dict
- syntax/id-set
- syntax/parse
  syntax/stx
- "../curnel/racket-impl/stxutils.rkt")
+ syntax/parse
+ syntax/id-set
+ (for-template turnstile/eval)
+ cur/curnel/turnstile-impl/reflection
+ "../curnel/turnstile-impl/stxutils.rkt")
 (provide (all-defined-out))
 
 ;; dict fns, with args rearranged for use with fold
 (define (dict-remove/flip k h) (dict-remove h k))
 (define (dict-set/flip k v dict) (dict-set dict k v))
 
-;; transfer scopes from src to each stxobj in stx, except for ids in ctxt
-#;(define (transfer-scopes src stx ctxt)
-  (cond
-    [(and (identifier? stx) (dict-has-key? ctxt stx)) stx]
-    [(pair? (syntax-e stx))
-     (datum->syntax src
-       (map (λ (syn) (transfer-scopes src syn ctxt)) (syntax->list stx)))]
-    [else ; literals and non-ctxt ids
-     (datum->syntax src (syntax->datum stx))]))
+(define ctxt->env dict->list)
+
+(define (normalize ty ctxt)
+  (cur-normalize (reflect ty) #:local-env (ctxt->env ctxt)))
+(define ((normalize/ctxt ctxt) ty) (normalize ty ctxt)) ; curried version
 
 (define (transfer-type from to)
   (syntax-property
