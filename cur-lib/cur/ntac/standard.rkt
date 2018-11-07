@@ -225,8 +225,9 @@
      ;; TODO: should this be a copy?
      (struct-copy nttz ptz
                   [focus (make-ntt-hole
-                          (cur-normalize goal
-                                         #:local-env (ctxt->env (nttz-context ptz))))])))
+                          (cur-normalize
+                           (reflect goal)
+                           #:local-env (ctxt->env (nttz-context ptz))))])))
 
   (define-syntax (by-destruct syn)
     (syntax-case syn ()
