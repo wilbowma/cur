@@ -9,8 +9,6 @@
              syntax/stx
              (for-syntax racket/base))
  "../stdlib/sugar.rkt"
- "../curnel/turnstile-impl/reflection.rkt" ; for cur-normalize, cur-type-check
-;  "../curnel/racket-impl/runtime.rkt" ; destruct needs constant-info
  "base.rkt")
 
 (begin-for-syntax
@@ -100,10 +98,6 @@
     (t ptz)))
 
 ;; define-tactical
-(require (for-syntax racket/trace))
-(define-for-syntax (ctxt->env ctxt)
-  (reverse (for/list ([(k v) (in-dict ctxt)])
-             (cons k v))))
 
 (begin-for-syntax
 
@@ -112,7 +106,7 @@
 
     (make-ntt-apply
      goal
-     (let ([ty+ (cur-normalize ty #:local-env (ctxt->env ctxt))])
+     (let ([ty+ (normalize ty ctxt)])
        (list
         (make-ntt-hole ty+)
         (make-ntt-context
@@ -224,10 +218,8 @@
     (next
      ;; TODO: should this be a copy?
      (struct-copy nttz ptz
-                  [focus (make-ntt-hole
-                          (cur-normalize
-                           (reflect goal)
-                           #:local-env (ctxt->env (nttz-context ptz))))])))
+                  [focus
+                   (make-ntt-hole (normalize goal (nttz-context ptz)))])))
 
   (define-syntax (by-destruct syn)
     (syntax-case syn ()
@@ -266,10 +258,7 @@
            name))
          (make-ntt-context
           update-ctxt
-          (make-ntt-hole
-           (cur-normalize
-            (reflect (subst pat name goal))
-            #:local-env (ctxt->env (update-ctxt ctxt))))))
+          (make-ntt-hole (normalize (subst pat name goal) (update-ctxt ctxt)))))
       pats
       #'((τ ...) ...)
       paramss)
@@ -342,10 +331,7 @@
            name))
         (make-ntt-context
          update-ctxt
-         (make-ntt-hole
-          (cur-normalize
-           (reflect (subst pat name goal))
-           #:local-env (ctxt->env (update-ctxt ctxt))))))
+         (make-ntt-hole (normalize (subst pat name goal) (update-ctxt ctxt)))))
       pats
       paramss
       param-typess)
