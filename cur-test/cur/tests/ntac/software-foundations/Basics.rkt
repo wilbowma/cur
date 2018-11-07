@@ -8,7 +8,7 @@
  cur/ntac/standard
  cur/ntac/rewrite)
 
-(provide (all-defined-out))
+(provide (all-defined-out) (for-syntax (all-defined-out)))
 
 ;; examples from SF Ch 1: Basics, using Paulin-Mohring equality (the "standard" one)
 

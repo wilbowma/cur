@@ -120,10 +120,12 @@
                                            (λ (x x+e)
                                              (free-identifier=? x (stx-car x+e)))))
                                  (syntax->list #'(X ...))))))])))
-             (~parse (L R) (substs
+             (~parse (L R) (stx-map
+                            (λ (x) (cur-normalize (reflect x) #:local-env (ctxt->env ctxt)))
+                            (substs
                             #'inst-args
                             #'(X ...)
-                            #'(thm/L/uninst thm/R/uninst)))))
+                            #'(thm/L/uninst thm/R/uninst))))))
       ;; set L and R as source/target term, depending on specified direction
       (with-syntax* ([(tgt src) (if left-src? #'(R L) #'(L R))]
                      [tgt-id (format-id #'tgt "~a" (generate-temporary))]
@@ -132,7 +134,6 @@
                      [THM (if left-src?
                               #'thm/inst
                               #'(sym TY L R thm/inst))])
-
         (make-ntt-apply
          goal
          (list

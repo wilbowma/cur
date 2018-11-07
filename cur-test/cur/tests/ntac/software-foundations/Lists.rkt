@@ -1,20 +1,25 @@
 #lang cur
 (require cur/stdlib/sugar
-         cur/stdlib/nat
+         cur/stdlib/equality
+         cur/ntac/base
+         cur/ntac/standard
+         cur/ntac/rewrite
+         "Basics.rkt"
+         "Induction.rkt"
          "../rackunit-ntac.rkt")
 
 ;; examples from SF Ch 3: Lists.v
 ;; - only up to rev-length
 
 (data natprod : 0 Type
-      [pair : (-> Nat Nat natprod)])
+      [pair : (-> nat nat natprod)])
 
 (:: (pair 3 5) natprod)
 
-(define/rec/match fst : natprod -> Nat
+(define/rec/match fst : natprod -> nat
   [(pair x _) => x])
 
-(define/rec/match snd : natprod -> Nat
+(define/rec/match snd : natprod -> nat
   [(pair _ y) => y])
 
 (check-equal? (fst (pair 3 5)) 3)
@@ -27,17 +32,11 @@
   (new-elim
    p
    (λ [p : natprod] natprod)
-   (λ [x : Nat] [y : Nat]
+   (λ [x : nat] [y : nat]
       (pair y x))))
 
-(require
- cur/stdlib/equality
- cur/ntac/base
- cur/ntac/standard
- cur/ntac/rewrite)
-
 (define-theorem surjective-pairing
-  (∀ [n : Nat] [m : Nat]
+  (∀ [n : nat] [m : nat]
      (== natprod (pair n m)
                    (pair (fst (pair n m))
                          (snd (pair n m)))))
@@ -50,7 +49,7 @@
     p
     (λ [p : natprod]
       (== natprod p (pair (fst p) (snd p))))
-    (λ [n : Nat] [m : Nat]
+    (λ [n : nat] [m : nat]
        (refl natprod (pair n m)))))
  (∀ [p : natprod]
     (== natprod p (pair (fst p) (snd p)))))
@@ -78,30 +77,30 @@
 
 (define-theorem fst-swap-is-snd
   (∀ [p : natprod]
-     (== Nat (fst (swap-pair p)) (snd p)))
+     (== nat (fst (swap-pair p)) (snd p)))
   (by-intro p)
   (by-destruct p #:as [(n m)])
   reflexivity)
 
 (data natlist : 0 Type
       [nil : natlist]
-      [cons : (-> Nat natlist natlist)])
+      [cons : (-> nat natlist natlist)])
 
 (define mylist (cons 1 (cons 2 (cons 3 nil))))
 
-(define/rec/match repeat : Nat [n : Nat] -> natList
-  [z => nil]
-  [(s count-1) => (cons n (repeat count-1 n))])
+(define/rec/match repeat : nat [n : nat] -> natList
+  [O => nil]
+  [(S count-1) => (cons n (repeat count-1 n))])
 
-(define/rec/match length : natlist -> Nat
+(define/rec/match length : natlist -> nat
   [nil => 0]
-  [(cons h t) => (s (length t))])
+  [(cons h t) => (S (length t))])
 
 (define/rec/match app : natlist [l2 : natlist] -> natlist
   [nil => l2]
   [(cons h t) => (cons h (app t l2))])
 
-(define/rec/match hd : [default : Nat] natlist -> Nat
+(define/rec/match hd : [default : nat] natlist -> nat
   [nil => default]
   [(cons h _) => h])
 
@@ -116,16 +115,16 @@
 
 ; sub1
 (define pred
-  (λ [n : Nat]
+  (λ [n : nat]
     (new-elim
      n
-     (λ [n : Nat] Nat)
+     (λ [n : nat] nat)
      0
-     (λ [n* : Nat] [ih : Nat]
+     (λ [n* : nat] [ih : nat]
         n*))))
 
 (define-theorem tl-length-pred
-  (∀ [l : natlist] (== Nat (pred (length l)) (length (tl l))))
+  (∀ [l : natlist] (== nat (pred (length l)) (length (tl l))))
   (by-intro l)
   (by-induction l #:as [() (h t IH)])
   ; goal 1
@@ -152,7 +151,7 @@
 
 (define-theorem app-length
   (∀ [l1 : natlist] [l2 : natlist]
-     (== Nat (length (app l1 l2))
+     (== nat (length (app l1 l2))
                (plus (length l1) (length l2))))
   (by-intros l1 l2)
   simpl
@@ -164,12 +163,16 @@
   (by-rewrite IH)
   reflexivity)
 
-#;(define-theorem rev-length
- (∀ [l : natlist]
-    (== Nat (length (rev l)) (length l)))
- (by-intro l)
- (by-induction l #:as [() (h t IH)])
- ; nil
- reflexivity
- ; cons
- (by-rewrite app-length (rev t) (cons h nil)))
+(define-theorem rev-length
+  (∀ [l : natlist]
+     (== nat (length (rev l)) (length l)))
+  (by-intro l)
+  (by-induction l #:as [() (h t IH)])
+  ; nil
+  reflexivity
+  ; cons
+;  (by-rewrite app-length (rev t) (cons h nil))
+  (by-rewrite app-length)
+  (by-rewrite plus-comm)
+  (by-rewrite IH)
+  reflexivity)

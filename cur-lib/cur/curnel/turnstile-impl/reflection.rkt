@@ -1,11 +1,11 @@
 #lang racket/base
 (require
- racket/syntax
- syntax/parse
- racket/function
- syntax/to-string
- syntax/stx
  racket/list
+ racket/syntax
+ racket/function
+ syntax/stx
+ syntax/parse
+ syntax/to-string
  ;"type-reconstruct.rkt"
 ; "eval.rkt"
 ; "runtime-utils.rkt"
@@ -16,7 +16,7 @@
  (only-in macrotypes/stx-utils transfer-props)
  (for-template (only-in macrotypes/typecheck infer typecheck? type=?))
  (for-template (only-in macrotypes/typecheck-core typeof subst substs))
- (for-template turnstile/typedefs)
+ (for-template turnstile/typedefs turnstile/eval)
 ; (for-template turnstile/examples/dep-ind-cur)
  (for-template macrotypes/stx-utils)
  (for-template "dep-ind-cur2.rkt")

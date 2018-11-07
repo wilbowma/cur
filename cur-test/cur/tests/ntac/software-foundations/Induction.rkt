@@ -1,5 +1,7 @@
 #lang cur
 
+(provide (all-defined-out))
+
 (require
  "../rackunit-ntac.rkt"
  "Basics.rkt"
@@ -81,14 +83,11 @@
      (== nat (plus n m) (plus m n)))
   (by-intro n)
   (by-intro m)
-  simpl
   (by-induction n #:as [() (n-1 IH)])
   ; subgoal 1
-  simpl
   (by-rewriteL plus-n-0 m)
   reflexivity
   ; subgoal 2
-  simpl
   (by-rewriteL plus-n-Sm m n-1)
   (by-rewrite IH)
   reflexivity)
