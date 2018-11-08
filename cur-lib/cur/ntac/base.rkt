@@ -5,10 +5,11 @@
  "../stdlib/sugar.rkt"
  "../curnel/racket-impl/runtime.rkt"
  (only-in racket [define r:define])
- (for-syntax racket/match racket/list))
+ (for-syntax racket/match racket/list racket/pretty))
 
 (provide
  define-theorem
+ define-theorem/for-export
  ntac)
 
 (begin-for-syntax
@@ -132,6 +133,7 @@
         (proof-tree->complete-term
          final-pt
          ps))
+;      (pretty-print (syntax->datum pf))
       pf))
 
   (define (eval-proof-script pt psteps [err-stx #f])
@@ -186,19 +188,13 @@
 (define-syntax (define-theorem stx)
   (syntax-parse stx
     [(_ x:id ty ps ...)
-     ;; #:with y (generate-temporary #'x)
-     ;; #:with delta-y (format-id #'y "delta:~a" #'y #:source #'y)
-     ;; #:with delta-x (format-id #'x "delta:~a" #'x #:source #'x)
-     (quasisyntax/loc stx
-       (define x (ntac ty ps ...))
-       #;(begin (define y (ntac ty ps ...))
-              (r:define x y)
-              (define-for-syntax delta-x delta-y)
-              (define-for-syntax x
-                (theorem-info (identifier-info-type y)
-                              delta-y
-                              #'x #'ty))
-              (:: x ty)))]))
+     #:with e (local-expand (ntac-proc #'ty #'(ps ...)) 'expression null)
+     (quasisyntax/loc stx (define x e))]))
+
+(define-syntax (define-theorem/for-export stx)
+  (syntax-parse stx
+    [(_ x:id ty ps ...)
+     (quasisyntax/loc stx (define x (ntac ty ps ...)))]))
 
 ;; For inline ntac
 (define-syntax ntac

@@ -30,7 +30,7 @@
          (refl nat (S n-1)))))))
  (∀ [n : nat] (== nat n (plus n 0))))
 
-(define-theorem plus-n-0
+(define-theorem/for-export plus-n-0
   (∀ [n : nat] (== nat n (plus n 0)))
   (by-intro n)
   simpl ;; this step doesnt do anything except get everything in expanded form
@@ -63,7 +63,7 @@
   (by-rewrite IH)
   reflexivity)
 
-(define-theorem plus-n-Sm
+(define-theorem/for-export plus-n-Sm
   (∀ [n : nat] [m : nat]
      (== nat (S (plus n m)) (plus n (S m))))
   (by-intro n)
@@ -78,7 +78,7 @@
   (by-rewrite IH)
   reflexivity)
 
-(define-theorem plus-comm
+(define-theorem/for-export plus-comm
   (∀ [n : nat] [m : nat]
      (== nat (plus n m) (plus m n)))
   (by-intro n)
