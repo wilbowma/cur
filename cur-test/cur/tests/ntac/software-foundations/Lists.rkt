@@ -342,3 +342,19 @@
   ; 2b ---
   (by-rewrite ih)
   reflexivity)
+
+(define-theorem bag-count-sum
+  (∀ [s1 : bag] [s2 : bag] [n : nat]
+     (== nat (count n (sum s1 s2)) (plus (count n s1) (count n s2))))
+  (by-intros s1 s2 n)
+  (by-induction s1 #:as [() (h t ih)])
+  ; 1---
+  reflexivity
+  ; 2---
+  (by-destruct (beq-nat n h))
+  ;; 2a ---
+  (by-rewrite ih)
+  reflexivity
+  ;; 2b ---
+  (by-rewrite ih)
+  reflexivity)

@@ -228,11 +228,13 @@
       [(_ x #:as param-namess)
        #`(fill (destruct #'x #'param-namess))]))
 
-  (define ((destruct name [param-namess #f]) ctxt pt)
+  (define ((destruct e [param-namess #f]) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
-    
-    (define name-ty (dict-ref ctxt name))
-    (define/syntax-parse (_ [C ([_ τ] ...) _] ...) (get-match-info name-ty))
+
+    (define e-ty (or (and (identifier? e) (dict-ref ctxt e #f))
+                     (typeof (normalize e ctxt))))
+    (define name (if (identifier? e) e (generate-temporary)))
+    (define/syntax-parse (_ [C ([_ τ] ...) _] ...) (get-match-info e-ty))
 
     (define Cs #'(C ...))
     (define paramss (or param-namess (stx-map (λ _ #'()) Cs)))
@@ -249,22 +251,24 @@
      (stx-map
       (λ (pat C-types params)
         (define (update-ctxt old-ctxt)
-          (dict-remove ; drop destructed term (`name`) in env for subgoals
-           (foldr
+          (define tmp-ctxt
+            (foldr
             dict-set/flip
             old-ctxt
             (syntax->list params)
-            (syntax->list C-types))
-           name))
+            (syntax->list C-types)))
+          (if (identifier? e)
+              (dict-remove tmp-ctxt e) ; remove e if it's a name
+              tmp-ctxt))
          (make-ntt-context
           update-ctxt
-          (make-ntt-hole (normalize (subst pat name goal) (update-ctxt ctxt)))))
+          (make-ntt-hole (normalize (subst-term pat e goal) (update-ctxt ctxt)))))
       pats
       #'((τ ...) ...)
       paramss)
      (λ pfs
        (quasisyntax/loc goal
-         (match #,name #:as #,name #:in #,name-ty #:return #,goal
+         (match #,e #:as #,name #:in #,e-ty #:return #,(subst-term name e goal)
                 . #,(stx-map
                      (λ (pat pf) #`[#,pat #,pf])
                      pats
