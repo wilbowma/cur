@@ -62,7 +62,7 @@
             (define da2 (syntax-property #'y 'display-as))]
        #:when (or (and da1 da2 (stx-e da1) (stx-e da2) (free-identifier=? da1 da2))
                   (and (not da1) (not da2))
-                  (and (not (stx-e da1)) (not (stx-e da2))))
+                  (and da1 da2 (not (stx-e da1)) (not (stx-e da2))))
        null]
       [((~and (~not (~literal #%plain-app)) x:id)
         (~and (~not (~literal #%plain-app)) y:id))
