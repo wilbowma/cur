@@ -86,6 +86,11 @@
       [nil : natlist]
       [cons : (-> nat natlist natlist)])
 
+(define-syntax lst
+  (syntax-parser
+    [(_) #'nil]
+    [(_ h . rst) #'(cons h (lst . rst))]))
+
 (define mylist (cons 1 (cons 2 (cons 3 nil))))
 
 (define/rec/match repeat : nat [n : nat] -> natList
@@ -107,6 +112,57 @@
 (define/rec/match tl : natlist -> natlist
   [nil => nil]
   [(cons _ t) => t])
+
+
+;; exercises
+
+(define/rec/match nonzeros : natlist -> natlist
+  [nil => nil]
+  [(cons (~O) tl) => (nonzeros tl)]
+  [(cons h tl) => (cons h (nonzeros tl))])
+
+(check-equal?
+ (nonzeros (cons 0 (cons 1 (cons 0 (cons 2 (cons 3 (cons 0 (cons 0 nil))))))))
+ (cons 1 (cons 2 (cons 3 nil))))
+
+;; bags
+
+(define bag natlist)
+
+(define/rec/match count : [v : nat] bag -> nat
+  [nil => 0]
+  [(cons h t) => (match (beq-nat v h) #:return nat
+                   [true (S (count v t))]
+                   [false (count v t)])])
+
+(check-equal? (count 1 (lst 1 2 3 1 4 1)) 3)
+(check-equal? (count 6 (lst 1 2 3 1 4 1)) 0)
+
+(define sum app)
+(check-equal? (count 1 (sum (lst 1 2 3) (lst 1 4 1))) 3)
+(define add cons)
+(check-equal? (count 1 (add 1 (lst 1 4 1))) 3)
+
+#;(define/rec/match member : [v : nat] bag -> bool
+    [nil => false]
+    [(cons h t) => (orb (beq-nat h v) (member v t))])
+(define (member [v : nat] [s : bag]) ; nonfixpoint member def
+  (negb (beq-nat (count v s) 0)))
+(check-equal? (member 1 (lst 1 4 1)) true)
+(check-equal? (member 2 (lst 1 4 1)) false)
+
+(define/rec/match remove-one : [v : nat] bag -> bag
+  [nil => nil]
+  [(cons h t) => (match (beq-nat h v) #:return bag
+                  [true t]
+                  [false (cons h (remove-one v t))])])
+
+(check-equal? (count 5 (remove-one 5 (lst 2 1 5 4 1))) 0)
+(check-equal? (count 5 (remove-one 5 (lst 2 1 4 1))) 0)
+(check-equal? (count 4 (remove-one 5 (lst 2 1 4 5 1 4))) 2)
+(check-equal? (count 5 (remove-one 5 (lst 2 1 5 4 5 1 4))) 1)
+
+;; lists again
 
 (define-theorem nil-app
   (forall [l : natlist] (== natlist (app nil l) l))
@@ -175,4 +231,114 @@
   (by-rewrite app-length)
   (by-rewrite plus-comm)
   (by-rewrite IH)
+  reflexivity)
+
+(define-theorem app_nil_r
+  (∀ [l : natlist] (== natlist (app l nil) l))
+  (by-intro l)
+  (by-induction l #:as (() (h t IH)))
+  reflexivity
+  (by-rewrite IH)
+  reflexivity)
+
+(define-theorem rev_app_distr
+  (∀ [l1 : natlist] [l2 : natlist]
+     (== natlist (rev (app l1 l2)) (app (rev l2) (rev l1))))
+  (by-intros l1 l2)
+  (by-induction l1 #:as [() (h t IH)])
+  ;---
+  (by-rewrite app_nil_r)
+  reflexivity
+  ;----
+  (by-rewrite IH)
+  (by-rewrite app-assoc)
+  reflexivity)
+
+(define-theorem rev_invol
+  (∀ [l : natlist] (== natlist (rev (rev l)) l))
+  (by-intro l)
+  (by-induction l #:as [() (h t IH)])
+  reflexivity
+  (by-rewrite rev_app_distr)
+  (by-rewrite IH)
+  reflexivity)
+
+(define-theorem app_assoc4
+  (∀ [l1 : natlist] [l2 : natlist] [l3 : natlist] [l4 : natlist]
+     (== natlist
+         (app l1 (app l2 (app l3 l4)))
+         (app (app (app l1 l2) l3) l4)))
+  (by-intros l1 l2 l3 l4)
+  (by-rewrite app-assoc)
+  (by-rewrite app-assoc)
+  reflexivity)
+
+(define-theorem nonzeros_app
+  (forall [l1 : natlist] [l2 : natlist]
+          (== natlist
+              (nonzeros (app l1 l2))
+              (app (nonzeros l1) (nonzeros l2))))
+  (by-intros l1 l2)
+  (by-induction l1 #:as [() (h t ih)])
+  reflexivity
+  (by-rewrite ih)
+  reflexivity)
+
+(define/rec/match beq-natlist : natlist natlist -> bool
+  [nil nil => true]
+  [nil (cons _ _) => false]
+  [(cons _ _) nil => false]
+  [(cons h1 t1) (cons h2 t2) => (andb (beq-nat h1 h2) (beq-natlist t1 t2))])
+
+(check-equal? (beq-natlist nil nil) true)
+(check-equal? (beq-natlist (lst 1 2 3) (lst 1 2 3)) true)
+(check-equal? (beq-natlist (lst 1 2 3) (lst 1 2 4)) false)
+
+(define-theorem beq_nat_refl
+  (∀ [n : nat] (== bool true (beq-nat n n)))
+  (by-intro n)
+  (by-induction n #:as [() (n-1 ih)])
+  reflexivity
+  (by-rewriteL ih)
+  reflexivity)
+
+(define-theorem beq_natlist_refl
+  (∀ [l : natlist] (== bool true (beq-natlist l l)))
+  (by-intro l)
+  (by-induction l #:as [() (h t ih)])
+  reflexivity
+  (by-rewriteL ih)
+  (by-rewriteL beq_nat_refl)
+  reflexivity)  
+
+
+;; bags
+
+(define-theorem count_member_nonzero
+  (forall [s : bag] (== bool (leb 1 (count 1 (cons 1 s))) true))
+  (by-intro s)
+  reflexivity)
+
+(define-theorem ble_n_Sn
+  (∀ [n : nat] (== bool (leb n (S n)) true))
+  (by-intro n)
+  (by-induction n #:as [() (n-1 ih)])
+  reflexivity
+  (by-rewrite ih)
+  reflexivity)
+
+(define-theorem remove_decreases_count
+  (∀ [s : bag]
+     (== bool (leb (count 0 (remove-one 0 s)) (count 0 s)) true))
+  (by-intro s)
+  (by-induction s #:as [() (h t ih)])
+  ; 1 ---
+  reflexivity
+  ; 2 ---
+  (by-destruct h #:as [() (n-1)])
+  ; 2a ---
+  (by-rewrite ble_n_Sn)
+  reflexivity
+  ; 2b ---
+  (by-rewrite ih)
   reflexivity)

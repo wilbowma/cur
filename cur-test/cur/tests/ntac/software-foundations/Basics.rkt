@@ -49,13 +49,13 @@
   [true => false]
   [false => true])
 
-(define andb
-  (λ [b1 : bool] [b2 : bool]
-     (new-elim b1 (λ [b : bool] bool) b2 false)))
+(define/rec/match andb : bool [b : bool] -> bool
+  [true => b]
+  [false => false])
 
-(define orb
-  (λ [b1 : bool] [b2 : bool]
-     (new-elim b1 (λ [b : bool] bool) true b2)))
+(define/rec/match orb : bool [b : bool] -> bool
+  [true => true]
+  [false => b])
 
 (define-theorem test-orb1
   (== bool (orb true false) true)
@@ -334,11 +334,14 @@
 (check-equal? (beq-nat 1 2) false)
 (check-equal? (beq-nat 2 1) false)
 
-(define/rec/match leb : nat nat -> bool
-  [O O => true]
-  [O (S _) => true]
-  [(S _) O => false]
-  [(S n*) (S m*) => (leb n* m*)])
+;; nested match (instead of double pattern match)
+;; allows reduction when only 1st arg is known to be 0,
+;; see count_member_nonzero in List.rkt
+(define/rec/match leb : nat [m : nat] -> bool
+  [O => true]
+  [(S n*) => (match m #:return bool
+                    [O false]
+                    [(S m*) (leb n* m*)])])
 
 (check-equal? ((leb 2) 2) true)
 (:: ((leb 2) 2) bool)
