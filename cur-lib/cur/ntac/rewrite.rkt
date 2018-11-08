@@ -56,7 +56,18 @@
       [(x:id e) ; found a possible binidng
        #:when (member #'x (syntax->list bvs) free-identifier=?)
        (list #'(x e))]
-      [(x:id y:id) #:when (free-identifier=? #'x #'y) null]
+      [((~and (~literal #%plain-app) x)
+        (~and (~literal #%plain-app) y))
+       #:do[(define da1 (syntax-property #'x 'display-as))
+            (define da2 (syntax-property #'y 'display-as))]
+       #:when (or (and da1 da2 (stx-e da1) (stx-e da2) (free-identifier=? da1 da2))
+                  (and (not da1) (not da2))
+                  (and (not (stx-e da1)) (not (stx-e da2))))
+       null]
+      [((~and (~not (~literal #%plain-app)) x:id)
+        (~and (~not (~literal #%plain-app)) y:id))
+       #:when (free-identifier=? #'x #'y)
+       null]
       [((e1 ...) (e2 ...))
        #:do[(define e1-lst (syntax->list #'(e1 ...)))
             (define e2-lst (syntax->list #'(e2 ...)))]
@@ -71,7 +82,10 @@
             (define res ((unify bvs) e1 e2))
             (and res
                  (L (append res acc) (cdr e1s) (cdr e2s)))]))]
-      [(d1 d2) #:when (equal? (syntax-e #'d1) (syntax-e #'d2)) null] ; datums
+      [((~and (~not (~literal #%plain-app)) d1) ; datums
+        (~and (~not (~literal #%plain-app)) d2))
+       #:when (equal? (syntax-e #'d1) (syntax-e #'d2))
+       null]
       [_ #f]))
 
   ;; The theorem "H" to use for the rewrite is either:

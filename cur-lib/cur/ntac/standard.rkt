@@ -283,7 +283,7 @@
     (define name-ty (dict-ref ctxt name))
     (define/syntax-parse (_ [C ([x τ] ...) ((xrec . _) ...)] ...) (get-match-info name-ty))
     (define Cs #'(C ...))
-    (define pats
+    (define pats ; TODO: check length of paramss against (τ...) ...?
       (stx-map
        (λ (C τs ps)
          (if (null? (syntax->list ps))
@@ -304,10 +304,7 @@
             #,(for/list ([ih IHs])
                 (for/fold ([g goal])
                           ([p ps] [x (in-stx-list xs)] #:when (stx-member x xrecs))
-                  (subst p name goal)
-                  #;(if (stx-member x xrecs)
-                      (subst p name goal)
-                      g)))))
+                  (subst p name goal)))))
        paramss
        #'((τ ...) ...)
        #'((x ...) ...)

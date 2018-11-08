@@ -27,7 +27,7 @@
    ;  [⊢ ((λ [x- : τ] ... body-) e- ...)]
 
 (begin-for-syntax
-  (define ((mk-method τout) ty clause) ; 2 args: ei tys and clause
+  (define ((mk-method τout name) ty clause) ; 2 args: ei tys and clause
     (syntax-parse (list ty clause)
       [(_ [x:id body]) #'body] ; no subst, bc x is just nullary constructor
       ;; TODO: combine the following 4 cases
@@ -47,7 +47,7 @@
         [(con:id x:id ...) body])
        #:with yrec* (generate-temporary #'yrec)
        #:with body* (substs #'(y ...) #'(x ...) #'body)
-       #`(λ [y : τin] ... [yrec* : #,τout] body*)]
+       #`(λ [y : τin] ... [yrec* : #,(substs #'(y ...) (list name) τout)] body*)]
       [((_ ([y:id τin] ...) ((yrec))) ; rec, with anno
         [(con:id [x:id tag:id ty] ...) body])
        ;; TODO: for this to work, must inst τin
@@ -56,12 +56,13 @@
        ;;                "match: pattern annotation type mismatch"
        #:with yrec* (generate-temporary #'yrec)
        #:with body* (substs #'(y ...) #'(x ...) #'body)
-       #`(λ [y : ty] ... [yrec* : #,τout] body*)])))
+       #`(λ [y : ty] ... [yrec* : #,(substs #'(y ...) (list name) τout)] body*)])))
 
 ;; TODO:
 ;; - for now, explicit #:return arg required
 ;; - assuming clauses appear in order
 ;; - must use #:as for return type that uses `e`
+;; - x should be xs?  
 (define-typed-syntax match
   [(_ e (~optional (~seq #:as x) #:defaults ([x #'x])) #:return τout . clauses) ≫
    [⊢ e ≫ e- ⇒ τin]
@@ -93,8 +94,9 @@
   #:fail-unless (stx-length=? #'(ei ...) #'clauses)
                 "extra info error: check that number of clauses matches type declaration"
 ;;  #:with (m ...) (stx-map (mk-method #'e- #'τ #'τout modulepath this-syntax) #'(ei ...) #'clauses)
-  #:with (m ...) (stx-map (mk-method #'τout) #'(ei ...) #'clauses)
-;  #:do[(map pretty-print (stx->datum #'(m ...)))]
+  #:with (m ...) (stx-map (mk-method #'τout #'x) #'(ei ...) #'clauses)
+  ;; #:do[(printf "match methods for ~a:\n" #'e)
+  ;;      (map pretty-print (stx->datum #'(m ...)))]
   ; [⊢ body ≫ body- ⇐ τout] ...
 ;;   #:with elim-Name* (if modulepath
 ;;                         #'elim-Name
