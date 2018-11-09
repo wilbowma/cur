@@ -11,6 +11,7 @@
   (true : Bool)
   (false : Bool))
 
+;; TODO: generalize to all isomorphic datatypes
 (define-typed-syntax (if tst e1 e2) ≫
   [⊢ e1 ≫ e1- ⇒ τ]
   [⊢ e2 ≫ e2- ⇐ τ]

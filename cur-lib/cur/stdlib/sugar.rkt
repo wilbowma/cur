@@ -27,8 +27,8 @@
    ;  [⊢ ((λ [x- : τ] ... body-) e- ...)]
 
 (begin-for-syntax
-  (define ((mk-method τout name) ty clause) ; 2 args: ei tys and clause
-    (syntax-parse (list ty clause)
+  (define ((mk-method τout name) eis clause) ; 2 args: ei tys and clause
+    (syntax-parse (list eis clause)
       [(_ [x:id body]) #'body] ; no subst, bc x is just nullary constructor
       ;; TODO: combine the following 4 cases
       [((_ ([y:id τin] ...) ()) ; no rec, no anno
@@ -115,6 +115,7 @@
   ;; converts pat to a constructor (pattern expander) pat
   (define pat->cpat
     (syntax-parser
+      [(~literal _) this-syntax]
       [x:id (list (mk-~ #'x))]
       [(C:id . rst) (cons (mk-~ #'C) #'rst)])))
 
