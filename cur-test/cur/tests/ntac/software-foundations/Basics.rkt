@@ -334,16 +334,16 @@
 (check-equal? (beq-nat 1 2) false)
 (check-equal? (beq-nat 2 1) false)
 
-;; nested match (instead of double pattern match)
+;; wildcard in 1st case
 ;; allows reduction when only 1st arg is known to be 0,
 ;; see count_member_nonzero in List.rkt
-(define/rec/match leb : nat [m : nat] -> bool
-  [O => true]
-  [(S n*) => (match m #:return bool
-                    [O false]
-                    [(S m*) (leb n* m*)])])
+(define/rec/match leb : nat nat -> bool
+  [O _ => true]
+  [(S n*) O => false]
+  [(S n*) (S m*) => (leb n* m*)])
 
 (check-equal? ((leb 2) 2) true)
+(check-equal? (leb 2 2) true)
 (:: ((leb 2) 2) bool)
 (:: (refl bool true)
     (== bool (leb 2 2) true))
