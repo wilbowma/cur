@@ -308,6 +308,7 @@
             #,(for/list ([ih IHs])
                 (for/fold ([g goal])
                           ([p ps] [x (in-stx-list xs)] #:when (stx-member x xrecs))
+                  ;; TODO: is this right? subst xrecs (assuming only 1) for name in goal
                   (subst p name goal)))))
        paramss
        #'((τ ...) ...)
