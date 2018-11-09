@@ -16,12 +16,12 @@
 ;; define-data-constructor wraps define-type to enable currying of constructor
 (define-syntax define-data-constructor
   (syntax-parser
-    [(_ name (~datum :) [A+i:id Atag:id τ] ... (~datum ->) τ-out)
+    [(_ name (~datum :) [A+i:id Atag:id τ] ... (~datum ->) τ-out . rst)
      #:with name/internal (fresh #'name)
      #:with name/internal-expander (mk-~ #'name/internal)
      #:with name-expander (mk-~ #'name)
       #'(begin-
-         (define-type name/internal : [A+i Atag τ] ... -> τ-out)
+         (define-type name/internal : [A+i Atag τ] ... -> τ-out . rst)
          (define-syntax name
            (make-variable-like-transformer
             #'(λ [A+i : τ] ... (name/internal A+i ...))))
@@ -85,7 +85,12 @@
 (define-typed-syntax define-datatype
   ;; simple datatypes, eg Nat -------------------------------------------------
   ;; - ie, `TY` is an id with no params or indices
-  [(_ TY:id (~datum :) τ [C:id (~datum :) τC] ...) ≫ --- [≻ (define-datatype1 TY : τ [C : τC] ...)]]
+  [(_ TY:id (~datum :) τ [C:id (~datum :) τC] ...) ≫
+   ----------
+   [≻ (define-datatype1 TY : τ [C : τC] ...)]]
+  [(_ TY:id (~and (~not (~datum :)) A) ...  (~datum ->) . rst) ≫ ; no indices
+   ----------
+   [≻ (define-datatype TY A ... : -> . rst)]]
   ;; --------------------------------------------------------------------------
   ;; defines inductive type family `TY`, with:
   ;; - params A ...
@@ -95,9 +100,14 @@
   [(_ TY:id [A:id Atag:id τA] ... (~datum :) ; params: τA may reference preceding A
             [i:id itag:id τi] ... ; indices: τis may reference As and preceding i
             (~datum ->) τ
-            (~or* (~and [C:id (~datum :) τout] (~parse ([i+x i+xtag τin]...) #'()))
-                  ;; τin ... τout may reference A ... and preceding i+x ...
-                  [C:id (~datum :) [i+x:id i+xtag:id τin] ... (~datum ->) τout]) ...) ≫
+            ;; constructors: τin ... τout may reference A ... and preceding i+x ...
+            (~or* (~and [C:id (~datum :) τout] ;; nullary constructor
+                        (~parse ([i+x i+xtag τin]...) #'()))
+                  [C:id (~datum :) [i+x:id i+xtag:id τin] ... (~datum ->) τout] ; named args
+                  (~and [C:id (~datum :) τin ... (~datum ->) τout] ; unnamed args
+                        (~parse ([i+x i+xtag] ...)
+                                (stx-map (λ (t) (list (generate-temporary) ':)) #'(τin ...)))))
+            ...) ≫
 
    ;; validate types: use nested telescopes
    [[A ≫ _ Atag τA ≫ _] ... ⊢
@@ -142,7 +152,7 @@
    #:with OUTPUT-DEFS
     #'(begin-
         ;; define the type
-        (define-type TY : [A Atag τA] ... [i itag τi] ... -> τ
+        (define-data-constructor TY : [A Atag τA] ... [i itag τi] ... -> τ
           #:extra elim-TY (C ([i+x τin] ...) ((xrec irec ...) ...)) ...)
 
         ;; define the data constructors

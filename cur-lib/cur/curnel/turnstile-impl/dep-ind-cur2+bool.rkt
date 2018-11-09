@@ -1,6 +1,7 @@
 #lang s-exp "dep-ind-cur2.rkt"
 (require turnstile/typedefs 
-         "dep-ind-cur2+data2.rkt")
+         "dep-ind-cur2+data2.rkt"
+         "dep-ind-cur2+sugar.rkt")
 
 ;; bool lib
 
