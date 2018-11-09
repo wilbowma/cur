@@ -43,11 +43,12 @@
        ;;                "match: pattern annotation type mismatch"
        #:with body* (substs #'(y ...) #'(x ...) #'body)
        #`(λ [y : ty] ... body*)]
-      [((_ ([y:id τin] ...) ((yrec))) ; rec, no anno
+      [((_ ([y:id τin] ...) ((yrec))) ; rec, no anno; TODO: handle indices that may accompany yrecs
         [(con:id x:id ...) body])
        #:with yrec* (generate-temporary #'yrec)
        #:with body* (substs #'(y ...) #'(x ...) #'body)
-       #`(λ [y : τin] ... [yrec* : #,(substs #'(y ...) (list name) τout)] body*)]
+       ;; TODO: is this right? subst yrec (assuming only 1) for name in τout, ie the goal?
+       #`(λ [y : τin] ... [yrec* : #,(subst #'yrec name τout)] body*)]
       [((_ ([y:id τin] ...) ((yrec))) ; rec, with anno
         [(con:id [x:id tag:id ty] ...) body])
        ;; TODO: for this to work, must inst τin
@@ -56,7 +57,7 @@
        ;;                "match: pattern annotation type mismatch"
        #:with yrec* (generate-temporary #'yrec)
        #:with body* (substs #'(y ...) #'(x ...) #'body)
-       #`(λ [y : ty] ... [yrec* : #,(substs #'(y ...) (list name) τout)] body*)])))
+       #`(λ [y : ty] ... [yrec* : #,(subst #'yrec name τout)] body*)])))
 
 ;; TODO:
 ;; - for now, explicit #:return arg required

@@ -170,14 +170,9 @@
   reflexivity)
 
 ; sub1
-(define pred
-  (λ [n : nat]
-    (new-elim
-     n
-     (λ [n : nat] nat)
-     0
-     (λ [n* : nat] [ih : nat]
-        n*))))
+(define/rec/match pred : nat -> nat
+  [O => O]
+  [(S n-1) => n-1])
 
 (define-theorem tl-length-pred
   (∀ [l : natlist] (== nat (pred (length l)) (length (tl l))))
@@ -357,4 +352,44 @@
   reflexivity
   ;; 2b ---
   (by-rewrite ih)
+  reflexivity)
+
+(define-theorem rev-injective
+  (∀ [l1 : natlist] [l2 : natlist]
+     (-> (== natlist (rev l1) (rev l2))
+         (== natlist l1 l2)))
+  (by-intros l1 l2 H)
+  (by-rewriteL rev_invol l1)
+  (by-rewrite H)
+  (by-rewrite rev_invol)
+  reflexivity)
+    
+(define-datatype natoption : Type
+  [Some : (→ nat natoption)]
+  [None : natoption])
+
+(define/rec/match nth-error : natlist [n : nat] -> natoption
+  [nil => None]
+  [(cons h t) => (match (beq-nat n 0) #:return natoption
+                        [true (Some h)]
+                        [false (nth-error t (pred n))])])
+
+(check-equal? (nth-error (lst 4 5 6 7) 0) (Some 4))
+(check-equal? (nth-error [lst 4 5 6 7] 3) (Some 7))
+(check-equal? (nth-error [lst 4 5 6 7] 9) None)
+
+(define/rec/match option-elim : [d : nat] natoption -> nat
+  [(Some n) => n]
+  [None => d])
+
+(define/rec/match hd-opt : natlist -> natoption
+  [nil => None]
+  [(cons h _) => (Some h)])
+
+(define-theorem option-elim-hd
+  (∀ [l : natlist] [default : nat]
+     (== nat (hd default l) (option-elim default (hd-opt l))))
+  (by-intros l default)
+  (by-destruct l #:as [() (h t)])
+  reflexivity
   reflexivity)
