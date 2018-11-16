@@ -1,7 +1,5 @@
 #lang s-exp "../main.rkt"
 
-(require (for-syntax macrotypes/stx-utils syntax/stx))
-
 ;; differs from curnel/racket-impl:
 ;; -> is normal arrow type and not alias for Π,
 ;; but ∀ and forall is alias for Π
@@ -9,10 +7,14 @@
 (provide (all-from-out cur/curnel/turnstile-impl/dep-ind-cur2+sugar)
          let
          match
+         define-implicit
          define/rec/match)
 
 (require cur/curnel/turnstile-impl/dep-ind-cur2+sugar
-         (prefix-in r: racket/base))
+         (prefix-in r: racket/base)
+         (for-syntax syntax/stx
+                     macrotypes/stx-utils 
+                     turnstile/type-constraints))
 
 (define-typed-syntax let
   [(_ ((~or (~describe "unannotated" [x:id ex])
@@ -74,7 +76,6 @@
    -----
    [≻ (match+ e- #:as x #:in #,(typeof #'e-) #:return τout . clauses)]])
 
-(require (for-syntax racket/pretty))
 ;; the main match form
 ;; e- and τin already expanded
 (define-typed-syntax (match+ e #:as x #:in τin #:return τout . clauses) ≫
@@ -178,7 +179,79 @@
          (define-red name-eval #:display-as name [red-pat ~> body] ...))
 ;     #:do[(pretty-print (syntax->datum #'OUT))]
      #'OUT]))
-            
+
+(begin-for-syntax
+  (define (infer? stx) (equal? (stx-e stx) 'inf)))
+
+;; (define-implicit name* = name n (~or _ inf) ...)
+;; n = number of args to infer
+;; _ = concrete arg
+;; inf = infer type of this arg
+;; TODO:
+;; - check consistency of solved constraints
+(define-typed-syntax define-implicit
+  [(_ name* (~datum =) name n:exact-nonnegative-integer) ≫ ; rest of args are concrete (ie _)
+   [⊢ name ≫ name- ⇒ (~Π [X : _] ... _)]
+   #:when (not (= (stx-length #'(X ...)) (stx-e #'n))) ; go to next case
+   #:with args (stx-map (λ _ #'_) (stx-drop #'(X ...) (stx-e #'n)))
+   ----
+   [≻ (define-implicit name* = name n . args)]]
+  [(_ name* (~datum =) name n:exact-nonnegative-integer . infers) ≫
+   [⊢ name ≫ name- ⇒ (~Π [X : τ] ... τout)]
+  #:with (τexplicit ...) (stx-drop #'(τ ...) (stx-e #'n)) ; type of explicit args
+  #:with (τexplicit/inst ...) (generate-temporaries #'(τexplicit ...)) ; instantiated τexplicits
+  #:with (Ximplicit ...) (stx-take #'(X ...) (stx-e #'n)) ; binders of implicit args
+  #:with (Y ...) (generate-temporaries #'(τexplicit ...))
+  #:with (Y- ...) (generate-temporaries #'(Y ...))
+  #:with (τY ...) (generate-temporaries #'(Y ...))
+  #:with out-def
+  #`(define-typed-syntax name*
+      #,@(if (= (stx-length #'(X ...)) (stx-e #'n)) ; all args are implicit
+             (list #'[:id ≫ --- [≻ (name*)]]) ; add id case
+             null)
+      [(_ Y ...) ⇐ τ_expected ≫
+       ;[⊢ Y ≫ Y- ⇒ τY] ...
+       #:do[(define constraints ; = [Pair typeof-Y τexplicit], but only for non 'inf args
+              (for/list ([maybe-infer (in-stx-list #'infers)]
+                         [y (in-stx-list #'(Y ...))]
+                         [t (in-stx-list #'(τexplicit ...))]
+                         #:unless (infer? maybe-infer))
+                (list (typeof (expand/df y)) t)))
+            (define substs
+              (add-constraints
+               #'(Ximplicit ...)
+               null
+               (cons (list #'τ_expected #'τout) constraints)))]
+       #:with (τimplicit (... ...)) (lookup-Xs/keep-unsolved #'(Ximplicit ...) substs)
+       #:with (τexplicit/inst ...) (inst-types/cs/orig #'(Ximplicit ...) substs #'(τexplicit ...) datum=?)
+       [⊢ Y ≫ Y- ⇐ τexplicit/inst] ...
+       ------
+       [≻ (name τimplicit (... ...) Y- ...)]]
+      [(_ Y ...) ≫ ; same as above case, except no expected type
+        #:fail-when (zero? (stx-length #'(Y ...))) ; fail when no types to infer from
+                    (format "could not infer args for ~a; add annotations" 'name)
+;        [⊢ Y ≫ Y- ⇒ τY] ...
+        #:do[(define constraints ; = [Pair typeof-Y τexplicit], but only for non 'inf args
+              (for/list ([maybe-infer (in-stx-list #'infers)]
+                         [y (in-stx-list #'(Y ...))]
+                         [t (in-stx-list #'(τexplicit ...))]
+                         #:unless (infer? maybe-infer))
+                (list (typeof (expand/df y)) t)))
+            (define substs
+              (add-constraints
+               #'(Ximplicit ...)
+               null
+               constraints))]
+        #:with (τimplicit (... ...)) (lookup-Xs/keep-unsolved #'(Ximplicit ...) substs)
+        #:with (τexplicit/inst ...) (inst-types/cs/orig #'(Ximplicit ...) substs #'(τexplicit ...) datum=?)
+        [⊢ Y ≫ Y- ⇐ τexplicit/inst] ...
+        ------
+        [≻ (name τimplicit (... ...) Y- ...)]])
+  ------------
+  [≻ out-def]])
+
+      
+
 (provide
 ;;   Type
 ;;   ->
