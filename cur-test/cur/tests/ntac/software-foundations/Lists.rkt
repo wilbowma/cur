@@ -118,7 +118,7 @@
 
 (define/rec/match nonzeros : natlist -> natlist
   [nil => nil]
-  [(cons (~O) tl) => (nonzeros tl)]
+  [(cons O tl) => (nonzeros tl)]
   [(cons h tl) => (cons h (nonzeros tl))])
 
 (check-equal?

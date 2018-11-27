@@ -355,8 +355,8 @@
 ;; or just use explicit match
 (define/rec/match evenb2 : Nat -> Bool
   [z => true]
-  [(s (~z)) => false]
-  [(s (~s n-2)) => (evenb2 n-2)])
+  [(s z) => false]
+  [(s (s n-2)) => (evenb2 n-2)])
 
 (check-type (evenb2 1) : Bool -> false)
 (check-type (evenb2 2) : Bool -> true)

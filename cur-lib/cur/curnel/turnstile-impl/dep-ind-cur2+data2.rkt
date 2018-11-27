@@ -13,8 +13,26 @@
 
 (provide define-datatype)
 
-;; define-data-constructor wraps define-type to enable currying of constructor
+;; define-data-constructor wraps define-type to enable currying of constructor,
+;; differences with define-type*:
+;; - expander name same as constructor name
 (define-syntax define-data-constructor
+  (syntax-parser
+    [(_ name (~datum :) [A+i:id Atag:id τ] ... (~datum ->) τ-out . rst)
+     #:with name/internal (fresh #'name)
+     #:with name/internal-expander (mk-~ #'name/internal)
+     #:with name-expander #'name
+      #'(begin-
+         (define-type name/internal : [A+i Atag τ] ... -> τ-out . rst)
+         (define-syntax name
+           (make-variable-like-transformer
+            #'(λ [A+i : τ] ... (name/internal A+i ...))))
+         (begin-for-syntax
+           (define-syntax name-expander
+             (make-rename-transformer #'name/internal-expander))))]))
+
+;; define-type* wraps define-type to enable currying of constructor
+(define-syntax define-type*
   (syntax-parser
     [(_ name (~datum :) [A+i:id Atag:id τ] ... (~datum ->) τ-out . rst)
      #:with name/internal (fresh #'name)
@@ -23,8 +41,12 @@
       #'(begin-
          (define-type name/internal : [A+i Atag τ] ... -> τ-out . rst)
          (define-syntax name
-           (make-variable-like-transformer
-            #'(λ [A+i : τ] ... (name/internal A+i ...))))
+           (λ (stx)
+             ((make-variable-like-transformer
+               (quasisyntax/loc stx
+                 (λ [A+i : τ] ...
+                    #,(syntax/loc stx (name/internal A+i ...)))))
+              stx)))
          (begin-for-syntax
            (define-syntax name-expander
              (make-rename-transformer #'name/internal-expander))))]))
@@ -152,7 +174,7 @@
    #:with OUTPUT-DEFS
     #'(begin-
         ;; define the type
-        (define-data-constructor TY : [A Atag τA] ... [i itag τi] ... -> τ
+        (define-type* TY : [A Atag τA] ... [i itag τi] ... -> τ
           #:extra elim-TY (C ([i+x τin] ...) ((xrec irec ...) ...)) ...)
 
         ;; define the data constructors
@@ -198,7 +220,7 @@
           [⊢ (eval-TY v- P- m- ...) ⇒ (P- i* ... v-)]
 
           #:where eval-TY #:display-as elim-TY ; elim reduction rule
-          [(#%plain-app (C-expander AxC ... i+x ...) P m ...) ; elim redex
+          [(#%plain-app (C AxC ... i+x ...) P m ...) ; elim redex
            ~> (app/eval m i+x ... (eval-TY xrec P m ...) ...)] ...)
         )
 ;    #:do[(pretty-print (stx->datum #'OUTPUT-DEFS))]

@@ -2,7 +2,7 @@
 
 ;; TODO: override (all-defined-out) to enable exporting these properly.
 (provide #%datum Nat elim-Nat
-         z s (for-syntax ~z ~s)
+         z s (for-syntax z s)
          add1 sub1 plus mult zero? exp square nat-equal? even? odd?)
 
 (require "datum.rkt" "sugar.rkt" "bool.rkt")

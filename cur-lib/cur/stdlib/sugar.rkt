@@ -12,7 +12,8 @@
 
 (require cur/curnel/turnstile-impl/dep-ind-cur2+sugar
          (prefix-in r: racket/base)
-         (for-syntax syntax/stx
+         (for-syntax (for-syntax syntax/parse)
+                     syntax/stx
                      macrotypes/stx-utils 
                      turnstile/type-constraints))
 
@@ -112,24 +113,19 @@
 
 (begin-for-syntax
   (define (mk-eval id) (format-id id "eval-~a" id))
-  (define (mk-~ id) (format-id id "~~~a" id))
-  ;; converts pat to a constructor (pattern expander) pat
-  (define pat->cpat
-    (syntax-parser
-      [(~literal _) this-syntax]
-      [x:id (list (mk-~ #'x))]
-      [(C:id . rst) (cons (mk-~ #'C) #'rst)])))
+  (define (mk-~ id) (format-id id "~~~a" id)))
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
 ;; usage:
 ;; (define/rec/match name : [x : ty_in1] ... ty-to-match ... [y : ty_in2] ... -> ty_out
-;;  [constructor-pat ... => body] ...
+;;  [pat ... => body] ...
 ;; where:
 ;; - the [x : ty_in1] ... and [y : ty_in2] ... are telescopic
 ;; - ty-to-match are not named
 ;; - but other tys are named
-;; - in each clause, there must be one constructor-pat per ty-to-match
+;; - in each clause, there must be one pat per ty-to-match,
+;;   where the pats are stx-parse pats
 ;; TODO:
 ;; - check smaller arg for rec calls
 ;; - check coverage of pats
@@ -156,8 +152,7 @@
      #:with name-eval (mk-eval #'name)
      #:with (body2 ...) (subst #'name-eval #'name #'(body ...))
      ;; TODO: dont need to typecheck again on recursive call?
-     #:with ((cpat ...) ...) (stx-map (λ (ps) (stx-map pat->cpat ps)) #'((pat ...) ...))
-     #:with (red-pat ...) #'((#%plain-app x-for-pat ... cpat ... . ys-for-pat) ...)
+     #:with (red-pat ...) #'((#%plain-app x-for-pat ... pat ... . ys-for-pat) ...)
      #:with OUT
      #'(begin
          ;; this macro uses the patvar reuse technique
@@ -189,6 +184,7 @@
 ;; inf = infer type of this arg
 ;; TODO:
 ;; - check consistency of solved constraints
+;; - define a form that combines define/rec/match and define-implicit
 (define-typed-syntax define-implicit
   [(_ name* (~datum =) name n:exact-nonnegative-integer) ≫ ; rest of args are concrete (ie _)
    [⊢ name ≫ name- ⇒ (~Π [X : _] ... _)]
@@ -205,7 +201,20 @@
   #:with (Y- ...) (generate-temporaries #'(Y ...))
   #:with (τY ...) (generate-temporaries #'(Y ...))
   #:with out-def
-  #`(define-typed-syntax name*
+  #`(begin
+      (begin-for-syntax
+      #,(if (= (stx-length #'(X ...)) (stx-e #'n)) ; pattern expander
+            #'(define-syntax name*
+                (pattern-expander
+                 (syntax-parser
+                   [(~var _ id) #'(name Ximplicit ...)]
+                   [(_ . rst) #'((name Ximplicit ...) . rst)])))
+            #'(define-syntax name*
+                (pattern-expander
+                 (syntax-parser
+                   [(_ . rst) #'(name Ximplicit ... . rst)])))))
+        
+      (define-typed-syntax name*
       #,@(if (= (stx-length #'(X ...)) (stx-e #'n)) ; all args are implicit
              (list #'[:id ≫ --- [≻ (name*)]]) ; add id case
              null)
@@ -246,7 +255,8 @@
         #:with (τexplicit/inst ...) (inst-types/cs/orig #'(Ximplicit ...) substs #'(τexplicit ...) datum=?)
         [⊢ Y ≫ Y- ⇐ τexplicit/inst] ...
         ------
-        [≻ (name τimplicit (... ...) Y- ...)]])
+        [≻ (name τimplicit (... ...) Y- ...)]]))
+;  #:do[(pretty-print (syntax->datum #'out-def))]
   ------------
   [≻ out-def]])
 

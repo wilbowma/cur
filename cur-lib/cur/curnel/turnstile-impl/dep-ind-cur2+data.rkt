@@ -22,13 +22,13 @@
      #:with (~Π [A+i : τ] ... τ-out) ((current-type-eval) #'ty)
      #:with name/internal (fresh #'name)
      #:with name/internal-expander (mk-~ #'name/internal)
-     #:with name-expander (mk-~ #'name)
+     #:with name-expander #'name
      (syntax/loc this-syntax
        (begin-
          (define-type name/internal : [A+i : τ] ... -> τ-out #:extra . extra-info)
          (define-syntax name
            (make-variable-like-transformer
-            ;; TODO: This is loosing source location information
+            ;; TODO: This is losing source location information
             #'(λ [A+i : τ] ... (name/internal A+i ...))))
          (begin-for-syntax
            (define-syntax name-expander
@@ -125,7 +125,11 @@
    #:with elim-TY (format-id #'TY "elim-~a" #'TY)
    #:with eval-TY (format-id #'TY "eval-~a" #'TY)
    #:with TY/internal (fresh #'TY)
-   #:with (C-expander ...) (stx-map mk-~ #'(C ...))
+   #:with (C-expander ...) #'(C ...)
+   #:with (C-pat ...) (stx-map
+                       (λ (C xs) (if (stx-null? xs) C #`(#,C . #,xs)))
+                       #'(C-expander ...)
+                       #'((x ...) ...))
 ;   #:with TY-expander (mk-~ #'TY)
    --------
    [≻ (begin-
@@ -153,7 +157,7 @@
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (P- v-)]
           #:where eval-TY #:display-as elim-TY ; elim reduction rule
-          [(#%plain-app (C-expander x ...) P m ...) ; elim redex
+          [(#%plain-app C-pat P m ...) ; elim redex
            ~> (app/eval m x ... (eval-TY xrec P m ...) ...)] ...)
         )]]
   ;; --------------------------------------------------------------------------
@@ -162,7 +166,7 @@
   ;; - indices i ...
   ;; - ie, TY is a type constructor with type (Π [A : τA] ... [i τi] ... τ)
   ;; --------------------------------------------------------------------------
-  [(_ TY:id [A:id (~datum :) τA] ... (~datum :) ; params
+  #;[(_ TY:id [A:id (~datum :) τA] ... (~datum :) ; params
             [i:id (~datum :) τi] ... ; indices
             (~datum ->) τ
    [C:id (~datum :) τC] ...) ≫
