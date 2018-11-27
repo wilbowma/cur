@@ -261,8 +261,7 @@
   reflexivity)
 
 (define/rec/match minus : nat nat -> nat
-  [O O => O]
-  [O (S _) => O]
+  [O _ => O]
   [(S n-1) O => (S n-1)]
   [(S n-1) (S m-1) => (minus n-1 m-1)])
 

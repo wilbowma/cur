@@ -2,7 +2,7 @@
 (require "sugar.rkt")
 
 (provide Bool elim-Bool true false
-         (for-syntax ~true ~false)
+         (for-syntax true false)
          if not and or)
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑

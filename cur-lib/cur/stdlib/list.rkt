@@ -7,7 +7,7 @@
 (provide
  List
  elim-List
- nil cons (for-syntax ~nil ~cons)
+ nil cons (for-syntax nil cons)
  list-ref
  length
  build-list
