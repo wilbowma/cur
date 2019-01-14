@@ -14,6 +14,12 @@
 (check-type sub1 : (-> Nat Nat))
 
 (check-type (plus z z) : Nat -> z)
+(check-type (plus z (s z)) : Nat -> (s z))
+;; 2019-01-11: change define/rec/match to use expanded bodies broke tests starting here
+;; to fix:
+;; - `unsubst-app` must consider arity; ie properly unnest single-arg #%plain-apps
+;; - `reflect` body--
+(check-type (plus (s z) z) : Nat -> (s z))
 (check-type (plus (s (s z)) (s (s z))) : Nat -> (s (s (s (s z)))))
 
 ;; test for non-full application cases
@@ -103,6 +109,8 @@
 (check-type (even? z) : Bool -> true)
 (check-type (even? (s z)) : Bool -> false)
 (check-type (even? (s (s z))) : Bool -> true)
+
+(define (odd? [n : Nat]) (not (even? n)))
 (check-type (odd? z) : Bool -> false)
 (check-type (odd? (s z)) : Bool -> true)
 (check-type (odd? (s (s z))) : Bool -> false)
