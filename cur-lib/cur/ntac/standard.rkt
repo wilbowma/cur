@@ -6,6 +6,7 @@
              racket/dict
              racket/list
              racket/match
+             racket/pretty
              syntax/stx
              (for-syntax racket/base))
  "../stdlib/sugar.rkt"
@@ -39,19 +40,37 @@
 
 ;; display tactic
 ;; TODO: print number of subgoals
-(define-for-syntax (display-focus tz)
-  (match (nttz-focus tz)
-    [(ntt-hole _ goal)
-     (for ([(k v) (in-dict (nttz-context tz))])
-       (printf "~a : ~a\n" (syntax->datum k) (syntax->datum (cur-pretty-print v))))
-     (printf "--------------------------------\n")
-     (printf "~a\n\n" (syntax->datum (cur-pretty-print goal)))]
-    [(ntt-done _ _ _)
-     (printf "Proof complete.\n")]
-    [_
-     ;; XXX
-     (printf "Not at hole.\n")])
-  tz)
+(begin-for-syntax
+  (define (display-focus tz)
+    (match (nttz-focus tz)
+      [(ntt-hole _ goal)
+       (for ([(k v) (in-dict (nttz-context tz))])
+         (printf "~a : ~a\n" (syntax->datum k) (syntax->datum (cur-pretty-print v))))
+       (printf "--------------------------------\n")
+       (printf "~a\n\n" (syntax->datum (cur-pretty-print goal)))]
+      [(ntt-done _ _ _)
+       (printf "Proof complete.\n")]
+      [_
+       ;; XXX
+       (printf "Not at hole.\n")])
+    tz)
+  (define (display-focus/raw tz)
+    (match (nttz-focus tz)
+      [(ntt-hole _ goal)
+       (for ([(k v) (in-dict (nttz-context tz))])
+         (printf "~a : ~a\n" (syntax->datum k) (syntax->datum (cur-pretty-print v))))
+       (for ([(k v) (in-dict (nttz-context tz))])
+         (printf "~a : ~a\n" (syntax->datum k) (syntax->datum v)))
+       (printf "--------------------------------\n")
+       (printf "~a\n" (syntax->datum (cur-pretty-print goal)))
+       (pretty-print (syntax->datum goal))
+       (printf "\n\n")]
+      [(ntt-done _ _ _)
+       (printf "Proof complete.\n")]
+      [_
+       ;; XXX
+       (printf "Not at hole.\n")])
+    tz))
 
 (begin-for-syntax
   (define current-proof null)
