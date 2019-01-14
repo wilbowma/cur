@@ -93,7 +93,7 @@
 
 (define mylist (cons 1 (cons 2 (cons 3 nil))))
 
-(define/rec/match repeat : nat [n : nat] -> natList
+(define/rec/match repeat : nat [n : nat] -> natlist
   [O => nil]
   [(S count-1) => (cons n (repeat count-1 n))])
 

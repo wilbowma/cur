@@ -8,7 +8,26 @@
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
-(provide define-datatype)
+(provide define-datatype (for-syntax datacons pat->ctxt))
+
+(begin-for-syntax
+  (struct datacons (proc pat->ctxt)
+    #:property prop:procedure (struct-field-index proc))
+  ;; pattern pat has type ty
+  (define (pat->ctxt pat ty)
+    ;; (printf "converting pat: ~a\n" (stx->datum pat))
+    ;; (printf "with type: ~a\n" (stx->datum ty))
+    ;; (when (id? pat)
+    ;;   (displayln (syntax-local-value pat (λ () #f))))
+    (syntax-parse pat
+      [(~datum _) null]
+      [C:id
+       #:when (datacons? (syntax-local-value #'C (λ () #f))) ; nullary constructor
+       ((datacons-pat->ctxt (syntax-local-value #'C)) pat ty)]
+      [:id (list (list pat ty))]
+      [(C . _)
+       ((datacons-pat->ctxt (syntax-local-value #'C)) pat ty)])))
+    
 
 ;; define-cur-constructor is mostly sugar for define-type, and:
 ;; - allows writing whole type in declaration, eg (define-cur-constructor name : TY)
@@ -23,13 +42,30 @@
      #:with name/internal (fresh #'name)
      #:with name/internal-expander (mk-~ #'name/internal)
      #:with name-expander #'name
+     #:with (p ...) (generate-temporaries #'(A+i ...))
      (syntax/loc this-syntax
        (begin-
          (define-type name/internal : [A+i : τ] ... -> τ-out #:extra . extra-info)
          (define-syntax name
-           (make-variable-like-transformer
-            ;; TODO: This is losing source location information
-            #'(λ [A+i : τ] ... (name/internal A+i ...))))
+           (datacons
+            (make-variable-like-transformer
+             ;; TODO: This is losing source location information
+             #'(λ [A+i : τ] ... (name/internal A+i ...)))
+            (λ (pat t)
+              (syntax-parse pat
+                [:id ; nullary constructor, no extra binders
+                 #:fail-unless (typecheck? ((current-type-eval) t) #'τ-out)
+                 (format "expected pattern for type ~a, given pattern for ~a: ~a\n"
+                         (type->str t) (type->str #'τ-out) (syntax->datum pat))
+                 null]
+                [(_ p ...)
+                 #:fail-unless (typecheck? ((current-type-eval) t) #'τ-out)
+                 (format "expected pattern for type ~a, given pattern for ~a: ~a\n"
+                         (type->str t) (type->str #'τ-out) (syntax->datum pat))
+                 (stx-appendmap
+                  pat->ctxt
+                  #'(p ...)
+                  #'(τ ...))]))))
          (begin-for-syntax
            (define-syntax name-expander
              (make-rename-transformer #'name/internal-expander)))))]))

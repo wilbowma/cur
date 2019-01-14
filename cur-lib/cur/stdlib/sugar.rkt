@@ -117,6 +117,36 @@
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
+;; helper fns for define/rec/match
+(begin-for-syntax
+  ;; - input stx arg must be fully expanded
+  (define (get-app stx name n)
+    (syntax-parse stx
+      [((~literal #%plain-app) f:id arg)
+       #:when (= 1 n)
+       #:when (free-id=? #'f name)
+       (list #'f #'arg)]
+      [((~literal #%plain-app) f arg)
+       (let ([rst (get-app #'f name (sub1 n))])
+         (and rst (append rst (list #'arg))))]
+      [_ #f]))
+  ;; - input stx arg must be fully expanded
+  (define (unsubst-app name name-eval num-args)
+    (syntax-parser
+      [_
+       #:do[(define the-app (get-app this-syntax name num-args))]
+       #:when the-app
+       #:with (_ . args) the-app
+       (datum->syntax
+        this-syntax
+        (cons (mk-reflected name-eval #'#%plain-app name) #'args)
+        this-syntax this-syntax)]
+      [:id this-syntax]
+      [(x ...)
+       (datum->syntax
+        this-syntax
+        (stx-map (unsubst-app name name-eval num-args) #'(x ...))
+        this-syntax this-syntax)])))
 ;; usage:
 ;; (define/rec/match name : [x : ty_in1] ... ty-to-match ... [y : ty_in2] ... -> ty_out
 ;;  [pat ... => body] ...
@@ -131,28 +161,71 @@
 ;; - check coverage of pats
 ;; - check that body has type ty_out; currently, mismatch wont error
 ;;(require (for-syntax racket/pretty))
-(define-syntax define/rec/match 
-  (syntax-parser
-    [(_ name:id
-        (~datum :)
-        [x (~datum :) ty_in1] ...
-        (~and ty-to-match (~not [_ (~datum :) _]) (~not (~datum ->))) ...
-        [y (~datum :) ty_in2] ...
-        (~datum ->) ty_out
-        [pat ... (~datum =>) body] ...)
+(define-typed-syntax define/rec/match 
+  [(_ name:id
+      (~datum :)
+      [x (~datum :) ty_in1] ...
+      (~and ty-to-match (~not [_ (~datum :) _]) (~not (~datum ->))) ...
+      [y (~datum :) ty_in2] ...
+      (~datum ->) ty_out
+      [pat ... (~datum =>) body] ...) ≫
      #:fail-unless (or (zero? (stx-length #'(x ...)))
                        (zero? (stx-length #'(y ...))))
-                   "cannot have both pre and post pattern matching args"
+     "cannot have both pre and post pattern matching args"
+ ;    #:do[(printf "fn: ~a ----------------\n" (stx->datum #'name))]
+     #:with (([xpat xpatτ] ...) ...)
+     (stx-map
+      (λ (pats)
+        (stx-appendmap pat->ctxt pats #'(ty-to-match ...)))
+      #'((pat ...) ...))
+;     #:do[(printf "pattern binders: ~a\n" (stx->datum #'(([xpat xpatτ] ...) ...)))]
      #:with (x0 ...) (generate-temporaries #'(ty-to-match ...))
+     #:with (([x+pat x+patτ] ...) ...) (stx-map
+                                        (λ (x+τs)
+                                          #`(#,@#'((x ty_in1) ...)
+                                             #,@x+τs))
+                                        #'(([xpat xpatτ] ...) ...))
+     [([x+pat ≫ x+pat- : x+patτ] ...)
+      ([y ≫ y*- : ty_in2] ...
+       ;; for now, assume recursive references are fns
+       [name ≫ name- : (Π [x : ty_in1] ... [x0 : ty-to-match] ... [y : ty_in2] ... ty_out)])
+      ⊢ body ≫ body- ⇐ ty_out] ...
+     #:do[(define arity (stx-length #'(x ... ty-to-match ... y ...)))]
+     ;; #:do[
+     ;;      (displayln 'body-)
+     ;;      (stx-map (compose displayln syntax->datum) #'(body- ...))]
+     #:with ((x*- ...) ...) (stx-map
+                             (λ (x+pats)
+                               (stx-take x+pats (stx-length #'(x ...))))
+                             #'((x+pat- ...) ...))
+     #:with ((xpat- ...) ...) (stx-map
+                               (λ (x+pats)
+                                 (stx-drop x+pats (stx-length #'(x ...))))
+                               #'((x+pat- ...) ...))
      #:with (x0- ...) (generate-temporaries #'(x0 ...))
      #:with (x- ...) (generate-temporaries #'(x ...))
      #:with (y- ...) (generate-temporaries #'(y ...))
      #:with ((x-for-pat ...) ...) (stx-map (λ _ #'(x ...)) #'((pat ...) ...))
      #:with (ys-for-pat ...) (stx-map (λ _ #'(y ...)) #'((pat ...) ...))
      #:with name-eval (mk-eval #'name)
-     #:with (body2 ...) (subst #'name-eval #'name #'(body ...))
+     ;; need to "unsubst" recursive references to (to-be-defined) calls to name-eval
+     #:with (body-- ...) (stx-map
+                          (λ (n- b)
+                            (reflect
+                             ((unsubst-app n- #'name-eval arity) b)))
+                          #'(name- ...)
+                          #'(body- ...))
+     ;; #:do[
+     ;;      (displayln 'body--)
+     ;;      (stx-map (compose displayln syntax->datum) #'(body-- ...))]
      ;; TODO: dont need to typecheck again on recursive call?
-     #:with (red-pat ...) #'((#%plain-app x-for-pat ... pat ... . ys-for-pat) ...)
+     #:with ((pat- ...) ...) (stx-map
+                              substs
+                              #'((xpat- ...) ...)
+                              #'((xpat ...) ...)
+                              #'((pat ...) ...))
+;     #:with (red-pat ...) #'((#%plain-app x-for-pat ... pat ... . ys-for-pat) ...)
+     #:with (red-pat ...) #'((#%plain-app x*- ... pat- ... y*- ...) ...)
      #:with OUT
      #'(begin
          ;; this macro uses the patvar reuse technique
@@ -171,9 +244,10 @@
             [≻ ((λ [x : ty_in1] ... [x0 : ty-to-match] ... [y : ty_in2] ...
                   (name x ... x0 ... y ...))
                 arg (... ...))]])
-         (define-red name-eval #:display-as name [red-pat ~> body] ...))
-;     #:do[(pretty-print (syntax->datum #'OUT))]
-     #'OUT]))
+         (define-red name-eval #:display-as name [red-pat ~> body--] ...))
+     ;     #:do[(pretty-print (syntax->datum #'OUT))]
+     -----
+     [≻ OUT]])
 
 (begin-for-syntax
   (define (infer? stx) (equal? (stx-e stx) 'inf)))

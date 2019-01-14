@@ -1,7 +1,7 @@
 #lang turnstile/lang
 (require (except-in "dep-ind-cur2.rkt" λ #%app Π ~Π)
          (except-in "dep-ind-cur2+sugar.rkt" define)
-         (only-in "dep-ind-cur2+data.rkt" [define-datatype define-datatype1])
+         (only-in "dep-ind-cur2+data.rkt" [define-datatype define-datatype1] pat->ctxt datacons)
          turnstile/eval turnstile/typedefs turnstile/more-utils)
 
 ;; a 2nd dep-ind-cur2 library implementing define-datatype
@@ -11,7 +11,7 @@
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
-(provide define-datatype)
+(provide define-datatype (for-syntax pat->ctxt))
 
 ;; define-data-constructor wraps define-type to enable currying of constructor,
 ;; differences with define-type*:
@@ -22,11 +22,34 @@
      #:with name/internal (fresh #'name)
      #:with name/internal-expander (mk-~ #'name/internal)
      #:with name-expander #'name
+     #:with (p ...) (generate-temporaries #'(A+i ...))
       #'(begin-
          (define-type name/internal : [A+i Atag τ] ... -> τ-out . rst)
          (define-syntax name
-           (make-variable-like-transformer
-            #'(λ [A+i : τ] ... (name/internal A+i ...))))
+           (datacons
+            (λ (stx)
+              ((make-variable-like-transformer
+                (quasisyntax/loc stx
+                  (λ [A+i : τ] ...
+                     #,(syntax/loc stx (name/internal A+i ...)))))
+               stx))
+            #;(make-variable-like-transformer
+               #'(λ [A+i : τ] ... (name/internal A+i ...)))
+            (λ (pat t) ; pat should have type ty
+              (syntax-parse pat
+                [:id ; nullary constructor, no extra binders
+                 #:fail-unless (free-id=? (stx-car t) (stx-car #'τ-out))
+                 (format "expected pattern for type ~a, given pattern for ~a: ~a\n"
+                         (type->str t) (type->str #'τ-out) (syntax->datum pat))
+                 null]
+                [(_ p ...)
+                 #:fail-unless (free-id=? (stx-car t) (stx-car #'τ-out))
+                 (format "expected pattern for type ~a, given pattern for ~a: ~a\n"
+                         (type->str t) (type->str #'τ-out) (syntax->datum pat))
+                 (stx-appendmap
+                  pat->ctxt
+                  #'(p ...)
+                  #'(τ ...))]))))
          (begin-for-syntax
            (define-syntax name-expander
              (make-rename-transformer #'name/internal-expander))))]))
@@ -41,6 +64,8 @@
       #'(begin-
          (define-type name/internal : [A+i Atag τ] ... -> τ-out . rst)
          (define-syntax name
+           #;(make-variable-like-transformer
+            #'(λ [A+i : τ] ... (name/internal A+i ...)))
            (λ (stx)
              ((make-variable-like-transformer
                (quasisyntax/loc stx
