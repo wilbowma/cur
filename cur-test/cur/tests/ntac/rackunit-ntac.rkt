@@ -3,7 +3,7 @@
 ;; this file contains shim test forms for old cur test files,
 ;; and some new test forms, eg check-ntac-trace
 
-(provide check-ntac-fail check-ntac-trace ntac/trace :: check-equal?)
+(provide check-ntac-fail check-ntac-trace ntac/trace ntac/trace/raw :: check-equal?)
 
 (require rackunit
          (only-in rackunit/turnstile check-type)
@@ -35,6 +35,11 @@
   (syntax-parser
     [(_ . ts)
      #:with disp-foc (datum->syntax this-syntax 'display-focus)
+     #`(ntac . #,(stx-appendmap (λ (t) (list t #'disp-foc)) #'ts))]))
+(define-syntax ntac/trace/raw
+  (syntax-parser
+    [(_ . ts)
+     #:with disp-foc (datum->syntax this-syntax 'display-focus/raw)
      #`(ntac . #,(stx-appendmap (λ (t) (list t #'disp-foc)) #'ts))]))
 
 (define-syntax check-ntac-trace
