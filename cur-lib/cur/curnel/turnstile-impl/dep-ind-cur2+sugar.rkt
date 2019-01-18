@@ -33,7 +33,8 @@
                      'display-as
                      #'→))
                   (generate-temporaries #'(τ_in ...)))
-  (Π/c [X : τ_in] ... τ_out))
+  #:with out/srcloc (syntax/loc this-syntax (Π/c [X : τ_in] ... τ_out))
+  out/srcloc)
 ;; ;; (∀ (X) τ) == (∀ ([X : Type]) τ)
 ;; (define-simple-macro (∀ X ...  τ)
 ;;   (Π [X : Type] ... τ))
