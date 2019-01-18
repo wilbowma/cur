@@ -79,7 +79,9 @@
          [_ t1]))
      (or (type=? t1+ t2) ; equality
          (syntax-parse (list t1+ t2)
-           [((~Type n) (~Type m)) (<= (stx-e #'n) (stx-e #'m))]
+           [((~Type n) (~Type m)) (or (<= (stx-e #'n) (stx-e #'m))
+                                      (and (>= (stx-e #'n) 99) ; both are "TypeTop"
+                                           (>= (stx-e #'m) 99)))]
            [((~Π [x1 : τ_in1] τ_out1) (~Π [x2 : τ_in2] τ_out2))
             (and (type=? #'τ_in1 #'τ_in2)
                  (typecheck? (subst #'x2 #'x1 #'τ_out1) #'τ_out2))]
