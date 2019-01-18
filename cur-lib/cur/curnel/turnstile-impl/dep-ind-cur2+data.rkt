@@ -183,7 +183,7 @@
         (define-typerule/red (elim-TY v P m ...) ≫
           [⊢ v ≫ v- ⇐ TY]
 ;          [⊢ v ≫ v- ⇒ TY-expander]
-          [⊢ P ≫ P- ⇐ (→ TY Type)] ; prop / motive
+          [⊢ P ≫ P- ⇐ (→ TY TypeTop)] ; prop / motive
           ;; each `m` can consume 2 sets of args:
           ;; 1) args of the constructor `x` ... 
           ;; 2) IHs for each `x` that has type `TY`

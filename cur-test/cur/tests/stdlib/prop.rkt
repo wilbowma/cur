@@ -4,6 +4,7 @@
  cur/stdlib/sugar
  cur/stdlib/bool
  cur/stdlib/nat
+ cur/stdlib/equality
  rackunit/turnstile)
 
 (check-type True : Type -> True)
@@ -33,3 +34,39 @@
                  (lambda (b : A) b)])))
 
 (check-type proof:A-or-A : thm:A-or-A)
+
+;; False implies 0=1
+(check-type
+ (λ [x : False] (elim-False x (λ y (== Nat 0 1))))
+ : (-> False (== Nat 0 1)))
+
+;; false implies anything
+(define falsey
+  (λ [X : Type] [x : False] (elim-False x (λ y X))))
+(check-type falsey : (Π [X : Type] (-> False X)))
+
+(check-type
+ ((λ [X : Type] [x : False] (elim-False x (λ y X)))
+  (== Nat 0 1))
+ : (-> False (== Nat 0 1)))
+
+
+(check-type
+ (λ [n : Nat]
+   (elim-Nat n (λ m Type) True (λ x y False)))
+ : (-> Nat Type))
+
+(define 0neq1
+ (λ [h1 : (== Nat 0 1)]
+   (elim-==
+    h1
+    (λ [b : Nat] ; isZero?
+      (λ H
+        (elim-Nat b (λ n Type) True (λ x y False))))
+    I))) ; proof of (isZero 0)
+(check-type 0neq1 : (-> (== Nat 0 1) False))
+
+(check-type
+ (λ [H : (== Nat 0 1)]
+   (falsey (== Nat 2 3) (0neq1 H)))
+ : (-> (== Nat 0 1) (== Nat 2 3)))

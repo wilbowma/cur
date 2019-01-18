@@ -6,11 +6,11 @@
 ;; bool lib
 
 (provide False True I And conj Or or_introL or_introR
-         elim-Or elim-And)
+         elim-Or elim-And elim-False)
 
 ;(define-type Bool : Type)
 
-(define-type False : Type)
+(define-datatype False : Type)
 
 (define-datatype True : Type
   [I : True])
