@@ -229,7 +229,7 @@
           [⊢ v ≫ v- ⇒ (TY-patexpand A ... i* ...)]
           
           ;; τi instantiated with A ... from v-
-          [⊢ P ≫ P- ⇐ (Π [i itag τi] ... (→ (TY A ... i ...) Type))]
+          [⊢ P ≫ P- ⇐ (Π [i itag τi] ... (→ (TY A ... i ...) TypeTop))]
 
           ;; each m is curried fn consuming 3 (possibly empty) sets of args:
           ;; 1,2) i+x  - indices of the tycon, and args of each constructor `C`

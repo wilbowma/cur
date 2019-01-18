@@ -1,26 +1,25 @@
 #lang s-exp "../main.rkt"
 
 (provide
+ (except-out (all-from-out cur/curnel/turnstile-impl/dep-ind-cur2+bool) conj)
+ (rename-out [I T]
+             [conj/i conj]
+             [or_introL left]
+             [or_introR right])
   ;; True T
-  thm:anything-implies-true
-  pf:anything-implies-true
   ;; False
   ;; Not
   ;; And
   ;; conj
-  (rename-out [conj/i conj])
+  thm:anything-implies-true
+  pf:anything-implies-true
   thm:and-is-symmetric pf:and-is-symmetric
   thm:proj1 pf:proj1
   thm:proj2 pf:proj2
   )
 
-(require "sugar.rkt")
-
-(require cur/curnel/turnstile-impl/dep-ind-cur2+bool)
-(provide (except-out (all-from-out cur/curnel/turnstile-impl/dep-ind-cur2+bool) conj)
-         (rename-out [I T]
-                     [or_introL left]
-                     [or_introR right]))
+(require "sugar.rkt"
+         cur/curnel/turnstile-impl/dep-ind-cur2+bool)
 
 ;; (data True : 0 Type (T : True))
 
