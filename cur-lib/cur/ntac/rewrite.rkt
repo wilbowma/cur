@@ -4,12 +4,16 @@
 (provide (for-syntax reflexivity
                      replace
                      rewrite
+                     by-apply
                      by-replace
                      by-rewrite
                      by-rewriteL
-                     (rename-out [by-rewrite by-rewriteR])))
+                     (rename-out [by-rewrite by-rewriteR])
+                     elim-False
+                     by-inversion))
 
 (require
+ "../stdlib/prop.rkt" ; for False, see inversion
  "../stdlib/sugar.rkt"
  "../stdlib/equality.rkt"
  "base.rkt"
@@ -19,6 +23,7 @@
               macrotypes/stx-utils
               racket/dict
               racket/match
+              racket/pretty
               syntax/stx
               (for-syntax racket/base syntax/parse)))
 
@@ -27,7 +32,7 @@
   (define (reflexivity ptz)
     (match-define (ntt-hole _ goal) (nttz-focus ptz))
     (ntac-match goal
-     [(~== ty a b) ((fill (exact #'(refl ty a))) ptz)]))
+     [(~== ty a b) ((fill (exact #`(refl #,(unexpand #'a)))) ptz)]))
 
   ;; rewrite tactics ----------------------------------------------------------
 
@@ -45,6 +50,7 @@
   ;; internal rewrite tactic --------------------
   ;; - surface tactics all defined in terms of this one
 
+  ;; MOVEME (to utils?):
   ;; unify
   ;; tries to unify e1 with e2, where bvs closes over e1
   ;; returns list of (stx)pairs [x e], where x \in bvs, and e \in e2,
@@ -87,6 +93,38 @@
        #:when (equal? (syntax-e #'d1) (syntax-e #'d2))
        null]
       [_ #f]))
+
+  ;; like unify, but with no bvs
+  ;; - used in inversion
+  (define (unify/open e1 e2)
+    ;; (printf "unify/open1: ~a\n" (syntax->datum e1))
+    ;; (printf "unify/open2: ~a\n" (syntax->datum e2))
+    (syntax-parse (list e1 e2)
+      [(x:id e) ; found a possible binidng
+       (list #'(x e))]
+      [(e x:id) ; found a possible binidng
+       (list #'(e x))]
+      [(((~literal #%plain-app) f1:id e1 ...)
+        ((~literal #%plain-app) f2:id e2 ...))
+       #:when (free-identifier=? #'f1 #'f2)
+       #:do[(define e1-lst (syntax->list #'(e1 ...)))
+            (define e2-lst (syntax->list #'(e2 ...)))]
+       #:when (= (length e1-lst) (length e2-lst))
+       ;; performs a fold, but stops on first fail
+       (let L ([acc null] [e1s e1-lst] [e2s e2-lst])
+         (cond
+           [(and (null? e1s) (null? e2s)) acc]
+           [else
+            (define e1 (car e1s))
+            (define e2 (car e2s))
+            (define res (unify/open e1 e2))
+            (and res
+                 (L (append res acc) (cdr e1s) (cdr e2s)))]))]
+      [(((~literal #%plain-app) f1:id . _)
+        ((~literal #%plain-app) f2:id . _))
+       #:when (not (free-identifier=? #'f1 #'f2))
+       (list #f)]
+      [_ (list (list e1 e2))]))
 
   ;; The theorem "H" to use for the rewrite is either:
   ;; - `thm` arg --- from previously defined define-theorem
@@ -144,7 +182,7 @@
                      [thm/inst #`(#,name . inst-args)]
                      [THM (if left-src?
                               #'thm/inst
-                              #'(sym TY L R thm/inst))])
+                              #`(sym TY #,(unexpand #'L) #,(unexpand #'R) thm/inst))])
         (make-ntt-apply
          goal
          (list (make-ntt-hole (normalize (subst-term #'src #'tgt goal) ctxt)))
@@ -157,6 +195,7 @@
                   #,(subst-term #'tgt-id #'tgt goal)))
               #,body-pf)))))]))
 
+  ;; replace tactic
   (define ((replace ty from to) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
     ;; (define ty (transfer-scopes goal ty_ ctxt))
@@ -183,4 +222,135 @@
   (define-syntax (by-replace syn)
     (syntax-case syn ()
       [(_ ty from to)
-       #`(fill (replace #'ty #'from #'to))])))
+       #`(fill (replace #'ty #'from #'to))]))
+
+;; apply tactic --------------------
+
+  (define-syntax (by-apply syn)
+    (syntax-case syn ()
+      [(_ H . es)
+       #`(fill (apply-fn #'H #:inst-args #'es))]))
+
+  ;; The theorem "H" to apply is either:
+  ;; - `thm` arg --- from previously defined define-theorem
+  ;; - or (dict-ref ctxt name) --- usually an IH
+  ;; H must be expanded and must have shape:
+  ;; - (~Π [x : ty] ... (~Π [_ : antecedent] consequent))
+  ;;   - x ... is instantiated with `es`
+  (define ((apply-fn name #:inst-args [inst-args_ #'()]) ctxt pt)
+    (match-define (ntt-hole _ goal) pt)
+    (ntac-match (or (dict-ref ctxt name #f) ; thm in ctx
+                    (typeof (expand/df name))) ; prev proved tm
+     [(~and (~Π [X_ : τX_] ... consequent)
+            (~parse ([X τX] ... [_ antecedent]) #'([X_ τX_] ...))
+            (~parse inst-args
+                    (if (= (stx-length #'(X ...)) (stx-length inst-args_))
+                        (stx-map (normalize/ctxt ctxt) inst-args_)
+                        ; else search
+                        (let ([x+es (find-in #'consequent goal (unify #'(X ...)))])
+                          (map ; extract es
+                           (λ (x+es) (cadr (syntax-e (car x+es))))
+                           (filter ; filter out #f
+                            (λ (x) x)
+                            (map ; lookup in result of unification
+                             (λ (x)
+                               (member x (or x+es null)
+                                       (λ (x x+e)
+                                         (free-identifier=? x (stx-car x+e)))))
+                             (syntax->list #'(X ...)))))))))
+        (make-ntt-apply
+         goal
+         (list
+          (make-ntt-hole
+           (normalize (substs
+                       #'inst-args
+                       #'(X ...)
+                       #'antecedent) ctxt)))
+         (λ (body-pf)
+           (quasisyntax/loc goal
+             (#,name #,@#'inst-args #,body-pf))))]))
+
+;; inversion tactic --------------------------------------------------
+
+  (define-syntax (by-inversion syn)
+    (syntax-case syn ()
+      [(_ H) #`(fill (inversion #'H #'()))]
+      [(_ H #:extra-names . names) #`(fill (inversion #'H #'names))]))
+
+  (define-syntax (elim-False syn)
+    (syntax-parse syn
+      [:id #'(fill (elim-False-fn))]))
+  (define ((elim-False-fn) ctxt pt)
+    (match-define (ntt-hole _ goal) pt)
+    (make-ntt-apply
+     goal
+     (list (make-ntt-hole #'False))
+     (λ (body-pf) ; proof of false
+       (quasisyntax/loc goal
+         (new-elim #,body-pf (λ y #,goal))))))
+
+  ;; mk-nat-elims:
+  ;; - creates (nested) elim exprs for input nat
+  ;; - TODO: for now, input is only iso morphic to Nat
+  ;;   - TODO: use actual constructor patterns
+  ;; - used by False-producing fn in inversion
+  ;; - arg is rhs of equality type
+  (define (mk-nat-elims r x)
+    (syntax-parse r
+      [((~literal #%plain-app) :id)   #`(new-elim #,x (λ x Type) False (λ x ih True))]
+      [((~literal #%plain-app) :id n) #`(new-elim #,x (λ x Type) True (λ x ih #,(mk-nat-elims #'n #'x)))]))
+
+  ;; simplified inversion tactic
+  (define ((inversion name names) ctxt pt)
+    (match-define (ntt-hole _ goal) pt)
+    (ntac-match (or (dict-ref ctxt name #f) ; thm in ctx
+                    (typeof (expand/df name))) ; prev proved tm
+     [(~== TY L R)
+      ;; TODO: look up constructors of TY
+      ;; for now, only Nat supported
+      ;; TODO: check (length names) == (length eqs)
+      (let* ([eqs (unify/open #'L #'R)]
+             [eq-tys (stx-map (λ (e) (if e #`(== TY . #,e) #'False)) eqs)]
+             [names (if (null? (stx-e names))
+                        (stx-map (λ _ (datum->syntax name (stx-e (generate-temporary name)))) eq-tys)
+                        names)])
+        (make-ntt-apply
+         goal
+         (list
+          (make-ntt-context
+           (λ (old-ctxt)
+             (foldr
+              (λ (x ty ctx)
+                (dict-set
+                 ctx
+                 x
+                 (normalize ty ctx)))
+              old-ctxt
+              (stx->list names)
+              eq-tys))
+          (make-ntt-hole goal)))
+         (λ (body-pf)
+           (let ([n (generate-temporary)]
+                 [TY- (unexpand #'TY)])
+             (quasisyntax/loc goal
+               ;; TODO: right now (length eq-tys) \neq the number of f-equal terms
+               ((λ #,@(stx-map (λ (x ty) #`[#,x : #,ty]) names eq-tys)
+                  #,body-pf)
+                #,(if (andmap (λ (x) x) eqs) ; if eqs has no #f's
+                      #`(f-equal
+                         #,TY- #,TY-
+                         (λ [#,n : #,TY-]
+                           (new-elim
+                            #,n
+                            (λ #,n #,TY-)
+                            #,n
+                            (λ #,n #,(generate-temporary) #,n)))
+                         #,(unexpand #'L) #,(unexpand #'R)
+                         #,name)
+                      #`(new-elim ; False case
+                         #,name
+                         (λ x h #,(mk-nat-elims #'R #'x))
+                         I))
+                      ))))))]))
+
+  )

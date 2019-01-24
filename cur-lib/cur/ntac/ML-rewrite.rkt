@@ -27,7 +27,8 @@
   (define (reflexivity ptz)
     (match-define (ntt-hole _ goal) (nttz-focus ptz))
     (ntac-match goal
-     [(~ML-= ty a b) ((fill (exact #'(ML-refl ty a))) ptz)]))
+     [(~ML-= ty a b)
+      ((fill (exact #`(ML-refl #,(unexpand #'ty) #,(unexpand #'a)))) ptz)]))
 
   ;; rewrite tactics ----------------------------------------------------------
 
@@ -118,6 +119,6 @@
                       (λ (x stx)
                         #`(λ [#,x : #,(subst-term #'b* #'src (dict-ref ctxt x))]
                             #,stx))
-                      (subst-term #'b* #'src body-pf)
+                      (subst-term (unexpand #'b*) (unexpand #'src) body-pf)
                       unused-ids)))
                 #,@(reverse unused-ids)))))))])))

@@ -1,8 +1,12 @@
 #lang s-exp "../main.rkt"
+
+(provide (for-syntax (all-defined-out)))
+
 (require
  (for-syntax "utils.rkt"
              (except-in macrotypes/stx-utils)
              (only-in macrotypes/typecheck-core subst substs)
+             racket/exn
              racket/dict
              racket/list
              racket/match
@@ -11,11 +15,6 @@
              (for-syntax racket/base))
  "../stdlib/sugar.rkt"
  "base.rkt")
-
-(begin-for-syntax
-  (require racket/exn)
-  (provide
-   (all-defined-out)))
 
 ;; define-nttz-cmd ?
 (define-for-syntax (nop ptz) ptz)
@@ -45,9 +44,9 @@
     (match (nttz-focus tz)
       [(ntt-hole _ goal)
        (for ([(k v) (in-dict (nttz-context tz))])
-         (printf "~a : ~a\n" (syntax->datum k) (syntax->datum (cur-pretty-print v))))
+         (printf "~a : ~a\n" (stx->datum k) (stx->datum (cur-pretty-print v))))
        (printf "--------------------------------\n")
-       (printf "~a\n\n" (syntax->datum (cur-pretty-print goal)))]
+       (printf "~a\n\n" (stx->datum (cur-pretty-print goal)))]
       [(ntt-done _ _ _)
        (printf "Proof complete.\n")]
       [_
@@ -158,7 +157,7 @@
            (dict-set old-ctxt the-name #'P))
          (make-ntt-hole (cur-rename the-name #'x #'body))))
        (lambda (body-pf)
-         (quasisyntax/loc goal (λ (#,the-name : P) #,body-pf)))))]))
+         (quasisyntax/loc goal (λ (#,the-name : #,(unexpand #'P)) #,body-pf)))))]))
 
 ;; A pattern emerges:
 ;; tacticals must take additional arguments as ntac-syntax
@@ -189,8 +188,8 @@
   (match-define (ntt-hole _ goal) pt)
   (unless (cur-type-check? a goal #:local-env (ctxt->env ctxt))
     (raise-ntac-goal-exception "~a does not have type ~a"
-                               (syntax->datum (resugar-type a))
-                               (syntax->datum (resugar-type goal))))
+                               (stx->datum (resugar-type a))
+                               (stx->datum (resugar-type goal))))
   (make-ntt-exact goal a))
 
 (begin-for-syntax
@@ -253,7 +252,7 @@
     (define e-ty (or (and (identifier? e) (dict-ref ctxt e #f))
                      (typeof (normalize e ctxt))))
     (define name (if (identifier? e) e (generate-temporary)))
-    (define/syntax-parse (_ [C ([_ τ] ...) _] ...) (get-match-info e-ty))
+    (define/syntax-parse (_ _ [C ([_ τ] ...) _] ...) (get-match-info e-ty))
 
     (define Cs #'(C ...))
     (define paramss (or param-namess (stx-map (λ _ #'()) Cs)))
@@ -265,21 +264,39 @@
              #`(#,C . #,ps)))
        Cs paramss))
 
+    ;; changed-env-tys: listof listof [x ty], one list for each destruct clause
+    ;; the xs are the ctxt vars affected (ie in scope) of the destructed var
+    (define changed-env-tys null)
+    
     (make-ntt-apply
      goal
      (stx-map
       (λ (pat C-types params)
+        ;; find which ctxt entries are affected by the destruct
+        ;; - these are used by the proof term
+        (set! changed-env-tys
+              (append
+               changed-env-tys
+               (list
+                (for/list ([(k v) (in-dict ctxt)]
+                           #:when (has-term? e v))
+                 (list k v)))))
         (define (update-ctxt old-ctxt)
           (define tmp-ctxt
-            (foldr
-            dict-set/flip
-            old-ctxt
-            (syntax->list params)
-            (syntax->list C-types)))
+            (foldr ; update ty in ctxt with (subst-term pat e _)
+             (λ (k v acc)
+               (dict-set/flip k (subst-term (normalize pat acc) e v) acc))
+             (foldr ; add params
+              dict-set/flip
+              (mk-empty-ctxt) ;old-ctxt ; need fresh context to get binding ordering right
+              (syntax->list params)
+              (syntax->list C-types))
+            (dict-keys old-ctxt)
+            (dict-values old-ctxt)))
           (if (identifier? e)
               (dict-remove tmp-ctxt e) ; remove e if it's a name
               tmp-ctxt))
-         (make-ntt-context
+        (make-ntt-context
           update-ctxt
           (make-ntt-hole (normalize (subst-term pat e goal) (update-ctxt ctxt)))))
       pats
@@ -287,31 +304,46 @@
       paramss)
      (λ pfs
        (quasisyntax/loc goal
-         (match #,e #:as #,name #:in #,e-ty #:return #,(subst-term name e goal)
-                . #,(stx-map
-                     (λ (pat pf) #`[#,pat #,pf])
-                     pats
-                     pfs))))))
+         ;; each match body must be an eta-expansion of the pf \in pfs,
+         ;; and the match term must be applied to the env bindings whose tys ref the destructed var
+         ((match #,e
+            #:as #,name
+            #:in #,e-ty
+            #:return (-> #,@(map (λ (k+v) (subst-term name e (cadr k+v))) (car changed-env-tys))
+                         #,(subst-term name e goal))
+                 . #,(stx-map
+                      (λ (pat pf changed)
+                        #`[#,pat
+                           (λ #,@(map (λ (k+v) #`[#,(car k+v) : #,(subst-term pat e (cadr k+v))]) changed)
+                             #,pf)])
+                      pats
+                      pfs
+                      changed-env-tys))
+          #,@(map car (car changed-env-tys)))))))
 
   (define-syntax (by-induction syn)
     (syntax-case syn ()
       [(_ x #:as param-namess)
-       #`(fill (induction #'x #'param-namess))]))
+       #'(by-induction x #:as param-namess #:params ())]
+      [(_ x #:as param-namess #:params Xs)
+       #`(fill (induction #'x #'param-namess #'Xs))]))
 
   ;; TODO: similar to destruct; merge somehow?
   ;; TODO: use match or elim as proof term?
-  (define ((induction name paramss) ctxt pt)
+  (define ((induction name paramss Xs) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
 
     (define name-ty (dict-ref ctxt name))
-    (define/syntax-parse (_ [C ([x τ] ...) ((xrec . _) ...)] ...) (get-match-info name-ty))
+    (define/syntax-parse (_ ([A _] ...) [C ([x τ_] ...) ((xrec . _) ...)] ...) (get-match-info name-ty))
     (define Cs #'(C ...))
+    (define/syntax-parse (X ...) Xs)
+    (define/syntax-parse ((τ ...) ...) (substs Xs #'(A ...) #'((τ_ ...) ...)))
     (define pats ; TODO: check length of paramss against (τ...) ...?
       (stx-map
        (λ (C τs ps)
-         (if (null? (syntax->list ps))
+         (if (and (null? (syntax->list ps)) (null? Xs))
              C
-             #`(#,C . #,(stx-take ps (stx-length τs)))))
+             #`(#,C X ... . #,(stx-take ps (stx-length τs)))))
        Cs #'((τ ...) ...) paramss))
 
     ;; for each param, type is either
@@ -352,7 +384,8 @@
            name))
         (make-ntt-context
          update-ctxt
-         (make-ntt-hole (normalize (subst pat name goal) (update-ctxt ctxt)))))
+         (make-ntt-hole
+          (normalize (subst pat name goal) (update-ctxt ctxt)))))
       pats
       paramss
       param-typess)

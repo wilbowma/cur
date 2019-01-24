@@ -5,6 +5,7 @@
  syntax/parse
  syntax/id-set
  (for-template turnstile/eval)
+ macrotypes/stx-utils
  cur/curnel/turnstile-impl/reflection
  "../curnel/turnstile-impl/stxutils.rkt")
 (provide (all-defined-out))
@@ -50,8 +51,8 @@
        [_
         (and
          ; short-circuit on length, for performance
-         (= (length (syntax->list e1)) (length (syntax->list e2)))
-         (andmap (λ (x y) (stx=? x y id=?)) (syntax->list e1) (syntax->list e2)))])]
+         (stx-length=? e1 e2)
+         (andmap (λ (x y) (stx=? x y id=?)) (stx->list e1) (stx->list e2)))])]
     [else #f]))
 
 ;; returns e if e \in stx and (datum=? e0 e), else #f
@@ -84,3 +85,19 @@
       (datum->syntax syn
         (map (λ (e1) (subst-term v e0 e1 bvs)) (attribute e))))]
     [_ syn]))
+
+;; returns true if e0 \in syn
+;; exactly like subst-term except it returns #t/#f instead of substing
+(define (has-term? e0 syn [bvs (immutable-free-id-set)])
+  (syntax-parse syn
+    [e
+     #:when (and (stx=? #'e e0)
+                 (or (not (identifier? #'e))
+                     (not (free-id-set-member? bvs #'e))))
+     #t]
+    [((~and (~datum λ) lam) (z:id : ty) e)
+     (or (has-term? e0 #'ty bvs)
+         (has-term? e0 #'e (free-id-set-add bvs #'z)))]
+    [(e ...)
+     (ormap (λ (e1) (has-term? e0 e1 bvs)) (attribute e))]
+    [_ #f]))

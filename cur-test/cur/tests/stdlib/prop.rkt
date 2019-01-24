@@ -45,6 +45,11 @@
   (λ [X : Type] [x : False] (elim-False x (λ y X))))
 (check-type falsey : (Π [X : Type] (-> False X)))
 
+;; falsey with general elim
+(check-type
+ (λ [X : Type] [x : False] (new-elim x (λ y X)))
+ : (Π [X : Type] (-> False X)))
+
 (check-type
  ((λ [X : Type] [x : False] (elim-False x (λ y X)))
   (== Nat 0 1))
@@ -70,3 +75,20 @@
  (λ [H : (== Nat 0 1)]
    (falsey (== Nat 2 3) (0neq1 H)))
  : (-> (== Nat 0 1) (== Nat 2 3)))
+
+;; successors-equal-implies-equal
+(check-type
+ (λ [n : Nat] [m : Nat]
+    (λ [H : (== Nat (s n) (s m))]
+      (f-equal
+       Nat Nat
+       (λ [n : Nat]
+         (elim-Nat
+          n
+          (λ n Nat)
+          n
+          (λ n-1 IH n-1)))
+       (s n) (s m)
+       H)))
+ : (Π [n : Nat] [m : Nat]
+      (-> (== Nat (s n) (s m)) (== Nat n m))))
