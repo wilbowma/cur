@@ -66,7 +66,8 @@
 ;; - for now, explicit #:return arg required
 ;; - assuming clauses appear in order
 ;; - must use #:as for return type that uses `e`
-;; - x should be xs?  
+;; - x should be xs?
+;; TODO: handle nested patterns, like define/rec/match?
 (define-typed-syntax match
   [(_ e (~optional (~seq #:as x) #:defaults ([x #'x])) #:return τout . clauses) ≫
    [⊢ e ≫ e- ⇒ τin]
@@ -83,7 +84,7 @@
   #:do[(define exinfo (get-match-info #'τin))]
 ;  #:do[(displayln exinfo)]
   #:fail-unless exinfo (format "could not infer extra info from type ~a" (stx->datum #'τ))
-  #:with (elim-Name ei ...) exinfo
+  #:with (elim-Name _ ei ...) exinfo
   ;; ;; #:do[(displayln #'elim-Name)
   ;; ;;      (displayln (identifier-binding #'elim-Name))]
   ;; ;; TODO: the following is a workound for the "kind stx prop" problem
@@ -259,6 +260,7 @@
 ;; TODO:
 ;; - check consistency of solved constraints
 ;; - define a form that combines define/rec/match and define-implicit
+;; TODO: define-implicit needs to also define pattern abbreviation
 (define-typed-syntax define-implicit
   [(_ name* (~datum =) name n:exact-nonnegative-integer) ≫ ; rest of args are concrete (ie _)
    [⊢ name ≫ name- ⇒ (~Π [X : _] ... _)]

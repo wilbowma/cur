@@ -53,9 +53,9 @@
 (check-type ((1=1)) : (ML-= Nat (s z) (s z)))
 
 (define/rec/match minus : Nat Nat -> Nat
-  [z z => z]
-  [z (s _) => z]
-  [(s n-1) z => (s n-1)]
+  [z _ => z]
+;  [z (s _) => z]
+  [n z => n]
   [(s n-1) (s m-1) => (minus n-1 m-1)])
 
 (check-type (minus z z) : Nat -> 0)

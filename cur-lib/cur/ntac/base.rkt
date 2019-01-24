@@ -3,7 +3,6 @@
 
 (require
  "../stdlib/sugar.rkt"
- "../curnel/racket-impl/runtime.rkt"
  (only-in racket [define r:define])
  (for-syntax racket/match racket/list racket/pretty))
 
@@ -15,6 +14,7 @@
 (begin-for-syntax
   (provide
    ntac-syntax
+   mk-empty-ctxt
 
    qed next
 
@@ -95,9 +95,14 @@
   ;; Produces a new zipper from the current focus
 
   (require racket/dict)
+  ;; TODO: change ctxt representation
+  ;; - it must be ordered? so list of x+tys?
+  ;;   - eg, destruct must also change all types in ctxt that are in the scope of destructed var
   (define (identifier-hash) (make-immutable-custom-hash free-identifier=?))
-  (define (make-nttz pt)
-    (_nttz (identifier-hash) pt
+  (define (mk-empty-ctxt) (identifier-hash))
+  (define (ctxt-add ctx x ty) (dict-set ctx x ty))
+  (define (make-nttz pt [env (mk-empty-ctxt)])
+    (_nttz env pt
          (λ (last-pt)
            (make-nttz (make-ntt-done last-pt)))))
 
@@ -122,12 +127,14 @@
 
   (define (ntac-proc ty ps)
     (let ()
+      (define env (mk-empty-ctxt))
       (define init-pt
         (new-proof-tree (cur-expand ty)))
       (define final-pt
         (eval-proof-script
          init-pt
          (syntax->list ps)
+         env
          ps))
       (define pf
         (proof-tree->complete-term
@@ -136,9 +143,9 @@
 ;      (pretty-print (syntax->datum pf))
       pf))
 
-  (define (eval-proof-script pt psteps [err-stx #f])
+  (define (eval-proof-script pt psteps env [err-stx #f])
     (define last-nttz
-      (for/fold ([nttz (make-nttz pt)])
+      (for/fold ([nttz (make-nttz pt env)])
                 ([pstep-stx (in-list psteps)])
         (eval-proof-step nttz pstep-stx)))
     (qed last-nttz err-stx))

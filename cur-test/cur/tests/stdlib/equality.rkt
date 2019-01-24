@@ -211,3 +211,9 @@
          (→ (my=2 A x y)
             (my=2 A y z)
             (my=2 A x z)))))
+
+(check-type
+ f-equal
+ : (Π [A : Type] [B : Type] [f : (-> A B)] [x : A] [y : A]
+      (-> (== A x y)
+          (== B (f x) (f y)))))

@@ -1,10 +1,12 @@
 #lang s-exp "../main.rkt"
 
-(provide == refl elim-== PM-sym PM-trans
+(provide == #;refl elim-== PM-sym PM-trans
          ML-= ML-refl elim-ML-=
+         f-equal
          (for-syntax ~== ~ML-= (rename-out [~== ~PM-=]))
          (rename-out [== PM-=]
-                     [refl PM-refl]
+                     [refl/i PM-refl]
+                     [refl/i refl]
                      [elim-== elim-PM-=]
                      [PM-sym sym]
                      [PM-trans trans]))
@@ -14,6 +16,10 @@
 ; Paulin-Mohring (coq) equality
 (data == : 2 (forall (A : Type) (x : A) (y : A) Type)
   (refl : (forall (A : Type) (x : A) (== A x x))))
+
+(define-typed-syntax refl/i
+  [(_ A a) ≫ --- [≻ (refl A a)]]
+  [(_ a) ≫ [⊢ a ≫ a- ⇒ A] --- [≻ (refl A a-)]])
 
 ;; pm symmetry
 (define PM-sym
@@ -38,6 +44,17 @@
             (λ [e : (== A y b)]
               (== A b z)))
           e2)))))
+
+;; coq f_equal
+(define f-equal
+  (λ [A : Type] [B : Type]
+     [f : (-> A B)]
+     [x : A] [y : A]
+     [H : (== A x y)]
+     (elim-==
+      H
+      (λ b h (== B (f x) (f b)))
+      (refl B (f x)))))
 
 ;; Martin-Lof equality, I think
 (data ML-= : 1 (forall (A : Type) (x : A) (y : A) Type)
