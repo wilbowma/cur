@@ -11,7 +11,7 @@
              racket/match
              racket/pretty
              syntax/stx
-             (for-syntax racket/base))
+             (for-syntax racket/base syntax/parse))
  "../stdlib/sugar.rkt"
  "base.rkt")
 
@@ -190,14 +190,42 @@
     (syntax-case syn ()
       [(_ syn) #`(fill (generalize #'syn))]))
 
-  (define (intros names)
-    (for/fold ([t nop])
-              ([n (in-list names)])
-      (compose (fill (intro n)) t)))
+(define (intros names #:stx [stx #f])
+  (if (null? names)
+      (λ (ctxt pt)
+        (match-define (ntt-hole _ goal) pt)
+        (ntac-match goal
+         [(~Π [x : P] ... body:expr)
+          (let ()
+            (define the-names
+              (map
+               (λ (x)
+                 (if (syntax-property x 'tmp)
+                     (datum->syntax stx (stx-e (generate-temporary #'H)))
+                     (datum->syntax stx (stx-e x))))
+               (stx->list #'(x ...))))
+            (define the-Ps
+              (substs the-names #'(x ...) #'(P ...)))
+            (make-ntt-apply
+             goal
+             (list
+              (make-ntt-context
+               (ctx-adds/ids the-names the-Ps)
+               (make-ntt-hole (substs the-names #'(x ...) #'body))))
+             (lambda (body-pf)
+               (quasisyntax/loc goal
+                 (λ #,@(for/list ([name the-names] [P (stx->list the-Ps)])
+                         #`[#,name : #,(unexpand P)])
+                   #,body-pf)))))]))
+      (for/fold ([t nop])
+                ([n (in-list names)])
+        (compose (fill (intro n)) t))))
   (define-syntax (by-intros syn)
-    (syntax-case syn ()
-      [(_ id ...)
-       #`(intros (list #'id ...))]))
+    (syntax-parse syn
+      [(_ x:id ...)
+       #'(intros (list #'x ...))]
+      [b-is:id
+       #'(fill (intros null #:stx #'b-is))]))
 
 ;; define-tactical
 (define ((exact a) ctxt pt)

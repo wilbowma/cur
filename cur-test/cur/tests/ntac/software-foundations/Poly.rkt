@@ -74,8 +74,7 @@
 
 (define-theorem app-nil-r
   (∀ [Y : Type] [l : (list Y)] (== (list Y) (app_ Y l (nil* Y)) l))
-  (by-intro Y)
-  (by-intro l)
+  (by-intros Y l)
   (by-induction l #:as [() (x xs IH)] #:params (Y))
   ;; 1: nil case
   reflexivity
@@ -106,8 +105,8 @@
   (∀ [n : nat] [m : nat]
      (-> (== nat n m)
          (== nat (S n) (S m))))
-  (by-intros n m eq)
-  (by-rewrite eq)
+  (by-intros n m H)
+  (by-rewrite H)
   reflexivity)
 
 ;; this example tests these tactics:
@@ -150,21 +149,21 @@
   (by-intros X l1)
   (by-induction l1 #:as [() (x xs IH)] #:params (X))
   ; induction 1: nil -----
-  (by-intros l2 x n H)
-  (by-rewrite H)
+  by-intros
+  (by-rewrite H204)
   reflexivity
   ; induction 2: cons -----
-  (by-intros l2 x n H)
+  by-intros
   (by-apply eq-remove-S)
   (by-destruct n #:as [() (n-1)])
   ;; destruct 2a: z -----
-  (by-inversion H)
+  (by-inversion H207)
   elim-False
   (by-assumption)
   ;; destruct 2b: (s n-1) -----
   (by-apply IH)
-  (by-inversion H #:extra-names H0)
-  (by-rewrite H0)
+  (by-inversion H207)
+  (by-rewrite H209)
   reflexivity)
 
 (check-type
@@ -185,7 +184,7 @@
 (define-theorem plus-n-Sm
   (Π [n : nat] [m : nat]
      (== nat (S (another-plus n m)) (another-plus n (S m))))
-  (by-intros n m)
+  by-intros
   (by-induction n #:as [() (n-1 IH)])
   ; 1
   reflexivity

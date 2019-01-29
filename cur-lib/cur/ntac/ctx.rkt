@@ -32,6 +32,7 @@
          ctx-add
          ctx-add/id
          ctx-adds
+         ctx-adds/ids
          ctx-map
          ctx-splitf
          ctx-splitf/ty/outerin
@@ -97,9 +98,13 @@
 
 ;; ctx-adds : NtacCtx (listof Id) (listof Type) -> NtacCtx
 ;; adds given ids and types to NtacCtx
-;; TODO: need a folding/normalizing version of ctx-adds
+;; TODO: need a folding + normalizing version of ctx-adds
 (define (ctx-adds ctxt xs tys)
   (foldl ctx-add/fold ctxt (stx->list xs) (stx->list tys)))
+
+;; ctx-adds/ids : (listof Id) (listof Type) -> (-> NtacCtx NtacCtx)
+;; curried version of ctx-adds
+(define ((ctx-adds/ids xs tys) ctxt) (ctx-adds ctxt xs tys))
 
 ;; ctx-add/fold : Id Type NtacCtx -> NtacCtx
 ;; adds given id and type to NtacCtx
