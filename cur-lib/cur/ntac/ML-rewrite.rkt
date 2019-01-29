@@ -14,11 +14,10 @@
  "../stdlib/equality.rkt"
  "base.rkt"
  "standard.rkt"
- (for-syntax "utils.rkt"
+ (for-syntax "ctx.rkt" "utils.rkt"
              (only-in macrotypes/typecheck-core subst substs)
              macrotypes/stx-utils
              cur/curnel/turnstile-impl/stxutils
-             racket/dict
              racket/match
              (for-syntax racket/base syntax/parse)))
 
@@ -49,7 +48,7 @@
   ;; TODO: This procedure is badly in need of abstraction
   ;; The theorem "H" to use for the rewrite is either:
   ;; - `thm` arg --- from previously defined define-theorem
-  ;; - or (dict-ref ctxt name) --- usually an IH
+  ;; - or (ctx-lookup ctxt name) --- usually an IH
   ;; H can have shape:
   ;; - (ML-= ty L R)
   ;; - (∀ [x : ty] ... (ML-= ty L R))
@@ -60,7 +59,7 @@
   ;; - if left? = #t, flip and replace "R" with "L" (ie coq rewrite <-)
   (define ((rewrite name #:left? [left? #f] #:inst-args [inst-args #'()]) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
-    (define local-thm? (dict-ref ctxt name #f))
+    (define local-thm? (ctx-lookup ctxt name))
     (ntac-match (or local-thm? ; thm in ctx
                     (typeof (expand/df name))) ; prev proved thm
      [(~or
@@ -82,13 +81,13 @@
         ;; if not ∀ thm, remove name as well, since it can't be used again
         ;; TODO (cur question):
         ;  why is it necessary to manually propagate the unused ids like this?
-        (let* ([used-ids (if (and (identifier? #'tgt) (dict-has-key? ctxt #'tgt)
+        (let* ([used-ids (if (and (identifier? #'tgt) (ctx-has-id? ctxt #'tgt)
                                   (not (find-in #'tgt #'src))) ; tgt \notin src
                              (if (not local-thm?) (list #'tgt) (list name #'tgt))
                              (if (not local-thm?) null (list name)))]
                [unused-ids (foldr remove-id
-                                  (dict-keys ctxt)
-                                  (if (and (identifier? #'src) (dict-has-key? ctxt #'src))
+                                  (ctx-ids ctxt)
+                                  (if (and (identifier? #'src) (ctx-has-id? ctxt #'src))
                                       (cons #'src used-ids)
                                       used-ids))])
           (make-ntt-apply
@@ -100,7 +99,7 @@
                 ;; this is still needed to avoid typecheck errs,
                 ;; try removing this and running plus-id-exercise in ML-rewrite tests
                 ;; - also, it makes display-focus output different from coq
-                (foldr dict-remove/flip old-ctxt used-ids))
+                (ctx-removes old-ctxt used-ids))
               (make-ntt-hole (normalize (subst-term #'src #'tgt goal) ctxt))))
            (λ (body-pf)
              (quasisyntax/loc goal
@@ -108,17 +107,17 @@
                  (#,name . #,inst-args)
                  (λ [a* : TY] [b* : TY]
                     (λ [H : (ML-= TY a* b*)]
-                      #,(foldl
+                      #,(foldr ; wrap goal with lams binding unused ids, outermost-in
                          (λ (x stx)
-                           #`(Π [#,x : #,(insert-tmps (dict-ref ctxt x))]
+                           #`(Π [#,x : #,(insert-tmps (ctx-lookup ctxt x))]
                                 #,stx))
                          (insert-tmps goal)
                          unused-ids)))
                  (λ [b* : TY]
-                   #,(foldl
+                   #,(foldr
                       (λ (x stx)
-                        #`(λ [#,x : #,(subst-term #'b* #'src (dict-ref ctxt x))]
+                        #`(λ [#,x : #,(subst-term #'b* #'src (ctx-lookup ctxt x))]
                             #,stx))
                       (subst-term (unexpand #'b*) (unexpand #'src) body-pf)
                       unused-ids)))
-                #,@(reverse unused-ids)))))))])))
+                #,@unused-ids))))))])))

@@ -172,3 +172,58 @@
  : (∀ [X : Type] [l1 : (list X)] [l2 : (list X)] [x : X] [n : nat]
       (-> (== nat (length (app l1 l2)) n)
           (== nat (length (app l1 (cons x l2))) (S n)))))
+
+
+;; for some reason, if plus from Basics is used in
+;; theorem app-length twice below, it fails when a nat
+;; from that plus is compared with a nat referenced here.
+;; So re-define plus
+(define/rec/match another-plus : nat [m : nat] -> nat
+  [O => m]
+  [(S n-1) => (S (another-plus n-1 m))])
+
+(define-theorem plus-n-Sm
+  (Π [n : nat] [m : nat]
+     (== nat (S (another-plus n m)) (another-plus n (S m))))
+  (by-intros n m)
+  (by-induction n #:as [() (n-1 IH)])
+  ; 1
+  reflexivity
+  ; 2
+  (by-rewrite IH)
+  reflexivity)
+
+(define-theorem app-length-twice
+  (Π [X : Type] [n : nat] [l : (list X)]
+     (-> (== nat (length l) n)
+         (== nat (length (app l l)) (another-plus n n))))
+  (by-intros X n l)
+  (by-generalize n)
+  (by-induction l #:as [() (x xs IH)] #:params (X))
+  ; induction 1
+  (by-intros n H)
+  (by-rewriteL H)
+  reflexivity
+  ; induction 2
+  (by-intros n H)
+  (by-destruct n #:as [() (n-1)])
+  ; destruct 2a
+  ; simpl
+  (by-inversion H)
+  elim-False
+  by-assumption
+  ; destruct 2b
+  (by-inversion H #:extra-names H1)
+  (by-apply eq-remove-S)
+  (by-rewriteL plus-n-Sm)
+;  (by-rewrite H1)
+  (by-apply length-app-sym)
+  (by-apply IH)
+  (by-apply H1))
+
+(check-type
+ app-length-twice
+ : (Π [X : Type] [n : nat] [l : (list X)]
+      (-> (== nat (length l) n)
+          (== nat (length (app l l)) (another-plus n n)))))
+

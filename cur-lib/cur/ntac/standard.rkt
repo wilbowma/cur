@@ -3,11 +3,10 @@
 (provide (for-syntax (all-defined-out)))
 
 (require
- (for-syntax "utils.rkt"
+ (for-syntax "ctx.rkt" "utils.rkt"
              (except-in macrotypes/stx-utils)
              (only-in macrotypes/typecheck-core subst substs)
              racket/exn
-             racket/dict
              racket/list
              racket/match
              racket/pretty
@@ -43,7 +42,7 @@
   (define (display-focus tz)
     (match (nttz-focus tz)
       [(ntt-hole _ goal)
-       (for ([(k v) (in-dict (nttz-context tz))])
+       (for ([(k v) (nttz-context tz)])
          (printf "~a : ~a\n" (stx->datum k) (stx->datum (cur-pretty-print v))))
        (printf "--------------------------------\n")
        (printf "~a\n\n" (stx->datum (cur-pretty-print goal)))]
@@ -56,9 +55,9 @@
   (define (display-focus/raw tz)
     (match (nttz-focus tz)
       [(ntt-hole _ goal)
-       (for ([(k v) (in-dict (nttz-context tz))])
+       (for ([(k v) (nttz-context tz)])
          (printf "~a : ~a\n" (syntax->datum k) (syntax->datum (cur-pretty-print v))))
-       (for ([(k v) (in-dict (nttz-context tz))])
+       (for ([(k v) (nttz-context tz)])
          (printf "~a : ~a\n" (syntax->datum k) (syntax->datum v)))
        (printf "--------------------------------\n")
        (printf "~a\n" (syntax->datum (cur-pretty-print goal)))
@@ -128,8 +127,7 @@
        (list
         (make-ntt-hole ty+)
         (make-ntt-context
-         (λ (old-ctxt)
-           (dict-set old-ctxt H ty+))
+         (ctx-add/id H ty+)
          (make-ntt-hole goal))))
      (lambda (arg-pf body-pf)
        (quasisyntax/loc goal
@@ -140,78 +138,94 @@
   (define-syntax (by-assert syn)
     (syntax-case syn ()
       [(_ H ty)
-       #`(fill (assert #'H #'ty))])))
+       #`(fill (assert #'H #'ty))]))
 
-(define-for-syntax ((intro [name #f]) ctxt pt)
+;; when name = #f, ie programmer does not give name
+;; use scope from stx for introduced id
+(define ((intro [name #f] #:stx [stx #f]) ctxt pt)
   ;; TODO: ntt-match(-define) to hide this extra argument. Maybe also add ntt- to constructors in pattern?
   (match-define (ntt-hole _ goal) pt)
   (ntac-match goal
    [(~Π (x:id : P:expr) body:expr)
     (let ()
-      (define the-name (or name (fresh #'x)))
+      (define the-name (or name (datum->syntax stx (stx-e #'x))))
       (make-ntt-apply
        goal
        (list
         (make-ntt-context
-         (lambda (old-ctxt)
-           (dict-set old-ctxt the-name #'P))
+         (ctx-add/id the-name #'P)
          (make-ntt-hole (cur-rename the-name #'x #'body))))
        (lambda (body-pf)
          (quasisyntax/loc goal (λ (#,the-name : #,(unexpand #'P)) #,body-pf)))))]))
+
+;; generalize is opposite of intro
+(define ((generalize name) ctxt pt)
+  (match-define (ntt-hole _ goal) pt)
+    (make-ntt-apply
+     goal
+     (list
+      (make-ntt-context
+       (ctx-remove/id name)
+       (make-ntt-hole
+        (normalize #`(Π [#,name : #,(ctx-lookup ctxt name)] #,goal)
+                   (ctx-remove ctxt name)))))
+     (lambda (body-pf)
+       (quasisyntax/loc goal (#,body-pf #,name)))))
 
 ;; A pattern emerges:
 ;; tacticals must take additional arguments as ntac-syntax
 ;; define-tactical should generate a phase 2 definition like the one below, and a functional version
 ;; of the tactical (perhaps by-tactical-name)
-(begin-for-syntax
   (define-syntax (by-intro syn)
     (syntax-case syn ()
       [(_ syn #:as paramss)
        #`(compose (fill (destruct #'syn #'paramss)) (fill (intro #'syn)))]
       [(_ syn)
        #`(fill (intro #'syn))]
-      [_
-       #`(fill (intro))])))
+      [b-i
+       #`(fill (intro #:stx #'b-i))]))
 
-(define-for-syntax (intros names)
-  (for/fold ([t nop])
-            ([n (in-list names)])
-    (compose (fill (intro n)) t)))
-(begin-for-syntax
+  ;; generalize: opposite of intro
+  (define-syntax (by-generalize syn)
+    (syntax-case syn ()
+      [(_ syn) #`(fill (generalize #'syn))]))
+
+  (define (intros names)
+    (for/fold ([t nop])
+              ([n (in-list names)])
+      (compose (fill (intro n)) t)))
   (define-syntax (by-intros syn)
     (syntax-case syn ()
       [(_ id ...)
-       #`(intros (list #'id ...))])))
+       #`(intros (list #'id ...))]))
 
 ;; define-tactical
-(define-for-syntax ((exact a) ctxt pt)
+(define ((exact a) ctxt pt)
   (match-define (ntt-hole _ goal) pt)
-  (unless (cur-type-check? a goal #:local-env (ctxt->env ctxt))
+  (unless (cur-type-check? a goal #:local-env (ctx->env ctxt))
     (raise-ntac-goal-exception "~a does not have type ~a"
                                (stx->datum (resugar-type a))
                                (stx->datum (resugar-type goal))))
   (make-ntt-exact goal a))
 
-(begin-for-syntax
   (define-syntax (by-exact syn)
     (syntax-case syn ()
       [(_ syn)
-       #`(fill (exact #'syn))])))
+       #`(fill (exact #'syn))]))
 
 ;;define-tactical
-(define-for-syntax (assumption ctxt pt)
+(define (assumption ctxt pt)
   (match-define (ntt-hole _ goal) pt)
   ;; TODO: Actually, need to collect (k v) as we search for a matching assumption, otherwise we might
   ;; break dependency. Hopefully we have some invariants that prevent that from actually happening.
   (define ntt
-    (for/or ([(k v) (in-dict ctxt)]
-           #:when (cur-equal? v goal #:local-env (ctxt->env ctxt)))
+    (for/or ([(k v) ctxt]
+           #:when (cur-equal? v goal #:local-env (ctx->env ctxt)))
       (make-ntt-exact goal k)))
   (unless ntt
     (raise-ntac-goal-exception "could not find matching assumption for goal ~a" goal))
   ntt)
 
-(begin-for-syntax
   (define-syntax (by-assumption syn)
     (syntax-case syn ()
       [_
@@ -221,7 +235,7 @@
     (match-define (ntt-hole _ goal) pt)
     (ntac-match goal
       [(~Π (a : P) body)
-       ((intro) ctxt pt)]
+       ((intro #'a) ctxt pt)]
       [a:id
        (assumption ctxt pt)]))
 
@@ -249,7 +263,7 @@
   (define ((destruct e [param-namess #f]) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
 
-    (define e-ty (or (and (identifier? e) (dict-ref ctxt e #f))
+    (define e-ty (or (and (identifier? e) (ctx-lookup ctxt e))
                      (typeof (normalize e ctxt))))
     (define name (if (identifier? e) e (generate-temporary)))
     (define/syntax-parse (_ _ [C ([_ τ] ...) _] ...) (get-match-info e-ty))
@@ -264,38 +278,45 @@
              #`(#,C . #,ps)))
        Cs paramss))
 
-    ;; changed-env-tys: listof listof [x ty], one list for each destruct clause
-    ;; the xs are the ctxt vars affected (ie in scope) of the destructed var
-    (define changed-env-tys null)
-    
+    ;; split ctxt at where `name` is bound:
+    ;; - innermost binding of outer-ctxt is `name`
+    (define-values (outer-ctxt inner-ctxt) (ctx-lookup/split ctxt name))
+
+    ;; split inner-ctxt according to whether its types reference `name`:
+    ;; - inner/noname: bindings have types that do not reference name
+    ;; - inner/name: type of first binding (call it x) references `name`
+    ;;   - the rest of inner/name is the rest of inner-ctxt after `x`
+    ;;     - these bindings must be rebound because they may reference `x`
+    (define-values (inner/noname inner/name)
+      (ctx-splitf/ty/outerin inner-ctxt (λ (t) (not (has-term? name t)))))
+
     (make-ntt-apply
      goal
      (stx-map
       (λ (pat C-types params)
-        ;; find which ctxt entries are affected by the destruct
-        ;; - these are used by the proof term
-        (set! changed-env-tys
-              (append
-               changed-env-tys
-               (list
-                (for/list ([(k v) (in-dict ctxt)]
-                           #:when (has-term? e v))
-                 (list k v)))))
+        ;; adding params into ctx is slightly tricky:
+        ;; - a param-type may refer to inner-ctxt binding
+        ;;   - see plus-n-Sm, IH param, in rewrite-with-previous.rkt
+        ;; - but a binding's type in inner-ctxt may also reference param
+        ;;   - see destruct n in length-app-sym, in Poly.rkt
+        ;; Current insertion algo:
+        ;; 1. remove name from outer-ctxt
+        ;; 2. add params to inner/noname
+        ;; 3. update types in inner/name with destructed term instances
+        ;; 4. merge together updated outer-ctxt, inner/noname, and inner/name
         (define (update-ctxt old-ctxt)
           (define tmp-ctxt
-            (foldr ; update ty in ctxt with (subst-term pat e _)
-             (λ (k v acc)
-               (dict-set/flip k (subst-term (normalize pat acc) e v) acc))
-             (foldr ; add params
-              dict-set/flip
-              (mk-empty-ctxt) ;old-ctxt ; need fresh context to get binding ordering right
+            (ctx-append
+             (ctx-remove-inner outer-ctxt) ; drop name from old-ctxt
+             (ctx-adds
+              inner/noname
               (syntax->list params)
-              (syntax->list C-types))
-            (dict-keys old-ctxt)
-            (dict-values old-ctxt)))
-          (if (identifier? e)
-              (dict-remove tmp-ctxt e) ; remove e if it's a name
-              tmp-ctxt))
+              (syntax->list C-types))))
+          (ctx-append
+           tmp-ctxt
+           (ctx-map ; update ty in ctxt with (subst-term pat name _)
+            (subst-term/e (normalize pat tmp-ctxt) name)
+            inner/name)))
         (make-ntt-context
           update-ctxt
           (make-ntt-hole (normalize (subst-term pat e goal) (update-ctxt ctxt)))))
@@ -309,17 +330,18 @@
          ((match #,e
             #:as #,name
             #:in #,e-ty
-            #:return (-> #,@(map (λ (k+v) (subst-term name e (cadr k+v))) (car changed-env-tys))
+            #:return (Π #,@(for/list ([(x ty) inner/name])
+                             #`[#,x : #,(subst-term name e ty)])
                          #,(subst-term name e goal))
                  . #,(stx-map
-                      (λ (pat pf changed)
+                      (λ (pat pf)
                         #`[#,pat
-                           (λ #,@(map (λ (k+v) #`[#,(car k+v) : #,(subst-term pat e (cadr k+v))]) changed)
+                           (λ #,@(for/list ([(x ty) inner/name])
+                                   #`[#,x : #,(subst-term pat e ty)])
                              #,pf)])
                       pats
-                      pfs
-                      changed-env-tys))
-          #,@(map car (car changed-env-tys)))))))
+                      pfs))
+          #,@(ctx-ids inner/name))))))
 
   (define-syntax (by-induction syn)
     (syntax-case syn ()
@@ -333,7 +355,7 @@
   (define ((induction name paramss Xs) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
 
-    (define name-ty (dict-ref ctxt name))
+    (define name-ty (ctx-lookup ctxt name))
     (define/syntax-parse (_ ([A _] ...) [C ([x τ_] ...) ((xrec . _) ...)] ...) (get-match-info name-ty))
     (define Cs #'(C ...))
     (define/syntax-parse (X ...) Xs)
@@ -366,22 +388,45 @@
        #'((x ...) ...)
        #'((xrec ...) ...)))
 
+    ;; split ctxt at where `name` is bound:
+    ;; - innermost binding of outer-ctxt is `name`
+    (define-values (outer-ctxt inner-ctxt) (ctx-lookup/split ctxt name))
+
+    ;; split inner-ctxt according to whether its types reference `name`:
+    ;; - inner/noname: bindings have types that do not reference name
+    ;; - inner/name: type of first binding (call it x) references `name`
+    ;;   - the rest of inner/name is the rest of inner-ctxt after `x`
+    ;;     - these bindings must be rebound because they may reference `x`
+    (define-values (inner/noname inner/name)
+      (ctx-splitf/ty/outerin inner-ctxt (λ (t) (not (has-term? name t)))))
+
     (make-ntt-apply
      goal
      (stx-map
       (λ (pat params param-types)
+        ;; adding params into ctx is slightly tricky:
+        ;; - a param-type may refer to inner-ctxt binding
+        ;;   - see plus-n-Sm, IH param, in rewrite-with-previous.rkt
+        ;; - but a binding's type in inner-ctxt may also reference param
+        ;;   - see destruct n in length-app-sym, in Poly.rkt
+        ;; Current insertion algo:
+        ;; 1. remove name from outer-ctxt
+        ;; 2. add params to inner/noname
+        ;; 3. update types in inner/name with destructed term instances
+        ;; 4. merge together updated outer-ctxt, inner/noname, and inner/name
         (define (update-ctxt old-ctxt)
-          ; drop `name` from ctxt
-          ; but add bindings for:
-          ; - constructor arguments of `name`
-          ; - IHs for args with type name-ty
-          (dict-remove
-           (foldl
-            dict-set/flip
-            old-ctxt
-            (syntax->list params)
-            (syntax->list param-types))
-           name))
+          (define tmp-ctxt
+            (ctx-append
+             (ctx-remove-inner outer-ctxt) ; drop name from old-ctxt
+             (ctx-adds
+              inner/noname
+              (syntax->list params)
+              (syntax->list param-types))))
+          (ctx-append
+           tmp-ctxt
+           (ctx-map ; update ty in ctxt with (subst-term pat name _)
+            (subst-term/e (normalize pat tmp-ctxt) name)
+            inner/name)))
         (make-ntt-context
          update-ctxt
          (make-ntt-hole
@@ -391,19 +436,26 @@
       param-typess)
      (λ pfs
        (quasisyntax/loc goal
-         (new-elim
-          #,name
-          (λ [#,name : #,name-ty] #,goal)
-          .
-          #,(stx-map
-             (λ (params param-types pf)
-               (if (null? (syntax->list params))
-                   pf
-                   (foldr
-                    (λ (p ty e) #`(λ [#,p : #,ty] #,e))
+         ((new-elim
+           #,name
+           (λ [#,name : #,name-ty]
+             (Π #,@(for/list ([(x ty) inner/name])
+                     #`[#,x : #,ty])
+                #,goal))
+           .
+           #,(stx-map
+              (λ (pat params param-types pf)
+                (if (null? (syntax->list params))
                     pf
-                    (syntax->list params)
-                    (syntax->list param-types))))
-             paramss
-             param-typess
-             pfs)))))))
+                    (foldr
+                     (λ (p ty e) #`(λ [#,p : #,ty] #,e))
+                     #`(λ #,@(for/list ([(x ty) inner/name])
+                               #`[#,x : #,(subst-term pat name ty)])
+                         #,pf)
+                     (syntax->list params)
+                     (syntax->list param-types))))
+              pats
+              paramss
+              param-typess
+              pfs))
+          #,@(ctx-ids inner/name)))))))

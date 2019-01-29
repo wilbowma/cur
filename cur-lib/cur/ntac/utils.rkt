@@ -1,6 +1,6 @@
 #lang racket/base
 (require
- racket/dict
+ "ctx.rkt"
  syntax/stx
  syntax/parse
  syntax/id-set
@@ -10,14 +10,8 @@
  "../curnel/turnstile-impl/stxutils.rkt")
 (provide (all-defined-out))
 
-;; dict fns, with args rearranged for use with fold
-(define (dict-remove/flip k h) (dict-remove h k))
-(define (dict-set/flip k v dict) (dict-set dict k v))
-
-(define ctxt->env dict->list)
-
 (define (normalize ty ctxt)
-  (cur-normalize (reflect ty) #:local-env (ctxt->env ctxt)))
+  (cur-normalize (reflect ty) #:local-env (ctx->env ctxt)))
 (define ((normalize/ctxt ctxt) ty) (normalize ty ctxt)) ; curried version
 
 (define (transfer-type from to)
@@ -85,6 +79,9 @@
       (datum->syntax syn
         (map (λ (e1) (subst-term v e0 e1 bvs)) (attribute e))))]
     [_ syn]))
+
+(define ((subst-term/e v e0) syn [bvs (immutable-free-id-set)])
+  (subst-term v e0 syn bvs))
 
 ;; returns true if e0 \in syn
 ;; exactly like subst-term except it returns #t/#f instead of substing
