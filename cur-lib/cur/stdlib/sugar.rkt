@@ -294,7 +294,7 @@
       #,@(if (= (stx-length #'(X ...)) (stx-e #'n)) ; all args are implicit
              (list #'[:id ≫ --- [≻ (name*)]]) ; add id case
              null)
-      [(_ Y ...) ⇐ τ_expected ≫
+        [(_ Y ...) ⇐ τ_expected ≫
        ;[⊢ Y ≫ Y- ⇒ τY] ...
        #:do[(define constraints ; = [Pair typeof-Y τexplicit], but only for non 'inf args
               (for/list ([maybe-infer (in-stx-list #'infers)]
@@ -304,7 +304,7 @@
                 (list (typeof (expand/df y)) t)))
             (define substs
               (add-constraints
-               #'(Ximplicit ...)
+               #'(X ...)
                null
                (cons (list #'τ_expected #'τout) constraints)))]
        #:with (τimplicit (... ...)) (lookup-Xs/keep-unsolved #'(Ximplicit ...) substs)
@@ -331,7 +331,8 @@
         #:with (τexplicit/inst ...) (inst-types/cs/orig #'(Ximplicit ...) substs #'(τexplicit ...) datum=?)
         [⊢ Y ≫ Y- ⇐ τexplicit/inst] ...
         ------
-        [≻ (name τimplicit (... ...) Y- ...)]]))
+        [≻ (name τimplicit (... ...) Y- ...)]]
+        [(_ X ...) ≫ --- [≻ (name X ...)]])) ; can still use name* with explicit args
 ;  #:do[(pretty-print (syntax->datum #'out-def))]
   ------------
   [≻ out-def]])

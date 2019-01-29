@@ -1,10 +1,11 @@
 #lang s-exp "../main.rkt"
 
-(provide == #;refl elim-== PM-sym PM-trans
+(provide elim-== PM-sym PM-trans
          ML-= ML-refl elim-ML-=
          f-equal
          (for-syntax ~== ~ML-= (rename-out [~== ~PM-=]))
-         (rename-out [== PM-=]
+         (rename-out [==/i PM-=]
+                     [==/i ==]
                      [refl/i PM-refl]
                      [refl/i refl]
                      [elim-== elim-PM-=]
@@ -17,9 +18,8 @@
 (data == : 2 (forall (A : Type) (x : A) (y : A) Type)
   (refl : (forall (A : Type) (x : A) (== A x x))))
 
-(define-typed-syntax refl/i
-  [(_ A a) ≫ --- [≻ (refl A a)]]
-  [(_ a) ≫ [⊢ a ≫ a- ⇒ A] --- [≻ (refl A a-)]])
+(define-implicit refl/i = refl 1)
+(define-implicit ==/i = == 1)
 
 ;; pm symmetry
 (define PM-sym

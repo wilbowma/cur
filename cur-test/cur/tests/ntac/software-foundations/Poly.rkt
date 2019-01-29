@@ -73,7 +73,7 @@
 (check-equal? (length (cons 1 (cons 2 (cons 3 nil)))) 3)
 
 (define-theorem app-nil-r
-  (∀ [Y : Type] [l : (list Y)] (== (list Y) (app_ Y l (nil* Y)) l))
+  (∀ [Y : Type] [l : (list Y)] (== (app l (nil* Y)) l))
   (by-intros Y l)
   (by-induction l #:as [() (x xs IH)] #:params (Y))
   ;; 1: nil case
@@ -144,8 +144,8 @@
 
 (define-theorem length-app-sym/abbrv
   (∀ [X : Type] [l1 : (list X)] [l2 : (list X)] [x : X] [n : nat]
-     (-> (== nat (length (app l1 l2)) n)
-         (== nat (length (app l1 (cons x l2))) (S n))))
+     (-> (== (length (app l1 l2)) n)
+         (== (length (app l1 (cons x l2))) (S n))))
   (by-intros X l1)
   (by-induction l1 #:as [() (x xs IH)] #:params (X))
   ; induction 1: nil -----
@@ -169,8 +169,8 @@
 (check-type
  length-app-sym/abbrv
  : (∀ [X : Type] [l1 : (list X)] [l2 : (list X)] [x : X] [n : nat]
-      (-> (== nat (length (app l1 l2)) n)
-          (== nat (length (app l1 (cons x l2))) (S n)))))
+      (-> (== (length (app l1 l2)) n)
+          (== (length (app l1 (cons x l2))) (S n)))))
 
 
 ;; for some reason, if plus from Basics is used in
@@ -183,7 +183,7 @@
 
 (define-theorem plus-n-Sm
   (Π [n : nat] [m : nat]
-     (== nat (S (another-plus n m)) (another-plus n (S m))))
+     (== (S (another-plus n m)) (another-plus n (S m))))
   by-intros
   (by-induction n #:as [() (n-1 IH)])
   ; 1
@@ -194,8 +194,8 @@
 
 (define-theorem app-length-twice
   (Π [X : Type] [n : nat] [l : (list X)]
-     (-> (== nat (length l) n)
-         (== nat (length (app l l)) (another-plus n n))))
+     (-> (== (length l) n)
+         (== (length (app l l)) (another-plus n n))))
   (by-intros X n l)
   (by-generalize n)
   (by-induction l #:as [() (x xs IH)] #:params (X))
@@ -223,6 +223,6 @@
 (check-type
  app-length-twice
  : (Π [X : Type] [n : nat] [l : (list X)]
-      (-> (== nat (length l) n)
-          (== nat (length (app l l)) (another-plus n n)))))
+      (-> (== (length l) n)
+          (== (length (app l l)) (another-plus n n)))))
 
