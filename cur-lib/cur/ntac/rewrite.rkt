@@ -312,7 +312,9 @@
       (let* ([eqs (unify/open #'L #'R)]
              [eq-tys (stx-map (λ (e) (if e #`(== TY . #,e) #'False)) eqs)]
              [names (if (null? (stx-e names))
-                        (stx-map (λ _ (datum->syntax name (stx-e (generate-temporary name)))) eq-tys)
+                        (stx-map
+                         (λ _ (datum->syntax name (stx-e (generate-temporary #'H))))
+                         eq-tys)
                         names)])
         (make-ntt-apply
          goal
