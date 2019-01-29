@@ -18,10 +18,9 @@
  "../stdlib/equality.rkt"
  "base.rkt"
  "standard.rkt"
-  (for-syntax "utils.rkt"
+  (for-syntax "ctx.rkt" "utils.rkt"
               (only-in macrotypes/typecheck-core subst substs)
               macrotypes/stx-utils
-              racket/dict
               racket/match
               racket/pretty
               syntax/stx
@@ -128,7 +127,7 @@
 
   ;; The theorem "H" to use for the rewrite is either:
   ;; - `thm` arg --- from previously defined define-theorem
-  ;; - or (dict-ref ctxt name) --- usually an IH
+  ;; - or (ctx-lookup ctxt name) --- usually an IH
   ;; H must be expanded and can have shape:
   ;; - (~== ty L R)
   ;;   - already instantiated
@@ -139,7 +138,7 @@
   ;; - if left? = #t, flip and replace "R" with "L" (ie coq rewrite <-)
   (define ((rewrite name #:left? [left-src? #f] #:inst-args [inst-args_ #'()]) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
-    (ntac-match (or (dict-ref ctxt name #f) ; thm in ctx
+    (ntac-match (or (ctx-lookup ctxt name) ; thm in ctx
                     (typeof (expand/df name))) ; prev proved tm
      [(~or
        (~and (~== TY L R) ; already-instantiated thm
@@ -233,13 +232,13 @@
 
   ;; The theorem "H" to apply is either:
   ;; - `thm` arg --- from previously defined define-theorem
-  ;; - or (dict-ref ctxt name) --- usually an IH
+  ;; - or (ctx-lookup ctxt name) --- usually an IH
   ;; H must be expanded and must have shape:
   ;; - (~Π [x : ty] ... (~Π [_ : antecedent] consequent))
   ;;   - x ... is instantiated with `es`
   (define ((apply-fn name #:inst-args [inst-args_ #'()]) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
-    (ntac-match (or (dict-ref ctxt name #f) ; thm in ctx
+    (ntac-match (or (ctx-lookup ctxt name) ; thm in ctx
                     (typeof (expand/df name))) ; prev proved tm
      [(~and (~Π [X_ : τX_] ... consequent)
             (~parse ([X τX] ... [_ antecedent]) #'([X_ τX_] ...))
@@ -268,7 +267,8 @@
                        #'antecedent) ctxt)))
          (λ (body-pf)
            (quasisyntax/loc goal
-             (#,name #,@#'inst-args #,body-pf))))]))
+             (#,name #,@#'inst-args #,body-pf))))]
+     [_ (make-ntt-exact goal name)]))
 
 ;; inversion tactic --------------------------------------------------
 
@@ -303,7 +303,7 @@
   ;; simplified inversion tactic
   (define ((inversion name names) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
-    (ntac-match (or (dict-ref ctxt name #f) ; thm in ctx
+    (ntac-match (or (ctx-lookup ctxt name) ; thm in ctx
                     (typeof (expand/df name))) ; prev proved tm
      [(~== TY L R)
       ;; TODO: look up constructors of TY
@@ -321,10 +321,7 @@
            (λ (old-ctxt)
              (foldr
               (λ (x ty ctx)
-                (dict-set
-                 ctx
-                 x
-                 (normalize ty ctx)))
+                (ctx-add ctx x (normalize ty ctx)))
               old-ctxt
               (stx->list names)
               eq-tys))

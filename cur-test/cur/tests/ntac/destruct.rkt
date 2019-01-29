@@ -149,6 +149,50 @@
             : (∀ [b : Bool] [c : Bool]
                  (== Bool (and b c) (and c b))))
 
+;; and-commutative, using match
+(check-type (λ [b : Bool] [c : Bool]
+               (match b
+                 #:as b
+                 #:return (== Bool (and b c) (and c b))
+                 [true
+                  (match c
+                    #:as c
+                    #:return (== Bool (and true c) (and c true))
+                    [true (refl Bool (and true true))]
+                    [false (refl Bool (and false true))])]
+                 [false
+                  (match c
+                    #:as c
+                    #:return (== Bool (and false c) (and c false))
+                    [true (refl Bool (and true false))]
+                    [false (refl Bool (and false false))])]))
+            : (∀ [b : Bool] [c : Bool]
+                 (== Bool (and b c) (and c b))))
+
+;; and-commutative, using match, eta-expanded
+;; outer match return type must have named arg (c)
+(check-type (λ [b : Bool] [c : Bool]
+               ((match b
+                  #:as b
+                  #:return (Π [c : Bool] (== Bool (and b c) (and c b)))
+                  [true
+                   (λ [c : Bool]
+                     (match c
+                       #:as c
+                       #:return (== Bool (and true c) (and c true))
+                       [true (refl Bool (and true true))]
+                       [false (refl Bool (and false true))]))]
+                  [false
+                   (λ [c : Bool]
+                     (match c
+                       #:as c
+                       #:return (== Bool (and false c) (and c false))
+                       [true (refl Bool (and true false))]
+                       [false (refl Bool (and false false))]))])
+               c))
+            : (∀ [b : Bool] [c : Bool]
+                 (== Bool (and b c) (and c b))))
+
 ;; nested destructs
 (define-theorem and-commutative
   (∀ [b : Bool] [c : Bool]
@@ -164,7 +208,6 @@
   (by-destruct c)
   reflexivity
   reflexivity)
-
 
 ;; uses intro+destruct version of intro tactic
 (define-theorem plus-1-neq-0*
