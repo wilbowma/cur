@@ -466,19 +466,19 @@
        (quasisyntax/loc goal
          ((new-elim
            #,name
-           (λ [#,name : #,name-ty]
+           (λ [#,name : #,(unexpand name-ty)]
              (Π #,@(for/list ([(x ty) inner/name])
                      #`[#,x : #,ty])
-                #,goal))
+                #,(unexpand goal)))
            .
            #,(stx-map
               (λ (pat params param-types pf)
                 (if (null? (syntax->list params))
                     pf
                     (foldr
-                     (λ (p ty e) #`(λ [#,p : #,ty] #,e))
+                     (λ (p ty e) #`(λ [#,p : #,(unexpand ty)] #,e))
                      #`(λ #,@(for/list ([(x ty) inner/name])
-                               #`[#,x : #,(subst-term pat name ty)])
+                               #`[#,x : #,(unexpand (subst-term pat name ty))])
                          #,pf)
                      (syntax->list params)
                      (syntax->list param-types))))
