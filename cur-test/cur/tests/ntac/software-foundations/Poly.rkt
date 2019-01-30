@@ -150,20 +150,20 @@
   (by-induction l1 #:as [() (x xs IH)] #:params (X))
   ; induction 1: nil -----
   by-intros
-  (by-rewrite H204)
+  (by-rewrite H206)
   reflexivity
   ; induction 2: cons -----
   by-intros
   (by-apply eq-remove-S)
   (by-destruct n #:as [() (n-1)])
   ;; destruct 2a: z -----
-  (by-inversion H207)
+  (by-inversion H209)
   elim-False
   (by-assumption)
   ;; destruct 2b: (s n-1) -----
   (by-apply IH)
-  (by-inversion H207)
-  (by-rewrite H209)
+  (by-inversion H209)
+  (by-rewrite H211)
   reflexivity)
 
 (check-type
@@ -269,3 +269,104 @@
       (== (rev (app l1 l2))
           (app (rev l2) (rev l1)))))
 
+(define-theorem cons-rev
+  (∀ [Y : Type] [l : (list Y)] [n : Y]
+     (== (cons n (rev l))
+         (rev (app l (cons n nil)))))
+  (by-intros Y l n)
+  (by-induction l #:as [() (x xs IH)] #:params (Y))
+  reflexivity      ; 1
+  (by-rewriteL IH) ; 2
+  reflexivity)
+
+(check-type cons-rev
+  : (∀ [X : Type] [l : (list X)] [n : X]
+       (== (cons n (rev l))
+           (rev (app l (cons n nil))))))
+
+;; cons-rev raw term
+(check-type
+ (λ (Y : Type)
+   (λ (l : (list Y))
+     (λ (n : Y)
+       ((new-elim
+         l
+         (λ (l : (list Y))
+           (==
+            (list Y)
+            (cons* Y n (rev_ Y l))
+            (rev_ Y (app_ Y l (cons* Y n (nil* Y))))))
+         (refl (cons* Y n (nil* Y)))
+         (λ (x : Y)
+           (λ (xs : (list Y))
+             (λ (IH
+                 :
+                 (==
+                  (list Y)
+                  (cons* Y n (rev_ Y xs))
+                  (rev_ Y (app_ Y xs (cons* Y n (nil* Y))))))
+               (new-elim
+                (IH)
+                (λ (g310 : (list Y))
+                  (λ (g311 : (== (list Y) (cons* Y n (rev_ Y xs)) g310))
+                    (==
+                     (list Y)
+                     (cons* Y n (app_ Y (rev_ Y xs) (cons* Y x (nil* Y))))
+                     (app_ Y g310 (cons* Y x (nil* Y))))))
+                (refl
+                 (cons*
+                  Y
+                  n
+                  (app_ Y (rev_ Y xs) (cons* Y x (nil* Y))))))))))))))
+ : (∀ [X : Type] [l : (list X)] [n : X]
+      (== (cons n (rev l))
+          (rev (app l (cons n nil))))))
+
+;; application of cons-rev
+(check-type 
+ (λ (X : Type) (x : X) (xs : (list X))
+    (cons-rev X (rev_ X xs) x))
+ : (∀ [X : Type] [x : X] [xs : (list X)]
+      (== (cons x (rev (rev_ X xs)))
+          (rev (app (rev_ X xs) (cons x nil))))))
+
+;; this example tests need for unexpand in elim forms
+(define-theorem rev-invol
+  (∀ [X : Type] [l : (list X)]
+     (== (rev (rev l)) l))
+  by-intros
+  (by-induction l #:as [() (x xs IH)] #:params (X))
+  reflexivity            ; 1
+  (by-rewriteL cons-rev) ; 2
+  (by-rewrite IH)
+  reflexivity)
+
+(check-type rev-invol
+  : (∀ [X : Type] [l : (list X)]
+       (== (rev (rev l)) l)))
+
+  ;; rev-invol, raw term
+
+(check-type
+ (λ (X : Type)
+   (l : (list X))
+   (new-elim
+    l
+    (λ (l : (list X)) (== (list X) (rev_ X (rev_ X l)) l))
+    (refl (nil* X))
+    (λ (x : X)
+      (λ (xs : (list X))
+        (λ (IH : (== (list X) (rev_ X (rev_ X xs)) xs))
+          (new-elim
+           (cons-rev X (rev_ X xs) x)
+           (λ (g315 : (list X))
+             (λ (g316 : (== (list X) (cons* X x (rev_ X (rev_ X xs))) g315))
+               (== (list X) g315 (cons* X x xs))))
+           (new-elim
+            (sym (list X) (rev_ X (rev_ X xs)) xs (IH))
+            (λ (g317 : (list X))
+              (λ (g318 : (== (list X) xs g317))
+                (== (list X) (cons* X x g317) (cons* X x xs))))
+            (refl (cons* X x xs)))))))))
+  : (∀ [X : Type] [l : (list X)]
+       (== (rev (rev l)) l)))
