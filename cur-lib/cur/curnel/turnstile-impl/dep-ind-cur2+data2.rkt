@@ -227,22 +227,24 @@
           ;; is now instantiated with inferred A
           ;; (see also comments below)
           [⊢ v ≫ v- ⇒ (TY-patexpand A ... i* ...)]
-          
+
           ;; τi instantiated with A ... from v-
-          [⊢ P ≫ P- ⇐ (Π [i itag τi] ... (→ (TY A ... i ...) TypeTop))]
+          [⊢ P ≫ P- ⇐ (Π [i itag τi] ...
+                         (→ (TY #,@(stx-map unexpand #'(A ... i ...))) TypeTop))]
 
           ;; each m is curried fn consuming 3 (possibly empty) sets of args:
           ;; 1,2) i+x  - indices of the tycon, and args of each constructor `C`
           ;;             the indices may not be included, when not needed by the xs
           ;; 3) IHs - for each xrec ... (which are a subset of i+x ...)
           #:with (τm ...)
-                 #'( (Π [i+x i+xtag τin] ... ; constructor args ; ASSUME: i+x includes indices
+                 #`( (Π [i+x i+xtag τin] ... ; constructor args ; ASSUME: i+x includes indices
                         (→ (P- irec ... xrec) ... ; IHs
-                           (P- τouti ... (C AxC ... i+x ...))))
+                           (P- #,@(stx-map unexpand #'(τouti ...))
+                               (C #,@(stx-map unexpand #'(AxC ... i+x ...))))))
                      ...)
           [⊢ m ≫ m- ⇐ τm] ...
           -----------
-          [⊢ (eval-TY v- P- m- ...) ⇒ (P- i* ... v-)]
+          [⊢ (eval-TY v- P- m- ...) ⇒ (P- #,@(stx-map unexpand #'(i* ...)) v-)]
 
           #:where eval-TY #:display-as elim-TY ; elim reduction rule
           [(#%plain-app (C AxC ... i+x ...) P m ...) ; elim redex
