@@ -143,7 +143,7 @@
      [(~or
        (~and (~== TY L R) ; already-instantiated thm
              (~parse inst-args inst-args_))
-       (~and (~Π [X : τX] ... (~and body (~== TY thm/L/uninst thm/R/uninst)))
+       (~and (~Π [X : τX] ... (~and body (~== TY/uninst thm/L/uninst thm/R/uninst)))
              (~parse inst-args
                      (if (= (stx-length #'(X ...)) (stx-length inst-args_))
                          (stx-map (normalize/ctxt ctxt) inst-args_)
@@ -168,20 +168,20 @@
                                            (λ (x x+e)
                                              (free-identifier=? x (stx-car x+e)))))
                                  (syntax->list #'(X ...))))))])))
-             (~parse (L R) (stx-map
+             (~parse (TY L R) (stx-map
                             (normalize/ctxt ctxt)
                             (substs
                             #'inst-args
                             #'(X ...)
-                            #'(thm/L/uninst thm/R/uninst))))))
+                            #'(TY/uninst thm/L/uninst thm/R/uninst))))))
       ;; set L and R as source/target term, depending on specified direction
       (with-syntax* ([(tgt src) (if left-src? #'(R L) #'(L R))]
                      [tgt-id (format-id #'tgt "~a" (generate-temporary))]
                      [H (format-id name "~a" (generate-temporary))]
-                     [thm/inst #`(#,name . inst-args)]
+                     [thm/inst #`(#,name #,@(stx-map unexpand #'inst-args))]
                      [THM (if left-src?
                               #'thm/inst
-                              #`(sym TY #,(unexpand #'L) #,(unexpand #'R) thm/inst))])
+                              #`(sym #,(unexpand #'TY) #,(unexpand #'L) #,(unexpand #'R) thm/inst))])
         (make-ntt-apply
          goal
          (list (make-ntt-hole (normalize (subst-term #'src #'tgt goal) ctxt)))
@@ -189,9 +189,9 @@
            (quasisyntax/loc goal
              (new-elim
               THM
-              (λ [tgt-id : TY]
-                (λ [H : (== TY src tgt-id)]
-                  #,(subst-term #'tgt-id #'tgt goal)))
+              (λ [tgt-id : #,(unexpand #'TY)]
+                (λ [H : (== #,(unexpand #'TY) #,(unexpand #'src) tgt-id)]
+                  #,(unexpand (subst-term #'tgt-id #'tgt goal))))
               #,body-pf)))))]))
 
   ;; replace tactic

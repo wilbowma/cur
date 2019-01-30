@@ -192,6 +192,30 @@
   (by-rewrite IH)
   reflexivity)
 
+(define-theorem app-assoc
+  (∀ [A : Type] [l1 : (list A)] [l2 : (list A)] [l3 : (list A)]
+     (== (app l1 (app l2 l3))
+         (app (app l1 l2) l3)))
+  (by-intros X l1 l2 l3)
+  (by-induction l1 #:as [() (x xs IH)] #:params (X))
+  ;1
+  reflexivity
+  ;2
+  (by-rewrite IH)
+  reflexivity)
+
+(define-theorem app-length
+  (∀ [X : Type] [l1 : (list X)] [l2 : (list X)]
+     (== (length (app l1 l2))
+         (another-plus (length l1) (length l2))))
+  (by-intros X l1 l2)
+  (by-induction l1 #:as [() (x xs IH)] #:params (X))
+  ; 1
+  reflexivity
+  ; 2
+  (by-rewrite IH)
+  reflexivity)
+
 (define-theorem app-length-twice
   (Π [X : Type] [n : nat] [l : (list X)]
      (-> (== (length l) n)
@@ -225,4 +249,23 @@
  : (Π [X : Type] [n : nat] [l : (list X)]
       (-> (== (length l) n)
           (== (length (app l l)) (another-plus n n)))))
+
+(define-theorem rev-app-distr
+  (∀ [X : Type] [l1 : (list X)] [l2 : (list X)]
+     (== (rev (app l1 l2))
+         (app (rev l2) (rev l1))))
+  (by-intros X l1 l2)
+  (by-induction l1 #:as [() (x xs IH)] #:params (X))
+  ; 1
+  (by-rewrite app-nil-r)
+  reflexivity
+  ; 2
+  (by-rewrite IH)
+  (by-rewrite app-assoc)
+  reflexivity)
+
+(check-type rev-app-distr
+ : (∀ [X : Type] [l1 : (list X)] [l2 : (list X)]
+      (== (rev (app l1 l2))
+          (app (rev l2) (rev l1)))))
 
