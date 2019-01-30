@@ -142,37 +142,6 @@
       (-> (== nat (length_ X (app_ X l1 l2)) n)
           (== nat (length_ X (app_ X l1 (cons* X x l2))) (S n)))))
 
-(define-theorem length-app-sym/abbrv
-  (∀ [X : Type] [l1 : (list X)] [l2 : (list X)] [x : X] [n : nat]
-     (-> (== (length (app l1 l2)) n)
-         (== (length (app l1 (cons x l2))) (S n))))
-  (by-intros X l1)
-  (by-induction l1 #:as [() (x xs IH)] #:params (X))
-  ; induction 1: nil -----
-  by-intros
-  (by-rewrite H206)
-  reflexivity
-  ; induction 2: cons -----
-  by-intros
-  (by-apply eq-remove-S)
-  (by-destruct n #:as [() (n-1)])
-  ;; destruct 2a: z -----
-  (by-inversion H209)
-  elim-False
-  (by-assumption)
-  ;; destruct 2b: (s n-1) -----
-  (by-apply IH)
-  (by-inversion H209)
-  (by-rewrite H211)
-  reflexivity)
-
-(check-type
- length-app-sym/abbrv
- : (∀ [X : Type] [l1 : (list X)] [l2 : (list X)] [x : X] [n : nat]
-      (-> (== (length (app l1 l2)) n)
-          (== (length (app l1 (cons x l2))) (S n)))))
-
-
 ;; for some reason, if plus from Basics is used in
 ;; theorem app-length twice below, it fails when a nat
 ;; from that plus is compared with a nat referenced here.
