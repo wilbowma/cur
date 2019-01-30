@@ -35,7 +35,7 @@
                               (format "type mismatch, expected Type, given ~a"
                                       (syntax->datum #'C))))
             ((~literal quote) n)))])))
-  (define Type- (type-info #f (λ _ #'Type)))) ; type info
+  (define Type- (type-info #f (λ _ #'Type) (λ _ #'Type)))) ; type info
 
 (define-typed-syntax Type
   [:id ≫ --- [≻ (Type 0)]]
