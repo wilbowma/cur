@@ -294,14 +294,16 @@
     (define e-ty (or (and (identifier? e) (ctx-lookup ctxt e))
                      (typeof (normalize e ctxt))))
     (define name (if (identifier? e) e (generate-temporary)))
-    (define/syntax-parse (_ _ [C ([_ τ] ...) _] ...) (get-match-info e-ty))
+    (define/syntax-parse (_ _ [C ([x τ] ...) _] ...) (get-match-info e-ty))
 
     (define Cs #'(C ...))
-    (define paramss (or param-namess (stx-map (λ _ #'()) Cs)))
+    (define paramss
+      (or param-namess
+          (stx-map (freshens e) #'((x ...) ...))))
     (define pats
       (stx-map
        (λ (C ps)
-         (if (null? (syntax->list ps))
+         (if (null? (stx->list ps))
              C
              #`(#,C . #,ps)))
        Cs paramss))
@@ -338,8 +340,8 @@
              (ctx-remove-inner outer-ctxt) ; drop name from old-ctxt
              (ctx-adds
               inner/noname
-              (syntax->list params)
-              (syntax->list C-types))))
+              (stx->list params)
+              (stx->list C-types))))
           (ctx-append
            tmp-ctxt
            (ctx-map ; update ty in ctxt with (subst-term pat name _)
@@ -373,6 +375,8 @@
 
   (define-syntax (by-induction syn)
     (syntax-case syn ()
+      [(_ x)
+       #'(by-induction x #:as () #:params ())]
       [(_ x #:as param-namess)
        #'(by-induction x #:as param-namess #:params ())]
       [(_ x #:as param-namess #:params Xs)
@@ -380,21 +384,56 @@
 
   ;; TODO: similar to destruct; merge somehow?
   ;; TODO: use match or elim as proof term?
-  (define ((induction name paramss Xs) ctxt pt)
+  (define ((induction name paramss_ Xs) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
 
     (define name-ty (ctx-lookup ctxt name))
+
     (define/syntax-parse (_ ([A _] ...) [C ([x τ_] ...) ((xrec . _) ...)] ...) (get-match-info name-ty))
+
+    (define paramss
+      (if (stx-length=? paramss_ #'((x ...) ...))
+          (stx-map
+           (λ (params xs xrecs)
+             (if (stx-length=? params (stx-append xs xrecs))
+                 params
+                 (stx-append ((freshens name) xs)
+                             ((freshens name)
+                              (stx-map
+                               (λ (x) (generate-temporary 'IH))
+                               xrecs)))))
+           paramss_
+           #'((x ...) ...)
+           #'((xrec ...) ...))
+          (stx-map
+           (λ (xs xrecs)
+             (stx-append ((freshens name) xs)
+                         ((freshens name)
+                          (stx-map
+                           (λ (x) (generate-temporary 'IH))
+                           xrecs))))
+           #'((x ...) ...)
+           #'((xrec ...) ...))))
+
     (define Cs #'(C ...))
-    (define/syntax-parse (X ...) Xs)
-    (define/syntax-parse ((τ ...) ...) (substs Xs #'(A ...) #'((τ_ ...) ...)))
+    ;; use given params Xs, if enough are supplied,
+    ;; otherwise, infer from name-ty
+    (define/syntax-parse (X ...) (if (stx-length=? Xs #'(A ...))
+                                     Xs
+                                     (syntax-parse name-ty
+                                       [((~literal #%plain-app) _ . name-ty-args)
+                                        #'name-ty-args]))) ; need freshens here?
+    (define/syntax-parse ((τ ...) ...) (substs #'(X ...) #'(A ...) #'((τ_ ...) ...)))
     (define pats ; TODO: check length of paramss against (τ...) ...?
       (stx-map
        (λ (C τs ps)
-         (if (and (null? (syntax->list ps)) (null? Xs))
+         (if (and (null? (stx->list ps)) (null? #'(X ...)))
              C
+             ; dont include IHs as C arg
              #`(#,C X ... . #,(stx-take ps (stx-length τs)))))
-       Cs #'((τ ...) ...) paramss))
+       Cs
+       #'((τ ...) ...)
+       paramss))
 
     ;; for each param, type is either
     ;; - argument types from C-type (if arg)
@@ -448,8 +487,8 @@
              (ctx-remove-inner outer-ctxt) ; drop name from old-ctxt
              (ctx-adds
               inner/noname
-              (syntax->list params)
-              (syntax->list param-types))))
+              (stx->list params)
+              (stx->list param-types))))
           (ctx-append
            tmp-ctxt
            (ctx-map ; update ty in ctxt with (subst-term pat name _)
@@ -473,15 +512,15 @@
            .
            #,(stx-map
               (λ (pat params param-types pf)
-                (if (null? (syntax->list params))
+                (if (null? (stx->list params))
                     pf
                     (foldr
                      (λ (p ty e) #`(λ [#,p : #,(unexpand ty)] #,e))
                      #`(λ #,@(for/list ([(x ty) inner/name])
                                #`[#,x : #,(unexpand (subst-term pat name ty))])
                          #,pf)
-                     (syntax->list params)
-                     (syntax->list param-types))))
+                     (stx->list params)
+                     (stx->list param-types))))
               pats
               paramss
               param-typess

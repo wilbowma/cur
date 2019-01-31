@@ -10,6 +10,9 @@
  "../curnel/turnstile-impl/stxutils.rkt")
 (provide (all-defined-out))
 
+(define ((freshen src) x) (datum->syntax src (stx-e x)))
+(define ((freshens src) xs) (stx-map (freshen src) xs))
+
 (define (normalize ty ctxt)
   (cur-normalize (reflect ty) #:local-env (ctx->env ctxt)))
 (define ((normalize/ctxt ctxt) ty) (normalize ty ctxt)) ; curried version

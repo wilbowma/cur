@@ -52,24 +52,24 @@
   (∀ [X : Type] [l1 : (list X)] [l2 : (list X)] [x : X] [n : nat]
      (-> (== (length (app l1 l2)) n)
          (== (length (app l1 (cons x l2))) (S n))))
-  (by-intros X l1)
-  (by-induction l1 #:as [() (x xs IH)] #:params (X))
+  (by-intros Y l1)
+  (by-induction l1)
   ; induction 1: nil -----
   by-intros
-  (by-rewrite H63)
+  (by-rewrite H64)
   reflexivity
   ; induction 2: cons -----
   by-intros
   (by-apply eq-remove-S)
-  (by-destruct n #:as [() (n-1)])
+  (by-destruct n)
   ;; destruct 2a: z -----
-  (by-inversion H66)
+  (by-inversion H67)
   elim-False
   (by-assumption)
   ;; destruct 2b: (s n-1) -----
-  (by-apply IH)
-  (by-inversion H66)
-  (by-rewrite H68)
+  (by-apply IH63)
+  (by-inversion H67)
+  (by-rewrite H69)
   reflexivity)
 
 (check-type length-app-sym/abbrv
