@@ -20,7 +20,7 @@
          (rename-out [λ lambda]))
 
 (require (only-in turnstile/base
-                  define-typed-syntax get-orig assign-type
+                  define-typed-syntax syntax-parse/typecheck get-orig assign-type
                   subst substs typecheck? typechecks? typeof
                   current-type-eval expand/df)
          turnstile/eval
@@ -30,7 +30,9 @@
 (provide (all-from-out turnstile/base turnstile/eval turnstile/typedefs))
 
 (require "dep-ind-cur2+data2.rkt")
-(provide (all-from-out "dep-ind-cur2+data2.rkt"))
+(require (only-in "dep-ind-cur2+data.rkt" datacons))
+(provide (all-from-out "dep-ind-cur2+data.rkt")
+         (all-from-out "dep-ind-cur2+data2.rkt"))
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
