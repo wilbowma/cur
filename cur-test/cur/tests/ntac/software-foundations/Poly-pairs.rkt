@@ -37,17 +37,17 @@
 (define-implicit pair = pair* 2)
 
 (define/rec/match fst* : [X : Type] [Y : Type] (prod X Y) -> X
-  [(pair* _ _  x _) => x])
+  [(pair x _) => x])
 (define/rec/match snd* : [X : Type] [Y : Type] (prod X Y) -> Y
-  [(pair* _ _ _ y) => y])
+  [(pair _ y) => y])
 
 (define-implicit fst = fst* 2)
 (define-implicit snd = snd* 2)
 
 (define/rec/match combine_ : [X : Type] [Y : Type] (list X) (list Y) -> (list (prod X Y))
-  [(nil* _) _ => (nil* (prod X Y))]
-  [_ (nil* _) => (nil* (prod X Y))]
-  [(cons* _ x tx) (cons* _ y ty) => (cons (pair x y) (combine_ X Y tx ty))])
+  [nil _ => (nil* (prod X Y))]
+  [_ nil => (nil* (prod X Y))]
+  [(cons x tx) (cons y ty) => (cons (pair x y) (combine_ X Y tx ty))])
 
 (check-type combine_
   : (∀ [X : Type] [Y : Type] (-> (list X) (list Y) (list (prod X Y)))))

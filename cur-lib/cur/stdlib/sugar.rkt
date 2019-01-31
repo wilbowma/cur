@@ -276,6 +276,7 @@
   #:with (Y ...) (generate-temporaries #'(τexplicit ...))
   #:with (Y- ...) (generate-temporaries #'(Y ...))
   #:with (τY ...) (generate-temporaries #'(Y ...))
+  #:with (dontcare ...) (stx-map (λ _ #'_) #'(Ximplicit ...))
   #:with out-def
   #`(begin
       (begin-for-syntax
@@ -290,7 +291,10 @@
                  (syntax-parser
                    [(_ . rst) #'(name Ximplicit ... . rst)])))))
         
-      (define-typed-syntax name*
+      (define-syntax name*
+        (datacons
+        (λ (stx)
+        (syntax-parse/typecheck stx
       #,@(if (= (stx-length #'(X ...)) (stx-e #'n)) ; all args are implicit
              (list #'[:id ≫ --- [≻ (name*)]]) ; add id case
              null)
@@ -332,7 +336,14 @@
         [⊢ Y ≫ Y- ⇐ τexplicit/inst] ...
         ------
         [≻ (name τimplicit (... ...) Y- ...)]]
-        [(_ X ...) ≫ --- [≻ (name X ...)]])) ; can still use name* with explicit args
+      [(_ X ...) ≫ --- [≻ (name X ...)]])) ; can still use name* with explicit args
+        (λ (pat t)
+          ;; add missing pats as "_"
+          (pat->ctxt
+           #`(name dontcare ... #,@(if (identifier? pat)
+                                       #'()
+                                       (stx-cdr pat)))
+           t)))))
 ;  #:do[(pretty-print (syntax->datum #'out-def))]
   ------------
   [≻ out-def]])
