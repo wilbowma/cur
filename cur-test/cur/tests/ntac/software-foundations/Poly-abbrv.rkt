@@ -53,13 +53,13 @@
      (-> (== (length (app l1 l2)) n)
          (== (length (app l1 (cons x l2))) (S n))))
   (by-intros Y l1)
-  (by-induction l1)
+  (by-induction l1) ; adds IH63
   ; induction 1: nil -----
-  by-intros
+  by-intros ; adds l2 x n H64
   (by-rewrite H64)
   reflexivity
   ; induction 2: cons -----
-  by-intros
+  by-intros ; adds l2 x n H67
   (by-apply eq-remove-S)
   (by-destruct n)
   ;; destruct 2a: z -----
@@ -68,7 +68,7 @@
   (by-assumption)
   ;; destruct 2b: (s n-1) -----
   (by-apply IH63)
-  (by-inversion H67)
+  (by-inversion H67) ; adds H69
   (by-rewrite H69)
   reflexivity)
 

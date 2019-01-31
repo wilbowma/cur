@@ -375,24 +375,21 @@
 
   (define-syntax (by-induction syn)
     (syntax-case syn ()
-      [(_ x)
-       #'(by-induction x #:as () #:params ())]
-      [(_ x #:as param-namess)
-       #'(by-induction x #:as param-namess #:params ())]
-      [(_ x #:as param-namess #:params Xs)
-       #`(fill (induction #'x #'param-namess #'Xs))]))
+      [(_ x) #'(fill (induction #'x))]
+      [(_ x #:as param-namess) #'(fill (induction #'x #'param-namess))]))
 
   ;; TODO: similar to destruct; merge somehow?
   ;; TODO: use match or elim as proof term?
-  (define ((induction name paramss_ Xs) ctxt pt)
+  (define ((induction name [paramss_ #f]) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
 
     (define name-ty (ctx-lookup ctxt name))
 
-    (define/syntax-parse (_ ([A _] ...) [C ([x τ_] ...) ((xrec . _) ...)] ...) (get-match-info name-ty))
+    (define/syntax-parse (_ ([A _] ...) [C ([x τ_] ...) ((xrec . _) ...)] ...)
+      (get-match-info name-ty))
 
     (define paramss
-      (if (stx-length=? paramss_ #'((x ...) ...))
+      (if (and paramss_ (stx-length=? paramss_ #'((x ...) ...)))
           (stx-map
            (λ (params xs xrecs)
              (if (stx-length=? params (stx-append xs xrecs))
@@ -416,13 +413,13 @@
            #'((xrec ...) ...))))
 
     (define Cs #'(C ...))
-    ;; use given params Xs, if enough are supplied,
-    ;; otherwise, infer from name-ty
-    (define/syntax-parse (X ...) (if (stx-length=? Xs #'(A ...))
-                                     Xs
-                                     (syntax-parse name-ty
-                                       [((~literal #%plain-app) _ . name-ty-args)
-                                        #'name-ty-args]))) ; need freshens here?
+
+    ;; infer params from name-ty
+    (define/syntax-parse (X ...)
+      (syntax-parse name-ty
+        [((~literal #%plain-app) _ . name-ty-args)
+         #'name-ty-args])) ; need freshens here?
+
     (define/syntax-parse ((τ ...) ...) (substs #'(X ...) #'(A ...) #'((τ_ ...) ...)))
     (define pats ; TODO: check length of paramss against (τ...) ...?
       (stx-map
