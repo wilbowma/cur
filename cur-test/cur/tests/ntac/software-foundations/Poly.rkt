@@ -75,7 +75,7 @@
 (define-theorem app-nil-r
   (∀ [Y : Type] [l : (list Y)] (== (app l (nil* Y)) l))
   (by-intros Y l)
-  (by-induction l #:as [() (x xs IH)] #:params (Y))
+  (by-induction l #:as [() (x xs IH)])
   ;; 1: nil case
   reflexivity
   ;; 2: cons case
@@ -117,7 +117,7 @@
      (-> (== nat (length_ X (app_ X l1 l2)) n)
          (== nat (length_ X (app_ X l1 (cons* X x l2))) (S n))))
   (by-intros X l1)
-  (by-induction l1 #:as [() (x xs IH)] #:params (X))
+  (by-induction l1 #:as [() (x xs IH)])
   ; induction 1: nil -----
   (by-intros l2 x n H)
   (by-rewrite H)
@@ -166,7 +166,7 @@
      (== (app l1 (app l2 l3))
          (app (app l1 l2) l3)))
   (by-intros X l1 l2 l3)
-  (by-induction l1 #:as [() (x xs IH)] #:params (X))
+  (by-induction l1 #:as [() (x xs IH)])
   ;1
   reflexivity
   ;2
@@ -178,7 +178,7 @@
      (== (length (app l1 l2))
          (another-plus (length l1) (length l2))))
   (by-intros X l1 l2)
-  (by-induction l1 #:as [() (x xs IH)] #:params (X))
+  (by-induction l1 #:as [() (x xs IH)])
   ; 1
   reflexivity
   ; 2
@@ -191,7 +191,7 @@
          (== (length (app l l)) (another-plus n n))))
   (by-intros X n l)
   (by-generalize n)
-  (by-induction l #:as [() (x xs IH)] #:params (X))
+  (by-induction l #:as [() (x xs IH)])
   ; induction 1
   (by-intros n H)
   (by-rewriteL H)
@@ -224,7 +224,7 @@
      (== (rev (app l1 l2))
          (app (rev l2) (rev l1))))
   (by-intros X l1 l2)
-  (by-induction l1 #:as [() (x xs IH)] #:params (X))
+  (by-induction l1 #:as [() (x xs IH)])
   ; 1
   (by-rewrite app-nil-r)
   reflexivity
@@ -243,7 +243,7 @@
      (== (cons n (rev l))
          (rev (app l (cons n nil)))))
   (by-intros Y l n)
-  (by-induction l #:as [() (x xs IH)] #:params (Y))
+  (by-induction l #:as [() (x xs IH)])
   reflexivity      ; 1
   (by-rewriteL IH) ; 2
   reflexivity)
@@ -304,7 +304,7 @@
   (∀ [X : Type] [l : (list X)]
      (== (rev (rev l)) l))
   by-intros
-  (by-induction l #:as [() (x xs IH)] #:params (X))
+  (by-induction l #:as [() (x xs IH)])
   reflexivity            ; 1
   (by-rewriteL cons-rev) ; 2
   (by-rewrite IH)
