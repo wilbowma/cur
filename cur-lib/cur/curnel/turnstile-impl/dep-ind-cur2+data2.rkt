@@ -35,7 +35,7 @@
                stx))
             #;(make-variable-like-transformer
                #'(λ [A+i : τ] ... (name/internal A+i ...)))
-            (λ (pat t) ; pat should have type ty
+            (λ (pat t) ; pat should have type t (unexpanded type)
               (syntax-parse pat
                 [:id ; nullary constructor, no extra binders
                  #:fail-unless (free-id=? (stx-car t) (stx-car #'τ-out))
@@ -46,10 +46,20 @@
                  #:fail-unless (free-id=? (stx-car t) (stx-car #'τ-out))
                  (format "expected pattern for type ~a, given pattern for ~a: ~a\n"
                          (type->str t) (type->str #'τ-out) (syntax->datum pat))
+                 #:with (_ . params) t ; unexpanded type
                  (stx-appendmap
                   pat->ctxt
                   #'(p ...)
-                  #'(τ ...))]))))
+                  ;; if pat for a param is omitted, infer from t
+                  ;; TODO: is this right?
+                  (let-values ([(missingAs missingparams)
+                                (for/lists (l1 l2)
+                                           ([param (in-stx-list #'params)]
+                                            [A (stx-take #'(A+i ...) (stx-length #'params))]
+                                            [pp (stx-take #'(p ...) (stx-length #'params))]
+                                            #:when (equal? (stx->datum pp) '_))
+                                  (values A param))])
+                    (substs missingparams missingAs #'(τ ...))))]))))
          (begin-for-syntax
            (define-syntax name-expander
              (make-rename-transformer #'name/internal-expander))))]))
