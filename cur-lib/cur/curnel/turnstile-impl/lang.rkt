@@ -21,8 +21,8 @@
 
 (require (only-in turnstile/base
                   define-typed-syntax syntax-parse/typecheck get-orig assign-type
-                  subst substs typecheck? typechecks? typeof
-                  current-type-eval expand/df)
+                  subst substs typecheck? typechecks? typeof add-expected-type
+                  current-type-eval expand/df typecheck-fail-msg/multi)
          turnstile/eval
          turnstile/typedefs
          (for-syntax macrotypes/stx-utils syntax/stx
