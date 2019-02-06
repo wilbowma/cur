@@ -260,7 +260,6 @@
 ;; TODO:
 ;; - check consistency of solved constraints
 ;; - define a form that combines define/rec/match and define-implicit
-;; TODO: define-implicit needs to also define pattern abbreviation
 (define-typed-syntax define-implicit
   [(_ name* (~datum =) name n:exact-nonnegative-integer) ≫ ; rest of args are concrete (ie _)
    [⊢ name ≫ name- ⇒ (~Π [X : _] ... _)]
@@ -270,12 +269,8 @@
    [≻ (define-implicit name* = name n . args)]]
   [(_ name* (~datum =) name n:exact-nonnegative-integer . infers) ≫
    [⊢ name ≫ name- ⇒ (~Π [X : τ] ... τout)]
-  #:with (τexplicit ...) (stx-drop #'(τ ...) (stx-e #'n)) ; type of explicit args
-  #:with (τexplicit/inst ...) (generate-temporaries #'(τexplicit ...)) ; instantiated τexplicits
+  #:with τexplicits (stx-drop #'(τ ...) (stx-e #'n)) ; type of explicit args
   #:with (Ximplicit ...) (stx-take #'(X ...) (stx-e #'n)) ; binders of implicit args
-  #:with (Y ...) (generate-temporaries #'(τexplicit ...))
-  #:with (Y- ...) (generate-temporaries #'(Y ...))
-  #:with (τY ...) (generate-temporaries #'(Y ...))
   #:with (dontcare ...) (stx-map (λ _ #'_) #'(Ximplicit ...))
   #:with out-def
   #`(begin
@@ -298,46 +293,69 @@
       #,@(if (= (stx-length #'(X ...)) (stx-e #'n)) ; all args are implicit
              (list #'[:id ≫ --- [≻ (name*)]]) ; add id case
              null)
-        [(_ Y ...) ⇐ τ_expected ≫
-       ;[⊢ Y ≫ Y- ⇒ τY] ...
+        [(_ X ... ~!) ≫ --- [≻ (name X ...)]] ; can still use name* with explicit args
+        [(_ . Ys) ⇐ τ_expected ≫ #:with ~! #'commit-dont-backtrack
+;        [⊢ Y ≫ Y- ⇒ τY] ... ; cant do this bc may have to skip some (eg the args to infer types)
        #:do[(define constraints ; = [Pair typeof-Y τexplicit], but only for non 'inf args
               (for/list ([maybe-infer (in-stx-list #'infers)]
-                         [y (in-stx-list #'(Y ...))]
-                         [t (in-stx-list #'(τexplicit ...))]
+                         [y (in-stx-list #'Ys)] ; (len Ys) can be < (len τexplicit ...)
+                         [t (in-stx-list #'τexplicits)]
+                         #:unless (infer? maybe-infer))
+                (list (typeof (expand/df y)) t)))
+            (define substs
+              (add-constraints
+               #'(X ...) ; this must be X, not Ximplicit ..., see tests/ntac/assert.rkt for fail case
+               null
+               (cons (list #'τ_expected
+                           ; if partial #%app, add remaining types to result type
+                           (expand/df #`(-> #,@(stx-drop #'τexplicits (stx-length #'Ys)) τout)))
+                     constraints)))]
+       ;; TODO: fail if couldnt infer all Ximplicit?
+       #:with τexplicits/inst (inst-types/cs/orig #'(Ximplicit ...) substs #'τexplicits datum=?)
+;       [⊢ Y ≫ Y- ⇐ τexplicit/inst] (... ...) ; TODO: Turnstile not liking this (... ...) ellipses syntax
+       #:with Ys- (for/list ([y (in-stx-list #'Ys)]
+                             [t (in-stx-list #'τexplicits/inst)])
+                    (expand/df (add-expected-type y t)))
+       #:fail-unless (for/and ([y (in-stx-list #'Ys-)]
+                               [t (in-stx-list #'τexplicits/inst)])
+                       (typecheck? (typeof y) t))
+                     (typecheck-fail-msg/multi #'τexplicits/inst
+                                               (stx-map typeof #'Ys-)
+                                               #'Ys)
+       #:with (τimplicit (... ...)) (lookup-Xs/keep-unsolved #'(Ximplicit ...) substs)
+       ------
+       [≻ (name τimplicit (... ...) . Ys-)]]
+      [(_ . Ys) ≫ ; same as above case, except no expected type ; TODO: merge dup code?
+        #:fail-when (stx-null? #'Ys) ; fail when no types to infer from
+                    (format "could not infer args for ~a; add annotations" 'name)
+;        [⊢ Y ≫ Y- ⇒ τY] ... ; cant do this bc it does not consider args that must be inferred
+        #:do[(define constraints ; = [Pair typeof-Y τexplicit], but only for non 'inf args
+              (for/list ([maybe-infer (in-stx-list #'infers)]
+                         [y (in-stx-list #'Ys)]
+                         [t (in-stx-list #'τexplicits)]
                          #:unless (infer? maybe-infer))
                 (list (typeof (expand/df y)) t)))
             (define substs
               (add-constraints
                #'(X ...)
                null
-               (cons (list #'τ_expected #'τout) constraints)))]
-       #:with (τimplicit (... ...)) (lookup-Xs/keep-unsolved #'(Ximplicit ...) substs)
-       #:with (τexplicit/inst ...) (inst-types/cs/orig #'(Ximplicit ...) substs #'(τexplicit ...) datum=?)
-       [⊢ Y ≫ Y- ⇐ τexplicit/inst] ...
-       ------
-       [≻ (name τimplicit (... ...) Y- ...)]]
-      [(_ Y ...) ≫ ; same as above case, except no expected type
-        #:fail-when (zero? (stx-length #'(Y ...))) ; fail when no types to infer from
-                    (format "could not infer args for ~a; add annotations" 'name)
-;        [⊢ Y ≫ Y- ⇒ τY] ...
-        #:do[(define constraints ; = [Pair typeof-Y τexplicit], but only for non 'inf args
-              (for/list ([maybe-infer (in-stx-list #'infers)]
-                         [y (in-stx-list #'(Y ...))]
-                         [t (in-stx-list #'(τexplicit ...))]
-                         #:unless (infer? maybe-infer))
-                (list (typeof (expand/df y)) t)))
-            (define substs
-              (add-constraints
-               #'(Ximplicit ...)
-               null
                constraints))]
+        ;; TODO: fail if couldnt infer type for all Ximplicit?
+        #:with τexplicits/inst (inst-types/cs/orig #'(Ximplicit ...) substs #'τexplicits datum=?)
+;        [⊢ Y ≫ Y- ⇐ τexplicit/inst] (... ...) ; Turnstile doesnt like this nested ellipsis
+       #:with Ys- (for/list ([y (in-stx-list #'Ys)]
+                             [t (in-stx-list #'τexplicits/inst)])
+                    (expand/df (add-expected-type y t)))
+       #:fail-unless (for/and ([y (in-stx-list #'Ys-)]
+                               [t (in-stx-list #'τexplicits/inst)])
+                       (typecheck? (typeof y) t))
+                     (typecheck-fail-msg/multi #'τexplicits/inst
+                                               (stx-map typeof #'Ys-)
+                                               #'Ys)
         #:with (τimplicit (... ...)) (lookup-Xs/keep-unsolved #'(Ximplicit ...) substs)
-        #:with (τexplicit/inst ...) (inst-types/cs/orig #'(Ximplicit ...) substs #'(τexplicit ...) datum=?)
-        [⊢ Y ≫ Y- ⇐ τexplicit/inst] ...
         ------
-        [≻ (name τimplicit (... ...) Y- ...)]]
-      [(_ X ...) ≫ --- [≻ (name X ...)]])) ; can still use name* with explicit args
-        (λ (pat t)
+        [≻ (name τimplicit (... ...) . Ys-)]]))
+        (λ (pat t) ; pat->ctxt
           ;; add missing pats as "_"
           (pat->ctxt
            #`(name dontcare ... #,@(if (identifier? pat)

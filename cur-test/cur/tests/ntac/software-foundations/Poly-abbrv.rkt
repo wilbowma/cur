@@ -45,7 +45,7 @@
      (-> (== n m)
          (== (S n) (S m))))
   by-intros
-  (by-rewrite H57)
+  (by-rewrite H37)
   reflexivity)
 
 (define-theorem length-app-sym/abbrv
@@ -56,20 +56,20 @@
   (by-induction l1) ; adds IH63
   ; induction 1: nil -----
   by-intros ; adds l2 x n H64
-  (by-rewrite H64)
+  (by-rewrite H44)
   reflexivity
   ; induction 2: cons -----
   by-intros ; adds l2 x n H67
   (by-apply eq-remove-S)
   (by-destruct n)
   ;; destruct 2a: z -----
-  (by-inversion H67)
+  (by-inversion H47)
   elim-False
   (by-assumption)
   ;; destruct 2b: (s n-1) -----
-  (by-apply IH63)
-  (by-inversion H67) ; adds H69
-  (by-rewrite H69)
+  (by-apply IH43)
+  (by-inversion H47) ; adds H69
+  (by-rewrite H49)
   reflexivity)
 
 (check-type length-app-sym/abbrv
