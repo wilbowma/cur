@@ -194,14 +194,11 @@
 
 (define-implicit length=1? = length=1?_ 1)
 
-;; TODO: HO fn with implicit arg? how to type check wth filter expected arg?
-;; this means that the optionality of args must be part of the type?
-;; ie define-implicit *changes* the types, so it's not just sugar?
-#;(check-type
- (filter length=1? [lst [lst 1 2] [lst 3] [lst 4] [lst 5 6 7] (nil* nat) [lst 8]])
+;; TODO: unify polymorphic and concrete fn args
+(check-type
+ (filter (length=1?_ nat) [lst [lst 1 2] [lst 3] [lst 4] [lst 5 6 7] (nil* nat) [lst 8]])
  : (list (list nat))
  -> [lst [lst 3] [lst 4] [lst 8]])
-
 
 (define (oddb [n : nat]) (negb (evenb n)))
 
@@ -305,7 +302,7 @@
   [nil => b]
   [(:: h t) => (f h (fold_ X Y f b t))])
 
-(define-implicit fold = fold_ 2)
+(define-implicit fold = fold_ 2 inf _ _)
 
 (check-type (fold plus 0 (lst 1 2 3 4)) : nat -> 10)
 
@@ -319,3 +316,67 @@
 
 ;; with define-implicit form
 (check-type (fold andb) : (-> bool (list bool) bool))
+
+(define-theorem fold-example1
+  (== (fold mult 1 (lst 1 2 3 4)) 24)
+  reflexivity)
+
+(define-theorem fold-example2
+  (== (fold andb true (lst true true false true)) false)
+  reflexivity)
+
+;; polymorphic fn
+(define-theorem fold-example3
+  (== (fold (app_ nat) (nil* nat) (lst (lst 1) (nil* nat) (lst 2 3) (lst 4)))
+      (lst 1 2 3 4))
+  reflexivity)
+
+(define (flat-map2 [X : Type] [l : (list (list X))])
+  (fold (app_ X) (nil* X) l))
+
+(define (constfun_ [X : Type] [x : X])
+  (λ [k : nat] x))
+
+(define-implicit constfun = constfun_ 1)
+
+(define ftrue (constfun true))
+
+(define-theorem constfun-example1
+  (== (ftrue 0) true)
+  reflexivity)
+
+(define-theorem constfun-example2
+  (== ((constfun 5) 99) 5)
+  reflexivity)
+
+(check-type plus : (-> nat nat nat))
+
+(define plus3 (plus 3))
+(check-type plus3 : (-> nat nat))
+
+(define-theorem plus3-test1 (== (plus3 4) 7) reflexivity)
+(define-theorem plus3-test2 (== (do3times plus3 0) 9) reflexivity)
+(define-theorem plus3-test3 (== (do3times (plus 3) 0) 9) reflexivity)
+
+(define (fold-length_ [X : Type] [l : (list X)])
+  (fold (λ [x : X] [n : nat] (S n)) 0 l))
+
+(define-implicit fold-length = fold-length_ 1)
+
+(define-theorem fold-length-test1
+  (== (fold-length [lst 4 7 0]) 3)
+  reflexivity)
+
+;; this test checks `unexpand` of HO fn
+(define-theorem fold-length-correct
+  (∀ [X : Type] [l : (list X)]
+     (== (fold-length l) (length l)))
+  (by-intros X l)
+  (by-induction l #:as [() (x xs IH)])
+  reflexivity     ; 1
+  (by-rewriteL IH) ; 2
+  reflexivity)
+
+(check-type fold-length-correct
+            : (∀ [X : Type] [l : (list X)]
+                 (== (fold-length l) (length l))))
