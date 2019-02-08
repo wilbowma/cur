@@ -294,18 +294,38 @@
     (define e-ty (or (and (identifier? e) (ctx-lookup ctxt e))
                      (typeof (normalize e ctxt))))
     (define name (if (identifier? e) e (generate-temporary)))
-    (define/syntax-parse (_ _ [C ([x τ] ...) _] ...) (get-match-info e-ty))
+    (define/syntax-parse (_ ([A _] ...) [C ([x τ_] ...) _] ...)
+      (get-match-info e-ty))
 
     (define Cs #'(C ...))
+
+    ;; infer params from e-ty
+    (define/syntax-parse (X ...)
+      (syntax-parse e-ty
+        [((~literal #%plain-app) _ . name-ty-args)
+         #'name-ty-args])) ; need freshens here?
+
+    (define/syntax-parse ((τ ...) ...) (substs #'(X ...) #'(A ...) #'((τ_ ...) ...)))
+
     (define paramss
       (or param-namess
           (stx-map (freshens e) #'((x ...) ...))))
+
+    ;; pats and Cinstances are same except pat is used in match pattern,
+    ;; which drops params (bc elim methods do not re-bind params)
     (define pats
       (stx-map
        (λ (C ps)
-         (if (null? (stx->list ps))
+         (if (stx-null? ps)
              C
              #`(#,C . #,ps)))
+       Cs paramss))
+    (define Cinstances
+      (stx-map
+       (λ (C ps)
+         (if (and (stx-null? ps) (stx-null? #'(X ...)))
+             C
+             #`(#,C X ... . #,ps)))
        Cs paramss))
 
     ;; split ctxt at where `name` is bound:
@@ -323,7 +343,7 @@
     (make-ntt-apply
      goal
      (stx-map
-      (λ (pat C-types params)
+      (λ (Cinstance C-types params)
         ;; adding params into ctx is slightly tricky:
         ;; - a param-type may refer to inner-ctxt binding
         ;;   - see plus-n-Sm, IH param, in rewrite-with-previous.rkt
@@ -344,13 +364,13 @@
               (stx->list C-types))))
           (ctx-append
            tmp-ctxt
-           (ctx-map ; update ty in ctxt with (subst-term pat name _)
-            (subst-term/e (normalize pat tmp-ctxt) name)
+           (ctx-map ; update ty in ctxt with (subst-term Cinstance name _)
+            (subst-term/e (normalize Cinstance tmp-ctxt) name)
             inner/name)))
         (make-ntt-context
           update-ctxt
-          (make-ntt-hole (normalize (subst-term pat e goal) (update-ctxt ctxt)))))
-      pats
+          (make-ntt-hole (normalize (subst-term Cinstance e goal) (update-ctxt ctxt)))))
+      Cinstances
       #'((τ ...) ...)
       paramss)
      (λ pfs
@@ -359,17 +379,18 @@
          ;; and the match term must be applied to the env bindings whose tys ref the destructed var
          ((match #,e
             #:as #,name
-            #:in #,e-ty
+            #:in #,(unexpand e-ty)
             #:return (Π #,@(for/list ([(x ty) inner/name])
-                             #`[#,x : #,(subst-term name e ty)])
-                         #,(subst-term name e goal))
+                             #`[#,x : #,(unexpand (subst-term name e ty))])
+                         #,(unexpand (subst-term name e goal)))
                  . #,(stx-map
-                      (λ (pat pf)
+                      (λ (pat Cinstance pf)
                         #`[#,pat
                            (λ #,@(for/list ([(x ty) inner/name])
-                                   #`[#,x : #,(subst-term pat e ty)])
+                                   #`[#,x : #,(subst-term Cinstance e ty)])
                              #,pf)])
                       pats
+                      Cinstances
                       pfs))
           #,@(ctx-ids inner/name))))))
 
@@ -424,7 +445,7 @@
     (define pats ; TODO: check length of paramss against (τ...) ...?
       (stx-map
        (λ (C τs ps)
-         (if (and (null? (stx->list ps)) (null? #'(X ...)))
+         (if (and (stx-null? ps) (stx-null? #'(X ...)))
              C
              ; dont include IHs as C arg
              #`(#,C X ... . #,(stx-take ps (stx-length τs)))))

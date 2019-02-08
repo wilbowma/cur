@@ -13,7 +13,7 @@
 (require cur/curnel/turnstile-impl/dep-ind-cur2+sugar
          (prefix-in r: racket/base)
          (for-syntax (for-syntax syntax/parse)
-                     syntax/stx
+                     syntax/stx racket/pretty
                      macrotypes/stx-utils 
                      turnstile/type-constraints))
 
@@ -30,7 +30,7 @@
    ;  [⊢ ((λ [x- : τ] ... body-) e- ...)]
 
 (begin-for-syntax
-  (define ((mk-method τout name) eis clause) ; 2 args: ei tys and clause
+  (define ((mk-method τout name params) eis clause) ; 2 args: ei tys and clause
     (syntax-parse (list eis clause)
       [(_ [x:id body]) #'body] ; no subst, bc x is just nullary constructor
       ;; TODO: combine the following 4 cases
@@ -67,6 +67,8 @@
 ;; - assuming clauses appear in order
 ;; - must use #:as for return type that uses `e`
 ;; - x should be xs?
+;; - match clauses do not include params
+;;   - bc elim methods do not re-bind params
 ;; TODO: handle nested patterns, like define/rec/match?
 (define-typed-syntax match
   [(_ e (~optional (~seq #:as x) #:defaults ([x #'x])) #:return τout . clauses) ≫
@@ -81,10 +83,13 @@
 ;; the main match form
 ;; e- and τin already expanded
 (define-typed-syntax (match+ e #:as x #:in τin #:return τout . clauses) ≫
+;;  #:do[(printf "match τin: ~a\n" (stx->datum #'τin))]
   #:do[(define exinfo (get-match-info #'τin))]
 ;  #:do[(displayln exinfo)]
   #:fail-unless exinfo (format "could not infer extra info from type ~a" (stx->datum #'τ))
-  #:with (elim-Name _ ei ...) exinfo
+  #:with (elim-Name ([orig-param:id _] ...) ei ...) exinfo
+  ;; use params from τin, not exinfo (bc that's what elim does)
+  #:with params (stx-drop #'τin 2) ; drop #%app and cons-name
   ;; ;; #:do[(displayln #'elim-Name)
   ;; ;;      (displayln (identifier-binding #'elim-Name))]
   ;; ;; TODO: the following is a workound for the "kind stx prop" problem
@@ -98,7 +103,10 @@
   #:fail-unless (stx-length=? #'(ei ...) #'clauses)
                 "extra info error: check that number of clauses matches type declaration"
 ;;  #:with (m ...) (stx-map (mk-method #'e- #'τ #'τout modulepath this-syntax) #'(ei ...) #'clauses)
-  #:with (m ...) (stx-map (mk-method #'τout #'x) #'(ei ...) #'clauses)
+  #:with (m ...) (stx-map
+                  (mk-method #'τout #'x #'params)
+                  (substs #'params #'(orig-param ...) #'(ei ...)) ; use params from τin, not ei
+                  #'clauses)
   ;; #:do[(printf "match methods for ~a:\n" #'e)
   ;;      (map pretty-print (stx->datum #'(m ...)))]
   ; [⊢ body ≫ body- ⇐ τout] ...
