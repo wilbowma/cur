@@ -28,6 +28,7 @@
 
 (begin-for-syntax
 
+  ;; TODO: handle Π goals
   (define (reflexivity ptz)
     (match-define (ntt-hole _ goal) (nttz-focus ptz))
     (ntac-match goal

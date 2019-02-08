@@ -380,3 +380,48 @@
 (check-type fold-length-correct
             : (∀ [X : Type] [l : (list X)]
                  (== (fold-length l) (length l))))
+
+(define (fold-map_ [X : Type] [Y : Type] [f : (-> X Y)] [l : (list X)])
+  (fold (λ x l1 (:: (f x) l1)) (nil* Y) l))
+
+(define-implicit fold-map = fold-map_ 2)
+
+(define-theorem fold-map-correct
+  (∀ [X : Type] [Y : Type] [f : (-> X Y)] [l : (list X)]
+     (== (map f l) (fold-map f l)))
+  (by-intros X Y f l)
+  (by-induction l #:as [() (x xs IH)])
+  reflexivity ;1
+  (by-rewrite IH)
+  reflexivity)
+
+(define (prod-curry_ [X : Type] [Y : Type] [Z : Type]
+                     [f : (-> (prod X Y) Z)] [x : X] [y : Y])
+  (f (pair x y)))
+
+(define (prod-uncurry_ [X : Type] [Y : Type] [Z : Type]
+                       [f : (-> X Y Z)] [p : (prod X Y)])
+  (f (fst p) (snd p)))
+
+(define-implicit prod-curry = prod-curry_ 3)
+(define-implicit prod-uncurry = prod-uncurry_ 3)
+
+(define-theorem map-test2
+  (== (map (λ [x : nat] (plus 3 x)) [lst 2 0 2]) (lst 5 3 5))
+  reflexivity)
+
+(define-theorem uncurry-curry
+  (∀ [X : Type] [Y : Type] [Z : Type]
+     [f : (-> X Y Z)] [x : X][y : Y]
+     (== (prod-curry (prod-uncurry f) x y) (f x y)))
+  by-intros
+  reflexivity)
+
+;; tests destruct and match with polymorphic type
+(define-theorem curry-uncurry
+  (∀ [X : Type] [Y : Type] [Z : Type]
+     [f : (-> (prod X Y) Z)] [p : (prod X Y)]
+     (== (prod-uncurry (prod-curry f) p) (f p)))
+  (by-intros X Y Z f p)
+  (by-destruct p #:as [(x y)])
+  reflexivity)
