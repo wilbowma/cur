@@ -7,6 +7,8 @@
          rackunit/turnstile
          "../rackunit-ntac.rkt")
 
+;; part 2 of 3 of Software Foundations Poly.v chapter
+
 (data bool : 0 Type
       (true : bool)
       (false : bool))
@@ -425,3 +427,8 @@
   (by-intros X Y Z f p)
   (by-destruct p #:as [(x y)])
   reflexivity)
+
+; nth/error-informal
+#;(∀ [X : type] [n : nat] [l : (list X)]
+   (-> (== (length l) n)
+       (== (nth/error n l) (None* nat))))

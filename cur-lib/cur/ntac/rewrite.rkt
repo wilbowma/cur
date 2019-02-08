@@ -32,7 +32,7 @@
   (define (reflexivity ptz)
     (match-define (ntt-hole _ goal) (nttz-focus ptz))
     (ntac-match goal
-     [(~== ty a b) ((fill (exact #`(refl #,(unexpand #'a)))) ptz)]))
+     [(~== ty a b) ((fill (exact #`(refl #,(unexpand #'ty) #,(unexpand #'a)))) ptz)]))
 
   ;; rewrite tactics ----------------------------------------------------------
 
