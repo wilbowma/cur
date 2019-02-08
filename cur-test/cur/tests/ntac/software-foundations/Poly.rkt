@@ -8,6 +8,8 @@
          rackunit/turnstile
          "../rackunit-ntac.rkt")
 
+;; part 1 of 3 of Software Foundations Poly.v chapter
+
 (data boollist : 0 Type
       [bool-nil : boollist]
       [bool-cons : (-> bool boollist boollist)])
