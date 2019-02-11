@@ -46,6 +46,38 @@
     [(_) #'nil]
     [(_ x . rst) #'(:: x (lst . rst))]))
 
+(define/rec/match app_ : [X : Type] (list X) (list X) -> (list X)
+  [nil l2 => l2]
+  [(:: h t) l2 => (:: h (app_ X t l2))])
+
+(define-implicit app = app_ 1)
+
+(define/rec/match rev_ : [X : Type] (list X) -> (list X)
+  [nil => nil]
+  [(:: h t) => (app (rev_ X t) (:: h nil))])
+
+(define-implicit rev = rev_ 1)
+
+(define-theorem cons-rev
+  (∀ [Y : Type] [l : (list Y)] [n : Y]
+     (== (:: n (rev l))
+         (rev (app l (:: n nil)))))
+  (by-intros Y l n)
+  (by-induction l #:as [() (x xs IH)])
+  reflexivity      ; 1
+  (by-rewriteL IH) ; 2
+  reflexivity)
+
+(define-theorem rev-invol
+  (∀ [X : Type] [l : (list X)]
+     (== (rev (rev l)) l))
+  by-intros
+  (by-induction l #:as [() (x xs IH)])
+  reflexivity            ; 1
+  (by-rewriteL cons-rev) ; 2
+  (by-rewrite IH)
+  reflexivity)
+
 ;; pairs --------------------
 
 (define-datatype prod [X : Type] [Y : Type] : -> Type
@@ -119,3 +151,17 @@
   (by-intros n H)
   by-symmetry
   by-assumption)
+
+(define-theorem rev-exercise1
+  (forall (l1 : (list nat)) (l2 : (list nat))
+          (-> (== l1 (rev l2))
+              (== l2 (rev l1))))
+  (by-intros l1 l2 H)
+  (by-rewrite H)
+  by-symmetry
+  (by-apply rev-invol))
+  ;; (by-rewrite rev-invol)
+  ;; reflexivity)
+
+
+
