@@ -9,7 +9,18 @@
  (rename-out [Π/c Π] [λ/c λ] [app/c #%app] [app/eval/c app/eval] [define/c define]
              [→ ->] [Π/c Pi] [Π/c ∀] [Π/c forall] [λ/c lambda]))
 
-(define-nested/R Π/c Π)
+(begin-for-syntax
+  (define-syntax-class xs+τ #:attributes ([fst 0] [rst 1])
+    (pattern [(~var x0 id) (~var x id) ... (~datum :) τ]
+             #:with fst #'[x0 : τ]
+             #:with (rst ...) (stx-map (λ (x) #`[#,x : τ]) #'(x ...)))))
+
+(define-syntax Π/c
+  (syntax-parser
+    [(_ t) #'t]
+    [(_ (~var b xs+τ) . rst)
+     (quasisyntax/loc this-syntax
+       (Π b.fst (Π/c b.rst ... . rst)))]))
 
 (begin-for-syntax
   ;; curried expander

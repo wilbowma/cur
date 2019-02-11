@@ -153,7 +153,7 @@
   by-assumption)
 
 (define-theorem rev-exercise1
-  (forall (l1 : (list nat)) (l2 : (list nat))
+  (forall (l1 l2 : (list nat))
           (-> (== l1 (rev l2))
               (== l2 (rev l1))))
   (by-intros l1 l2 H)
@@ -163,5 +163,32 @@
   ;; (by-rewrite rev-invol)
   ;; reflexivity)
 
+(define-theorem trans-eq-example
+  (∀ [a b c d e f : nat]
+     (-> (== (lst a b) (lst c d))
+         (== (lst c d) (lst e f))
+         (== (lst a b) (lst e f))))
+  (by-intros a b c d e f eq1 eq2)
+  (by-rewrite eq1)
+  (by-rewrite eq2)
+  reflexivity)
 
+(define-theorem trans-eq
+  (∀ [X : Type] [n m o : X]
+     (-> (== n m)
+         (== m o)
+         (== n o)))
+  (by-intros X n m o eq1 eq2)
+  (by-rewrite eq1)
+  (by-rewrite eq2)
+  reflexivity)
 
+(define-theorem trans-eq-example2
+  (∀ [a b c d e f : nat]
+     (-> (== (lst a b) (lst c d))
+         (== (lst c d) (lst e f))
+         (== (lst a b) (lst e f))))
+  (by-intros a b c d e f eq1 eq2)
+  (by-apply trans-eq #:with (list nat) (lst a b) (lst c d) (lst e f))
+  (by-apply eq1)
+  (by-apply eq2))
