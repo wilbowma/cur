@@ -4,10 +4,12 @@
 (provide (for-syntax reflexivity
                      replace
                      rewrite
+                     symmetry
                      by-apply
                      by-replace
                      by-rewrite
                      by-rewriteL
+                     by-symmetry
                      (rename-out [by-rewrite by-rewriteR])
                      elim-False
                      by-inversion))
@@ -33,6 +35,22 @@
     (match-define (ntt-hole _ goal) (nttz-focus ptz))
     (ntac-match goal
      [(~== ty a b) ((fill (exact #`(refl #,(unexpand #'ty) #,(unexpand #'a)))) ptz)]))
+
+  (define (symmetry ctxt pt)
+    (match-define (ntt-hole _ goal) pt)
+    (ntac-match goal
+     [(~== TY L R)
+      (make-ntt-apply
+       goal
+       (list (make-ntt-hole (normalize #'(== TY R L) ctxt)))
+       (λ (pf)
+         (quasisyntax/loc goal
+           (sym #,(unexpand #'TY) #,(unexpand #'R) #,(unexpand #'L) #,pf))))]))
+
+  (define-syntax (by-symmetry syn)
+    (syntax-case syn ()
+      [_
+       #`(fill symmetry)]))
 
   ;; rewrite tactics ----------------------------------------------------------
 
