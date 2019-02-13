@@ -80,13 +80,16 @@
     (syntax-parse (list e1 e2)
       [(x:id e) ; found a possible binidng
        #:when (member #'x (syntax->list bvs) free-identifier=?)
+;       #:do[(printf "found: ~a = ~a\n" (stx->datum #'x) (stx->datum #'e))]
        (list #'(x e))]
       [((~and (~literal #%plain-app) x)
         (~and (~literal #%plain-app) y))
        #:do[(define da1 (syntax-property #'x 'display-as))
             (define da2 (syntax-property #'y 'display-as))]
        #:when (or (and da1 da2 (stx-e da1) (stx-e da2) (free-identifier=? da1 da2))
-                  (and (not da1) (not da2))
+                  (or (and (not da1) (not da2))
+                      (and (not da1) (not (stx-e da2))) ; why sometimes #'#f?
+                      (and (not (stx-e da1)) (not da2)))
                   (and da1 da2 (not (stx-e da1)) (not (stx-e da2))))
        null]
       [((~and (~not (~literal #%plain-app)) x:id)
@@ -313,10 +316,18 @@
                    [TY #'TY*] ; expr's TY
                    [L #'L*]
                    [R #'R*])
+;          (printf "FIND: ~a =\n      ~a\n" (stx->datum L) (stx->datum R))
           (syntax-parse (list L R)
-            [(e1 e2) ; found a possible binding
+            [(e1 e2) ; found a new assumption
              #:when (or (identifier? #'e1) (identifier? #'e2))
              (set! ==s (cons #`(== #,TY e1 e2) ==s))
+             (set! terms (cons (mk-term expr TY L) terms))]
+            [(((~and (~literal #%plain-app) ap1) . rst1) ; found a new assumption
+              ((~and (~literal #%plain-app) ap2) . rst2))
+             #:do[(define r1 (syntax-property #'ap1 'reflect))
+                  (define r2 (syntax-property #'ap2 'reflect))]
+             #:when (and r1 r2 (free-identifier=? r1 r2))
+             (set! ==s (cons #`(== #,TY #,L #,R) ==s))
              (set! terms (cons (mk-term expr TY L) terms))]
             [(((~literal #%plain-app) C1:id e1 ...)
               ((~literal #%plain-app) C2:id e2 ...))
@@ -398,10 +409,11 @@
   ;; ty = type param of == 
   (define (mk-False-term-type r x ty)
     ;; TODO: instantiate Cinfo?
-    (define/syntax-parse (_ ([A _] ...) Cinfo ...)
+    (define/syntax-parse (_ ([A _] ...) (~and Cinfo (C _ _)) ...)
       (get-match-info ty))
     (syntax-parse r
       [((~literal #%plain-app) this-C:id . rst)
+       #:when (stx-member #'this-C #'(C ...) stx-datum-equal?)
        #`(match #,x #:return Type
           #,@(stx-map
               (syntax-parser
@@ -415,5 +427,7 @@
                               ;; check Cτ = ty?
                               (mk-False-term-type (stx-car #'rst) (stx-car #'(Cx ...)) ty))
                           #'True)]])
-              #'(Cinfo ...)))]))  
+              #'(Cinfo ...)))]
+      ;; if not data constructor of ty, then treat as base case
+      [((~literal #%plain-app) . rst) #'False]))
   )
