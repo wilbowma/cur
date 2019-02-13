@@ -134,7 +134,7 @@
   (by-assumption)
   ;; destruct 2b: (s n-1) -----
   (by-apply IH)
-  (by-inversion H #:extra-names H0)
+  (by-inversion H #:as H0)
   (by-rewrite H0)
   reflexivity)
 
@@ -207,7 +207,7 @@
   elim-False
   by-assumption
   ; destruct 2b
-  (by-inversion H #:extra-names H1)
+  (by-inversion H #:as H1)
   (by-apply eq-remove-S)
   (by-rewriteL plus-n-Sm)
 ;  (by-rewrite H1)
