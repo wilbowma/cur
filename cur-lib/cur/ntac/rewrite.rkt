@@ -113,38 +113,6 @@
        null]
       [_ #f]))
 
-  ;; like unify, but with no bvs
-  ;; - used in inversion
-  (define (unify/open e1 e2)
-    ;; (printf "unify/open1: ~a\n" (syntax->datum e1))
-    ;; (printf "unify/open2: ~a\n" (syntax->datum e2))
-    (syntax-parse (list e1 e2)
-      [(x:id e) ; found a possible binidng
-       (list #'(x e))]
-      [(e x:id) ; found a possible binidng
-       (list #'(e x))]
-      [(((~literal #%plain-app) f1:id e1 ...)
-        ((~literal #%plain-app) f2:id e2 ...))
-       #:when (free-identifier=? #'f1 #'f2)
-       #:do[(define e1-lst (syntax->list #'(e1 ...)))
-            (define e2-lst (syntax->list #'(e2 ...)))]
-       #:when (= (length e1-lst) (length e2-lst))
-       ;; performs a fold, but stops on first fail
-       (let L ([acc null] [e1s e1-lst] [e2s e2-lst])
-         (cond
-           [(and (null? e1s) (null? e2s)) acc]
-           [else
-            (define e1 (car e1s))
-            (define e2 (car e2s))
-            (define res (unify/open e1 e2))
-            (and res
-                 (L (append res acc) (cdr e1s) (cdr e2s)))]))]
-      [(((~literal #%plain-app) f1:id . _)
-        ((~literal #%plain-app) f2:id . _))
-       #:when (not (free-identifier=? #'f1 #'f2))
-       (list #f)]
-      [_ (list (list e1 e2))]))
-
   ;; The theorem "H" to use for the rewrite is either:
   ;; - `thm` arg --- from previously defined define-theorem
   ;; - or (ctx-lookup ctxt name) --- usually an IH
@@ -321,35 +289,91 @@
      (list (make-ntt-hole #'False))
      (λ (body-pf) ; proof of false
        (quasisyntax/loc goal
-         (new-elim #,body-pf (λ y #,goal))))))
+         (new-elim #,body-pf (λ y #,(unexpand goal)))))))
 
-  ;; mk-nat-elims:
-  ;; - creates (nested) elim exprs for input nat
-  ;; - TODO: for now, input is only iso morphic to Nat
-  ;;   - TODO: use actual constructor patterns
-  ;; - used by False-producing fn in inversion
-  ;; - arg is rhs of equality type
-  (define (mk-nat-elims r x)
-    (syntax-parse r
-      [((~literal #%plain-app) :id)   #`(new-elim #,x (λ x Type) False (λ x ih True))]
-      [((~literal #%plain-app) :id n) #`(new-elim #,x (λ x Type) True (λ x ih #,(mk-nat-elims #'n #'x)))]))
-
-  ;; simplified inversion tactic
-  (define ((inversion name names) ctxt pt)
+  (define ((inversion name names_) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
     (ntac-match (or (ctx-lookup ctxt name) ; thm in ctx
                     (typeof (expand/df name))) ; prev proved tm
-     [(~== TY L R)
-      ;; TODO: look up constructors of TY
-      ;; for now, only Nat supported
-      ;; TODO: check (length names) == (length eqs)
-      (let* ([eqs (unify/open #'L #'R)]
-             [eq-tys (stx-map (λ (e) (if e #`(== TY . #,e) #'False)) eqs)]
-             [names (if (null? (stx-e names))
-                        (stx-map
-                         (λ _ (datum->syntax name (stx-e (generate-temporary #'H))))
-                         eq-tys)
-                        names)])
+     [(~== TY* L* R*)
+      (let ([==s null] [terms null] [xx (generate-temporary)])
+
+        ;; FIND is imperative traversal of L and R (makes code much shorter);
+        ;; the traversal populates:
+        ;; - `==s`: new assumptions
+        ;; - `terms`: proofs for new assumptions
+        (let FIND ([expr xx]
+                   ; usage: (mk-term expr TY L) creates the current proof term
+                   [mk-term (λ (stx tgt-ty tgt-base-term)
+                              #`(f-equal
+                                 #,(unexpand #'TY*) #,tgt-ty
+                                 (λ #,xx #,stx)
+                                 #,(unexpand #'L*) #,(unexpand #'R*)
+                                 #,name))]
+                   [TY #'TY*] ; expr's TY
+                   [L #'L*]
+                   [R #'R*])
+          (syntax-parse (list L R)
+            [(e1 e2) ; found a possible binding
+             #:when (or (identifier? #'e1) (identifier? #'e2))
+             (set! ==s (cons #`(== #,TY e1 e2) ==s))
+             (set! terms (cons (mk-term expr TY L) terms))]
+            [(((~literal #%plain-app) C1:id e1 ...)
+              ((~literal #%plain-app) C2:id e2 ...))
+             #:when (and (free-identifier=? #'C1 #'C2)
+                         (stx-length=? #'(e1 ...) #'(e2 ...)))
+             #:do[(define/syntax-parse (_ ([A _] ...) Cinfo_ ...)
+                    (get-match-info TY))
+                  ;; instantatiate Cinfo_ with concrete params from TY
+                  (define concrete-As (stx-drop TY 2))
+                  (define Cinfos (substs concrete-As #'(A ...) #'(Cinfo_ ...)))
+                  (define/syntax-parse (_ ([Cx* Cτ*] ...) _)
+                    (stx-findf ; find the matching constructor
+                     (syntax-parser [(C:id . _) (stx-datum-equal? #'C #'C1)])
+                     Cinfos))]
+             (stx-map
+              (λ (e1 e2 x τ)
+                (FIND x
+                      (λ (stx tgt-ty tgt-base-term)
+                        (mk-term
+                         #`(match #,expr #:return #,tgt-ty
+                            #,@(stx-map
+                                (syntax-parser
+                                  [(this-C ([Cx Cτ] ...) _)
+                                   #`[(this-C Cx ...)
+                                      #,(if (stx-datum-equal? #'C1 #'this-C)
+                                            stx
+                                            tgt-base-term)]])
+                                Cinfos))
+                         tgt-ty
+                         tgt-base-term))
+                      (normalize τ ctxt)
+                      e1 e2))
+              (stx-drop #'(e1 ...) (stx-length #'(A ...)))
+              (stx-drop #'(e2 ...) (stx-length #'(A ...)))
+              #'(Cx* ...)
+              #'(Cτ* ...))]
+            [(((~literal #%plain-app) f1:id . _)
+              ((~literal #%plain-app) f2:id . _))
+             #:when (not (free-identifier=? #'f1 #'f2)) ; False assumption
+             (set! ==s (cons #'False ==s))
+             (set! terms
+                   (cons
+                    #`(new-elim ; False case
+                       #,name
+                       ;; re-traverse R to generate False term,
+                       ;; but it should be simpler traversal
+                       (λ x h #,(mk-False-term-type #'R* #'x #'TY*))
+                       I)
+                    terms))]))
+
+        (define names
+          (if (null? (stx-e names_))
+              (stx-map
+               (λ _ (datum->syntax name (stx-e (generate-temporary #'H))))
+               ==s)
+              (stx->list names_)))
+          
         (make-ntt-apply
          goal
          (list
@@ -360,30 +384,36 @@
                 (ctx-add ctx x (normalize ty ctx)))
               old-ctxt
               (stx->list names)
-              eq-tys))
+              ==s))
           (make-ntt-hole goal)))
          (λ (body-pf)
-           (let ([n (generate-temporary)]
-                 [TY- (unexpand #'TY)])
-             (quasisyntax/loc goal
-               ;; TODO: right now (length eq-tys) \neq the number of f-equal terms
-               ((λ #,@(stx-map (λ (x ty) #`[#,x : #,ty]) names eq-tys)
-                  #,body-pf)
-                #,(if (andmap (λ (x) x) eqs) ; if eqs has no #f's
-                      #`(f-equal
-                         #,TY- #,TY-
-                         (λ [#,n : #,TY-]
-                           (new-elim
-                            #,n
-                            (λ #,n #,TY-)
-                            #,n
-                            (λ #,n #,(generate-temporary) #,n)))
-                         #,(unexpand #'L) #,(unexpand #'R)
-                         #,name)
-                      #`(new-elim ; False case
-                         #,name
-                         (λ x h #,(mk-nat-elims #'R #'x))
-                         I))
-                      ))))))]))
+           (quasisyntax/loc goal
+             ((λ #,@(stx-map (mk-bind-stxf unexpand) names ==s)
+                #,body-pf)
+              #,@terms)))))]))
 
+  ;; Produces the type so that elim of name has type False
+  ;; r = RHS of ==
+  ;; x = parameter of elim P fn
+  ;; ty = type param of == 
+  (define (mk-False-term-type r x ty)
+    ;; TODO: instantiate Cinfo?
+    (define/syntax-parse (_ ([A _] ...) Cinfo ...)
+      (get-match-info ty))
+    (syntax-parse r
+      [((~literal #%plain-app) this-C:id . rst)
+       #`(match #,x #:return Type
+          #,@(stx-map
+              (syntax-parser
+                [(C ([Cx _] ...) _)
+                 #`[(C Cx ...)
+                    #,(if (stx-datum-equal? #'this-C #'C)
+                          (if (stx-length=? #'(A ...) #'rst) ; nullary constructor
+                              #'False
+                              ;; TODO:
+                              ;; can len (Cx ...) > 1? what to do then?
+                              ;; check Cτ = ty?
+                              (mk-False-term-type (stx-car #'rst) (stx-car #'(Cx ...)) ty))
+                          #'True)]])
+              #'(Cinfo ...)))]))  
   )

@@ -18,8 +18,8 @@
     (-> (== Nat (s n) (s m))
         (== Nat n m)))
  (by-intros n m H)
- (by-inversion H)
- (by-rewrite H2)
+ (by-inversion H #:extra-names H0)
+ (by-rewrite H0)
  reflexivity)
 
 (check-type successors-equal-implies-equal

@@ -365,7 +365,7 @@
           (ctx-append
            tmp-ctxt
            (ctx-map ; update ty in ctxt with (subst-term Cinstance name _)
-            (subst-term/e (normalize Cinstance tmp-ctxt) name)
+            (λ (e) (normalize (subst-term Cinstance name e) tmp-ctxt))
             inner/name)))
         (make-ntt-context
           update-ctxt
@@ -387,7 +387,7 @@
                       (λ (pat Cinstance pf)
                         #`[#,pat
                            (λ #,@(for/list ([(x ty) inner/name])
-                                   #`[#,x : #,(subst-term Cinstance e ty)])
+                                   #`[#,x : #,(unexpand (subst-term Cinstance e ty))])
                              #,pf)])
                       pats
                       Cinstances
