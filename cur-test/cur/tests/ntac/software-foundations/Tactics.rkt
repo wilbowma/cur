@@ -7,7 +7,7 @@
          rackunit/turnstile
          "../rackunit-ntac.rkt")
 
-; Software Foundations Tactics.v
+; Software Foundations Tactics.v, part 1 of 2
 
 ;; copied from Poly-pairs.rkt
 (data bool : 0 Type
@@ -152,6 +152,7 @@
   by-symmetry
   by-assumption)
 
+;; apply tactic --------------------------------------------------
 (define-theorem rev-exercise1
   (forall (l1 l2 : (list nat))
           (-> (== l1 (rev l2))
@@ -192,3 +193,22 @@
   (by-apply trans-eq #:with (list nat) (lst a b) (lst c d) (lst e f))
   (by-apply eq1)
   (by-apply eq2))
+
+(define/rec/match plus : nat [m : nat] -> nat
+  [O => m]
+  [(S n-1) => (S (plus n-1 m))])
+
+(define/rec/match minusTwo : nat -> nat
+  [O => O]
+  [(S O) => O]
+  [(S (S n-1)) => n-1])
+
+(define-theorem trans-eq-exercise
+  (∀ (n m o p : nat)
+     (-> (== m (minusTwo o))
+         (== (plus n p) m)
+         (== (plus n p) (minusTwo o))))
+  (by-intros n m o p H1 H2)
+  (by-apply trans-eq #:with nat (plus n p) m (minusTwo o))
+  (by-apply H2)
+  (by-apply H1))

@@ -17,6 +17,12 @@
   (cur-normalize (reflect ty) #:local-env (ctx->env ctxt)))
 (define ((normalize/ctxt ctxt) ty) (normalize ty ctxt)) ; curried version
 
+(define ((mk-bind-stxf f) x ty)
+  #`[#,x : #,(f ty)])
+
+(define (mk-bind-stx x ty)
+  #`[#,x : #,ty])
+
 (define (transfer-type from to)
   (syntax-property
    to

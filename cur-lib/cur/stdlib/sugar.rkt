@@ -67,7 +67,7 @@
 ;; - assuming clauses appear in order
 ;; - must use #:as for return type that uses `e`
 ;; - x should be xs?
-;; - match clauses do not include params
+;; - match clauses *do not* include params
 ;;   - bc elim methods do not re-bind params
 ;; TODO: handle nested patterns, like define/rec/match?
 (define-typed-syntax match
