@@ -18,7 +18,7 @@
     (-> (== Nat (s n) (s m))
         (== Nat n m)))
  (by-intros n m H)
- (by-inversion H #:extra-names H0)
+ (by-inversion H #:as H0)
  (by-rewrite H0)
  reflexivity)
 

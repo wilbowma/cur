@@ -7,7 +7,7 @@
          rackunit/turnstile
          "../rackunit-ntac.rkt")
 
-; Software Foundations Tactics.v, part 2 of 2
+; Software Foundations Tactics.v, part 2 of 3
 
 ;; copied from Poly-pairs.rkt
 (data bool : 0 Type
@@ -60,7 +60,7 @@
 (define-theorem S-injective-backwards
   (forall (n m : nat) (-> (== n m) (== (S n) (S m))))
   (by-intros n m H)
-  (by-inversion H #:extra-names H0)
+  (by-inversion H #:as H0)
   (by-rewrite H0)
   reflexivity)
 
@@ -152,7 +152,7 @@
           (-> (== (lst n m) (lst o o))
               (== (lst n) (lst m))))
   (by-intros n m o H)
-  (by-inversion H #:extra-names H1 H2)
+  (by-inversion H #:as H1 H2)
   (by-rewrite H1)
   (by-rewrite H2)
   reflexivity)
@@ -166,7 +166,7 @@
 (define-theorem inversion-ex2
   (forall (n m : nat) (-> (== (lst n) (lst m)) (== n m)))
   (by-intros n m H)
-  (by-inversion H #:extra-names H0)
+  (by-inversion H #:as H0)
   (by-rewrite H0)
   reflexivity)
 
@@ -176,7 +176,7 @@
               (== (:: y l) (:: x j))
               (== x y)))
   (by-intros X x y z l j H1 H2)
-  (by-inversion H2 #:extra-names H3 H4)
+  (by-inversion H2 #:as H3 H4)
   (by-rewrite H4)
   reflexivity)
 
@@ -209,7 +209,7 @@
   (by-intros n H)
   (by-destruct n #:as [() (n-1)])
   reflexivity ; 1
-  (by-inversion H #:extra-names H0) ; 2
+  (by-inversion H #:as H0) ; 2
   elim-False
   by-assumption)
 

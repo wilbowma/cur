@@ -277,7 +277,7 @@
   (define-syntax (by-inversion syn)
     (syntax-case syn ()
       [(_ H) #`(fill (inversion #'H #'()))]
-      [(_ H #:extra-names . names) #`(fill (inversion #'H #'names))]))
+      [(_ H #:as . names) #`(fill (inversion #'H #'names))]))
 
   (define-syntax (elim-False syn)
     (syntax-parse syn
