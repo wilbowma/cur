@@ -7,8 +7,10 @@
              (except-in macrotypes/stx-utils)
              (only-in macrotypes/typecheck-core subst substs)
              racket/exn
+             racket/port
              racket/list
              racket/match
+             racket/format
              racket/pretty
              syntax/stx
              (for-syntax racket/base syntax/parse))
@@ -43,9 +45,19 @@
     (match (nttz-focus tz)
       [(ntt-hole _ goal)
        (for ([(k v) (nttz-context tz)])
-         (printf "~a : ~a\n" (stx->datum k) (stx->datum (cur-pretty-print v))))
+         (let ([v-datum (stx->datum (cur-pretty-print v))])
+           (if (> (string-length (~a v-datum)) 80)
+               (printf "~a :\n ~a"
+                (stx->datum k)
+                (substring ; drop the leading '
+                 (with-output-to-string (λ () (pretty-print v-datum))) 1))
+             (printf "~a : ~a\n" (stx->datum k) v-datum))))
        (printf "--------------------------------\n")
-       (printf "~a\n\n" (stx->datum (cur-pretty-print goal)))]
+       (let ([goal-datum (stx->datum (cur-pretty-print goal))])
+         (if (> (string-length (~a goal-datum)) 80)
+             (printf "~a\n" ; drop the leading '
+                     (substring (with-output-to-string (λ () (pretty-print goal-datum))) 1))
+             (printf "~a\n\n" goal-datum)))]
       [(ntt-done _ _ _)
        (printf "Proof complete.\n")]
       [_
