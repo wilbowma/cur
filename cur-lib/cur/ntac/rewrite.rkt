@@ -159,6 +159,9 @@
                                            (λ (x x+e)
                                              (free-identifier=? x (stx-car x+e)))))
                                  (syntax->list #'(X ...))))))])))
+             (~fail #:unless (stx-length=? #'inst-args #'(X ...))
+                    (format "could not infer instantiation of ~a; try adding explicit #:inst-args"
+                            (stx->datum name)))
              (~parse (TY L R) (stx-map
                             (normalize/ctxt ctxt)
                             (substs
