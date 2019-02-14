@@ -159,6 +159,7 @@
          (quasisyntax/loc goal (λ (#,the-name : #,(unexpand #'P)) #,body-pf)))))]))
 
 ;; generalize is opposite of intro
+;; TODO: (generalize x) should also lift out y\in ctx where ctx[y] references x
 (define ((generalize name) ctxt pt)
   (match-define (ntt-hole _ goal) pt)
     (make-ntt-apply
@@ -288,11 +289,16 @@
       [(_ x #:as param-namess)
        #`(fill (destruct #'x #'param-namess))]))
 
-  (define ((destruct e [param-namess #f]) ctxt pt)
+  (define ((destruct e_ [param-namess #f]) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
 
+    (define e (if (identifier? e_) e_ (normalize e_ ctxt)))
     (define e-ty (or (and (identifier? e) (ctx-lookup ctxt e))
-                     (typeof (normalize e ctxt))))
+                     (typeof e)))
+    (unless e-ty
+      (raise-ntac-goal-exception
+       "by-destruct: could not find ~a" (stx->datum e)))
+    
     (define name (if (identifier? e) e (generate-temporary)))
     (define/syntax-parse (_ ([A _] ...) [C ([x τ_] ...) _] ...)
       (get-match-info e-ty))
