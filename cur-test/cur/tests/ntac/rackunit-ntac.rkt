@@ -10,6 +10,7 @@
          syntax/parse/define
          (for-syntax racket/base
                      racket/port
+                     racket/pretty
                      racket/string
                      racket/format
                      syntax/parse
@@ -70,6 +71,12 @@
        (cons (format "~a : ~a\n" (syntax->datum #'X) (syntax->datum #'ty))
              (expected-stx->strs #'rst))]
       [(other . rst) ; goal, add extra newline
-       (cons (~a (syntax->datum #'other))
-             (cons "\n\n" (expected-stx->strs #'rst)))])))
-
+        (let ([other-datum (stx->datum #'other)])
+          (if (> (string-length (~a other-datum)) 80)
+              (cons
+               (~a (substring
+                    (with-output-to-string (λ () (pretty-print other-datum)))
+                    1))
+               (cons "\n" (expected-stx->strs #'rst)))
+              (cons (~a (syntax->datum #'other))
+                    (cons "\n\n" (expected-stx->strs #'rst)))))])))
