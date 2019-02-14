@@ -305,7 +305,8 @@
         ;; the traversal populates:
         ;; - `==s`: new assumptions
         ;; - `terms`: proofs for new assumptions
-        (let FIND ([expr xx]
+        (let FIND ([expr xx] ; current node of the traversal
+                   ; mk-term is a fn that produces the proof term to get to `expr`
                    ; usage: (mk-term expr TY L) creates the current proof term
                    [mk-term (λ (stx tgt-ty tgt-base-term)
                               #`(f-equal
@@ -318,65 +319,56 @@
                    [R #'R*])
 ;          (printf "FIND: ~a =\n      ~a\n" (stx->datum L) (stx->datum R))
           (syntax-parse (list L R)
-            [(e1 e2) ; found a new assumption
-             #:when (or (identifier? #'e1) (identifier? #'e2))
-             (set! ==s (cons #`(== #,TY e1 e2) ==s))
-             (set! terms (cons (mk-term expr TY L) terms))]
-            [(((~and (~literal #%plain-app) ap1) . rst1) ; found a new assumption
-              ((~and (~literal #%plain-app) ap2) . rst2))
-             #:do[(define r1 (syntax-property #'ap1 'reflect))
-                  (define r2 (syntax-property #'ap2 'reflect))]
-             #:when (and r1 r2 (free-identifier=? r1 r2))
-             (set! ==s (cons #`(== #,TY #,L #,R) ==s))
-             (set! terms (cons (mk-term expr TY L) terms))]
             [(((~literal #%plain-app) C1:id e1 ...)
               ((~literal #%plain-app) C2:id e2 ...))
-             #:when (and (free-identifier=? #'C1 #'C2)
-                         (stx-length=? #'(e1 ...) #'(e2 ...)))
-             #:do[(define/syntax-parse (_ ([A _] ...) Cinfo_ ...)
-                    (get-match-info TY))
-                  ;; instantatiate Cinfo_ with concrete params from TY
-                  (define concrete-As (stx-drop TY 2))
-                  (define Cinfos (substs concrete-As #'(A ...) #'(Cinfo_ ...)))
-                  (define/syntax-parse (_ ([Cx* Cτ*] ...) _)
-                    (stx-findf ; find the matching constructor
-                     (syntax-parser [(C:id . _) (stx-datum-equal? #'C #'C1)])
-                     Cinfos))]
-             (stx-map
-              (λ (e1 e2 x τ)
-                (FIND x
-                      (λ (stx tgt-ty tgt-base-term)
-                        (mk-term
-                         #`(match #,expr #:return #,tgt-ty
-                            #,@(stx-map
-                                (syntax-parser
-                                  [(this-C ([Cx Cτ] ...) _)
-                                   #`[(this-C Cx ...)
-                                      #,(if (stx-datum-equal? #'C1 #'this-C)
-                                            stx
-                                            tgt-base-term)]])
-                                Cinfos))
-                         tgt-ty
-                         tgt-base-term))
-                      (normalize τ ctxt)
-                      e1 e2))
-              (stx-drop #'(e1 ...) (stx-length #'(A ...)))
-              (stx-drop #'(e2 ...) (stx-length #'(A ...)))
-              #'(Cx* ...)
-              #'(Cτ* ...))]
-            [(((~literal #%plain-app) f1:id . _)
-              ((~literal #%plain-app) f2:id . _))
-             #:when (not (free-identifier=? #'f1 #'f2)) ; False assumption
-             (set! ==s (cons #'False ==s))
-             (set! terms
-                   (cons
-                    #`(new-elim ; False case
-                       #,name
-                       ;; re-traverse R to generate False term,
-                       ;; but it should be simpler traversal
-                       (λ x h #,(mk-False-term-type #'R* #'x #'TY*))
-                       I)
-                    terms))]))
+             #:when (has-type-info? TY)
+             #:with (_ ([A _] ...) (~and Cinfo/As (C _ _)) ...) (get-match-info TY)
+             #:when (and (stx-member #'C1 #'(C ...) stx-datum-equal?)
+                         (stx-member #'C2 #'(C ...) stx-datum-equal?))
+             #:with Cinfos (substs (stx-drop TY 2) #'(A ...) #'(Cinfo/As ...))
+             (if (and (free-identifier=? #'C1 #'C2)
+                      (stx-length=? #'(e1 ...) #'(e2 ...)))
+                 ;; Cs match, keep traversing
+                 (stx-map
+                  (λ (e1 e2 x+τ)
+                    (FIND
+                     (stx-car x+τ)
+                     (λ (stx tgt-ty tgt-base-term)
+                       (mk-term
+                        #`(match #,expr #:return #,tgt-ty
+                           #,@(stx-map
+                               (syntax-parser
+                                 [(this-C ([Cx _] ...) _)
+                                  #`[(this-C Cx ...)
+                                     #,(if (stx-datum-equal? #'C1 #'this-C)
+                                           stx
+                                           tgt-base-term)]])
+                               #'Cinfos))
+                        tgt-ty
+                        tgt-base-term))
+                     (normalize (stx-cadr x+τ) ctxt)
+                     e1 e2))
+                  (stx-drop #'(e1 ...) (stx-length #'(A ...)))
+                  (stx-drop #'(e2 ...) (stx-length #'(A ...)))
+                  (stx-cadr   ; find the matching constructor
+                   (stx-findf ; returns x+τs args for matching constructor
+                    (syntax-parser [(C:id . _) (stx-datum-equal? #'C #'C1)])
+                    #'Cinfos)))
+                 ;; found contradiction, produce False
+                 (begin
+                   (set! ==s (cons #'False ==s))
+                   (set! terms
+                     (cons #`(new-elim ; False case
+                              #,name
+                              ;; TODO: re-traverse R to generate False term?
+                              ;; possible to re-use mk-term here?
+                              (λ x h #,(mk-False-term-type #'R* #'x #'TY*))
+                              I)
+                           terms))))]
+            [_ ; found a new assumption
+;             #:do[(printf "found: ~a = ~a\n" (stx->datum L) (stx->datum R))]
+             (set! ==s (cons #`(== #,TY #,L #,R) ==s))
+             (set! terms (cons (mk-term expr TY L) terms))]))
 
         (define names
           (if (null? (stx-e names_))
