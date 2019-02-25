@@ -266,8 +266,9 @@
                                          (free-identifier=? x (stx-car x+e)))))
                              (syntax->list #'(X ...))))))))
             (~fail #:unless (stx-length=? #'(X ...) #'inst-args)
-                   (format "by-apply: could not infer instantiation of: ~a\n"
-                           (stx->datum name))))
+                   (raise-ntac-goal-exception
+                    "by-apply: could not infer instantiation of: ~a; try explicit #:with args?\n"
+                    (stx->datum name))))
         (make-ntt-apply
          goal
          (stx-map ; each ante is a new subgoal; TODO: should be fold?
@@ -276,7 +277,7 @@
              (normalize (substs #'inst-args #'(X ...) ante) ctxt)))
           #'(antecedent ...))
          (λ body-pfs
-           (quasisyntax/loc goal (#,name #,@#'inst-args . #,body-pfs))))]))
+           (quasisyntax/loc goal (#,name #,@(stx-map unexpand #'inst-args) . #,body-pfs))))]))
 
 ;; inversion tactic --------------------------------------------------
 
@@ -313,7 +314,7 @@
                    ; usage: (mk-term expr TY L) creates the current proof term
                    [mk-term (λ (stx tgt-ty tgt-base-term)
                               #`(f-equal
-                                 #,(unexpand #'TY*) #,tgt-ty
+                                 #,(unexpand #'TY*) #,(unexpand tgt-ty)
                                  (λ #,xx #,stx)
                                  #,(unexpand #'L*) #,(unexpand #'R*)
                                  #,name))]
@@ -338,7 +339,7 @@
                      (stx-car x+τ)
                      (λ (stx tgt-ty tgt-base-term)
                        (mk-term
-                        #`(match #,expr #:return #,tgt-ty
+                        #`(match #,expr #:return #,(unexpand tgt-ty)
                            #,@(stx-map
                                (syntax-parser
                                  [(this-C ([Cx _] ...) _)
@@ -370,15 +371,15 @@
                            terms))))]
             [_ ; found a new assumption
 ;             #:do[(printf "found: ~a = ~a\n" (stx->datum L) (stx->datum R))]
-             (set! ==s (cons #`(== #,TY #,L #,R) ==s))
+             (set! ==s (cons #`(== #,(unexpand TY) #,(unexpand L) #,(unexpand R)) ==s))
              (set! terms (cons (mk-term expr TY L) terms))]))
 
         (define names
-          (if (null? (stx-e names_))
+          (if (stx-length=? names_ ==s)
+              (stx->list names_)
               (stx-map
                (λ _ (datum->syntax name (stx-e (generate-temporary #'H))))
-               ==s)
-              (stx->list names_)))
+               ==s)))
           
         (make-ntt-apply
          goal
