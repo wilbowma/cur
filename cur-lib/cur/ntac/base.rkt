@@ -9,11 +9,13 @@
 (provide
  define-theorem
  define-theorem/for-export
- ntac)
+ ntac
+ ntac/debug)
 
 (begin-for-syntax
   (provide
    ntac-syntax
+   current-tracing?
 
    qed next
 
@@ -33,9 +35,9 @@
    (struct-out nttz)
    make-nttz nttz-up nttz-down-context nttz-down-apply nttz-done?
 
-;   (struct-out theorem-info)
+   num-holes
+   to-top
 
-   ;; In case someone wants to redefine define-theorem
    new-proof-tree
    proof-tree->complete-term
    eval-proof-script
@@ -64,7 +66,7 @@
 
   (struct ntt-done ntt (subtree) #:transparent #:constructor-name _ntt-done)
   (define (make-ntt-done subtree)
-    (when (ntt-contains-hole? subtree)
+    (when (and (not (current-tracing?)) (ntt-contains-hole? subtree))
       (error 'ntt-done "Cannot construct done if hole present: ~v" subtree))
     (_ntt-done #f (ntt-goal subtree) subtree))
 
@@ -84,6 +86,13 @@
          (apply f (map (λ (c) (loop c)) cs))]
         [(ntt-done _ _ k)
          (loop k)])))
+  (define (num-holes pt)
+    (match pt
+      [(ntt-hole _ _) 1]
+      [(ntt-exact _ _ _) 0]
+      [(ntt-context _ _ _ k) (num-holes k)]
+      [(ntt-apply _ _ cs f) (apply + (map num-holes cs))]
+      [(ntt-done _ _ k) (num-holes k)]))
 
   ;; NTac proof Tree Zipper
   ;; TODO: track number of holes/subgoals?
@@ -98,6 +107,10 @@
          (λ (last-pt)
            (make-nttz (make-ntt-done last-pt)))))
 
+  (define (to-top tz)
+    (if (nttz-done? tz)
+        tz
+        (to-top (nttz-up tz))))
   (define (nttz-up nttz)
     ((nttz-prev nttz) (nttz-focus nttz)))
 
@@ -139,6 +152,13 @@
     (define last-nttz
       (for/fold ([nttz (make-nttz pt ctxt)])
                 ([pstep-stx (in-list psteps)])
+        (when (and (current-tracing?)
+                   (not (equal? 'display-focus (syntax-e pstep-stx))))
+          (printf "****************************************\n")
+          (printf "step #~a: running tactic: ~a\n"
+                  (current-tracing?)
+                  (syntax->datum pstep-stx))
+          (current-tracing? (add1 (current-tracing?))))
         (eval-proof-step nttz pstep-stx)))
     (qed last-nttz err-stx))
 
@@ -177,6 +197,8 @@
   (define (ntac-syntax syn)
     (datum->syntax anchor (syntax->datum syn)))
 
+  (define current-tracing? (make-parameter #f)) ; counts (roughly) # tactics evaled
+
   ;; `name` is the binder (thm name); `ty` is the surface stx of the thm
   ;; this is needed bc `name` is likely bound to a normalized
   ;; (and expanded) version of `ty`
@@ -199,3 +221,13 @@
 (define-syntax ntac
   (syntax-parser
     [(_ ty . pf) (ntac-proc #'ty #'pf)]))
+
+;; For inline ntac
+(define-syntax ntac/debug
+  (syntax-parser
+    [(_ ty . pf)
+     (begin
+       (current-tracing? 1)
+       (begin0
+         (ntac-proc #'ty #'pf)
+         (current-tracing? #f)))]))
