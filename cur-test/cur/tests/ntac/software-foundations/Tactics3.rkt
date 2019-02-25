@@ -7,8 +7,8 @@
          rackunit/turnstile
          "../rackunit-ntac.rkt")
 
-; Software Foundations Tactics.v, part 3 of 3
-;; tests the "#:in" variant of many tactics
+; Software Foundations Tactics.v, part 3 of 5
+;; TODO: add "#:in" variant to some tactics
 
 ;; copied from Poly-pairs.rkt
 (data bool : 0 Type
@@ -54,6 +54,50 @@
   (by-intros n m b H)
   ;; simpl in H ; unneeded
   (by-apply H))
+
+;; TODO: implement "in"
+;; (define-theorem silly3b
+;;   (forall (n : nat)
+;;           (-> (== (beq-nat n 5) true)
+;;               (== (beq-nat (S (S n)) 7) true)
+;;               (== true (beq-nat n 5))
+;;               (== true (beq-nat (S (S n)) 7))))
+;;   (by-intros n H H0 H1 H2)
+;;   (by-symmetry in H)
+;; ;;   (beq_nat n 5 = true -> beq_nat (S (S n)) 7 = true) ->
+;; ;;   true = beq_nat n 5 ->
+;; ;;   true = beq_nat (S (S n)) 7.
+;; ;; Proof.
+;; ;;   intros.
+;; ;;   symmetry in H0. apply H in H0. symmetry in H0. apply H0.
+;; ;; Qed.
+
+;; (define-theorem plus_n_n_injective
+;;   (∀ [n m : nat]
+;;      (-> (== (plus n n) (plus m m))
+;;          (== n m)))
+;;   (by-intro n)
+;;   (by-induction n #:as [() (n-1 IH)])
+;;   (by-intros m H) ; 1
+;; ;;      n + n = m + m ->
+;; ;;      n = m.
+;; ;; Proof.
+;; ;;   intros n.
+;; ;;   induction n as [| n' IHn].
+;; ;;   - intros. destruct m as [| m'].
+;; ;;     + reflexivity.
+;; ;;     + inversion H.
+;; ;;   - intros. destruct m as [| m'].
+;; ;;     + intros. inversion H.
+;; ;;     + intros. inversion H.
+;; ;;       rewrite <- plus_n_Sm in H1.
+;; ;;       rewrite <- plus_n_Sm in H1.
+;; ;;       inversion H1.
+;; ;;       apply IHn in H2.
+;; ;;       rewrite -> H2.
+;; ;;       reflexivity.
+;; ;; Qed.
+
 
 (define/rec/match double : nat -> nat
   [O => O]
@@ -134,3 +178,23 @@
   (by-inversion H #:as H1)
   (by-rewrite H1)
   reflexivity)
+
+(data id : 0 Type [Id : (-> nat id)])
+
+(define/rec/match beq-id : id id -> bool
+  [(Id n1) (Id n2) => (beq-nat n1 n2)])
+
+;; TODO: support auto-destructing by-intros
+(define-theorem beq-id-true
+  (forall [x y : id]
+          (-> (== (beq-id x y) true)
+              (== x y)))
+  (by-intros x y)
+  (by-destruct x #:as [(m)])
+  (by-destruct y #:as [(n)])
+  (by-intro H)
+  (by-assert H1 (== m n))
+  (by-apply beq-nat-true) ; prove m = n
+  (by-apply H)
+  (by-rewrite H1) ; return to orig goal
+  reflexivity) 
