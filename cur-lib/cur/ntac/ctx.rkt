@@ -34,6 +34,7 @@
          ctx-adds
          ctx-adds/ids
          ctx-map
+         ctx-fold
          ctx-splitf
          ctx-splitf/ty/outerin
          ctx-append
@@ -181,6 +182,13 @@
       (ctxitem (ctxitem-id i) (f (ctxitem-type i))))
     (reverse (ctx-items ctxt)))))
 
+(define (ctx-fold f ctxt init-ctxt)
+  (foldl
+   (λ (i tmp-ctxt)
+     (ctx-add tmp-ctxt (ctxitem-id i) (f (ctxitem-type i) tmp-ctxt)))
+   init-ctxt
+   (reverse (ctx-items ctxt))))
+
 ;; converts NtacCtx to Turnstile env
 ;; - NOTE: does not reverse scoping order, so first item is innermost scope
 (define (ctx->env c)
@@ -193,3 +201,18 @@
 ;; TODO: is this needed?
 (define (ctx-has-id? ctxt x)
   (ctx-lookup ctxt x))
+
+
+(require syntax/parse)
+(provide ctx-introduce)
+(define (datum=? e1 e2) (equal? (syntax->datum e1) (syntax->datum e2)))
+
+;; replaces all ids in stx with analogous bindings in ctxt
+;; TODO: this is hacky; what's a better way?
+(define (ctx-introduce stx ctxt)
+  (define ids (ctx-ids ctxt))
+  (let L ([stx stx])
+    (syntax-parse stx
+      [x:id #:do[(define y (findf (λ (id) (datum=? id #'x)) ids))] (or y #'x)]
+      [(x ...) (datum->syntax stx (stx-map L #'(x ...)) stx stx)]
+      [_ stx])))
