@@ -311,7 +311,10 @@
 
     (define e (if (identifier? e_) e_ (normalize e_ ctxt)))
     (define e-ty (or (and (identifier? e) (ctx-lookup ctxt e))
-                     (typeof e)))
+                     ;; this is needed because the scopes of X in e
+                     ;; wont match X in ctxt
+                     ;; TODO: better way to fix this?
+                     (ctx-introduce (typeof e) ctxt)))
     (unless e-ty
       (raise-ntac-goal-exception
        "by-destruct: could not find ~a" (stx->datum e)))
@@ -353,15 +356,19 @@
 
     ;; split ctxt at where `name` is bound:
     ;; - innermost binding of outer-ctxt is `name`
-    (define-values (outer-ctxt inner-ctxt) (ctx-lookup/split ctxt name))
+    ;; - if e is not id, then outer-ctxt is empty
+    (define-values (outer-ctxt inner-ctxt)
+      (if (identifier? e_)
+          (ctx-lookup/split ctxt name)
+          (values (mk-empty-ctx) ctxt)))
 
-    ;; split inner-ctxt according to whether its types reference `name`:
-    ;; - inner/noname: bindings have types that do not reference name
-    ;; - inner/name: type of first binding (call it x) references `name`
+    ;; split inner-ctxt according to whether its types contain `e`
+    ;; - inner/noname: bindings have types that do not contain `e`
+    ;; - inner/name: type of first binding (call it x) that has `e`
     ;;   - the rest of inner/name is the rest of inner-ctxt after `x`
-    ;;     - these bindings must be rebound because they may reference `x`
+    ;;     - these bindings must be re-bound because they may reference `x`
     (define-values (inner/noname inner/name)
-      (ctx-splitf/ty/outerin inner-ctxt (λ (t) (not (has-term? name t)))))
+      (ctx-splitf/ty/outerin inner-ctxt (λ (t) (not (has-term? e t)))))
 
     (make-ntt-apply
      goal
@@ -380,16 +387,19 @@
         (define (update-ctxt old-ctxt)
           (define tmp-ctxt
             (ctx-append
-             (ctx-remove-inner outer-ctxt) ; drop name from old-ctxt
+             (if (identifier? e_)
+                 (ctx-remove-inner outer-ctxt) ; drop name from old-ctxt
+                 (mk-empty-ctx))
              (ctx-adds
               inner/noname
               (stx->list params)
               (stx->list C-types))))
-          (ctx-append
-           tmp-ctxt
-           (ctx-map ; update ty in ctxt with (subst-term Cinstance name _)
-            (λ (e) (normalize (subst-term Cinstance name e) tmp-ctxt))
-            inner/name)))
+          ;(ctx-append
+           ;tmp-ctxt
+           (ctx-fold ; update ty in ctxt with (subst-term Cinstance name _)
+            (λ (h ctxt-acc) (normalize (subst-term Cinstance e h) ctxt-acc))
+            inner/name
+            tmp-ctxt))
         (make-ntt-context
           update-ctxt
           (make-ntt-hole (normalize (subst-term Cinstance e goal) (update-ctxt ctxt)))))
@@ -400,7 +410,7 @@
        (quasisyntax/loc goal
          ;; each match body must be an eta-expansion of the pf \in pfs,
          ;; and the match term must be applied to the env bindings whose tys ref the destructed var
-         ((match #,e
+         ((match #,(quasisyntax/loc e_ #,(unexpand e))
             #:as #,name
             #:in #,(unexpand e-ty)
             #:return (Π #,@(for/list ([(x ty) inner/name])

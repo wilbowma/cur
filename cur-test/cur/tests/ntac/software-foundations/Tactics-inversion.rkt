@@ -7,7 +7,7 @@
          rackunit/turnstile
          "../rackunit-ntac.rkt")
 
-; Software Foundations Tactics.v, part 2 of 3
+; Software Foundations Tactics.v, part 2 of 5
 
 ;; copied from Poly-pairs.rkt
 (data bool : 0 Type
