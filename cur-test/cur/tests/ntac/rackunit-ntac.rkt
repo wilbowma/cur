@@ -16,7 +16,7 @@
                      syntax/parse
                      rackunit
                      macrotypes/stx-utils)
-         (only-in cur/ntac/base ntac)
+         (only-in cur/ntac/base ntac ntac/debug)
          (only-in cur/ntac/standard exn:fail:ntac:goal?))
 
 (define-simple-macro (:: e t) (check-type e : t))
@@ -35,8 +35,8 @@
 (define-syntax ntac/trace
   (syntax-parser
     [(_ . ts)
-     #:with disp-foc (datum->syntax this-syntax 'display-focus)
-     #`(ntac . #,(stx-appendmap (λ (t) (list t #'disp-foc)) #'ts))]))
+     #:with d-f (datum->syntax this-syntax 'display-focus)
+     #`(ntac/debug . #,(stx-appendmap (λ (t) (list t #'d-f)) #'ts))]))
 (define-syntax ntac/trace/raw
   (syntax-parser
     [(_ . ts)
@@ -47,20 +47,31 @@
   (syntax-parser
     [(_ t ... (~datum ~>) . expected)
      #:do[(define expected-str
-            (string-join
-             (append (expected-stx->strs #'expected)
-                     (list "Proof complete.\n"))
-             ""))
+            (clean-up
+             (string-join
+              (append (expected-stx->strs #'expected)
+                      (list "Proof complete.\n"))
+              "")))
           (define actual-trace
-            (with-output-to-string
-              (λ ()
-                (local-expand #'(ntac/trace t ...) 'expression null))))]
+            (clean-up
+             (with-output-to-string
+               (λ ()
+                 (local-expand #'(ntac/trace t ...) 'expression null)))))]
      #:fail-unless (equal? expected-str actual-trace)
      (format "trace not equal, expected:\n~s\ngot:\n~s\n"
-             expected-str actual-trace)             
+             expected-str actual-trace)
      (syntax/loc this-syntax (check-true #t))]))
   
 (begin-for-syntax
+  (define (clean-up str)
+    (string-join
+     (filter
+      (λ (s) (not (or (string-prefix? s "***")
+                      (string-prefix? s "step")
+                      (string-prefix? s "(subgoal")
+                      (string=? s ""))))
+      (string-split str "\n"))
+     "\n"))
   (define expected-stx->strs
     (syntax-parser
       [() null]
