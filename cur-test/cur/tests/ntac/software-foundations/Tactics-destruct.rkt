@@ -119,9 +119,8 @@
 (define/rec/match split_ : [X : Type] [Y : Type] (list (prod X Y))
   -> (prod (list X) (list Y))
   [nil => (pair (nil* X) (nil* Y))]
-  [(:: (pair m n) xs)
-   => (pair (:: m (fst (split_ X Y xs)))
-            (:: n (snd (split_ X Y xs))))])
+  [(:: (pair m n) xs) => (pair (:: m (fst (split_ X Y xs)))
+                               (:: n (snd (split_ X Y xs))))])
 
 (define-implicit split = split_ 2)
 
@@ -179,3 +178,30 @@
  : (∀ [X Y : Type] (l : (list (prod X Y))) [l1 : (list X)] [l2 : (list Y)]
       (-> (== (split l) (pair l1 l2))
           (== (combine l1 l2) l))))
+
+(define-theorem split-combine
+  (forall (X : Type) (l1 l2 : (list X))
+          (-> (== (length l1) (length l2))
+              (== (split (combine l1 l2)) (pair l1 l2))))
+  (by-intros X l1)
+  (by-induction l1 #:as [() (h1 tl1 IH)])
+  (by-intros l2 H) ;1
+  (by-destruct l2 #:as [() (h2 tl2)])
+  reflexivity ;1a
+  (by-inversion H) ;1b
+  elim-False
+  by-assumption
+  (by-intros l2 H) ;2
+  (by-destruct l2 #:as [() (h2 tl2)])
+  (by-inversion H) ;2a
+  elim-False
+  by-assumption
+  (by-inversion H #:as H1);2b
+  (by-apply IH #:in H1)
+  (by-rewrite H1)
+  reflexivity)
+
+(check-type split-combine
+      : (forall (X : Type) (l1 l2 : (list X))
+          (-> (== (length l1) (length l2))
+              (== (split (combine l1 l2)) (pair l1 l2)))))
