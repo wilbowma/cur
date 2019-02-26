@@ -8,7 +8,6 @@
          "../rackunit-ntac.rkt")
 
 ; Software Foundations Tactics.v, part 3 of 5
-;; TODO: add "#:in" variant to some tactics
 
 ;; copied from Poly-pairs.rkt
 (data bool : 0 Type
@@ -55,49 +54,25 @@
   ;; simpl in H ; unneeded
   (by-apply H))
 
-;; TODO: implement "in"
-;; (define-theorem silly3b
-;;   (forall (n : nat)
-;;           (-> (== (beq-nat n 5) true)
-;;               (== (beq-nat (S (S n)) 7) true)
-;;               (== true (beq-nat n 5))
-;;               (== true (beq-nat (S (S n)) 7))))
-;;   (by-intros n H H0 H1 H2)
-;;   (by-symmetry in H)
-;; ;;   (beq_nat n 5 = true -> beq_nat (S (S n)) 7 = true) ->
-;; ;;   true = beq_nat n 5 ->
-;; ;;   true = beq_nat (S (S n)) 7.
-;; ;; Proof.
-;; ;;   intros.
-;; ;;   symmetry in H0. apply H in H0. symmetry in H0. apply H0.
-;; ;; Qed.
+(define-theorem silly3b
+  (forall (n : nat)
+          (-> (-> (== (beq-nat n 5) true) ; eq
+                  (== (beq-nat (S (S n)) 7) true))
+              (== true (beq-nat n 5)) ; H
+              (== true (beq-nat (S (S n)) 7))))
+  (by-intros n eq H)
+  (by-symmetry #:in H)
+  (by-apply eq #:in H)
+  (by-symmetry #:in H)
+  by-assumption)
 
-;; (define-theorem plus_n_n_injective
-;;   (∀ [n m : nat]
-;;      (-> (== (plus n n) (plus m m))
-;;          (== n m)))
-;;   (by-intro n)
-;;   (by-induction n #:as [() (n-1 IH)])
-;;   (by-intros m H) ; 1
-;; ;;      n + n = m + m ->
-;; ;;      n = m.
-;; ;; Proof.
-;; ;;   intros n.
-;; ;;   induction n as [| n' IHn].
-;; ;;   - intros. destruct m as [| m'].
-;; ;;     + reflexivity.
-;; ;;     + inversion H.
-;; ;;   - intros. destruct m as [| m'].
-;; ;;     + intros. inversion H.
-;; ;;     + intros. inversion H.
-;; ;;       rewrite <- plus_n_Sm in H1.
-;; ;;       rewrite <- plus_n_Sm in H1.
-;; ;;       inversion H1.
-;; ;;       apply IHn in H2.
-;; ;;       rewrite -> H2.
-;; ;;       reflexivity.
-;; ;; Qed.
-
+(check-type
+ silly3b
+ :   (forall (n : nat)
+          (-> (-> (== (beq-nat n 5) true) ; eq
+                  (== (beq-nat (S (S n)) 7) true))
+              (== true (beq-nat n 5)) ; H
+              (== true (beq-nat (S (S n)) 7)))))
 
 (define/rec/match double : nat -> nat
   [O => O]
