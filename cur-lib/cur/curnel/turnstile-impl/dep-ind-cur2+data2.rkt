@@ -161,12 +161,12 @@
             (~or* (~and [C:id (~datum :) τout] ;; nullary constructor
                         (~parse ([i+x i+xtag τin]...) #'()))
                   (~and [C:id (~datum :)
-                              [i+x1:id i+xtag1:id τin1] ... ; named args
-                              (~and τin2 (~not [_:id _:id _])) ... ; unnamed args
+                              [i+x1:id (~datum :) #;i+xtag1:id τin1] ... ; named args
+                              (~and τin2 (~not [_:id (~datum :) _])) ... ; unnamed args
                               (~datum ->) τout]
                         (~parse ([i+x i+xtag τin] ...)
                                 (append
-                                 (syntax->list #'([i+x1 i+xtag1 τin1] ...))
+                                 (syntax->list #'([i+x1 : #;i+xtag1 τin1] ...))
                                  (stx-map
                                   (λ (t)
                                     (list
