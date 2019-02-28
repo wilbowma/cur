@@ -8,7 +8,7 @@
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
-(provide Type (for-syntax ~Type) TypeTop
+(provide Type (for-syntax ~Type) TypeTop (rename-out [Type Prop]) ; TODO: define separate Prop
          Π (for-syntax ~Π)
          (rename-out [λ/1 λ] [app #%app] [app/eval app/eval/1] [typed-define define])
          ann provide module* submod for-syntax begin-for-syntax)

@@ -22,7 +22,7 @@
     [(_ . n:exact-nonnegative-integer)
      #`(S (#%datum . #,(- (syntax-e #'n) 1)))]))
 
-(define-datatype ev : [i : nat] -> Type
+(define-datatype ev : [i : nat] -> Prop
   [ev0 : (ev 0)]
   [evSS : [n : nat] (ev n) -> (ev (S (S n)))])
 
@@ -141,3 +141,19 @@
 
 (check-type ev-minus2/destruct
   : (forall [n : nat] (-> (ev n) (ev (pred (pred n))))))
+
+;; more than 1 index
+(define-datatype le : [n : nat] [m : nat] -> Prop
+  [le-n : [n : nat] -> (le n n)]
+  [le-S : [n : nat] [m : nat] (le n m) -> (le n (S m))])
+
+(define-theorem test-le1
+  (le 3 3)
+  (by-apply le-n))
+
+(define-theorem test-le2
+  (le 3 6)
+  (by-apply le-S)
+  (by-apply le-S)
+  (by-apply le-S)
+  (by-apply le-n))  
