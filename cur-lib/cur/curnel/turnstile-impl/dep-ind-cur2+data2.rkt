@@ -220,7 +220,10 @@
     #'(begin-
         ;; define the type
         (define-type* TY : [A Atag τA] ... [i itag τi] ... -> τ
-          #:extra elim-TY ([A τA] ...) (C ([i+x τin] ...) ((xrec irec ...) ...)) ...)
+          #:extra elim-TY
+                  ([A τA] ...)
+                  ([i τi] ...)
+                  (C ([i+x τin] ...) ((xrec irec ...) ...)) ...)
 
         ;; define the data constructors
         (define-data-constructor C : [AxC AtagxC τAxC] ... [i+x i+xtag τin] ... -> τout) ...
