@@ -368,7 +368,7 @@
             [(((~literal #%plain-app) C1:id e1 ...)
               ((~literal #%plain-app) C2:id e2 ...))
              #:when (has-type-info? TY)
-             #:with (_ ([A _] ...) (~and Cinfo/As (C _ _)) ...) (get-match-info TY)
+             #:with (_ ([A _] ...) _ (~and Cinfo/As (C _ _)) ...) (get-match-info TY)
              #:when (and (stx-member #'C1 #'(C ...) stx-datum-equal?)
                          (stx-member #'C2 #'(C ...) stx-datum-equal?))
              #:with Cinfos (substs (stx-drop TY 2) #'(A ...) #'(Cinfo/As ...))
@@ -447,7 +447,7 @@
   ;; ty = type param of == 
   (define (mk-False-term-type r x ty)
     ;; TODO: instantiate Cinfo?
-    (define/syntax-parse (_ ([A _] ...) (~and Cinfo (C _ _)) ...)
+    (define/syntax-parse (_ ([A _] ...) _ (~and Cinfo (C _ _)) ...)
       (get-match-info ty))
     (syntax-parse r
       [((~literal #%plain-app) this-C:id . rst)

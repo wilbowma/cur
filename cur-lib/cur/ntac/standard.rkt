@@ -195,12 +195,12 @@
 ;; define-tactical should generate a phase 2 definition like the one below, and a functional version
 ;; of the tactical (perhaps by-tactical-name)
   (define-syntax (by-intro syn)
-    (syntax-case syn ()
-      [(_ syn #:as paramss)
+    (syntax-parse syn
+      [(_ syn:id #:as paramss)
        #`(compose (fill (destruct #'syn #'paramss)) (fill (intro #'syn)))]
-      [(_ syn)
+      [(_ syn:id)
        #`(fill (intro #'syn))]
-      [b-i
+      [b-i:id
        #`(fill (intro #:stx #'b-i))]))
 
   ;; generalize: opposite of intro
@@ -320,18 +320,19 @@
        "by-destruct: could not find ~a" (stx->datum e)))
     
     (define name (if (identifier? e) e (generate-temporary)))
-    (define/syntax-parse (_ ([A _] ...) [C ([x τ_] ...) _] ...)
+    (define/syntax-parse (_ ([A _] ...) ([i_ _] ...) [C ([x τ_] ...) _] ...)
       (get-match-info e-ty))
 
     (define Cs #'(C ...))
 
-    ;; infer params from e-ty
-    (define/syntax-parse (X ...)
+    ;; infer params and indices from e-ty
+    (define/syntax-parse ((X ...) (i ...))
       (syntax-parse e-ty
         [((~literal #%plain-app) _ . name-ty-args)
-         #'name-ty-args])) ; need freshens here?
+         (stx-split-at #'name-ty-args (stx-length #'(A ...)))]))
 
-    (define/syntax-parse ((τ ...) ...) (substs #'(X ...) #'(A ...) #'((τ_ ...) ...)))
+    (define/syntax-parse ((τ ...) ...)
+      (substs #'(X ...) #'(A ...) #'((τ_ ...) ...)))
 
     (define paramss
       (or param-namess
@@ -412,6 +413,7 @@
          ;; and the match term must be applied to the env bindings whose tys ref the destructed var
          ((match #,(quasisyntax/loc e_ #,(unexpand e))
             #:as #,name
+            #:with-indices i ...
             #:in #,(unexpand e-ty)
             #:return (Π #,@(for/list ([(x ty) inner/name])
                              #`[#,x : #,(unexpand (subst-term name e ty))])
@@ -439,7 +441,7 @@
 
     (define name-ty (ctx-lookup ctxt name))
 
-    (define/syntax-parse (_ ([A _] ...) [C ([x τ_] ...) ((xrec . _) ...)] ...)
+    (define/syntax-parse (_ ([A _] ...) _ [C ([x τ_] ...) ((xrec . _) ...)] ...)
       (get-match-info name-ty))
 
     (define paramss
@@ -472,9 +474,10 @@
     (define/syntax-parse (X ...)
       (syntax-parse name-ty
         [((~literal #%plain-app) _ . name-ty-args)
-         #'name-ty-args])) ; need freshens here?
+         (stx-take #'name-ty-args (stx-length #'(A ...)))]))
 
-    (define/syntax-parse ((τ ...) ...) (substs #'(X ...) #'(A ...) #'((τ_ ...) ...)))
+    (define/syntax-parse ((τ ...) ...)
+      (substs #'(X ...) #'(A ...) #'((τ_ ...) ...)))
     (define pats ; TODO: check length of paramss against (τ...) ...?
       (stx-map
        (λ (C τs ps)

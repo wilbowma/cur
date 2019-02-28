@@ -30,7 +30,7 @@
    ;  [⊢ ((λ [x- : τ] ... body-) e- ...)]
 
 (begin-for-syntax
-  (define ((mk-method τout name params) eis clause) ; 2 args: ei tys and clause
+  (define ((mk-method τout name) eis clause) ; 2 args: ei tys and clause
     (syntax-parse (list eis clause)
       [(_ [x:id body]) #'body] ; no subst, bc x is just nullary constructor
       ;; TODO: combine the following 4 cases
@@ -46,12 +46,11 @@
        ;;                "match: pattern annotation type mismatch"
        #:with body* (substs #'(y ...) #'(x ...) #'body)
        #`(λ [y : ty] ... body*)]
-      [((_ ([y:id τin] ...) ((yrec))) ; rec, no anno; TODO: handle indices that may accompany yrecs
+      [((_ ([y:id τ] ...) ((yrec . _) ...)) ; rec, no anno
         [(con:id x:id ...) body])
-       #:with yrec* (generate-temporary #'yrec)
-       #:with body* (substs #'(y ...) #'(x ...) #'body)
-       ;; TODO: is this right? subst yrec (assuming only 1) for name in τout, ie the goal?
-       #`(λ [y : τin] ... [yrec* : #,(subst #'yrec name τout)] body*)]
+       #:with (ih ...) (generate-temporaries #'(yrec ...)) ; yrec is dup of y; must gen tmp
+       #:with body/ys (substs #'(y ...) #'(x ...) #'body)
+       #'(λ y ... ih ... body/ys)]
       [((_ ([y:id τin] ...) ((yrec))) ; rec, with anno
         [(con:id [x:id tag:id ty] ...) body])
        ;; TODO: for this to work, must inst τin
@@ -70,26 +69,38 @@
 ;; - match clauses *do not* include params
 ;;   - bc elim methods do not re-bind params
 ;; TODO: handle nested patterns, like define/rec/match?
+;; - use #:with-indices for dependent pattern match
+;;   - ie, #:in is not a pattern like in coq
 (define-typed-syntax match
   [(_ e (~optional (~seq #:as x) #:defaults ([x #'x])) #:return τout . clauses) ≫
    [⊢ e ≫ e- ⇒ τin]
    -----
-   [≻ (match+ e- #:as x #:in τin #:return τout . clauses)]]
+   [≻ (match+ e- #:as x #:with-indices #:in τin #:return τout . clauses)]]
   [(_ e (~optional (~seq #:as x) #:defaults ([x #'x])) #:in τin #:return τout . clauses) ≫
    [⊢ e ≫ e- ⇐ τin]
    -----
-   [≻ (match+ e- #:as x #:in #,(typeof #'e-) #:return τout . clauses)]])
+   [≻ (match+ e- #:as x #:with-indices #:in τin #:return τout . clauses)]]
+  [(_ e (~optional (~seq #:as x) #:defaults ([x #'x]))
+        #:with-indices i ...
+        #:in τin #:return τout
+        . clauses) ≫
+   [⊢ e ≫ e- ⇐ τin]
+   -----
+   [≻ (match+ e- #:as x #:with-indices i ... #:in τin #:return τout . clauses)]])
 
 ;; the main match form
-;; e- and τin already expanded
-(define-typed-syntax (match+ e #:as x #:in τin #:return τout . clauses) ≫
-;;  #:do[(printf "match τin: ~a\n" (stx->datum #'τin))]
+;; e- expanded
+(define-typed-syntax (match+ e #:as x #:with-indices i ... #:in τin_ #:return τout . clauses) ≫
+  #:with τin (expand/df #'τin_)
+;  #:do[(printf "match τin: ~a\n" (stx->datum #'τin))]
   #:do[(define exinfo (get-match-info #'τin))]
-;  #:do[(displayln exinfo)]
+;  #:do[(printf "exinfo: ~a\n" (stx->datum exinfo))]
   #:fail-unless exinfo (format "could not infer extra info from type ~a" (stx->datum #'τ))
-  #:with (elim-Name ([orig-param:id _] ...) ei ...) exinfo
-  ;; use params from τin, not exinfo (bc that's what elim does)
-  #:with params (stx-drop #'τin 2) ; drop #%app and cons-name
+  #:with (elim-Name ([orig-param:id _] ...) _ ei ...) exinfo
+  ;; use params and indices from τin, not exinfo (bc that's what elim does)
+  #:with params (stx-take
+                 (stx-drop #'τin 2) ; drop #%app and cons-name
+                 (stx-length #'(orig-param ...)))
   ;; ;; #:do[(displayln #'elim-Name)
   ;; ;;      (displayln (identifier-binding #'elim-Name))]
   ;; ;; TODO: the following is a workound for the "kind stx prop" problem
@@ -104,7 +115,7 @@
                 "extra info error: check that number of clauses matches type declaration"
 ;;  #:with (m ...) (stx-map (mk-method #'e- #'τ #'τout modulepath this-syntax) #'(ei ...) #'clauses)
   #:with (m ...) (stx-map
-                  (mk-method #'τout #'x #'params)
+                  (mk-method #'τout #'x)
                   (substs #'params #'(orig-param ...) #'(ei ...)) ; use params from τin, not ei
                   #'clauses)
   ;; #:do[(printf "match methods for ~a:\n" #'e)
@@ -115,7 +126,7 @@
 ;;                         (datum->syntax this-syntax (syntax->datum #'elim-Name)))
 ;; ;  #:do[(displayln (identifier-binding #'elim-Name*))]
   #:with out (quasisyntax/loc this-syntax
-               (elim-Name e (λ [x : τin] τout) m ...))
+               (elim-Name e (λ i ... x τout) m ...))
 ;  #:do[(pretty-print (syntax->datum #'out))]
   ------------
   [≻ out])
