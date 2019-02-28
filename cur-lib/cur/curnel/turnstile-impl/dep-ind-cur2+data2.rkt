@@ -160,10 +160,20 @@
             ;; constructors: τin ... τout may reference A ... and preceding i+x ...
             (~or* (~and [C:id (~datum :) τout] ;; nullary constructor
                         (~parse ([i+x i+xtag τin]...) #'()))
-                  [C:id (~datum :) [i+x:id i+xtag:id τin] ... (~datum ->) τout] ; named args
-                  (~and [C:id (~datum :) τin ... (~datum ->) τout] ; unnamed args
-                        (~parse ([i+x i+xtag] ...)
-                                (stx-map (λ (t) (list (generate-temporary) ':)) #'(τin ...)))))
+                  (~and [C:id (~datum :)
+                              [i+x1:id i+xtag1:id τin1] ... ; named args
+                              (~and τin2 (~not [_:id _:id _])) ... ; unnamed args
+                              (~datum ->) τout]
+                        (~parse ([i+x i+xtag τin] ...)
+                                (append
+                                 (syntax->list #'([i+x1 i+xtag1 τin1] ...))
+                                 (stx-map
+                                  (λ (t)
+                                    (list
+                                     (syntax-property (generate-temporary) 'tmp #t)
+                                     ':
+                                     t))
+                                  #'(τin2 ...))))))
             ...) ≫
 
    ;; validate types: use nested telescopes

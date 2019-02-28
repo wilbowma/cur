@@ -105,7 +105,7 @@
   [(_ [x:id (~datum :) τ_in] e) ≫
    [[x ≫ x- : τ_in] ⊢ [e ≫ e- ⇒ τ_out] [τ_in ≫ τ_in- ⇒ _]]
    -------
-   [⊢ (λ- (x-) e-) ⇒ (Π [x- : τ_in-] τ_out)]])
+   [⊢ (λ- (x-) e-) ⇒ (Π [#,(transfer-prop 'tmp #'x #'x-) : τ_in-] τ_out)]])
 
 (define-typerule/red (app e_fn e_arg) ≫
   [⊢ e_fn ≫ e_fn- ⇒ (~Π [X : τ_in] τ_out)]
