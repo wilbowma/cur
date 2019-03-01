@@ -209,9 +209,7 @@
   (by-intros n H)
   (by-destruct n #:as [() (n-1)])
   reflexivity ; 1
-  (by-inversion H #:as H0) ; 2
-  elim-False
-  by-assumption)
+  (by-discriminate H)) ; 2
 
 (check-type beq-nat-0l
  :  (forall [n : nat]

@@ -12,7 +12,8 @@
                      by-symmetry
                      (rename-out [by-rewrite by-rewriteR])
                      elim-False
-                     by-inversion))
+                     by-inversion
+                     by-discriminate))
 
 (require
  "../stdlib/prop.rkt" ; for False, see inversion
@@ -468,4 +469,14 @@
               #'(Cinfo ...)))]
       ;; if not data constructor of ty, then treat as base case
       [((~literal #%plain-app) . rst) #'False]))
+
+  (define-syntax (by-discriminate syn)
+    (syntax-case syn ()
+      [(_ H) #'(discriminate #'H)]))
+
+  (define (discriminate H [H-tmp (generate-temporary #'H-false)])
+    (compose (fill (apply-fn H-tmp))
+             (fill (elim-False-fn))
+             (fill (inversion H (list H-tmp)))))
+
   )
