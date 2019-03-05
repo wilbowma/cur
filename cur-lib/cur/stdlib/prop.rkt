@@ -12,7 +12,8 @@
  ;; Not
  ;; And
  ;; conj
- iff iff-sym
+ ∧ ∨ ¬
+ iff iff-sym ↔
  thm:anything-implies-true
  pf:anything-implies-true
  thm:and-is-symmetric pf:and-is-symmetric
@@ -21,6 +22,22 @@
 
 (require "sugar.rkt"
          cur/curnel/turnstile-impl/dep-ind-cur2+bool)
+
+;; Unicode symbols (\wedge, \vee)
+(define-syntax ∧
+  (syntax-parser
+    [(_) #'True]
+    [(_ a) #'a]
+    [(_ a b ...) #'(And a (∧ b ...))]))
+
+(define-syntax ∨
+  (syntax-parser
+    [(_) #'False]
+    [(_ a) #'a]
+    [(_ a b ...) #'(Or a (∨ b ...))]))
+
+(define-syntax ¬
+  (syntax-parser [(_ P) #'(Not P)]))
 
 ;; inferring version of conj
 (define-implicit conj/i = conj 2)
@@ -62,3 +79,8 @@
             #:in (iff P Q)
             #:return (iff Q P)
       [(conj H1 H2) (conj (-> Q P) (-> P Q) H2 H1)])))
+
+(define-syntax ↔
+  (syntax-parser
+    [(_ A B) #'(iff A B)]
+    [(_ A B C ...) #'(And (iff A B) (↔ B C ...))]))
