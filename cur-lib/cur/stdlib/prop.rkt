@@ -12,6 +12,7 @@
  ;; Not
  ;; And
  ;; conj
+ iff iff-sym
  thm:anything-implies-true
  pf:anything-implies-true
  thm:and-is-symmetric pf:and-is-symmetric
@@ -51,3 +52,13 @@
   (lambda (A : Type) (B : Type) (c : (And A B))
           (match c #:return B
             [(conj (a : A) (b : B)) b])))
+
+(define (iff [A : Prop] [B : Prop])
+  (And (-> A B) (-> B A)))
+
+(define iff-sym
+  (λ (P : Prop) (Q : Prop) (H : (iff P Q))
+     (match H #:as H
+            #:in (iff P Q)
+            #:return (iff Q P)
+      [(conj H1 H2) (conj (-> Q P) (-> P Q) H2 H1)])))

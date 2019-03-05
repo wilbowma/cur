@@ -1,6 +1,7 @@
 #lang cur
 (require cur/stdlib/sugar
          cur/stdlib/equality
+         cur/stdlib/prop
          cur/ntac/base
          cur/ntac/standard
          cur/ntac/rewrite
@@ -30,6 +31,23 @@
   [O => O]
   [(S n-1) => n-1])
 
+;(define-theorem and-intro ; TODO: add split tactic
+;(define-theorem and-example1 
+
+(define-theorem and-example2
+  (∀ [n m : nat] (-> (And (== n 0) (== m 0))
+                     (== (plus n m) 0)))
+  (by-intros n m H)
+  (by-destruct H #:as [(Hn Hm)])
+  (by-rewrite Hn)
+  (by-rewrite Hm)
+  reflexivity)
+
+(define-theorem ex-falso-quodlibet
+  (forall (P : Prop) (-> False P))
+  (by-intros P contra)
+  (by-destruct contra))
+
 (define-theorem function-equality1
   (== (plus 3) (plus (pred 4)))
   reflexivity)
@@ -41,3 +59,5 @@
   #;stuck)
 
 ;; TODO: add define-axiom
+
+

@@ -60,17 +60,17 @@
   (by-rewrite H44)
   reflexivity
   ; induction 2: cons -----
-  by-intros ; adds l2 x n H47
+  by-intros ; adds l2 x n H45
   (by-apply eq-remove-S)
   (by-destruct n)
   ;; destruct 2a: z -----
-  (by-inversion H47)
+  (by-inversion H45)
   elim-False
   (by-assumption)
   ;; destruct 2b: (s n-1) -----
   (by-apply IH43)
-  (by-inversion H47) ; adds H51
-  (by-rewrite H51)
+  (by-inversion H45) ; adds H49
+  (by-rewrite H49)
   reflexivity)
 
 (check-type length-app-sym/abbrv

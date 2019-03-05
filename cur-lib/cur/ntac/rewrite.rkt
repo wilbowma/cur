@@ -16,7 +16,7 @@
                      by-discriminate))
 
 (require
- "../stdlib/prop.rkt" ; for False, see inversion
+ "../stdlib/prop.rkt" ; for False (see inversion), And (rewrite)
  "../stdlib/sugar.rkt"
  "../stdlib/equality.rkt"
  "base.rkt"
@@ -151,7 +151,10 @@
     (ntac-match (or (ctx-lookup ctxt name) ; thm in ctx
                     (typeof (expand/df name))) ; prev proved tm
      [(~or
-       (~and (~== TY L R) ; already-instantiated thm
+       (~and (~or (~== TY L R) ; already-instantiated thm
+                  (~and (~And (~Π [_ : L] R) (~Π [_ : R2] L2)) ; iff (only works for entire goal)
+                        (~fail #:unless (and (typecheck? #'L #'L2)
+                                             (typecheck? #'R #'R2)))))
              (~parse inst-args inst-args_))
        (~and (~Π [X : τX] ... (~and body (~== TY/uninst thm/L/uninst thm/R/uninst)))
              (~parse inst-args
@@ -188,24 +191,30 @@
                             #'(X ...)
                             #'(TY/uninst thm/L/uninst thm/R/uninst))))))
       ;; set L and R as source/target term, depending on specified direction
-      (with-syntax* ([(tgt src) (if left-src? #'(R L) #'(L R))]
-                     [tgt-id (format-id #'tgt "~a" (generate-temporary))]
-                     [H (format-id name "~a" (generate-temporary))]
-                     [thm/inst #`(#,name #,@(stx-map unexpand #'inst-args))]
-                     [THM (if left-src?
-                              #'thm/inst
-                              #`(sym #,(unexpand #'TY) #,(unexpand #'L) #,(unexpand #'R) thm/inst))])
+      (with-syntax ([(tgt src) (if left-src? #'(R L) #'(L R))])
         (make-ntt-apply
          goal
          (list (make-ntt-hole (normalize (subst-term #'src #'tgt goal) ctxt)))
-         (λ (body-pf)
-           (quasisyntax/loc goal
-             (new-elim
-              THM
-              (λ [tgt-id : #,(unexpand #'TY)]
-                (λ [H : (== #,(unexpand #'TY) #,(unexpand #'src) tgt-id)]
-                  #,(unexpand (subst-term #'tgt-id #'tgt goal))))
-              #,body-pf)))))]))
+         (λ (pf)
+           (if (attribute TY) ; rewrite with == type
+               (with-syntax*
+                 ([tgt-id (format-id #'tgt "~a" (generate-temporary))]
+                  [H (format-id name "~a" (generate-temporary))]
+                  [thm/inst #`(#,name #,@(stx-map unexpand #'inst-args))]
+                  [THM (if left-src?
+                           #'thm/inst
+                           #`(sym #,(unexpand #'TY) #,(unexpand #'L) #,(unexpand #'R) thm/inst))])
+                 (quasisyntax/loc goal
+                   (new-elim
+                    THM
+                    (λ [tgt-id : #,(unexpand #'TY)]
+                      (λ [H : (== #,(unexpand #'TY) #,(unexpand #'src) tgt-id)]
+                        #,(unexpand (subst-term #'tgt-id #'tgt goal))))
+                    #,pf)))
+               (quasisyntax/loc goal
+                 (match #,name #:as #,name #:return #,goal
+                  [(conj l->r r->l)
+                   #,(if left-src? #`(l->r #,pf) #`(r->l #,pf))]))))))]))
 
   ;; replace tactic
   (define ((replace ty from to) ctxt pt)

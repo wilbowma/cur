@@ -1,6 +1,7 @@
 #lang cur
 (require cur/stdlib/sugar
          cur/stdlib/equality
+         cur/stdlib/prop
          cur/ntac/base
          cur/ntac/standard
          cur/ntac/rewrite
@@ -8,6 +9,10 @@
          "../rackunit-ntac.rkt")
 
 ; examples from Software Foundations IndProp.v
+
+(data bool : 0 Type
+      (true : bool)
+      (false : bool))
 
 (data nat : 0 Type
       (O : nat) ; letter capital "O"
@@ -157,3 +162,27 @@
   (by-apply le-S)
   (by-apply le-S)
   (by-apply le-n))  
+
+(define-datatype reflect [P : Prop] : [b : bool] -> Prop
+  [ReflectT : P -> (reflect P true)]
+  [ReflectF : (-> P False) -> (reflect P false)])
+
+(define-theorem iff-reflect
+ (∀ [P : Prop] [b : bool]
+     (-> (iff P (== b true))
+         (reflect P b)))
+  (by-intros P b H)
+  (by-destruct b)
+  (by-apply ReflectT) ;1
+  (by-rewrite H)
+  reflexivity
+  (by-apply ReflectF) ;2
+  (by-destruct H #:as [(H1 H2)])
+  (by-intro p)
+  (by-apply H1 #:in p)
+  (by-discriminate p))
+
+(check-type iff-reflect
+ : (∀ [P : Prop] [b : bool]
+     (-> (iff P (== b true))
+         (reflect P b))))
