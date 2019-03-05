@@ -14,6 +14,7 @@
              racket/pretty
              syntax/stx
              (for-syntax racket/base syntax/parse))
+ "../stdlib/prop.rkt"
  "../stdlib/sugar.rkt"
  "base.rkt")
 
@@ -579,4 +580,22 @@
               paramss
               param-typess
               pfs))
-          #,@(ctx-ids inner/name)))))))
+          #,@(ctx-ids inner/name))))))
+
+  (define (split-fn ctxt pt)
+    (match-define (ntt-hole _ goal) pt)
+    (ntac-match goal
+      [(~And X Y)
+       (make-ntt-apply
+        goal
+        (list (make-ntt-hole (normalize #'X ctxt))
+              (make-ntt-hole (normalize #'Y ctxt)))
+        (λ (proj1 proj2)
+          #`(conj #,(unexpand #'X)
+                  #,(unexpand #'Y)
+                  #,proj1
+                  #,proj2)))]))
+
+  (define-syntax (by-split syn)
+    (syntax-case syn ()
+      [_ #'(fill split-fn)])))

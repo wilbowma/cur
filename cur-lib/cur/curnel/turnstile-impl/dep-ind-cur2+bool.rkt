@@ -6,7 +6,9 @@
 ;; bool lib
 
 (provide False True I And conj Or or_introL or_introR
-         elim-Or elim-And elim-False)
+         elim-Or elim-And elim-False
+         (for-syntax ~False ~True ~And ~Or
+                     I or_introL or_introR))
 
 ;(define-type Bool : Type)
 
