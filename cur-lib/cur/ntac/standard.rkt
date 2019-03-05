@@ -339,6 +339,11 @@
       (or param-namess
           (stx-map (freshens e) #'((x ...) ...))))
 
+    (unless (stx-length=? paramss Cs)
+      (raise-ntac-goal-exception
+       "by-destruct: given wrong number of parameter names: ~a"
+       (stx->datum param-namess)))
+
     ;; pats and Cinstances are same except pat is used in match pattern,
     ;; which drops params (bc elim methods do not re-bind params)
     (define pats
