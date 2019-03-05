@@ -92,3 +92,5 @@
        H)))
  : (Π [n : Nat] [m : Nat]
       (-> (== Nat (s n) (s m)) (== Nat n m))))
+
+(check-type iff-sym : (∀ [P Q : Prop] (-> (iff P Q) (iff Q P))))
