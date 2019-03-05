@@ -603,4 +603,24 @@
 
   (define-syntax (by-split syn)
     (syntax-case syn ()
-      [_ #'(fill split-fn)])))
+      [_ #'(fill split-fn)]))
+
+  (define ((make-Or-intro-fn which constructor) ctxt pt)
+    (match-define (ntt-hole _ goal) pt)
+    (ntac-match goal
+      [(~Or X Y)
+       (make-ntt-apply
+        goal
+        (list (make-ntt-hole (normalize (which #'X #'Y) ctxt)))
+        (λ (pf)
+          #`(#,constructor
+             #,(unexpand #'X)
+             #,(unexpand #'Y)
+             #,pf)))]))
+
+  (define-syntax (by-left syn)
+    (syntax-case syn ()
+      [_ #'(fill (make-Or-intro-fn (λ (p q) p) #'left))]))
+  (define-syntax (by-right syn)
+    (syntax-case syn ()
+      [_ #'(fill (make-Or-intro-fn (λ (p q) q) #'right))])))
