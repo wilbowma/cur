@@ -5,7 +5,7 @@
 
 ;; bool lib
 
-(provide False True I And conj Or or_introL or_introR
+(provide False True I And conj Or or_introL or_introR Not
          elim-Or elim-And elim-False
          (for-syntax ~False ~True ~And ~Or
                      I or_introL or_introR))
@@ -23,6 +23,9 @@
 (define-datatype Or [X : Type] [Y : Type] : -> Type
   [or_introL : [x : X] -> (Or X Y)]
   [or_introR : [y : Y] -> (Or X Y)])
+
+(define (Not [P : Prop])
+  (-> P False))
 
 (module* tauto #f
   (require turnstile
