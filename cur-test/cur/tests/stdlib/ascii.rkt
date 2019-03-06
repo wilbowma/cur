@@ -66,3 +66,13 @@
 (check-type (ascii-str-length empty-ascii-str) : Nat -> 0)
 
 (check-type (ascii-str-length "") : Nat -> 0)
+
+(check-type "" : String)
+(check-type (string-equal? "" "") : Bool -> true)
+(check-type (string-equal? "a" "a") : Bool -> true)
+(check-type (string-equal? "b" "b") : Bool -> true)
+(check-type (string-equal? "a" "b") : Bool -> false)
+(check-type (string-equal? "ab" "ab") : Bool -> true)
+(check-type (string-equal? "ab" "ac") : Bool -> false)
+(check-type (string-equal? "ab" "a") : Bool -> false)
+(check-type (string-equal? "ab" "abc") : Bool -> false)
