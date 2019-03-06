@@ -3,7 +3,7 @@
 
 (provide Bool elim-Bool true false
          (for-syntax true false)
-         if not and or)
+         if not and or bool-equal?)
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
@@ -29,6 +29,10 @@
   (if x
       true
       y))
+
+(define (bool-equal? [b1 : Bool] [b2 : Bool])
+  (or (and b1 b2)
+      (not (or b1 b2))))
 
 (begin-for-syntax
   (provide bool->meta-bool meta-bool->bool)

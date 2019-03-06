@@ -1,6 +1,7 @@
 #lang s-exp "../main.rkt"
 (require
  "nat.rkt"
+ "bool.rkt"
  "maybe.rkt"
  "sugar.rkt")
 
@@ -9,8 +10,8 @@
  elim-List
  nil cons (for-syntax nil cons)
  list-ref
- length
- build-list
+ length andmap andmap2
+ build-list (rename-out [build-list lst])
  list-append)
 
 (data List : 1 (Π (A : Type) Type)
@@ -38,3 +39,13 @@
 (define/rec/match list-append : (A : Type) [ls2 : (List A)] (List A) -> (List A)
   [(nil _) => ls2]
   [(cons _ a rst) => (cons A a (list-append A ls2 rst))])
+
+(define/rec/match andmap : [A : Type] [f : (-> A Bool)] (List A) -> Bool
+  [(nil _) => true]
+  [(cons _ a rst) => (and (f a) (andmap A f rst))])
+
+(define/rec/match andmap2 : [A : Type] [B : Type] [f : (-> A B Bool)] (List A) (List B) -> Bool
+  [(nil _) (nil _) => true]
+  [(nil _) (cons _ _ _) => false]
+  [(cons _ _ _) (nil _) => false]
+  [(cons _ a rsta) (cons _ b rstb) => (and (f a b) (andmap2 A B f rsta rstb))])

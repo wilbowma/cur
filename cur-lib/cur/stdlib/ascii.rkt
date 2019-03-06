@@ -6,11 +6,12 @@
  "bool.rkt"
  "list.rkt")
 
-(provide Ascii ascii Ascii-Str
+(provide Ascii ascii Ascii-Str (rename-out [Ascii-Str String])
          empty-ascii-str
          ascii-str-concat
          ascii-str-length
          build-ascii-string
+         ascii-equal? string-equal?
          #%datum
          (rename-out
           [Ascii-Str AStr]
@@ -30,6 +31,27 @@
   (syntax-case syn ()
     [(_ e ...)
      #'(build-list Ascii e ...)]))
+
+(define/rec/match ascii-equal? : Ascii Ascii -> Bool
+  [(ascii a1 a2 a3 a4 a5 a6 a7)
+   (ascii b1 b2 b3 b4 b5 b6 b7) =>
+   (and (bool-equal? a1 b1)
+        (and (bool-equal? a2 b2)
+             (and (bool-equal? a3 b3)
+                  (and (bool-equal? a4 b4)
+                       (and (bool-equal? a5 b5)
+                            (and (bool-equal? a6 b6)
+                                 (bool-equal? a7 b7)))))))])
+
+(define/rec/match string-equal? : (List Ascii) (List Ascii) -> Bool
+  [(nil _) (nil _) => true]
+  [(nil _) (cons _ _ _) => false]
+  [(cons _ _ _) (nil _) => false]
+  [(cons _ a rsta) (cons _ b rstb) => (and (ascii-equal? a b)
+                                           (string-equal? rsta rstb))])
+;; this version makes it harder to prove beq-string-refl
+#;(define (string-equal? [s1 : Ascii-Str] [s2 : Ascii-Str])
+  (andmap2 Ascii Ascii ascii-equal? s1 s2))
 
 (begin-for-syntax
   (require "racket-ascii.rkt" data/bit-vector racket/contract)
