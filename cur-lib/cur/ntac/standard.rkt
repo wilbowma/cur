@@ -333,7 +333,9 @@
          (stx-split-at #'name-ty-args (stx-length #'(A ...)))]))
 
     (define/syntax-parse ((τ ...) ...)
-      (substs #'(X ...) #'(A ...) #'((τ_ ...) ...)))
+      (stx-map
+       (λ (ts) (stx-map (normalize/ctxt ctxt) ts))
+       (substs #'(X ...) #'(A ...) #'((τ_ ...) ...))))
 
     (define paramss
       (or param-namess
@@ -483,7 +485,10 @@
          (stx-take #'name-ty-args (stx-length #'(A ...)))]))
 
     (define/syntax-parse ((τ ...) ...)
-      (substs #'(X ...) #'(A ...) #'((τ_ ...) ...)))
+      (stx-map
+       (λ (ts) (stx-map (normalize/ctxt ctxt) ts))
+       (substs #'(X ...) #'(A ...) #'((τ_ ...) ...))))
+
     (define pats ; TODO: check length of paramss against (τ...) ...?
       (stx-map
        (λ (C τs ps)
