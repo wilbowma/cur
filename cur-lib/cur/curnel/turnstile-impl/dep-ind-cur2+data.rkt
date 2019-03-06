@@ -150,7 +150,8 @@
    ;; need with-unbound and ~unbound bc `TY` name still undefined here
    ;; TODO: is with-unbound needed?
    ;; - is it possible to defer check to define-constructor below, after TY is defined?
-   [⊢ (with-unbound TY τC) ≫ (~unbound TY (~Π [x : τin] ... _)) ⇐ Type] ...
+   [⊢ (with-unbound TY τC) ≫ (~unbound TY (~Π [x : τin_] ... _)) ⇐ Type] ...
+   #:with ((τin ...) ...) (stx-map (λ (τs) (stx-map unexpand τs)) #'((τin_ ...) ...))
    ;; ---------- pre-define some pattern variables for cleaner output:
    ;; recursive args of each C; where (xrec ...) ⊆ (x ...)
    #:with ((xrec ...) ...) (find-recur #'TY #'(([x τin] ...) ...))
