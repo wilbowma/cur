@@ -3,6 +3,7 @@
          cur/stdlib/equality
          cur/stdlib/prop
          cur/stdlib/bool
+         cur/stdlib/axiom
          cur/ntac/base
          cur/ntac/standard
          cur/ntac/rewrite
@@ -28,6 +29,20 @@
   [O => m]
   [(S n-1) => (S (plus n-1 m))])
 
+(define/rec/match pred : nat -> nat
+  [O => O]
+  [(S n-1) => n-1])
+
+(define-theorem plus-n-0
+  (∀ [n : nat] (== (plus n 0) n))
+  (by-intros n) (by-induction n #:as [() (n-1 IH)])
+  reflexivity (by-rewrite IH) reflexivity)
+
+(define-theorem plus-n-Sm
+  (∀ [n : nat] [m : nat] (== (plus n (S m)) (plus (S n) m)))
+  (by-intros n m) (by-induction n #:as [() (n-1 IH)])
+  reflexivity (by-rewrite IH) reflexivity)
+
 (define/rec/match mult : nat [m : nat] -> nat
   [O => O]
   [(S n-1) => (plus m (mult n-1 m))])
@@ -38,22 +53,6 @@
   (by-induction n #:as [() (n-1 Hn)])
   reflexivity
   (by-apply Hn))
-
-(define/rec/match pred : nat -> nat
-  [O => O]
-  [(S n-1) => n-1])
-
-(define-theorem function-equality1
-  (== (plus 3) (plus (pred 4)))
-  reflexivity)
-
-;; needs functional extensionality axiom
-#;(define-theorem function-equality2
-  (== (λ [x : nat] (plus x 1))
-      (λ [x : nat] (plus 1 x)))
-  #;stuck)
-
-;; TODO: add define-axiom
 
 ;; ----------------
 ;; Logical connectives
@@ -267,3 +266,36 @@
   (by-destruct HPR #:as [(HP) (HR)])
   by-left (by-apply HP)
   by-right by-split (by-apply HQ) (by-apply HR))
+
+;; ==== Function Extensionality
+
+(define-theorem function-equality1
+  (== (λ [x : nat] (plus 3 x))
+      (λ [x : nat] (plus (pred 4) x)))
+  reflexivity)
+
+;; needs functional extensionality axiom
+#;(define-theorem function-equality2
+  (== (λ [x : nat] (plus x 1))
+      (λ [x : nat] (plus 1 x)))
+  #;stuck)
+
+(define-axiom function-extensionality
+  (∀ [X : Type] [Y : Type]
+     [f : (-> X Y)] [g : (-> X Y)]
+     (-> (∀ [x : X] (== (f x) (g x)))
+         (== f g))))
+
+(define-theorem function-equality2
+  (== (λ [x : nat] (plus x 1))
+      (λ [x : nat] (plus 1 x)))
+  (by-apply function-extensionality #:with
+            nat nat
+            (λ [x : nat] (plus x 1))
+            (λ [x : nat] (plus 1 x)))
+  (by-intros x)
+  (by-rewrite plus-n-Sm)
+  (by-rewrite plus-n-0)
+  reflexivity)
+
+(print-assumptions function-equality2)
