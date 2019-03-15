@@ -34,11 +34,11 @@
     (syntax-parse (list eis clause)
       [(_ [x:id body]) #'body] ; no subst, bc x is just nullary constructor
       ;; TODO: combine the following 4 cases
-      [((_ ([y:id τin] ...) ()) ; no rec, no anno
+      [((_ ([y:id τin] ... _) ()) ; no rec, no anno
         [(con:id x:id ...) body])
        #:with body* (substs #'(y ...) #'(x ...) #'body)
        #`(λ [y : τin] ... body*)]
-      [((_ ([y:id τin] ...) ()) ; no rec, with anno
+      [((_ ([y:id τin] ... _) ()) ; no rec, with anno
         [(con:id [x:id tag:id ty] ...) body])
        ;; TODO: for this to work, must inst τin
        ;; - add params to extra info?
@@ -46,12 +46,12 @@
        ;;                "match: pattern annotation type mismatch"
        #:with body* (substs #'(y ...) #'(x ...) #'body)
        #`(λ [y : ty] ... body*)]
-      [((_ ([y:id τ] ...) ((yrec . _) ...)) ; rec, no anno
+      [((_ ([y:id τ] ... _) ((yrec . _) ...)) ; rec, no anno
         [(con:id x:id ...) body])
        #:with (ih ...) (generate-temporaries #'(yrec ...)) ; yrec is dup of y; must gen tmp
        #:with body/ys (substs #'(y ...) #'(x ...) #'body)
        #'(λ y ... ih ... body/ys)]
-      [((_ ([y:id τin] ...) ((yrec))) ; rec, with anno
+      [((_ ([y:id τin] ... _) ((yrec))) ; rec, with anno
         [(con:id [x:id tag:id ty] ...) body])
        ;; TODO: for this to work, must inst τin
        ;; - add params to extra info?

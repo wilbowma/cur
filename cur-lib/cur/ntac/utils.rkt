@@ -91,6 +91,8 @@
 
 (define (subst-terms vs es syn)
   (stx-fold (λ (v e res) (subst-term v e res (immutable-free-id-set))) syn vs es))
+(define ((subst-terms/es vs es) syn)
+  (subst-terms vs es syn))
 
 (define ((subst-term/e v e0) syn [bvs (immutable-free-id-set)])
   (subst-term v e0 syn bvs))

@@ -307,6 +307,7 @@
       [(_ x #:as param-namess)
        #`(fill (destruct #'x #'param-namess))]))
 
+  ;; TODO: properly handle indexed types (copy from `induction`)
   (define ((destruct e_ [param-namess #f]) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
 
@@ -321,7 +322,7 @@
        "by-destruct: could not find ~a" (stx->datum e)))
     
     (define name (if (identifier? e) e (generate-temporary)))
-    (define/syntax-parse (_ ([A _] ...) ([i_ _] ...) [C ([x τ_] ...) _] ...)
+    (define/syntax-parse (_ ([A _] ...) ([i_ _] ...) [C ([x τ_] ... _) _] ...)
       (get-match-info e-ty))
 
     (define Cs #'(C ...))
@@ -440,33 +441,48 @@
   (define-syntax (by-induction syn)
     (syntax-case syn ()
       [(_ x) #'(fill (induction #'x))]
-      [(_ x #:as param-namess) #'(fill (induction #'x #'param-namess))]))
+      [(_ x #:as arg-namess) #'(fill (induction #'x #:as #'arg-namess))]))
 
   ;; TODO: similar to destruct; merge somehow?
   ;; TODO: use match or elim as proof term?
-  (define ((induction name [paramss_ #f]) ctxt pt)
+  ;; TODO: currently only handles induction of an identifier (`name`)
+  ;; maybe-xss+IH is new data constructor arg names to use (including IH)
+  (define ((induction name #:as [maybe-xss+IH #f]) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
 
     (define name-ty (ctx-lookup ctxt name))
 
-    (define/syntax-parse (_ ([A _] ...) _ [C ([x τ_] ...) ((xrec . _) ...)] ...)
+    (define/syntax-parse ; get define-datatype info (types are unexpanded)
+      (_ ([A _] ...) ; params
+         ([i _] ...) ; indices
+         (~and Cinfo [C ([x τ_] ... τout_) ((xrec . _) ...)]) ...)
       (get-match-info name-ty))
 
-    (define paramss
-      (if (and paramss_ (stx-length=? paramss_ #'((x ...) ...)))
+    (define num-params (stx-length #'(A ...)))
+    
+    (define get-idxs ; extract indices from *unexpanded* type
+      (if (stx-null? #'(i ...))
+          (λ (t) null)
+          (λ (t) (stx-drop t (add1 num-params)))))
+
+    ;; new-xss+IH = either:
+    ;; maybe-xss+IH (if correct # arg names given)
+    ;; else, arg names (ie x ...) from extra-info (with scopes adjusted)
+    (define new-xss+IH
+      (if (and maybe-xss+IH (stx-length=? maybe-xss+IH #'(Cinfo ...))) ; enough sets of names given
           (stx-map
-           (λ (params xs xrecs)
-             (if (stx-length=? params (stx-append xs xrecs))
-                 params
-                 (stx-append ((freshens name) xs)
+           (λ (new-xs xs xrecs)
+             (if (stx-length=? new-xs (stx-append xs xrecs))
+                 new-xs ; programmer supplied enough names for this data cons, incl IHs
+                 (stx-append ((freshens name) xs) ; else generate based on extra-info names
                              ((freshens name)
                               (stx-map
                                (λ (x) (generate-temporary 'IH))
                                xrecs)))))
-           paramss_
+           maybe-xss+IH
            #'((x ...) ...)
            #'((xrec ...) ...))
-          (stx-map
+          (stx-map ; else generate based on extra-info names
            (λ (xs xrecs)
              (stx-append ((freshens name) xs)
                          ((freshens name)
@@ -476,121 +492,108 @@
            #'((x ...) ...)
            #'((xrec ...) ...))))
 
-    (define Cs #'(C ...))
-
-    ;; infer params from name-ty
-    (define/syntax-parse (X ...)
+    ;; infer from name-ty: params (Aval ...) and indices (ival ...)
+    (define/syntax-parse ((Aval ...) (ival ...))
       (syntax-parse name-ty
         [((~literal #%plain-app) _ . name-ty-args)
-         (stx-take #'name-ty-args (stx-length #'(A ...)))]))
+         (stx-split-at #'name-ty-args num-params)]))
 
-    (define/syntax-parse ((τ ...) ...)
-      (stx-map
-       (λ (ts) (stx-map (normalize/ctxt ctxt) ts))
-       (substs #'(X ...) #'(A ...) #'((τ_ ...) ...))))
+    ;; modify ctxt:
+    ;; 1) remove:
+    ;; - `name`
+    ;; - any (ival ...), if they are id
+    ;; 2) partition into:
+    ;; - ctxt-to-change: extract ctx items whose type contains either
+    ;;   `name` or any of the indices #'(ival ...)
+    ;; These items are affected by the induction and must be updated.
+    ;; - ctxt-unchanged: remaining items
+    ;; Items are bound in the same relative order.
+    (define-values (ctxt-to-change ctxt-unchanged)
+      (ctx-partition/ty
+       (ctx-removes ctxt (cons name (stx-filter id? #'(ival ...))))
+       (λ (t) (or (has-term? name t)
+                  (stx-ormap
+                   (λ (iv) (has-term? iv t))
+                   #'(ival ...))))))
 
-    (define pats ; TODO: check length of paramss against (τ...) ...?
-      (stx-map
-       (λ (C τs ps)
-         (if (and (stx-null? ps) (stx-null? #'(X ...)))
-             C
-             ; dont include IHs as C arg
-             #`(#,C X ... . #,(stx-take ps (stx-length τs)))))
-       Cs
-       #'((τ ...) ...)
-       paramss))
-
-    ;; for each param, type is either
-    ;; - argument types from C-type (if arg)
-    ;; - subst xrec for name in goal (if IH)
-    ;;   - where xrec specified by the "match info"
-    (define param-typess
-      (stx-map
-       (λ (params τs xs xrecs)
-         ;; params = regular C args + IHs
-         (match-define (list ps IHs) (stx-split-at params (stx-length τs)))
-         #`(#,@τs .
-            #,(for/list ([ih IHs])
-                (for/fold ([g goal])
-                          ([p ps] [x (in-stx-list xs)] #:when (stx-member x xrecs))
-                  ;; TODO: is this right? subst xrecs (assuming only 1) for name in goal
-                  (subst p name goal)))))
-       paramss
-       #'((τ ...) ...)
-       #'((x ...) ...)
-       #'((xrec ...) ...)))
-
-    ;; split ctxt at where `name` is bound:
-    ;; - innermost binding of outer-ctxt is `name`
-    (define-values (outer-ctxt inner-ctxt) (ctx-lookup/split ctxt name))
-
-    ;; split inner-ctxt according to whether its types reference `name`:
-    ;; - inner/noname: bindings have types that do not reference name
-    ;; - inner/name: type of first binding (call it x) references `name`
-    ;;   - the rest of inner/name is the rest of inner-ctxt after `x`
-    ;;     - these bindings must be rebound because they may reference `x`
-    (define-values (inner/noname inner/name)
-      (ctx-splitf/ty/outerin inner-ctxt (λ (t) (not (has-term? name t)))))
-
+    ;; generate subgoals and elim methods in one pass
+    (define-values (subgoals mk-elim-methods)
+      (for/lists (subgoals mk-elim-methods)
+                 ([new-xs+IH (in-stx-list new-xss+IH)]
+                  [Cinfo (in-stx-list #'(Cinfo ...))])
+        (syntax-parse Cinfo
+          [[C ([x τ_] ... τout_) ((xrec . _) ...)]
+           #:with (new-xs _) (stx-split-at new-xs+IH (stx-length #'(x ...)))
+           #:with (τ ... τout) (substs
+                                #'(Aval ... . new-xs)
+                                #'(A ... x ...)
+                                #'(τ_ ... τout_))
+           #:with IHτs (for/list ([new-x (in-stx-list #'new-xs)]
+                                  [x (in-stx-list #'(x ...))]
+                                  [τ (in-stx-list #'(τ ...))]
+                                  #:when (stx-member x #'(xrec ...)))
+                         ;; τ-is = indices from τ (the type of the rec arg)
+                         ;; IH type must use these instead of ival ...
+                         (define τ-is (get-idxs τ)) ; indices from τ of rec arg
+                         ;; IH must include changed ctxt bindings
+                         #`(-> #,@(for/list ([(_ ctx-ty) ctxt-to-change])
+                                    (subst-terms (cons new-x τ-is)
+                                                 (cons name #'(ival ...))
+                                                 ctx-ty))
+                               #,(subst-terms (cons new-x τ-is)
+                                              (cons name #'(ival ...))
+                                              goal)))
+           ;; construct the instance of this constructor
+           #:with Cinst (if (and (stx-null? #'new-xs) (stx-null? #'(A ...)))
+                            #'C
+                            #`(C Aval ... . new-xs))
+           #:with τout-is (get-idxs #'τout) ; indices from τout
+           #:do[(define (update-ctxt old-ctxt)
+                  (define tmp-ctxt
+                    (ctx-adds ctxt-unchanged new-xs+IH #'(τ ... . IHτs)
+                              #:process normalize))
+                  (ctx-append tmp-ctxt
+                              (ctx-map
+                               (subst-terms/es
+                                (cons (normalize #'Cinst tmp-ctxt) #'τout-is)
+                                (cons name #'(ival ...)))
+                               ctxt-to-change)))]
+           (values
+            (make-ntt-context ; subgoal
+             update-ctxt
+             (make-ntt-hole
+              (normalize
+               (subst-terms (cons #'Cinst #'τout-is)
+                            (cons name #'(ival ...))
+                            goal)
+               (update-ctxt ctxt))))
+            (λ (pf)           ; fn makes elim method from a proof term `pf`
+              (if (stx-null? #'new-xs)
+                  pf
+                  #`(λ #,@new-xs+IH
+                      (λ #,@(for/list ([(x ty) ctxt-to-change])
+                              #`[#,x : #,(unexpand
+                                          (subst-terms
+                                           (cons #'Cinst #'τout-is)
+                                           (cons name #'(ival ...))
+                                           ty))])
+                        #,pf)))))])))
+    
     (make-ntt-apply
      goal
-     (stx-map
-      (λ (pat params param-types)
-        ;; adding params into ctx is slightly tricky:
-        ;; - a param-type may refer to inner-ctxt binding
-        ;;   - see plus-n-Sm, IH param, in rewrite-with-previous.rkt
-        ;; - but a binding's type in inner-ctxt may also reference param
-        ;;   - see destruct n in length-app-sym, in Poly.rkt
-        ;; Current insertion algo:
-        ;; 1. remove name from outer-ctxt
-        ;; 2. add params to inner/noname
-        ;; 3. update types in inner/name with destructed term instances
-        ;; 4. merge together updated outer-ctxt, inner/noname, and inner/name
-        (define (update-ctxt old-ctxt)
-          (define tmp-ctxt
-            (ctx-append
-             (ctx-remove-inner outer-ctxt) ; drop name from old-ctxt
-             (ctx-adds
-              inner/noname
-              (stx->list params)
-              (stx->list param-types))))
-          (ctx-append
-           tmp-ctxt
-           (ctx-map ; update ty in ctxt with (subst-term pat name _)
-            (subst-term/e (normalize pat tmp-ctxt) name)
-            inner/name)))
-        (make-ntt-context
-         update-ctxt
-         (make-ntt-hole
-          (normalize (subst pat name goal) (update-ctxt ctxt)))))
-      pats
-      paramss
-      param-typess)
-     (λ pfs
+     subgoals
+     (λ pfs ;; constructs induction proof term, from proof terms for each subgoal
        (quasisyntax/loc goal
          ((new-elim
            #,name
-           (λ [#,name : #,(unexpand name-ty)]
-             (Π #,@(for/list ([(x ty) inner/name])
-                     #`[#,x : #,ty])
-                #,(unexpand goal)))
-           .
-           #,(stx-map
-              (λ (pat params param-types pf)
-                (if (null? (stx->list params))
-                    pf
-                    (foldr
-                     (λ (p ty e) #`(λ [#,p : #,(unexpand ty)] #,e))
-                     #`(λ #,@(for/list ([(x ty) inner/name])
-                               #`[#,x : #,(unexpand (subst-term pat name ty))])
-                         #,pf)
-                     (stx->list params)
-                     (stx->list param-types))))
-              pats
-              paramss
-              param-typess
-              pfs))
-          #,@(ctx-ids inner/name))))))
+          #,(with-syntax ([is (generate-temporaries #'(ival ...))])
+               #`(λ #,@#'is #,name
+                    (Π #,@(for/list ([(x ty) ctxt-to-change])
+                            #`[#,x : #,(subst-terms #'is #'(ival ...) ty)])
+                #,(unexpand (subst-terms #'is #'(ival ...) goal)))))
+          .
+          #,(map (λ (mk pf) (mk pf)) mk-elim-methods pfs))
+          #,@(ctx-ids ctxt-to-change))))))
 
   (define (split-fn ctxt pt)
     (match-define (ntt-hole _ goal) pt)
