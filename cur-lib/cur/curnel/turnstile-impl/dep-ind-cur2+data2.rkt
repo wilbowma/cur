@@ -223,7 +223,7 @@
           #:extra elim-TY
                   ([A τA] ...)
                   ([i τi] ...)
-                  (C ([i+x τin] ...) ((xrec irec ...) ...)) ...)
+                  (C ([i+x τin] ... τout) ((xrec irec ...) ...)) ...)
 
         ;; define the data constructors
         (define-data-constructor C : [AxC AtagxC τAxC] ... [i+x i+xtag τin] ... -> τout) ...

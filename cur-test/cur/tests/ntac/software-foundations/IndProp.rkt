@@ -79,6 +79,16 @@
   [O => O]
   [(S n-1) => n-1])
 
+; ev-double, raw term
+(check-type
+ (λ (n : nat)
+   ((new-elim
+     n
+     (λ n (Π (ev (double n))))
+     (ev0)
+     (λ n-1 (λ IH (λ (evSS (double n-1) (IH))))))))
+ : (forall [n : nat] (ev (double n))))
+
 (define-theorem ev-double
   (forall [n : nat] (ev (double n)))
   (by-intro n)
@@ -147,7 +157,7 @@
 (check-type ev-minus2/destruct
   : (forall [n : nat] (-> (ev n) (ev (pred (pred n))))))
 
-;; more than 1 index
+;; test more than 1 index
 (define-datatype le : [n : nat] [m : nat] -> Prop
   [le-n : [n : nat] -> (le n n)]
   [le-S : [n : nat] [m : nat] (le n m) -> (le n (S m))])
@@ -162,6 +172,36 @@
   (by-apply le-S)
   (by-apply le-S)
   (by-apply le-n))  
+
+;; le-trans raw term
+(check-type
+ (λ [m : nat] [n : nat] [o : nat]
+    [H1 : (le m n)]
+    [H2 : (le n o)]
+    ((elim-le
+      H2
+      (λ n0 o0 H0 (-> (le m n0) (le m o0)))
+      (λ n1 (λ [H3 : (le m n1)] H3))
+      (λ n1 o1 H3 IH
+         (λ [H4 : (le m n1)]
+           (le-S m o1 (IH H4)))))
+     H1))
+    :  (forall [m n o : nat]
+               (-> (le m n) (le n o) (le m o))))
+
+(define-theorem le-trans
+  (forall [m n o : nat]
+          (-> (le m n) (le n o) (le m o)))
+  (by-intros m n o H1 H2)
+  (by-induction H2 #:as [(n1) (n1 o1 H3 IH1)])
+  (by-apply H1) ;1
+  (by-apply le-S) ;2
+  (by-apply IH1)
+  (by-apply H1))
+
+(check-type le-trans
+  : (forall [m n o : nat]
+          (-> (le m n) (le n o) (le m o))))
 
 (define-datatype reflect [P : Prop] : [b : bool] -> Prop
   [ReflectT : P -> (reflect P true)]

@@ -37,6 +37,7 @@
          ctx-fold
          ctx-splitf
          ctx-splitf/ty/outerin
+         ctx-partition/ty
          ctx-append
          ctx-lookup
          ctx-lookup/split
@@ -99,9 +100,10 @@
 
 ;; ctx-adds : NtacCtx (listof Id) (listof Type) -> NtacCtx
 ;; adds given ids and types to NtacCtx
-;; TODO: need a folding + normalizing version of ctx-adds
-(define (ctx-adds ctxt xs tys)
-  (foldl ctx-add/fold ctxt (stx->list xs) (stx->list tys)))
+;; - `f` is applied to each ty before it's added to the ctxt;
+;;   it additionally consumes the intermediate ctxt
+(define (ctx-adds ctxt xs tys #:process [f (λ (t tmp-ctxt) t)])
+  (foldl (ctx-add/fold f) ctxt (stx->list xs) (stx->list tys)))
 
 ;; ctx-adds/ids : (listof Id) (listof Type) -> (-> NtacCtx NtacCtx)
 ;; curried version of ctx-adds
@@ -110,8 +112,8 @@
 ;; ctx-add/fold : Id Type NtacCtx -> NtacCtx
 ;; adds given id and type to NtacCtx
 ;; - unlike ctx-add, ctx is third arg, for use with folds
-(define (ctx-add/fold x ty ctxt)
-  (ctx-add ctxt x ty))
+(define ((ctx-add/fold f) x ty ctxt)
+  (ctx-add ctxt x (f ty ctxt)))
 
 ;; ctx-remove : NtacCtx Id -> NtacCtx
 ;; removes CtxItem with id x
@@ -168,6 +170,18 @@
                 (splitf-at (reverse (ctx-items ctxt))
                            (λ (item) (p? (ctxitem-type item))))])
     (values (ctx (reverse outer)) (ctx (reverse inner)))))
+
+;; ctx-partition/ty : NtacCtx (-> Type Bool) -> NtacCtx NtacCtx
+;; splits given ctxt into two partitions using predicate p? on ctxitem type
+;; - unlike ctx-splitf, which starts with innermost scope,
+;;   this starts with outermost scope first
+;; - unlike ctx-splitf/ty/outerin, which stops at first ctxitem satisfying p?,
+;;   this always checks every ctx item
+(define (ctx-partition/ty ctxt p?)
+  (let-values ([(yes no)
+                (partition (λ (item) (p? (ctxitem-type item)))
+                           (reverse (ctx-items ctxt)))])
+    (values (ctx (reverse yes)) (ctx (reverse no)))))
 
 ;; appends zero or more NtacCtxs together
 ;; - first arg is "inner" scope

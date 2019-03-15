@@ -172,7 +172,7 @@
    [≻ (begin-
         ;; define the type, eg "Nat"
         #,(syntax/loc #'TY
-            (define-type TY : τ #:extra elim-TY () () (C ([x τin] ...) ((xrec) ...)) ...))
+            (define-type TY : τ #:extra elim-TY () () (C ([x τin] ... TY) ((xrec) ...)) ...))
 
         ;; define the data constructors, eg Z and S
         #,@(for/list ([C (attribute C)]

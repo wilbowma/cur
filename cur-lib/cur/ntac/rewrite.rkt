@@ -347,7 +347,7 @@
                         #`(match #,expr #:return #,(unexpand tgt-ty)
                            #,@(stx-map
                                (syntax-parser
-                                 [(this-C ([Cx _] ...) _)
+                                 [(this-C ([Cx _] ... _) _)
                                   #`[(this-C Cx ...)
                                      #,(if (stx-datum-equal? #'C1 #'this-C)
                                            stx
@@ -359,10 +359,13 @@
                      e1 e2))
                   (stx-drop #'(e1 ...) (stx-length #'(A ...)))
                   (stx-drop #'(e2 ...) (stx-length #'(A ...)))
-                  (stx-cadr   ; returns x+τs + τout args for matching constructor
-                   (stx-findf ; find the matching constructor
-                    (syntax-parser [(C:id . _) (stx-datum-equal? #'C #'C1)])
-                    #'Cinfos)))
+                  (drop-right ; drop the τout
+                   (stx->list
+                    (stx-cadr   ; returns x+τs + τout args for matching constructor
+                     (stx-findf ; find the matching constructor
+                      (syntax-parser [(C:id . _) (stx-datum-equal? #'C #'C1)])
+                      #'Cinfos)))
+                   1))
                  ;; found contradiction, produce False
                  (begin
                    (set! ==s (cons #'False ==s))
@@ -418,7 +421,7 @@
        #`(match #,x #:return Type
           #,@(stx-map
               (syntax-parser
-                [(C ([Cx _] ...) _)
+                [(C ([Cx _] ... _) _)
                  #`[(C Cx ...)
                     #,(if (stx-datum-equal? #'this-C #'C)
                           (if (stx-length=? #'(A ...) #'rst) ; nullary constructor
