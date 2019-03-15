@@ -46,7 +46,9 @@
          ctx-removes
          ctx-remove-inner
          ctx-has-id?
-         
+
+         ctx->stx
+         ctx-tys->stx
          ctx->env)
 
 (require racket/list
@@ -100,9 +102,9 @@
 
 ;; ctx-adds : NtacCtx (listof Id) (listof Type) -> NtacCtx
 ;; adds given ids and types to NtacCtx
-;; - `f` is applied to each ty before it's added to the ctxt;
-;;   it additionally consumes the intermediate ctxt
-(define (ctx-adds ctxt xs tys #:process [f (λ (t tmp-ctxt) t)])
+;; - `f` is applied to each ty, with the intermediate ctxt,
+;;   before it's added to the ctxt;
+(define (ctx-adds ctxt xs tys #:do [f (λ (t tmp-ctxt) t)])
   (foldl (ctx-add/fold f) ctxt (stx->list xs) (stx->list tys)))
 
 ;; ctx-adds/ids : (listof Id) (listof Type) -> (-> NtacCtx NtacCtx)
@@ -202,6 +204,12 @@
      (ctx-add tmp-ctxt (ctxitem-id i) (f (ctxitem-type i) tmp-ctxt)))
    init-ctxt
    (reverse (ctx-items ctxt))))
+
+(define (ctx-tys->stx ctxt #:do [ty-fn (λ (x) x)])
+  (for/list ([(_ ty) ctxt]) (ty-fn ty)))
+
+(define (ctx->stx ctxt #:do [ty-fn (λ (x) x)])
+  (for/list ([(x ty) ctxt]) #`[#,x : #,(ty-fn ty)]))
 
 ;; converts NtacCtx to Turnstile env
 ;; - NOTE: does not reverse scoping order, so first item is innermost scope
