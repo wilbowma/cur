@@ -524,25 +524,21 @@
         (syntax-parse Cinfo
           [[C ([x τ_] ... τout_) ((xrec . _) ...)]
            #:with (new-xs _) (stx-split-at new-xs+IH (stx-length #'(x ...)))
-           #:with (τ ... τout) (substs
-                                #'(Aval ... . new-xs)
-                                #'(A ... x ...)
-                                #'(τ_ ... τout_))
+           #:with (τ ... τout) (substs #'(Aval ... . new-xs)
+                                       #'(A ... x ...)
+                                       #'(τ_ ... τout_))
            #:with IHτs (for/list ([new-x (in-stx-list #'new-xs)]
-                                  [x (in-stx-list #'(x ...))]
                                   [τ (in-stx-list #'(τ ...))]
+                                  [x (in-stx-list #'(x ...))]
                                   #:when (stx-member x #'(xrec ...)))
                          ;; τ-is = indices from τ (the type of the rec arg)
                          ;; IH type must use these instead of ival ...
                          (define τ-is (get-idxs τ)) ; indices from τ of rec arg
+                         (define update-ty
+                           (subst-terms/es (cons new-x τ-is) (cons name #'(ival ...))))
                          ;; IH must include changed ctxt bindings
-                         #`(-> #,@(for/list ([(_ ctx-ty) ctxt-to-change])
-                                    (subst-terms (cons new-x τ-is)
-                                                 (cons name #'(ival ...))
-                                                 ctx-ty))
-                               #,(subst-terms (cons new-x τ-is)
-                                              (cons name #'(ival ...))
-                                              goal)))
+                         #`(-> #,@(ctx-tys->stx ctxt-to-change #:do update-ty)
+                               #,(update-ty goal)))
            ;; construct the instance of this constructor
            #:with Cinst (if (and (stx-null? #'new-xs) (stx-null? #'(A ...)))
                             #'C
@@ -550,8 +546,9 @@
            #:with τout-is (get-idxs #'τout) ; indices from τout
            #:do[(define (update-ctxt old-ctxt)
                   (define tmp-ctxt
-                    (ctx-adds ctxt-unchanged new-xs+IH #'(τ ... . IHτs)
-                              #:process normalize))
+                    (ctx-adds ctxt-unchanged
+                              new-xs+IH
+                              #'(τ ... . IHτs) #:do normalize))
                   (ctx-append tmp-ctxt
                               (ctx-map
                                (subst-terms/es
@@ -571,12 +568,12 @@
               (if (stx-null? #'new-xs)
                   pf
                   #`(λ #,@new-xs+IH
-                      (λ #,@(for/list ([(x ty) ctxt-to-change])
-                              #`[#,x : #,(unexpand
-                                          (subst-terms
-                                           (cons #'Cinst #'τout-is)
-                                           (cons name #'(ival ...))
-                                           ty))])
+                      (λ #,@(ctx->stx ctxt-to-change
+                             #:do (compose
+                                   unexpand
+                                   (subst-terms/es
+                                    (cons #'Cinst #'τout-is)
+                                    (cons name #'(ival ...)))))
                         #,pf)))))])))
     
     (make-ntt-apply
@@ -586,13 +583,14 @@
        (quasisyntax/loc goal
          ((new-elim
            #,name
-          #,(with-syntax ([is (generate-temporaries #'(ival ...))])
+           #,(with-syntax ([is (generate-temporaries #'(ival ...))])
+               (define update-ty
+                 (compose unexpand (subst-terms/es #'is #'(ival ...))))
                #`(λ #,@#'is #,name
-                    (Π #,@(for/list ([(x ty) ctxt-to-change])
-                            #`[#,x : #,(subst-terms #'is #'(ival ...) ty)])
-                #,(unexpand (subst-terms #'is #'(ival ...) goal)))))
-          .
-          #,(map (λ (mk pf) (mk pf)) mk-elim-methods pfs))
+                    (Π #,@(ctx->stx ctxt-to-change #:do update-ty)
+                       #,(update-ty goal))))
+           .
+           #,(map (λ (mk pf) (mk pf)) mk-elim-methods pfs))
           #,@(ctx-ids ctxt-to-change))))))
 
   (define (split-fn ctxt pt)
