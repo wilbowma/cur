@@ -88,53 +88,6 @@
   ;; internal rewrite tactic --------------------
   ;; - surface tactics all defined in terms of this one
 
-  ;; MOVEME (to utils?):
-  ;; unify
-  ;; tries to unify e1 with e2, where bvs closes over e1
-  ;; returns list of (stx)pairs [x e], where x \in bvs, and e \in e2,
-  ;; or #f if the args cannot be unified
-  (define ((unify bvs) e1 e2)
-    ;; (printf "unify1: ~a\n" (syntax->datum e1))
-    ;; (printf "unify2: ~a\n" (syntax->datum e2))
-    (syntax-parse (list e1 e2)
-      [(x:id e) ; found a possible binidng
-       #:when (member #'x (syntax->list bvs) free-identifier=?)
-;       #:do[(printf "found: ~a = ~a\n" (stx->datum #'x) (stx->datum #'e))]
-       (list #'(x e))]
-      [((~and (~literal #%plain-app) x)
-        (~and (~literal #%plain-app) y))
-       #:do[(define da1 (syntax-property #'x 'display-as))
-            (define da2 (syntax-property #'y 'display-as))]
-       #:when (or (and da1 da2 (stx-e da1) (stx-e da2) (free-identifier=? da1 da2))
-                  (or (and (not da1) (not da2))
-                      (and (not da1) (not (stx-e da2))) ; why sometimes #'#f?
-                      (and (not (stx-e da1)) (not da2)))
-                  (and da1 da2 (not (stx-e da1)) (not (stx-e da2))))
-       null]
-      [((~and (~not (~literal #%plain-app)) x:id)
-        (~and (~not (~literal #%plain-app)) y:id))
-       #:when (free-identifier=? #'x #'y)
-       null]
-      [((e1 ...) (e2 ...))
-       #:do[(define e1-lst (syntax->list #'(e1 ...)))
-            (define e2-lst (syntax->list #'(e2 ...)))]
-       #:when (= (length e1-lst) (length e2-lst))
-       ;; performs a fold, but stops on first fail
-       (let L ([acc null] [e1s e1-lst] [e2s e2-lst])
-         (cond
-           [(and (null? e1s) (null? e2s)) acc]
-           [else
-            (define e1 (car e1s))
-            (define e2 (car e2s))
-            (define res ((unify bvs) e1 e2))
-            (and res
-                 (L (append res acc) (cdr e1s) (cdr e2s)))]))]
-      [((~and (~not (~literal #%plain-app)) d1) ; datums
-        (~and (~not (~literal #%plain-app)) d2))
-       #:when (equal? (syntax-e #'d1) (syntax-e #'d2))
-       null]
-      [_ #f]))
-
   ;; The theorem "H" to use for the rewrite is either:
   ;; - `thm` arg --- from previously defined define-theorem
   ;; - or (ctx-lookup ctxt name) --- usually an IH
@@ -406,8 +359,8 @@
                      e1 e2))
                   (stx-drop #'(e1 ...) (stx-length #'(A ...)))
                   (stx-drop #'(e2 ...) (stx-length #'(A ...)))
-                  (stx-cadr   ; find the matching constructor
-                   (stx-findf ; returns x+τs args for matching constructor
+                  (stx-cadr   ; returns x+τs + τout args for matching constructor
+                   (stx-findf ; find the matching constructor
                     (syntax-parser [(C:id . _) (stx-datum-equal? #'C #'C1)])
                     #'Cinfos)))
                  ;; found contradiction, produce False

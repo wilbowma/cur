@@ -4,7 +4,7 @@
  syntax/stx
  syntax/parse
  syntax/id-set
- (for-template turnstile/eval)
+ (for-template turnstile/eval (only-in cur/curnel/turnstile-impl/lang #%plain-app))
  macrotypes/stx-utils
  cur/curnel/turnstile-impl/reflection
  "../curnel/turnstile-impl/stxutils.rkt")
@@ -89,6 +89,9 @@
         (map (λ (e1) (subst-term v e0 e1 bvs)) (attribute e))))]
     [_ syn]))
 
+(define (subst-terms vs es syn)
+  (stx-fold (λ (v e res) (subst-term v e res (immutable-free-id-set))) syn vs es))
+
 (define ((subst-term/e v e0) syn [bvs (immutable-free-id-set)])
   (subst-term v e0 syn bvs))
 
@@ -106,4 +109,56 @@
          (has-term? e0 #'e (free-id-set-add bvs #'z)))]
     [(e ...)
      (ormap (λ (e1) (has-term? e0 e1 bvs)) (attribute e))]
+    [_ #f]))
+
+;; TODO: move me to separate file?
+;; TODO: use turnstile/type-constraints instead?
+;; unify
+;; tries to unify e1 with e2, where bvs closes over e1
+;; returns list of (stx)pairs [x e], where x \in bvs, and e \in e2,
+;; or #f if the args cannot be unified
+(define ((unify bvs) e1 e2)
+  ;; (printf "unify1: ~a\n" (stx->datum e1))
+  ;; (printf "unify2: ~a\n" (stx->datum e2))
+  (syntax-parse (list e1 e2)
+    [(x:id e) ; found a possible binidng
+     #:when (member #'x (stx->list bvs) free-identifier=?)
+     ;       #:do[(printf "found: ~a = ~a\n" (stx->datum #'x) (stx->datum #'e))]
+     (list #'(x e))]
+#;    [(e x:id) ; found a possible binidng
+     #:when (member #'x (stx->list bvs) free-identifier=?)
+     ;       #:do[(printf "found: ~a = ~a\n" (stx->datum #'x) (stx->datum #'e))]
+     (list #'(x e))]
+    [((~and (~literal #%plain-app) x)
+      (~and (~literal #%plain-app) y))
+     #:do[(define da1 (syntax-property #'x 'display-as))
+          (define da2 (syntax-property #'y 'display-as))]
+     #:when (or (and da1 da2 (stx-e da1) (stx-e da2) (free-identifier=? da1 da2))
+                (or (and (not da1) (not da2))
+                    (and (not da1) (not (stx-e da2))) ; why sometimes #'#f?
+                    (and (not (stx-e da1)) (not da2)))
+                (and da1 da2 (not (stx-e da1)) (not (stx-e da2))))
+     null]
+    [((~and (~not (~literal #%plain-app)) x:id)
+      (~and (~not (~literal #%plain-app)) y:id))
+     #:when (free-identifier=? #'x #'y)
+     null]
+    [((e1 ...) (e2 ...))
+     #:do[(define e1-lst (stx->list #'(e1 ...)))
+          (define e2-lst (stx->list #'(e2 ...)))]
+     #:when (= (length e1-lst) (length e2-lst))
+     ;; performs a fold, but stops on first fail
+     (let L ([acc null] [e1s e1-lst] [e2s e2-lst])
+       (cond
+         [(and (null? e1s) (null? e2s)) acc]
+         [else
+          (define e1 (car e1s))
+          (define e2 (car e2s))
+          (define res ((unify bvs) e1 e2))
+          (and res
+               (L (append res acc) (cdr e1s) (cdr e2s)))]))]
+    [((~and (~not (~literal #%plain-app)) d1) ; datums
+      (~and (~not (~literal #%plain-app)) d2))
+     #:when (equal? (syntax-e #'d1) (syntax-e #'d2))
+     null]
     [_ #f]))
