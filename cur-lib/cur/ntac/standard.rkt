@@ -444,7 +444,6 @@
       [(_ x #:as arg-namess) #'(fill (induction #'x #:as #'arg-namess))]))
 
   ;; TODO: similar to destruct; merge somehow?
-  ;; TODO: use match or elim as proof term?
   ;; TODO: currently only handles induction of an identifier (`name`)
   ;; maybe-xss+IH is new data constructor arg names to use (including IH)
   (define ((induction name #:as [maybe-xss+IH #f]) ctxt pt)
@@ -453,9 +452,7 @@
     (define name-ty (ctx-lookup ctxt name))
 
     (define/syntax-parse ; get define-datatype info (types are unexpanded)
-      (_ ([A _] ...) ; params
-         ([i _] ...) ; indices
-         (~and Cinfo [C ([x τ_] ... τout_) ((xrec . _) ...)]) ...)
+      (_ ([A _] ...) #;params ([i _] ...) #;indices Cinfo ...)
       (get-match-info name-ty))
 
     (define num-params (stx-length #'(A ...)))
@@ -465,38 +462,31 @@
           (λ (t) null)
           (λ (t) (stx-drop t (add1 num-params)))))
 
-    ;; new-xss+IH = either:
-    ;; maybe-xss+IH (if correct # arg names given)
-    ;; else, arg names (ie x ...) from extra-info (with scopes adjusted)
-    (define new-xss+IH
-      (if (and maybe-xss+IH (stx-length=? maybe-xss+IH #'(Cinfo ...))) ; enough sets of names given
-          (stx-map
-           (λ (new-xs xs xrecs)
-             (if (stx-length=? new-xs (stx-append xs xrecs))
-                 new-xs ; programmer supplied enough names for this data cons, incl IHs
-                 (stx-append ((freshens name) xs) ; else generate based on extra-info names
-                             ((freshens name)
-                              (stx-map
-                               (λ (x) (generate-temporary 'IH))
-                               xrecs)))))
-           maybe-xss+IH
-           #'((x ...) ...)
-           #'((xrec ...) ...))
-          (stx-map ; else generate based on extra-info names
-           (λ (xs xrecs)
-             (stx-append ((freshens name) xs)
-                         ((freshens name)
-                          (stx-map
-                           (λ (x) (generate-temporary 'IH))
-                           xrecs))))
-           #'((x ...) ...)
-           #'((xrec ...) ...))))
+    (when (and maybe-xss+IH (not (stx-length=? maybe-xss+IH #'(Cinfo ...))))
+      (raise-ntac-goal-exception
+       "induction: not enough sets of names: given ~a, expected ~a"
+       (stx-length maybe-xss+IH) (stx-length #'(Cinfo ...))))
 
     ;; infer from name-ty: params (Aval ...) and indices (ival ...)
     (define/syntax-parse ((Aval ...) (ival ...))
       (syntax-parse name-ty
         [((~literal #%plain-app) _ . name-ty-args)
          (stx-split-at #'name-ty-args num-params)]))
+
+    ;; stxs-to-change: parts of the goal (and ctxt tys) to update, in each subgoal.
+    ;; Consists of `name` and the index values from its type
+    (define stxs-to-change (cons name #'(ival ...)))
+
+    ;; mk-update: Stx Stxs -> (-> Ty Ty)
+    ;; Consumes an instance of the destructed term its new indices.
+    ;; Returns a function that updates a type by replacing any `stxs-to-change`
+    ;; with the given stxs
+    (define (mk-update #:inst inst #:idxs idxs)
+      (unless (stx-length=? #'(ival ...) idxs)
+        (raise-ntac-goal-exception
+         "induction: mk-update fn: wrong number of indices, given ~a, expected ~a"
+         (stx-length idxs) (stx-length #'(ival ...))))
+      (subst-terms/es (cons inst idxs) stxs-to-change))
 
     ;; modify ctxt:
     ;; 1) remove:
@@ -517,12 +507,23 @@
                    #'(ival ...))))))
 
     ;; generate subgoals and elim methods in one pass
+    ;; subgoals: list of ntt proof tree nodes
+    ;; mk-elim-methods: list of fns that turn a proof term into an elim method
     (define-values (subgoals mk-elim-methods)
       (for/lists (subgoals mk-elim-methods)
-                 ([new-xs+IH (in-stx-list new-xss+IH)]
+                 ([maybe-xs+IH (if maybe-xss+IH
+                                   (in-stx-list maybe-xss+IH)
+                                   (stx-map (λ _ #'()) #'(Cinfo ...)))] ; names not given, gen tmp for now
                   [Cinfo (in-stx-list #'(Cinfo ...))])
         (syntax-parse Cinfo
           [[C ([x τ_] ... τout_) ((xrec . _) ...)]
+           #:do[(define new-xs+IH ; make sure enough names supplied
+                  (if (stx-length=? maybe-xs+IH #'(x ... xrec ...))
+                      maybe-xs+IH
+                      (stx-append ; else generate based on extra-info names
+                       ((freshens name) #'(x ...))
+                       ((freshens name)
+                        (stx-map (λ _ (generate-temporary 'IH)) #'(xrec ...))))))]
            #:with (new-xs _) (stx-split-at new-xs+IH (stx-length #'(x ...)))
            #:with (τ ... τout) (substs #'(Aval ... . new-xs)
                                        #'(A ... x ...)
@@ -531,50 +532,31 @@
                                   [τ (in-stx-list #'(τ ...))]
                                   [x (in-stx-list #'(x ...))]
                                   #:when (stx-member x #'(xrec ...)))
-                         ;; τ-is = indices from τ (the type of the rec arg)
-                         ;; IH type must use these instead of ival ...
-                         (define τ-is (get-idxs τ)) ; indices from τ of rec arg
-                         (define update-ty
-                           (subst-terms/es (cons new-x τ-is) (cons name #'(ival ...))))
+                         (define update-IH-ty
+                           (mk-update #:inst new-x #:idxs (get-idxs τ)))
                          ;; IH must include changed ctxt bindings
-                         #`(-> #,@(ctx-tys->stx ctxt-to-change #:do update-ty)
-                               #,(update-ty goal)))
-           ;; construct the instance of this constructor
-           #:with Cinst (if (and (stx-null? #'new-xs) (stx-null? #'(A ...)))
-                            #'C
-                            #`(C Aval ... . new-xs))
-           #:with τout-is (get-idxs #'τout) ; indices from τout
-           #:do[(define (update-ctxt old-ctxt)
+                         #`(-> #,@(ctx-tys->stx ctxt-to-change #:do update-IH-ty)
+                               #,(update-IH-ty goal)))
+           #:do[(define update-ty
+                  (mk-update #:inst #'(C Aval ... . new-xs) #:idxs (get-idxs #'τout)))
+                (define (update-ctxt old-ctxt)
                   (define tmp-ctxt
                     (ctx-adds ctxt-unchanged
                               new-xs+IH
                               #'(τ ... . IHτs) #:do normalize))
                   (ctx-append tmp-ctxt
                               (ctx-map
-                               (subst-terms/es
-                                (cons (normalize #'Cinst tmp-ctxt) #'τout-is)
-                                (cons name #'(ival ...)))
+                               (compose (normalize/ctxt tmp-ctxt) update-ty)
                                ctxt-to-change)))]
            (values
             (make-ntt-context ; subgoal
              update-ctxt
              (make-ntt-hole
-              (normalize
-               (subst-terms (cons #'Cinst #'τout-is)
-                            (cons name #'(ival ...))
-                            goal)
-               (update-ctxt ctxt))))
-            (λ (pf)           ; fn makes elim method from a proof term `pf`
-              (if (stx-null? #'new-xs)
-                  pf
-                  #`(λ #,@new-xs+IH
-                      (λ #,@(ctx->stx ctxt-to-change
-                             #:do (compose
-                                   unexpand
-                                   (subst-terms/es
-                                    (cons #'Cinst #'τout-is)
-                                    (cons name #'(ival ...)))))
-                        #,pf)))))])))
+              (normalize (update-ty goal) (update-ctxt ctxt))))
+            (λ (pf)           ; fn to make elim method from a proof term
+              #`(λ #,@new-xs+IH
+                  (λ #,@(ctx->stx ctxt-to-change #:do (compose unexpand update-ty))
+                    #,pf))))])))
     
     (make-ntt-apply
      goal
@@ -584,13 +566,13 @@
          ((new-elim
            #,name
            #,(with-syntax ([is (generate-temporaries #'(ival ...))])
-               (define update-ty
+               (define update-Prop-ty
                  (compose unexpand (subst-terms/es #'is #'(ival ...))))
                #`(λ #,@#'is #,name
-                    (Π #,@(ctx->stx ctxt-to-change #:do update-ty)
-                       #,(update-ty goal))))
+                    (Π #,@(ctx->stx ctxt-to-change #:do update-Prop-ty)
+                       #,(update-Prop-ty goal))))
            .
-           #,(map (λ (mk pf) (mk pf)) mk-elim-methods pfs))
+           #,(map (λ (pf->meth pf) (pf->meth pf)) mk-elim-methods pfs))
           #,@(ctx-ids ctxt-to-change))))))
 
   (define (split-fn ctxt pt)
