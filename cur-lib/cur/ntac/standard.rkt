@@ -95,6 +95,7 @@
   (define (current-proof-add! stx)
     (set! current-proof (cons stx current-proof)))
 (define (interactive ptz)
+  (current-tracing? 1)
   (display-focus ptz)
   (define cmd-stx
     (let/ec esc
@@ -118,6 +119,7 @@
          (λ (stx) (printf "~a\n" (syntax->datum stx)))
          (reverse (stx->list current-proof)))
         (reset-current-proof!)
+        (current-tracing? #f)
         next-ptz)
       (interactive next-ptz))))
 
