@@ -93,14 +93,14 @@
   [(_ y:id e) ⇐ (~Π [x:id : τ_in] τ_out) ≫
    [[x ≫ x- : τ_in] ⊢ #,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]
    ---------
-   [⊢ (λ- (x-) e-)]]
+   [⊢ (λ- (x-) e-) ⇒ (Π [x : τ_in] #,(syntax-parse (typeof #'e-) [~Type #'Type][_ #'τ_out]))]]
   ;; both expected ty and annotations
   [(_ [y:id (~datum :) τ_in*] e) ⇐ (~Π [x:id : τ_in] τ_out) ≫
    [⊢ τ_in* ≫ τ_in** ⇐ Type]
    #:when (typecheck? #'τ_in** #'τ_in)
-   [[x ≫ x- : τ_in] ⊢ #,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]
+   [[x ≫ x- : τ_in] ⊢ [#,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]]
    -------
-   [⊢ (λ- (x-) e-)]]
+   [⊢ (λ- (x-) e-) ⇒ (Π [x : τ_in] #,(syntax-parse (typeof #'e-) [~Type #'Type][_ #'τ_out]))]]
   ;; annotations only
   [(_ [x:id (~datum :) τ_in] e) ≫
    [[x ≫ x- : τ_in] ⊢ [e ≫ e- ⇒ τ_out] [τ_in ≫ τ_in- ⇒ _]]
