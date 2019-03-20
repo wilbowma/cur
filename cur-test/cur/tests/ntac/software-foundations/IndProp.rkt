@@ -199,7 +199,22 @@
   (by-apply IH1)
   (by-apply H1))
 
+(define-theorem le-trans/new-induction
+  (forall [m n o : nat]
+          (-> (le m n) (le n o) (le m o)))
+  (by-intros m n o H1 H2)
+  (by-induction H2
+   [(le-n n1) #:subgoal-is (le m n1)
+    (by-apply H1)]
+   [(le-S n1 o1 H3 IH1) #:subgoal-is (le m (S o1))
+    (by-apply le-S)
+    (by-apply IH1)
+    (by-apply H1)]))
+
 (check-type le-trans
+  : (forall [m n o : nat]
+            (-> (le m n) (le n o) (le m o))))
+(check-type le-trans/new-induction
   : (forall [m n o : nat]
           (-> (le m n) (le n o) (le m o))))
 

@@ -4,7 +4,9 @@
 (require
  "../stdlib/sugar.rkt"
  (only-in racket [define r:define])
- (for-syntax "ctx.rkt" racket/match racket/list racket/pretty))
+ (for-syntax "ctx.rkt"
+             macrotypes/stx-utils
+             racket/match racket/list racket/pretty))
 
 (provide
  define-theorem
@@ -42,6 +44,7 @@
    proof-tree->complete-term
    eval-proof-script
    eval-proof-step
+   eval-proof-steps
    ntac-proc)
 
   ;; NTac proof Tree
@@ -138,7 +141,7 @@
       (define final-pt
         (eval-proof-script
          init-pt
-         (syntax->list ps)
+         ps
          ctxt
          ps))
       (define pf
@@ -149,9 +152,11 @@
       pf))
 
   (define (eval-proof-script pt psteps ctxt [err-stx #f])
-    (define last-nttz
-      (for/fold ([nttz (make-nttz pt ctxt)])
-                ([pstep-stx (in-list psteps)])
+    (qed (eval-proof-steps (make-nttz pt ctxt) psteps) err-stx))
+
+  (define (eval-proof-steps ptz psteps)
+    (for/fold ([nttz ptz])
+              ([pstep-stx (in-stx-list psteps)])
         (when (and (current-tracing?)
                    (not (equal? 'display-focus (syntax-e pstep-stx))))
           (printf "****************************************\n")
@@ -160,7 +165,6 @@
                   (syntax->datum pstep-stx))
           (current-tracing? (add1 (current-tracing?))))
         (eval-proof-step nttz pstep-stx)))
-    (qed last-nttz err-stx))
 
   (define (eval-proof-step nttz pstep-stx)
     ;; XXX Error handling on eval
