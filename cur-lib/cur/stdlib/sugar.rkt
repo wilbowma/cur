@@ -314,6 +314,9 @@
              null)
         [(_ X ... ~!) ≫ --- [≻ (name X ...)]] ; can still use name* with explicit args
         [(_ . Ys) ⇐ τ_expected ≫ #:with ~! #'commit-dont-backtrack
+         #:fail-unless (<= (stx-length #'Ys) (stx-length #'τexplicits))
+                       (format "wrong number of args, expected ~a, given: ~a"
+                               (stx-length #'τexplicits) (stx->datum #'Ys))
 ;        [⊢ Y ≫ Y- ⇒ τY] ... ; cant do this bc may have to skip some (eg the args to infer types)
        #:do[(define constraints ; = [Pair typeof-Y τexplicit], but only for non 'inf args
               (for/list ([maybe-infer (in-stx-list #'infers)]
