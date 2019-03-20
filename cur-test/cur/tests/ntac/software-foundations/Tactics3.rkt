@@ -89,13 +89,9 @@
   (by-destruct m #:as [() (m-1)])
   reflexivity ; 1a
   (by-inversion H #:as H1) ; 1b
-  elim-False
-  by-assumption
   (by-intros m H) ; 2
   (by-destruct m #:as [() (m-1)])
   (by-inversion H #:as H1) ; 2a
-  elim-False
-  by-assumption
   (by-apply f-equal #:with nat nat S n-1 m-1) ; 2b ; unify doesnt find f-equal's A arg
   (by-apply IH)
   (by-inversion H #:as H2)
@@ -117,13 +113,9 @@
   (by-destruct m #:as [() (m-1)])
   reflexivity ; 1a
   (by-inversion H) ; 1b
-  elim-False
-  by-assumption
   (by-intros m H) ; 2
   (by-destruct m #:as [() (m-1)])
   (by-inversion H) ; 2a
-  elim-False
-  by-assumption
   (by-apply f-equal #:with nat nat S n-1 m-1) ; 2b
   (by-apply IH)
   (by-inversion H #:as H1)
@@ -141,13 +133,9 @@
   (by-destruct n #:as [() (n-1)])
   reflexivity ; 1a
   (by-inversion H) ; 1b
-  elim-False
-  by-assumption
   (by-intros n H) ; 2
   (by-destruct n #:as [() (n-1)])
   (by-inversion H) ; 2a
-  elim-False
-  by-assumption
   (by-apply f-equal #:with nat nat S n-1 m-1) ; 2b
   (by-apply IH)
   (by-inversion H #:as H1)
@@ -172,4 +160,4 @@
   (by-apply beq-nat-true) ; prove m = n
   (by-apply H)
   (by-rewrite H1) ; return to orig goal
-  reflexivity) 
+  reflexivity)

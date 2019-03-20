@@ -49,7 +49,6 @@
   reflexivity)
 
 (define-theorem length-app-sym/abbrv
-;(ntac/trace
   (∀ [X : Type] [l1 : (list X)] [l2 : (list X)] [x : X] [n : nat]
      (-> (== (length (app l1 l2)) n)
          (== (length (app l1 (cons x l2))) (S n))))
@@ -65,12 +64,10 @@
   (by-destruct n)
   ;; destruct 2a: z -----
   (by-inversion H46)
-  elim-False
-  (by-assumption)
   ;; destruct 2b: (s n-1) -----
   (by-apply IH44)
-  (by-inversion H46) ; adds H51
-  (by-rewrite H51)
+  (by-inversion H46) ; adds Heq54
+  (by-rewrite Heq54)
   reflexivity)
 
 (check-type length-app-sym/abbrv

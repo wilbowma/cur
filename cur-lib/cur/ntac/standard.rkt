@@ -1,6 +1,6 @@
 #lang s-exp "../main.rkt"
 
-(provide (for-syntax (all-defined-out)))
+(provide (for-syntax (all-defined-out) inversion))
 
 (require
  (for-syntax "ctx.rkt" "utils.rkt"
@@ -16,7 +16,8 @@
              (for-syntax racket/base syntax/parse syntax/stx))
  "../stdlib/prop.rkt"
  "../stdlib/sugar.rkt"
- "base.rkt")
+ "base.rkt"
+ "inversion.rkt")
 
 ;; define-nttz-cmd ?
 (define-for-syntax (nop ptz) ptz)
@@ -328,10 +329,10 @@
       (get-match-info e-ty))
 
     (define num-params (stx-length #'(A ...)))
-    (define num-idxs (stx-length #'(i ...)))
+    (define num-idxs   (stx-length #'(i ...)))
     
     (define get-idxs ; extract indices from *unexpanded* (curried single-app) type
-      (if (stx-null? #'(i ...))
+      (if (zero? num-idxs)
           (λ (t) null)
           (λ (t) (get-idxs/unexp t num-idxs))))
 
@@ -703,4 +704,26 @@
              (eval-proof-step ptz #`(try (by-apply #,(datum->syntax #'T name)))))
            #:final (not (eq? ptz next-ptz))
            next-ptz))]))
+
+  (define-syntax (by-inversion syn)
+    (syntax-parse syn
+      [(_ H) #'(fill (inversion #'H))]
+      [(_ H #:as name:id ...) #'(fill (inversion #'H #'[(name ...)]))]
+      [(_ H #:as (names ...)) #'(fill (inversion #'H #'(names ...)))]))
+
+  (define-syntax (elim-False syn)
+    (syntax-parse syn
+      [:id #'(fill (elim-False-fn))]))
+  (define ((elim-False-fn) ctxt pt)
+    (match-define (ntt-hole _ goal) pt)
+    (make-ntt-apply
+     goal
+     (list (make-ntt-hole (normalize #'False ctxt)))
+     (λ (body-pf) ; proof of false
+       (quasisyntax/loc goal
+         (new-elim #,body-pf (λ y #,(unexpand goal)))))))
+
+  (define-syntax (by-discriminate syn)
+    (syntax-case syn ()
+      [(_ H) #'(fill (inversion #'H))]))
 )

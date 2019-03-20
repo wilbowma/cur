@@ -81,7 +81,7 @@
           ((nil*) 0)
           ((cons* g17 g18) g17)))
   (cons* nat 1 (nil* nat))
-  (cons* nat 1 (nil* nat)) 
+  (cons* nat 1 (nil* nat))
   (refl (list nat) (lst 1)))
  : (== 1 1))
 
@@ -209,7 +209,7 @@
   (by-intros n H)
   (by-destruct n #:as [() (n-1)])
   reflexivity ; 1
-  (by-discriminate H)) ; 2
+  (by-inversion H)) ; 2
 
 (check-type beq-nat-0l
  :  (forall [n : nat]
@@ -225,17 +225,13 @@
           (-> (== (S n) O)
               (== (plus 2 2) 5)))
   (by-intros n H)
-  (by-inversion H)
-  elim-False
-  by-assumption)
+  (by-inversion H))
 
 (define-theorem inversion-ex5
   (forall (n m : nat)
           (-> (== false true) (== (lst n) (lst m))))
   (by-intros n m H)
-  (by-inversion H)
-  elim-False
-  by-assumption)
+  (by-inversion H))
 
 ;; generates False proof term for lists
 (define-theorem inversion-ex6
@@ -246,6 +242,4 @@
               (== (:: y l) (:: z j))
               (== x z)))
   (by-intros X x y z l j H1 H2)
-  (by-inversion H1)
-  elim-False
-  by-assumption)
+  (by-inversion H1))
