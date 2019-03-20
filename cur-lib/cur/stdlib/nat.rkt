@@ -2,8 +2,8 @@
 
 ;; TODO: override (all-defined-out) to enable exporting these properly.
 (provide #%datum Nat elim-Nat
-         z s (for-syntax z s)
-         add1 sub1 plus mult zero? exp square nat-equal? even?)
+         z s (for-syntax z s ~Nat)
+         add1 sub1 plus minus mult zero? exp square nat-equal? even? <=)
 
 (require "datum.rkt" "sugar.rkt" "bool.rkt")
 
@@ -135,6 +135,11 @@
 (define/rec/match plus : Nat [n : Nat] -> Nat
   [z => n]
   [(s x) => (s (plus x n))])
+
+(define/rec/match minus : Nat Nat -> Nat
+  [z _ => z]
+  [(s n-1) z => (s n-1)]
+  [(s n-1) (s m-1) => (minus n-1 m-1)])
 
 ;; mult, using elim-Nat
 #;(define mult
@@ -359,3 +364,8 @@
 
 #;(define (odd? (n : Nat))
   (not (even? n)))
+
+(define/rec/match <= : Nat Nat -> Bool
+  [z _ => true]
+  [(s n*) z => false]
+  [(s n*) (s m*) => (<= n* m*)])
