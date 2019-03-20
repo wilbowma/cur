@@ -189,13 +189,9 @@
   (by-destruct l2 #:as [() (h2 tl2)])
   reflexivity ;1a
   (by-inversion H) ;1b
-  elim-False
-  by-assumption
   (by-intros l2 H) ;2
   (by-destruct l2 #:as [() (h2 tl2)])
   (by-inversion H) ;2a
-  elim-False
-  by-assumption
   (by-inversion H #:as H1);2b
   (by-apply IH #:in H1)
   (by-rewrite H1)

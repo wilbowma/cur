@@ -97,13 +97,16 @@
   (by-apply evSS) ;2
   (by-apply IH))
 
-;; TODO: support inversion of arbitrary datatypes
-#;(define-theorem ev-minus2
-  (forall [n : nat] (-> (ev n) (ev (pred (pred n)))))
+(define-theorem ev-minus2
+  (∀ [n : nat] (-> (ev n) (ev (pred (pred n)))))
   (by-intros n E)
-  (by-inversion E #:as [() (n1 E1)])
-  (by-apply ev0) ;1
-  (by-apply E1)) ;2
+  (by-inversion E #:as [(Heq) (n1 E1 Heq)])
+  ;; subgoal 1
+  (by-rewriteL Heq)
+  (by-apply ev0)
+  ;; subgoal 2
+  (by-rewriteL Heq)
+  (by-apply E1))
 
 ;; ev-minus2 raw term:
 
@@ -157,6 +160,20 @@
 (check-type ev-minus2/destruct
   : (forall [n : nat] (-> (ev n) (ev (pred (pred n))))))
 
+(define-theorem true-isnt-false/inversion (Not (== true false))
+ (by-intro H)
+ (by-inversion H))
+
+(define-theorem not-ev-3/inversion (Not (ev 3))
+  (by-intros E)
+  (by-inversion E #:as [() (n1 E1 Heq)])
+  ; TODO: automatically rewrite Heq into context
+  ; or at least, support (by-rewrite ... #:in H)
+  (by-assert H (ev 1))
+  (by-rewriteL Heq)
+  (by-apply E1)
+  (by-inversion H))
+
 ;; test more than 1 index
 (define-datatype le : (-> [n : nat] [m : nat] Prop)
   [le-n : (-> [n : nat] (le n n))]
@@ -171,7 +188,7 @@
   (by-apply le-S)
   (by-apply le-S)
   (by-apply le-S)
-  (by-apply le-n))  
+  (by-apply le-n))
 
 ;; le-trans raw term
 (check-type
