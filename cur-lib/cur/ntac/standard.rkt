@@ -123,11 +123,10 @@
         next-ptz)
       (interactive next-ptz))))
 
-(define-for-syntax ((fill t) ptz)
+(define-for-syntax ((fill t #:rest [psteps #'()]) ptz)
   (define new-foc (t (nttz-context ptz) (nttz-focus ptz)))
   ;; XXX Maybe new-foc could be #f for failure?
-  (next
-   (struct-copy nttz ptz [focus new-foc])))
+  (eval-proof-steps (next (struct-copy nttz ptz [focus new-foc])) psteps))
 
 ;; meta tactic; not a tactic (which take tacticals); takes a tactic.
 (define-for-syntax ((try t) ptz)
@@ -443,12 +442,15 @@
   (define-syntax (by-induction syn)
     (syntax-case syn ()
       [(_ x) #'(fill (induction #'x))]
-      [(_ x #:as arg-namess) #'(fill (induction #'x #:as #'arg-namess))]))
+      [(_ x #:as arg-namess) #'(fill (induction #'x #:as #'arg-namess))]
+      [(_ H [(C x ...) #:subgoal-is subg tac ...] ...)
+       #'(fill (induction #'H #:as #'((x ...) ...) #:subgoals #'(subg ...))
+               #:rest #'(tac ... ...))]))
 
   ;; TODO: similar to destruct; merge somehow?
   ;; TODO: currently only handles induction of an identifier (`name`)
   ;; maybe-xss+IH is new data constructor arg names to use (including IH)
-  (define ((induction name #:as [maybe-xss+IH #f]) ctxt pt)
+  (define ((induction name #:as [maybe-xss+IH #f] #:subgoals [expected-subgoals #f]) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
 
     (define name-ty (ctx-lookup ctxt name))
@@ -559,6 +561,18 @@
               #`(λ #,@new-xs+IH
                   (λ #,@(ctx->stx ctxt-to-change #:do (compose unexpand update-ty))
                     #,pf))))])))
+
+    ;; check if supplied subgoals match actual
+    (when (and expected-subgoals (stx-length=? expected-subgoals subgoals))
+      (for ([subg subgoals]
+            [exp-subg (in-stx-list expected-subgoals)])
+        (match subg
+          [(ntt-context _ _ update (ntt-hole _ subgoal))
+           (unless (typecheck? subgoal (normalize exp-subg (update ctxt)))
+             (raise-ntac-goal-exception
+              "induction: encountered subgoal ~a that does not match expected: ~a"
+              (stx->datum (resugar-type subgoal))
+              (stx->datum exp-subg)))])))
     
     (make-ntt-apply
      goal
