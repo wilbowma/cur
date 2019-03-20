@@ -2,7 +2,7 @@
 (require "sugar.rkt")
 
 (provide Bool elim-Bool true false
-         (for-syntax true false)
+         (for-syntax true false ~Bool)
          if not and or bool-equal?)
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
@@ -18,17 +18,17 @@
   ----------
   [≻ (elim-Bool tst (λ [b : Bool] τ) e1- e2-)])
 
-(define (not (x : Bool)) (if x false true))
+(define/rec/match not : Bool -> Bool
+  [true => false]
+  [false => true])
 
-(define (and (x : Bool) (y : Bool))
-  (if x
-      y
-      false))
+(define/rec/match and : Bool [b : Bool] -> Bool
+  [true => b]
+  [false => false])
 
-(define (or (x : Bool) (y : Bool))
-  (if x
-      true
-      y))
+(define/rec/match or : Bool [b : Bool] -> Bool
+  [true => true]
+  [false => b])
 
 (define (bool-equal? [b1 : Bool] [b2 : Bool])
   (or (and b1 b2)
