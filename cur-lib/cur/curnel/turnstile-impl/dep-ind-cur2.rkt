@@ -61,7 +61,61 @@
 (define-syntax TypeTop (make-variable-like-transformer #'(Type 99)))
 
 ;; old Π/c now Π, old Π now Π/1
-(define-type Π #:with-binders [X : TypeTop] : TypeTop -> Type)
+#;(define-type Π #:with-binders [X : TypeTop] : TypeTop -> Type)
+
+(struct Π- (a f) #:transparent #:omit-define-syntaxes) ; runtime representation
+#;(define-internal-binding-type Π-)
+
+(define-typed-syntax Π
+  ; Impredicative rule
+  [(_ (x:id (~datum :) τₐ) τᵣ) ≫
+   [⊢ τₐ ≫ τₐ- ⇒ (~Type j:nat)]
+   [[x ≫ x- : τₐ] ⊢ τᵣ ≫ τᵣ- ⇒ (~Type i:nat)]
+   #:when (eq? 0 (syntax->datum #'i))
+   ------------------------------
+   [⊢ (Π- τₐ- (λ (x-) τᵣ-)) ⇒ Type]]
+
+  ; Predicative rule
+  [(_ (x:id (~datum :) τₐ) τᵣ) ≫
+   [⊢ τₐ ≫ τₐ- ⇒ (~Type j:nat)]
+   [[x ≫ x- : τₐ] ⊢ τᵣ ≫ τᵣ- ⇒ (~Type i:nat)]
+   #:with k (max (syntax->datum #'i) (syntax->datum #'j))
+   ------------------------------
+   [⊢ (Π- τₐ- (λ (x-) τᵣ-)) ⇒ (Type k)]]
+
+  ;; Error rules
+  [(_ (x:id (~datum :) τₐ) τᵣ) ≫
+   [⊢ τₐ ≫ τₐ- ⇒ (~Type j:nat)]
+   [[x ≫ x- : τₐ] ⊢ τᵣ ≫ τᵣ- ⇒ (~Type i:nat)]
+   -----------------
+   [#:error (type-error #:src #'τₐ #:msg "Universe inconsistency: A function's argument and return types must exist in a consistent universe, but ~a lives in universe (Type ~a) while ~a lives in universe (Type ~a)." #'τₐ #'j #'τᵣ #;(syntax-property #'τᵣ 'origin) #'i)]]
+  [(_ (x:id (~datum :) τₐ) τᵣ) ≫
+   [⊢ τₐ ≫ τₐ- ⇒ (~Type j:nat)]
+   [[x ≫ x- : τₐ] ⊢ τᵣ ≫ τᵣ- ⇒ B]
+   -----------------
+   [#:error (type-error #:src #'τᵣ #:msg "Universe inconsistency: A function's argument and return types must exist in a consistent universe, but ~a has type ~a which is not a universe" #'τᵣ #'B)]]
+  [(_ (x:id (~datum :) τₐ) τᵣ) ≫
+   [⊢ τₐ ≫ τₐ- ⇒ A]
+   -----------------
+   [#:error (type-error #:src #'τₐ #:msg "Universe inconsistency: A function's argument and return types must exist in a consistent universe, but ~a has type ~a which is not a universe" #'τₐ #'A)]]
+  [(_ ...) ≫
+   -----------------
+   [#:error (raise-syntax-error 'Π "A Π type must be of the general form (Π (name : argument-type) result-type). For example, (Π (x : Nat) Nat)")]])
+
+(begin-for-syntax
+  (define Π-id (expand/df #'Π-))
+  (define-syntax ~Π
+    (pattern-expander
+     (syntax-parser
+       [(_ (x:id (~datum :) A) B)
+        #'(~or
+           ((~literal #%plain-app) ; expanded
+            (~and C:id ; TODO: this free-id=? sometimes fails
+                  (~fail #:unless (stx-datum-equal? #;free-identifier=? #'C Π-id)
+                         (format "type mismatch, expected Type, given ~a"
+                                 (syntax->datum #'C))))
+            A
+            (#%plain-lambda (x) B)))])) ))
 
 ;; type check relation --------------------------------------------------------
 ;; - must come after type defs
