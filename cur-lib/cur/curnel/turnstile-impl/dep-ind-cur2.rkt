@@ -35,26 +35,22 @@
                               (format "type mismatch, expected Type, given ~a"
                                       (syntax->datum #'C))))
             ((~literal quote) n)))])))
-  (define Type- (type-info #f (λ _ #'Type) (λ _ #'Type)))) ; type info
+  (define Type-
+    (type-info
+     #f ; match info
+     (syntax-parser [(~Type n) (if (= 99 (stx-e #'n)) #'Type #'(Type n))]) ; resugar
+     (syntax-parser [(~Type n) (if (= 99 (stx-e #'n)) #'TypeTop #'(Type n))]))) ; unexpand
+  )
 
 (define-typed-syntax Type
   [:id ≫ --- [≻ (Type 0)]]
   [(_ n:exact-nonnegative-integer) ≫
    #:with n+1 (+ (syntax-e #'n) 1)
   -------------
-  [≻ #,(syntax-property
-        (syntax-property 
-         (syntax/loc this-syntax
-           (Type- 'n)) ':
-         (syntax-property
-          (syntax/loc this-syntax
-            (Type n+1))
-          'orig
-          (list (syntax/loc this-syntax
-                  (Type n+1)))))
-        'orig
-        (list (syntax/loc this-syntax
-                (Type n))))]])
+  [≻ #,(syntax-property 
+         (syntax/loc this-syntax (#%plain-app Type- 'n))
+         ':
+          (syntax/loc this-syntax (Type n+1)))]])
 
 ;; for convenience, Type that is a supertype of all (Type n)
 ;; TODO: get rid of this?

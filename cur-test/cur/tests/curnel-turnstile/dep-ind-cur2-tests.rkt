@@ -30,7 +30,7 @@
 (check-type (Type 3) : (Type 4) -> (Type 3))
 
 (typecheck-fail ((λ [x : Type] x) Type)
-  #:with-msg "expected Type, given \\(Type 1\\)")
+  #:with-msg "expected \\(Type 0\\), given \\(Type 1\\)")
 (check-type ((λ [x : (Type 1)] x) Type) : (Type 1))
 (check-type ((λ [x : (Type 2)] x) (Type 1)) : (Type 2))
 

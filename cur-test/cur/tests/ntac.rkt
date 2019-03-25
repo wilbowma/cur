@@ -25,34 +25,34 @@
  #;by-assumption
  ~>
  --------------------------------
- (Π (A : Type) (B : Type) (c : (And A B)) Type)
+ (Π (A : (Type 0)) (B : (Type 0)) (c : (And A B)) (Type 0))
 
  --------------------------------
- (Π (A : Type) (B : Type) (c : (And A B)) Type)
+ (Π (A : (Type 0)) (B : (Type 0)) (c : (And A B)) (Type 0))
 
  --------------------------------
- (Π (A : Type) (B : Type) (c : (And A B)) Type)
+ (Π (A : (Type 0)) (B : (Type 0)) (c : (And A B)) (Type 0))
 
- A- : Type
+ A- : (Type 0)
  --------------------------------
- (Π (B : Type) (c : (And A- B)) Type)
+ (Π (B : (Type 0)) (c : (And A- B)) (Type 0))
 
- A- : Type
- B : Type
+ A- : (Type 0)
+ B : (Type 0)
  --------------------------------
- (Π (c : (And A- B)) Type)
+ (Π (c : (And A- B)) (Type 0))
 
- A- : Type
- B : Type
+ A- : (Type 0)
+ B : (Type 0)
  c : (And A- B)
  --------------------------------
- Type
+ (Type 0)
 
- A- : Type
- B : Type
+ A- : (Type 0)
+ B : (Type 0)
  c : (And A- B)
  --------------------------------
- Type)
+ (Type 0))
 
 ;; Not quite and-proj1; need elim for that.
 

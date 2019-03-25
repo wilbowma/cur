@@ -13,10 +13,10 @@
 
 (check-type (or_introL True False I) : (Or True False))
 (check-type (or_introL True True I) : (Or True True))
-(typecheck-fail (or_introL False True I) #:with-msg "expected.*X.*given.*True")
+(typecheck-fail (or_introL False True I) #:with-msg "expected.*False.*given.*True")
 (check-type (or_introR False True I) : (Or False True))
 (check-type (or_introR True True I) : (Or True True))
-(typecheck-fail (or_introR True False I) #:with-msg "expected.*Y.*given.*True")
+(typecheck-fail (or_introR True False I) #:with-msg "expected.*False.*given.*True")
 
 (check-type (tauto True) : True)
 (check-type (tauto (And True True)) : (And True True))

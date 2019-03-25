@@ -45,5 +45,5 @@
 (check-type (cons* 1 nil*) : (list Nat))
 (check-type (repeat* 4 2) : (list Nat) -> (repeat Nat 4 2))
 
-(typecheck-fail (cons* 1 (nil Bool)) ; TODO: improve this msg
-                #:with-msg "expected.*list.*Nat")
+(typecheck-fail (cons* 1 (nil Bool))
+ #:with-msg "cons\\*:.*expected:.*Nat, \\(list Nat\\).*given:.*Nat, \\(list Bool\\)")
