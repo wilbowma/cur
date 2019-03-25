@@ -67,18 +67,16 @@
 (check-type (list-ref Nat) : (-> Nat (List Nat) (Maybe Nat)))
 (check-type (list-ref (List Nat)) : (-> Nat (List (List Nat)) (Maybe (List Nat))))
 (check-type (list-ref Bool z) : (-> (List Bool) (Maybe Bool)))
-;; TODO: fix this err msg
 (typecheck-fail (list-ref Bool z (nil Nat))
-;                #:with-msg "expected (List Bool), given (List Nat)")
-                #:with-msg "expected \\(List Bool\\), given \\(List A\\)")
+                #:with-msg "expected \\(List Bool\\), given \\(List Nat\\)")
+
 (check-type ((list-ref Bool z) (nil Bool)) : (Maybe Bool) -> (none Bool))
 
 (check-type (length Nat (nil Nat)) : Nat -> 0)
 (check-type (length Bool (nil Bool)) : Nat -> 0)
-;; TODO: fix this err msg
 (typecheck-fail (length Bool (nil Nat))
-;                #:with-msg "expected (List Bool), given (List Nat)")
-                #:with-msg "expected \\(List Bool\\), given \\(List A\\)")
+                #:with-msg "expected \\(List Bool\\), given \\(List Nat\\)")
+
 (check-type (length Nat (cons Nat z (nil Nat))) : Nat -> 1)
 
 (check-type
@@ -107,8 +105,7 @@
 (check-type ((list-append Nat) (nil Nat)) : (-> (List Nat) (List Nat)))
 (check-type (((list-append Nat) (nil Nat)) (nil Nat)) : (List Nat) -> (nil Nat))
 (typecheck-fail (((list-append Nat) (nil Nat)) (nil Bool))
-                ;; TODO: fixme
-                #:with-msg "expected \\(List A\\), given \\(List A\\)")
+                  #:with-msg "expected \\(List Nat\\), given \\(List Bool\\)")
 
 ;; non-full app, with non-nil args: exercises the 2nd match clause
 (check-type (cons Nat 1 (nil Nat)) : (List Nat))

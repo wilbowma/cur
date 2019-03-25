@@ -4,7 +4,7 @@
 (define build-deps
   '("base"
     "rackunit-lib"
-    ("cur-lib" #:version "0.40")
+    ("cur-lib" #:version "0.42")
     "sweet-exp-lib"
     "chk-lib"
     "rackunit-macrotypes-lib"))

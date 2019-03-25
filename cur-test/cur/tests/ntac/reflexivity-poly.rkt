@@ -20,9 +20,9 @@
  reflexivity
  ~>
  --------------------------------
- (Π (X : Type) (== (list X) (nil* X) (nil* X)))
+ (Π (X : (Type 0)) (== (list X) (nil* X) (nil* X)))
  
- X : Type
+ X : (Type 0)
  --------------------------------
  (== (list X) (nil* X) (nil* X)))
 
@@ -33,9 +33,9 @@
  reflexivity
  ~>
  --------------------------------
- (Π (X : Type) (== (list X) (nil* X) (nil* X)))
+ (Π (X : (Type 0)) (== (list X) (nil* X) (nil* X)))
  
- X : Type
+ X : (Type 0)
  --------------------------------
  (== (list X) (nil* X) (nil* X)))
 
@@ -46,8 +46,8 @@
  reflexivity
  ~>
  --------------------------------
- (Π (X : Type) (== (list X) (nil* X) (nil* X)))
+ (Π (X : (Type 0)) (== (list X) (nil* X) (nil* X)))
  
- Y : Type
+ Y : (Type 0)
  --------------------------------
  (== (list Y) (nil* Y) (nil* Y)))
