@@ -20,7 +20,7 @@
     [(_ t) #'t]
     [(_ (~var b xs+τ) . rst)
      (quasisyntax/loc this-syntax
-       (Π b.fst (Π/c b.rst ... . rst)))]))
+       (Π b.fst #,(quasisyntax/loc this-syntax (Π/c b.rst ... . rst))))]))
 
 (begin-for-syntax
   ;; curried expander
