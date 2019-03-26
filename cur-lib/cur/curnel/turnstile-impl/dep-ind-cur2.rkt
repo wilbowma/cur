@@ -35,7 +35,16 @@
                               (format "type mismatch, expected Type, given ~a"
                                       (syntax->datum #'C))))
             ((~literal quote) n)))])))
-  (define Type- (type-info #f (λ _ #'Type) (λ _ #'Type)))) ; type info
+  (define Type- (type-info #f (syntax-parser
+                                [(~Type 0)
+                                 #'Type]
+                                [(~Type i)
+                                 #'(Type i)])
+                           (syntax-parser
+                             [(~Type 0)
+                              #'Type]
+                             [(~Type i)
+                              #'(Type i)])))) ; type info
 
 (define-typed-syntax Type
   [:id ≫ --- [≻ (Type 0)]]
@@ -43,7 +52,7 @@
    #:with n+1 (+ (syntax-e #'n) 1)
   -------------
   [≻ #,(syntax-property
-        (syntax-property 
+        (syntax-property
          (syntax/loc this-syntax
            (Type- 'n)) ':
          (syntax-property
@@ -70,12 +79,20 @@
   ; Impredicative rule
   [(_ (x:id (~datum :) τₐ) τᵣ) ≫
    [⊢ τₐ ≫ τₐ- ⇒ (~Type j:nat)]
-   [[x ≫ x- : τₐ] ⊢ τᵣ ≫ τᵣ- ⇒ (~Type i:nat)]
-   #:when (eq? 0 (syntax->datum #'i))
+   [[x ≫ x- : τₐ] ⊢ τᵣ ≫ τᵣ- ⇐ (Type 0)]
    ------------------------------
-   [⊢ (Π- τₐ- (λ (x-) τᵣ-)) ⇒ Type]]
+   [⊢ (Π- τₐ- (λ (x-) τᵣ-)) ⇒ (Type 0)]]
 
-  ; Predicative rule
+  ; Predicative rules
+  ;; check/subtyping
+  [(_ (x:id (~datum :) τₐ) τᵣ) ⇐ (~Type k:nat) ≫
+   [⊢ τₐ ≫ τₐ- ⇒ (~Type j:nat)]
+   [[x ≫ x- : τₐ] ⊢ τᵣ ≫ τᵣ- ⇒ (~Type i:nat)]
+   #:when (>= (syntax->datum #'k) (max (syntax->datum #'i) (syntax->datum #'j)))
+   ------------------------------
+   [⊢ (Π- τₐ- (λ (x-) τᵣ-))]]
+
+  ;; infer
   [(_ (x:id (~datum :) τₐ) τᵣ) ≫
    [⊢ τₐ ≫ τₐ- ⇒ (~Type j:nat)]
    [[x ≫ x- : τₐ] ⊢ τᵣ ≫ τᵣ- ⇒ (~Type i:nat)]
@@ -85,22 +102,29 @@
 
   ;; Error rules
   [(_ (x:id (~datum :) τₐ) τᵣ) ≫
-   [⊢ τₐ ≫ τₐ- ⇒ (~Type j:nat)]
-   [[x ≫ x- : τₐ] ⊢ τᵣ ≫ τᵣ- ⇒ (~Type i:nat)]
+   [⊢ τₐ ≫ τₐ- ⇒ A (~Type j:nat)]
+   [[x ≫ x- : τₐ] ⊢ τᵣ ≫ τᵣ- ⇒ B (~Type i:nat)]
    -----------------
-   [#:error (type-error #:src #'τₐ #:msg "Universe inconsistency: A function's argument and return types must exist in a consistent universe, but ~a lives in universe (Type ~a) while ~a lives in universe (Type ~a)." #'τₐ #'j #'τᵣ #;(syntax-property #'τᵣ 'origin) #'i)]]
+   [#:error (type-error #:src #'τₐ #:msg "Π: Universe inconsistency: A function's argument and return types must exist in a consistent universe, but ~s lives in universe \"(Type ~a)\", while ~s lives in universe \"(Type ~a)\"."
+                        #'τₐ
+                        #'j
+                        #'τᵣ
+                        #'i)]]
+
   [(_ (x:id (~datum :) τₐ) τᵣ) ≫
    [⊢ τₐ ≫ τₐ- ⇒ (~Type j:nat)]
    [[x ≫ x- : τₐ] ⊢ τᵣ ≫ τᵣ- ⇒ B]
    -----------------
-   [#:error (type-error #:src #'τᵣ #:msg "Universe inconsistency: A function's argument and return types must exist in a consistent universe, but ~a has type ~a which is not a universe" #'τᵣ #'B)]]
+   [#:error (type-error #:src #'τᵣ #:msg "Π: Universe inconsistency: A function's return types must be a type, i.e., have a type that is a universe (Type i), but ~s has type ~s which is not a universe." #'τᵣ #'B)]]
+
   [(_ (x:id (~datum :) τₐ) τᵣ) ≫
    [⊢ τₐ ≫ τₐ- ⇒ A]
    -----------------
-   [#:error (type-error #:src #'τₐ #:msg "Universe inconsistency: A function's argument and return types must exist in a consistent universe, but ~a has type ~a which is not a universe" #'τₐ #'A)]]
+   [#:error (type-error #:src #'τₐ #:msg "Π: A function's argument and return types must be types, i.e., have a type that is a universe (Type i), but ~s has type ~s which is not a universe." #'τₐ #'A)]]
+
   [(_ ...) ≫
    -----------------
-   [#:error (raise-syntax-error 'Π "A Π type must be of the general form (Π (name : argument-type) result-type). For example, (Π (x : Nat) Nat)")]])
+   [#:error (raise-syntax-error 'Π "A Π type must be of the general form (Π (name : argument-type) result-type). For example, (Π (x : Nat) Nat)." this-syntax)]])
 
 (begin-for-syntax
   (define Π-id (expand/df #'Π-))
@@ -112,10 +136,16 @@
            ((~literal #%plain-app) ; expanded
             (~and C:id ; TODO: this free-id=? sometimes fails
                   (~fail #:unless (stx-datum-equal? #;free-identifier=? #'C Π-id)
-                         (format "type mismatch, expected Type, given ~a"
+                         (format "type mismatch, expected Π, given ~a"
                                  (syntax->datum #'C))))
             A
-            (#%plain-lambda (x) B)))])) ))
+            (#%plain-lambda (x) B)))])))
+  (define Π- (type-info #f (syntax-parser
+                             [(~Π (x : A) B)
+                              #`(Π (#,(resugar-type #'x) : #,(resugar-type #'A)) #,(resugar-type #'B))])
+                        (syntax-parser
+                          [(~Π (x : A) B)
+                           #`(Π (#,(unexpand #'x) : #,(unexpand #'A)) #,(unexpand #'B))]))))
 
 ;; type check relation --------------------------------------------------------
 ;; - must come after type defs
