@@ -213,8 +213,8 @@
 ;; dont supply instantiation; searches goal to auto-instantiate thm
 ;(define-theorem not-applied-twice/search
 (check-ntac-trace
- (∀ [f : (-> Bool Bool)]
-    (-> (∀ [x : Bool] (== Bool (f x) (not x)))
+ (∀ [f : (→ Bool Bool)]
+    (→ (∀ [x : Bool] (== Bool (f x) (not x)))
         (∀ [b : Bool] (== Bool (f (f b)) b))))
  (by-intro f)
  (by-intro H)
@@ -225,36 +225,36 @@
  reflexivity
  ~>
  --------------------------------
- (Π (f : (-> Bool Bool)) (-> (Π (x : Bool) (== Bool (f x) (not x))) (Π (b : Bool) (== Bool (f (f b)) b))))
+ (Π (f : (→ Bool Bool)) (→ (Π (x : Bool) (== Bool (f x) (not x))) (Π (b : Bool) (== Bool (f (f b)) b))))
 
- f : (-> Bool Bool)
+ f : (→ Bool Bool)
  --------------------------------
- (-> (Π (x : Bool) (== Bool (f x) (not x))) (Π (b : Bool) (== Bool (f (f b)) b)))
+ (→ (Π (x : Bool) (== Bool (f x) (not x))) (Π (b : Bool) (== Bool (f (f b)) b)))
 
- f : (-> Bool Bool)
+ f : (→ Bool Bool)
  H : (Π (x : Bool) (== Bool (f x) (not x)))
  --------------------------------
  (Π (b : Bool) (== Bool (f (f b)) b))
 
- f : (-> Bool Bool)
+ f : (→ Bool Bool)
  H : (Π (x : Bool) (== Bool (f x) (not x)))
  b : Bool
  --------------------------------
  (== Bool (f (f b)) b)
 
- f : (-> Bool Bool)
+ f : (→ Bool Bool)
  H : (Π (x : Bool) (== Bool (f x) (not x)))
  b : Bool
  --------------------------------
  (== Bool (not (f b)) b)
 
- f : (-> Bool Bool)
+ f : (→ Bool Bool)
  H : (Π (x : Bool) (== Bool (f x) (not x)))
  b : Bool
  --------------------------------
  (== Bool (not (not b)) b)
 
- f : (-> Bool Bool)
+ f : (→ Bool Bool)
  H : (Π (x : Bool) (== Bool (f x) (not x)))
  b : Bool
  --------------------------------

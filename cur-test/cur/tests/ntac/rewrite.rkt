@@ -74,7 +74,7 @@
  reflexivity
  ~>
  --------------------------------
- (Π (n : Nat) (m : Nat) (-> (== Nat m (s n)) (== Nat (mult m (s n)) (mult m m))))
+ (Π (n : Nat) (m : Nat) (→ (== Nat m (s n)) (== Nat (mult m (s n)) (mult m m))))
 
  n : Nat
  m : Nat

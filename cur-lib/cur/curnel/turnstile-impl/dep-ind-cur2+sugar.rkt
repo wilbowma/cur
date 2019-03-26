@@ -5,22 +5,36 @@
 
 ;; dep-ind-cur2 library, adding some sugar like auto-currying
 
-(provide → (for-syntax (rename-out [~Π/c ~Π]))
- (rename-out [Π/c Π] [λ/c λ] [app/c #%app] [app/eval/c app/eval] [define/c define]
-             [→ ->] [Π/c Pi] [Π/c ∀] [Π/c forall] [λ/c lambda]))
+(provide (for-syntax (rename-out [~Π/c ~Π]))
+         → ; → = Π = ∀
+         (rename-out
+          [→ Π] [→ Pi] [→ ∀] [→ forall] [→ ->]
+          [λ/c λ] [λ/c lambda] [app/c #%app] [app/eval/c app/eval]
+          [define/c define]))
 
 (begin-for-syntax
   (define-syntax-class xs+τ #:attributes ([fst 0] [rst 1])
     (pattern [(~var x0 id) (~var x id) ... (~datum :) τ]
              #:with fst #'[x0 : τ]
-             #:with (rst ...) (stx-map (λ (x) #`[#,x : τ]) #'(x ...)))))
+             #:with (rst ...) (stx-map (λ (x) #`[#,x : τ]) #'(x ...)))
+    (pattern τ ; no label, ie non-dependent →
+             #:with fst #`[#,(syntax-property
+                              (syntax-property (generate-temporary 'X) 'tmp #t)
+                              'display-as
+                              #'→) : τ]
+             #:with (rst ...) #'())))
 
-(define-syntax Π/c
+;; → = Π = ∀
+;; usages:
+;; (→ [x y z : τ] ... τout)
+;; (→ [x : τ] ... τout)
+;; (→ τ ... τout)
+(define-syntax →
   (syntax-parser
     [(_ t) #'t]
     [(_ (~var b xs+τ) . rst)
      (quasisyntax/loc this-syntax
-       (Π b.fst #,(quasisyntax/loc this-syntax (Π/c b.rst ... . rst))))]))
+       (Π b.fst #,(quasisyntax/loc this-syntax (→ b.rst ... . rst))))]))
 
 (begin-for-syntax
   ;; curried expander
@@ -36,7 +50,7 @@
 
 ;; abbrevs for Π/c
 ;; (→ τ_in τ_out) == (Π (unused : τ_in) τ_out)
-(define-simple-macro (→ τ_in ... τ_out)
+#;(define-simple-macro (→ τ_in ... τ_out)
   #:with (X ...) (stx-map
                   (λ (x)
                     (syntax-property
