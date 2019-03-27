@@ -44,7 +44,7 @@
             (~and C:id ; TODO: this free-id=? sometimes fails
                   (~fail #:unless (stx-datum-equal? #;free-identifier=? #'C Type-id)
                          (format "type mismatch, expected (Type ~a), given ~a"
-                                 n
+                                 #'n
                                  (syntax->datum #'C))))
             ((~literal quote) n)))])))
 
