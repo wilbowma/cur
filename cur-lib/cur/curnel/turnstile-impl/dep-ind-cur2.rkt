@@ -172,8 +172,8 @@
 
   ;; Error rules
   [(_ (x:id (~datum :) τₐ) τᵣ) ≫
-   [⊢ τₐ ≫ τₐ- ⇒ A (~Type j:nat)]
-   [[x ≫ x- : τₐ] ⊢ τᵣ ≫ τᵣ- ⇒ B (~Type i:nat)]
+   [⊢ τₐ ≫ τₐ- ⇒ (~Type j:nat)]
+   [[x ≫ x- : τₐ] ⊢ τᵣ ≫ τᵣ- ⇒ (~Type i:nat)]
    -----------------
    [#:error (type-error #:src #'τₐ #:msg "Π: Universe inconsistency: A function's argument and return types must exist in a consistent universe, but ~s lives in universe \"(Type ~a)\", while ~s lives in universe \"(Type ~a)\"."
                         #'τₐ
