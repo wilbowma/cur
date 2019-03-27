@@ -178,8 +178,9 @@
 
    ;; validate types: use nested telescopes
    [[A ≫ _ Atag τA ≫ _] ... ⊢
-    [[i ≫ _ itag τi ≫ _] ... ⊢ τ ≫ _ ⇐ TypeTop]
-    [[i+x ≫ _ i+xtag (with-unbound TY τin) ≫ _] ... ⊢ (with-unbound TY τout) ≫ _ ⇐ TypeTop] ...]
+    [[i ≫ _ itag τi ≫ _] ... ⊢ τ ≫ _ ⇒ (~Type ilvl)]
+    [[i+x ≫ _ i+xtag (with-unbound TY τin) ≫ _] ... ⊢ (with-unbound TY τout) ≫ _ ⇒ (~Type jlvl)] ...]
+   ;; TODO: Need to check the relation between i and j. Would be automatic if we just checked these as function types.
 
    ;; - each (xrec ...) is subset of (x ...) that are recur args,
    ;; ie, they are not fresh ids
