@@ -254,7 +254,13 @@
 
 (define-typerule/red (app e_fn e_arg) ≫
   [⊢ e_fn ≫ e_fn- ⇒ (~Π [X : τ_in] τ_out)]
-  [⊢ e_arg ≫ e_arg- ⇐ τ_in]
+  [⊢ e_arg ≫ e_arg- ⇒ τ_in^]
+  #:fail-unless (typecheck? #'τ_in #'τ_in^)
+  (type-error #:src #'e_arg #:msg "application: the function ~a expected an argument of type ~a, but found an argument ~a of type ~a"
+              #'e_fn
+              #'τ_in
+              #'e_arg
+              #'τ_in^)
   #:with τ_out- (reflect (subst #'e_arg- #'X #'τ_out)) ; TODO: fix orig
   -----------------------------
   [⊢ (app/eval e_fn- e_arg-) ⇒ τ_out- #;(app/eval (λ- (X) τ_out) e_arg-)]
