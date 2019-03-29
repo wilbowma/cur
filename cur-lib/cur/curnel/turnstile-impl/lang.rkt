@@ -30,9 +30,7 @@
 (provide (all-from-out turnstile/base turnstile/eval turnstile/typedefs))
 
 (require "dep-ind-cur2+data2.rkt")
-(require (only-in "dep-ind-cur2+data.rkt" datacons))
-(provide (all-from-out "dep-ind-cur2+data.rkt")
-         (all-from-out "dep-ind-cur2+data2.rkt"))
+(provide (all-from-out "dep-ind-cur2+data2.rkt"))
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
@@ -90,12 +88,18 @@
   ;; [⊢ ty ≫ ty- ⇐ Type] ; use unexpanded
   ;; [⊢ tyC ≫ tyC- ⇐ Type] ... ; ow, must use ~unbound as in dep-ind-cur2+data2
   #:with [([A tyA] ...) ty-rst] (take-Π #'ty (stx-e #'n))
-  #:with [([i tyi] ...) ty0] (split-Π #'ty-rst)
-  #:with ([_ tyC-rst] ...) (stx-map (λ (t) (take-Π t (stx-e #'n))) #'(tyC ...))
-  #:with ([([x tyx] ...) tyC0] ...) (stx-map split-Π #'(tyC-rst ...))
+;  #:with [([i tyi] ...) ty0] (split-Π #'ty-rst)
+  #:with ([([CA _] ...) tyC-rst/CA] ...) (stx-map (λ (t) (take-Π t (stx-e #'n))) #'(tyC ...))
+  ;  #:with ([([x tyx] ...) tyC0] ...) (stx-map split-Π #'(tyC-rst ...))
+  #:with (tyC-rst ...) (stx-map
+                        (λ (CAs tyC)
+                          (substs #'(A ...) CAs tyC))
+                        #'((CA ...) ...)
+                        #'(tyC-rst/CA ...))
+  #:with out #'(define-datatype TY [A : tyA] ... : ty-rst [C : tyC-rst] ...)
+;  #:do[(pretty-print (stx->datum #'out))]
   -----------------
-  [≻ (define-datatype TY [A : tyA] ... : [i : tyi] ... -> ty0
-       [C : [x : tyx] ... -> tyC0] ...)]])
+  [≻ out]])
 
 (define-typed-syntax (elim ty:id motive (method ...) target) ≫
   #:with elim-Name (format-id #'ty "elim-~a" #'ty)

@@ -168,8 +168,8 @@
             (my= A x z)))))
 
 ;; new stx (define-datatype)
-(define-datatype my=2 (A : (Type 0)) : (a : A) (b : A) -> (Type 0)
-  (my-refl2 : (a : A) -> (my=2 A a a)))
+(define-datatype my=2 (A : (Type 0)) : (-> A A (Type 0))
+  (my-refl2 (a : A) : (my=2 A a a)))
 
 (check-type (my-refl2 Nat 1) : (my=2 Nat 1 1))
 (check-type (my-refl2 Nat 1) : (my=2 Nat 1 (plus 1 0)))

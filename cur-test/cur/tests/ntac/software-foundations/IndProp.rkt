@@ -27,9 +27,9 @@
     [(_ . n:exact-nonnegative-integer)
      #`(S (#%datum . #,(- (syntax-e #'n) 1)))]))
 
-(define-datatype ev : [i : nat] -> Prop
+(define-datatype ev : (-> [i : nat] Prop)
   [ev0 : (ev 0)]
-  [evSS : [n : nat] (ev n) -> (ev (S (S n)))])
+  [evSS [n : nat] (ev n) : (ev (S (S n)))])
 
 ;; TODO: this wrong version, with param instead of index, should have better err msg
 #;(define-datatype ev [i : nat] : Type
@@ -158,9 +158,9 @@
   : (forall [n : nat] (-> (ev n) (ev (pred (pred n))))))
 
 ;; test more than 1 index
-(define-datatype le : [n : nat] [m : nat] -> Prop
-  [le-n : [n : nat] -> (le n n)]
-  [le-S : [n : nat] [m : nat] (le n m) -> (le n (S m))])
+(define-datatype le : (-> [n : nat] [m : nat] Prop)
+  [le-n : (-> [n : nat] (le n n))]
+  [le-S : (-> [n : nat] [m : nat] (le n m) (le n (S m)))])
 
 (define-theorem test-le1
   (le 3 3)
@@ -218,9 +218,9 @@
   : (forall [m n o : nat]
           (-> (le m n) (le n o) (le m o))))
 
-(define-datatype reflect [P : Prop] : [b : bool] -> Prop
-  [ReflectT : P -> (reflect P true)]
-  [ReflectF : (-> P False) -> (reflect P false)])
+(define-datatype reflect [P : Prop] : (-> [b : bool] Prop)
+  [ReflectT : (-> P (reflect P true))]
+  [ReflectF : (-> (-> P False) (reflect P false))])
 
 (define-theorem iff-reflect
  (∀ [P : Prop] [b : bool]

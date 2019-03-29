@@ -15,9 +15,9 @@
       [bool-cons : (-> bool boollist boollist)])
 
 ;; * = "full" version; as opposed to hidden-arg version
-(define-datatype list [X : Type] : -> Type
+(define-datatype list [X : Type] : Type
   [nil* : (list X)]
-  [cons* : X (list X) -> (list X)])
+  [cons* : (-> X (list X) (list X))])
 
 (:: list (-> Type Type))
 (:: (nil* nat) (list nat))
@@ -40,9 +40,9 @@
   [a : mumble]
   [b : (-> mumble nat mumble)]
   [c : mumble])
-(define-datatype grumble [X : Type] -> Type
-  [d : mumble -> (grumble X)]
-  [e : X -> (grumble X)])
+(define-datatype grumble [X : Type] : Type
+  [d : (-> mumble (grumble X))]
+  [e : (-> X (grumble X))])
 
 (define-implicit nil = nil* 1)
 (define-implicit cons = cons* 1 _ inf)
@@ -316,8 +316,7 @@
   : (∀ [X : Type] [l : (list X)]
        (== (rev (rev l)) l)))
 
-  ;; rev-invol, raw term
-
+;; rev-invol, raw term
 (check-type
  (λ (X : Type)
    (l : (list X))

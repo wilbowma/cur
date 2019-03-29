@@ -1,6 +1,6 @@
 #lang s-exp cur/curnel/turnstile-impl/dep-ind-cur2
 (require cur/curnel/turnstile-impl/dep-ind-cur2+sugar
-         cur/curnel/turnstile-impl/dep-ind-cur2+data
+         cur/curnel/turnstile-impl/dep-ind-cur2+data2
          rackunit/turnstile)
 
 ; Π → λ ∀ ≻ ⊢ ≫ ⇒
@@ -14,8 +14,8 @@
 
 ;; testing user-defined equality
 
-(define-datatype my= [A : (Type 0)] : [a : A] [b : A] -> (Type 0)
-  (my-refl : (Π [A : (Type 0)] (Π [a : A] (my= A a a)))))
+(define-datatype my= (A : (Type 0)) : (-> [a : A] [b : A] (Type 0))
+  (my-refl (a : A) : (my= A a a)))
 
 (define-datatype Nat : Type
   [Z : Nat]
@@ -143,8 +143,8 @@
 
 ;; Paulin-Mohring (ie, coq-like) equality (2 params, 1 index)
 
-(define-datatype pm= [A : (Type 0)] [a : A] : [b : A] -> (Type 0)
-  (pm-refl : (Π [A : (Type 0)] [x : A] (pm= A x x)))) ; constructor consumes params but 0 args
+(define-datatype pm= [A : (Type 0)] [a : A] : (-> [b : A] (Type 0))
+  (pm-refl : (pm= A a a))) ; constructor consumes params but 0 args
 
 (check-type (pm-refl Nat Z) : (pm= Nat Z Z))
 (check-type (pm-refl Nat (S Z)) : (pm= Nat (S Z) (S Z)))
