@@ -1,6 +1,6 @@
 #lang s-exp cur/curnel/turnstile-impl/dep-ind-cur2
 (require cur/curnel/turnstile-impl/dep-ind-cur2+sugar
-         cur/curnel/turnstile-impl/dep-ind-cur2+data
+         cur/curnel/turnstile-impl/dep-ind-cur2+data2
          rackunit/turnstile)
 
 ; Π → λ ∀ ≻ ⊢ ≫ ⇒
@@ -34,9 +34,9 @@
 ;; 3) constructor args, split into
 ;;    - non-recursive
 ;;    - recursive
-(define-datatype List [A : (Type 0)] : -> (Type 0)
-  [null : (∀ [A : (Type 0)] (List A))]
-  [cons : (∀ [A : (Type 0)] (→ A (List A) (List A)))])
+(define-datatype List [A : (Type 0)] : (Type 0)
+  [null : (List A)]
+  [cons : (→ A (List A) (List A))])
 
 (check-type null : (∀ [A : (Type 0)] (List A)))
 ;; TODO? null \neq null right now
@@ -135,9 +135,9 @@
  : Nat -> (S (Z)))
 
 ;; Vect: indexed "lists" parameterized over length --------------------
-(define-datatype Vect [A : (Type 0)] : [i : Nat] -> (Type 0)
-  [nil : (Π [A : Type] (Vect A Z))]
-  [cns : (Π [A : Type] [k : Nat] (→ A (Vect A k) (Vect A (S k))))])
+(define-datatype Vect [A : (Type 0)] : (-> [i : Nat] (Type 0))
+  [nil : (Vect A Z)]
+  [cns : (Π [k : Nat] (→ A (Vect A k) (Vect A (S k))))])
 
 (check-type nil : (Π [A : Type] (Vect A Z)))
 (check-type cns : (Π [A : Type] [k : Nat] (→ A (Vect A k) (Vect A (S k)))))

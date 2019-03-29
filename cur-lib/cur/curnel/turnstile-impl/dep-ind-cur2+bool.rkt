@@ -17,12 +17,12 @@
 (define-datatype True : Type
   [I : True])
 
-(define-datatype And [X : Type] [Y : Type] : -> Type
-  [conj : [x : X] [y : Y] -> (And X Y)])
+(define-datatype And [X : Type] [Y : Type] : Type
+  [conj [x : X] [y : Y] : (And X Y)])
 
-(define-datatype Or [X : Type] [Y : Type] : -> Type
-  [or_introL : [x : X] -> (Or X Y)]
-  [or_introR : [y : Y] -> (Or X Y)])
+(define-datatype Or [X : Type] [Y : Type] : Type
+  [or_introL [x : X] : (Or X Y)]
+  [or_introR [y : Y] : (Or X Y)])
 
 (define (Not [P : Prop])
   (-> P False))

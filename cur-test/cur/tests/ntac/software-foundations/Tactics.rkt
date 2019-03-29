@@ -34,9 +34,9 @@
   [(S n*) (S m*) => (beq-nat n* m*)])
 
 ;; * = "full" version; as opposed to hidden-arg version
-(define-datatype list [X : Type] : -> Type
+(define-datatype list [X : Type] : Type
   [nil* : (list X)]
-  [cons* : X (list X) -> (list X)])
+  [cons* : (-> X (list X) (list X))])
 
 (define-implicit nil = nil* 1)
 (define-implicit :: = cons* 1 _ inf)
@@ -80,8 +80,8 @@
 
 ;; pairs --------------------
 
-(define-datatype prod [X : Type] [Y : Type] : -> Type
-  [pair* : X Y -> (prod X Y)])
+(define-datatype prod [X : Type] [Y : Type] : Type
+  [pair* X Y])
 
 (define-implicit pair = pair* 2)
 

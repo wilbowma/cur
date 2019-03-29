@@ -460,11 +460,12 @@
       (get-match-info name-ty))
 
     (define num-params (stx-length #'(A ...)))
+    (define num-idxs (stx-length #'(i ...)))
     
-    (define get-idxs ; extract indices from *unexpanded* type
+    (define get-idxs ; extract indices from *unexpanded* (curried single-app) type
       (if (stx-null? #'(i ...))
           (λ (t) null)
-          (λ (t) (stx-drop t (add1 num-params)))))
+          (λ (t) (get-idxs/unexp t num-idxs))))
 
     (when (and maybe-xss+IH (not (stx-length=? maybe-xss+IH #'(Cinfo ...))))
       (raise-ntac-goal-exception
@@ -488,8 +489,9 @@
     (define (mk-update #:inst inst #:idxs idxs)
       (unless (stx-length=? #'(ival ...) idxs)
         (raise-ntac-goal-exception
-         "induction: mk-update fn: wrong number of indices, given ~a, expected ~a"
-         (stx-length idxs) (stx-length #'(ival ...))))
+         "induction: mk-update: wrong number of indices, given ~a: ~a; expected ~a, eg ~a"
+         (stx-length idxs) (stx->datum idxs)
+         (stx-length #'(ival ...)) (stx->datum (resugar-type name-ty))))
       (subst-terms/es (cons inst idxs) stxs-to-change))
 
     ;; modify ctxt:

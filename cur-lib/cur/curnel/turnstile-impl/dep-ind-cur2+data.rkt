@@ -3,6 +3,9 @@
          (except-in "dep-ind-cur2+sugar.rkt" define)
          turnstile/eval turnstile/typedefs turnstile/more-utils)
 
+;; NOTE: this file is deprecated and should not be used
+;; use `define-datatype` from dep-ind-cur2+data2 instead
+
 ;; library for dep-ind-cur2 enabling definition of datatypes
 ;; ie, define-datatype
 
@@ -13,7 +16,7 @@
 (begin-for-syntax
   (struct datacons (proc pat->ctxt)
     #:property prop:procedure (struct-field-index proc))
-  ;; pattern pat has type ty
+  ;; pattern `pat` has (unexpanded) type `ty`
   (define (pat->ctxt pat ty)
     ;; (printf "converting pat: ~a\n" (stx->datum pat))
     ;; (printf "with type: ~a\n" (stx->datum ty))

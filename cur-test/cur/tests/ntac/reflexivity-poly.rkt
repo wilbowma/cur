@@ -9,9 +9,9 @@
 ;; tests for reflexivity with polymorphic functions
 
 ;; * = "full" version; as opposed to hidden-arg version
-(define-datatype list [X : Type] : -> Type
+(define-datatype list [X : Type] : Type
   [nil* : (list X)]
-  [cons* : X (list X) -> (list X)])
+  [cons* X (list X) : (list X)])
 
 ;; no user-supplied intro name
  (check-ntac-trace

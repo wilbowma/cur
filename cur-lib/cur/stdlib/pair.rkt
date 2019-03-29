@@ -4,8 +4,8 @@
 
 (require cur/stdlib/sugar)
 
-(define-datatype prod [X : Type] [Y : Type] : -> Type
-  [pair* : X Y -> (prod X Y)])
+(define-datatype prod [X : Type] [Y : Type] : Type
+  [pair* X Y])
 
 (define-implicit pair = pair* 2)
 

@@ -38,7 +38,7 @@
               #`(define-syntax (#,name syn)
                   (syntax-case syn ()
                     [(_ arg args (... ...))
-                     #`(#,(format-id syn "~a-~a" '#,name (get-orig (typeof (expand/df #'arg))))
+                     #`(#,(format-id syn "~a-~a" '#,name (unexpand (typeof (expand/df #'arg))))
                         arg
                         args (... ...))]))))]))
 

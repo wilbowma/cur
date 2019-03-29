@@ -16,8 +16,8 @@
 #;(define-datatype Inf (A : Type) : Type
   (Delay : (-> A (Inf A))))
 
-(define-datatype Inf (A : Type) : -> Type
-  (Delay : [a : A] -> (Inf A)))
+(define-datatype Inf (A : Type) : Type
+  (Delay A))
 
 ; #4
 #;(define/rec/match Force : (Inf A) -> A

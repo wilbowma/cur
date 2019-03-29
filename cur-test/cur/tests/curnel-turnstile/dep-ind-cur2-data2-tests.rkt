@@ -5,7 +5,7 @@
 ;; flat type --------------------
 
 ;; datacons: no out type
-(define-datatype2 Nat1 : Type
+(define-datatype Nat1 : Type
   [z1]
   [s1 (n-1 : Nat1)])
 (check-type Nat1 : Type)
@@ -14,7 +14,7 @@
 (check-type (s1 z1) : Nat1)
 
 ;; datacons: 1 out type
-(define-datatype2 Nat2 : Type
+(define-datatype Nat2 : Type
   [z2]
   [s2 (n-1 : Nat2) : Nat2])
 (check-type Nat2 : Type)
@@ -23,7 +23,7 @@
 (check-type (s2 z2) : Nat2)
 
 ;; datacons: 1 out type
-(define-datatype2 Nat3 : Type
+(define-datatype Nat3 : Type
   [z3 : Nat3]
   [s3 (n-1 : Nat3)])
 (check-type Nat3 : Type)
@@ -32,7 +32,7 @@
 (check-type (s3 z3) : Nat3)
 
 ;; datacons: 2 out types, non-HO
-(define-datatype2 Nat4 : Type
+(define-datatype Nat4 : Type
   [z4 : Nat4]
   [s4 (n-1 : Nat4) : Nat4])
 (check-type Nat4 : Type)
@@ -41,7 +41,7 @@
 (check-type (s4 z4) : Nat4)
 
 ;; datacons: 2 out types, HO
-(define-datatype2 Nat5 : Type
+(define-datatype Nat5 : Type
   [z5 : Nat5]
   [s5 : (-> Nat5 Nat5)])
 (check-type Nat5 : Type)
@@ -51,7 +51,7 @@
 
 ;; poly type --------------------
 ;; no out type
-(define-datatype2 List1 (A : Type) : Type
+(define-datatype List1 (A : Type) : Type
   [null1]
   [cons1 (x : A) (xs : (List1 A))])
 (check-type List1 : (-> Type Type))
@@ -61,7 +61,7 @@
 (check-type (cons1 Nat1 z1 (null1 Nat1)) : (List1 Nat1))
 
 ;; 1 out type
-(define-datatype2 List2 (A : Type) : Type
+(define-datatype List2 (A : Type) : Type
   [null2 : (List2 A)]
   [cons2 (x : A) (xs : (List2 A))])
 (check-type List2 : (-> Type Type))
@@ -71,7 +71,7 @@
 (check-type (cons2 Nat2 z2 (null2 Nat2)) : (List2 Nat2))
 
 ;; 1 out type
-(define-datatype2 List3 (A : Type) : Type
+(define-datatype List3 (A : Type) : Type
   [null3]
   [cons3 (x : A) (xs : (List3 A)) : (List3 A)])
 (check-type List3 : (-> Type Type))
@@ -81,7 +81,7 @@
 (check-type (cons3 Nat3 z3 (null3 Nat3)) : (List3 Nat3))
 
 ;; 2 out types
-(define-datatype2 List4 (A : Type) : Type
+(define-datatype List4 (A : Type) : Type
   [null4 : (List4 A)]
   [cons4 (x : A) (xs : (List4 A)) : (List4 A)])
 (check-type List4 : (-> Type Type))
@@ -91,7 +91,7 @@
 (check-type (cons4 Nat4 z4 (null4 Nat4)) : (List4 Nat4))
 
 ;; 2 out types, HO1
-(define-datatype2 List5 (A : Type) : Type
+(define-datatype List5 (A : Type) : Type
   [null5 : (List5 A)]
   [cons5 (x : A) : (-> (xs : (List5 A)) (List5 A))])
 (check-type List5 : (-> Type Type))
@@ -101,7 +101,7 @@
 (check-type (cons5 Nat5 z5 (null5 Nat5)) : (List5 Nat5))
 
 ;; 2 out types, HO2
-(define-datatype2 List6 (A : Type) : Type
+(define-datatype List6 (A : Type) : Type
   [null6 : (List6 A)]
   [cons6 : (-> A (List6 A) (List6 A))])
 (check-type List6 : (-> Type Type))
@@ -114,12 +114,12 @@
 ;; err: must explicitly declare datacons out type with indices
 ;; TODO: improve err msg
 (typecheck-fail/toplvl
- (define-datatype2 Vect1 (A : Type) : (-> [i : Nat1] Type)
+ (define-datatype Vect1 (A : Type) : (-> [i : Nat1] Type)
    [nil1]
    [cns1 (k : Nat1) (x : A) (xs : (Vect1 A k))]))
 
 ;; labeled index
-(define-datatype2 Vect1 (A : Type) : (-> [i : Nat1] Type)
+(define-datatype Vect1 (A : Type) : (-> [i : Nat1] Type)
   [nil1 : (Vect1 A z1)]
   [cns1 (k : Nat1) (x : A) (xs : (Vect1 A k)) : (Vect1 A (s1 k))])
 (check-type Vect1 : (-> Type Nat1 Type))
@@ -131,7 +131,7 @@
 (check-type (cns1 Nat1 z1 z1 (nil1 Nat1)) : (Vect1 Nat1 (s1 z1)))
 
 ;; unlabeled index
-(define-datatype2 Vect2 (A : Type) : (-> Nat2 Type)
+(define-datatype Vect2 (A : Type) : (-> Nat2 Type)
   [nil2 : (Vect2 A z2)]
   [cns2 (k : Nat2) (x : A) (xs : (Vect2 A k)) : (Vect2 A (s2 k))])
 (check-type Vect2 : (-> Type Nat2 Type))
@@ -143,7 +143,7 @@
 (check-type (cns2 Nat2 z2 z2 (nil2 Nat2)) : (Vect2 Nat2 (s2 z2)))
 
 ;; HO data cons type
-(define-datatype2 Vect3 (A : Type) : (-> Nat3 Type)
+(define-datatype Vect3 (A : Type) : (-> Nat3 Type)
   [nil3 : (Vect3 A z3)]
   [cns3 (k : Nat3) (x : A) : (-> (Vect3 A k) (Vect3 A (s3 k)))])
 (check-type Vect3 : (-> Type Nat3 Type))
@@ -155,7 +155,7 @@
 (check-type (cns3 Nat3 z3 z3 (nil3 Nat3)) : (Vect3 Nat3 (s3 z3)))
 
 ;; even more HO data cons type
-(define-datatype2 Vect4 (A : Type) : (-> Nat4 Type)
+(define-datatype Vect4 (A : Type) : (-> Nat4 Type)
   [nil4 : (Vect4 A z4)]
   [cns4 : (-> (k : Nat4) (x : A) (Vect4 A k) (Vect4 A (s4 k)))])
 (check-type Vect4 : (-> Type Nat4 Type))
@@ -166,12 +166,12 @@
 (check-type (nil4 Nat4) : (Vect4 Nat4 z4))
 (check-type (cns4 Nat4 z4 z4 (nil4 Nat4)) : (Vect4 Nat4 (s4 z4)))
 
-(define-datatype2 nat : Type
+(define-datatype nat : Type
   [z]
   [s (n-1 : nat)])
 
 ;; grammar example
-(define-datatype2 aexp : Type
+(define-datatype aexp : Type
   [ANum (n : nat)]
   [APlus (a1 a2 : aexp)]
   [AMinus (a1 a2 : aexp)]
@@ -204,7 +204,7 @@
   [z => z]
   [(s x) => (plus n (mult x n))])
 
-(define-datatype2 aevalR : (-> aexp nat Type)
+(define-datatype aevalR : (-> aexp nat Type)
   [E_ANum [n : nat] :
           (aevalR (ANum n) n)]
   [E_APlus (e1 e2 : aexp) (n1 n2 : nat) :

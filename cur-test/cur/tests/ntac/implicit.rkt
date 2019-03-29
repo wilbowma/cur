@@ -12,9 +12,9 @@
 ;; testing implicit args
 ;; may be some dup from software-foundations/Poly.rkt
 
-(define-datatype list [X : Type] : -> Type
+(define-datatype list [X : Type] : Type
   [nil : (list X)]
-  [cons : X (list X) -> (list X)])
+  [cons X (list X) : (list X)])
 
 (:: list (-> Type Type))
 (:: (nil Nat) (list Nat))

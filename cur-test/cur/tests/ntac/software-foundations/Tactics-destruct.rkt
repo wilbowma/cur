@@ -49,15 +49,15 @@
      #`(S (#%datum . #,(- (syntax-e #'n) 1)))]))
 
 ;; * = "full" version; as opposed to hidden-arg version
-(define-datatype list [X : Type] : -> Type
+(define-datatype list [X : Type] : Type
   [nil* : (list X)]
-  [cons* : X (list X) -> (list X)])
+  [cons* : (-> X (list X) (list X))])
 
 (define-implicit nil = nil* 1)
 (define-implicit :: = cons* 1 _ inf)
 
-(define-datatype option [X : Type] : -> Type
-  [Some* : X -> (option X)]
+(define-datatype option [X : Type] : Type
+  [Some* : (-> X (option X))]
   [None* : (option X)])
 
 (define-implicit Some = Some* 1)
@@ -92,8 +92,8 @@
 (define-implicit rev = rev_ 1)
 (define-implicit length = length_ 1)
 
-(define-datatype prod [X : Type] [Y : Type] : -> Type
-  [pair* : X Y -> (prod X Y)])
+(define-datatype prod [X : Type] [Y : Type] : Type
+  [pair* : (-> X Y (prod X Y))])
 
 (define-implicit pair = pair* 2)
 

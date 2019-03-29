@@ -33,9 +33,9 @@
 ;; 3) constructor args, split into
 ;;    - non-recursive
 ;;    - recursive
-(define-datatype List [A : (Type 0)] : -> (Type 0)
+(define-datatype List [A : (Type 0)] : (Type 0)
   [null : (List A)]
-  [cons : [x : A] [xs : (List A)] -> (List A)])
+  [cons [x : A] [xs : (List A)] : (List A)])
 
 (check-type null : (∀ [A : (Type 0)] (List A)))
 ;; TODO? null \neq null right now
@@ -115,11 +115,11 @@
 
 ;; test that elim matches on constructor name, and not arity
 (define-datatype Test : Type
-  [AA : (→ Test)]
-  [BB : (→ Test)])
+  [A : (→ Test)]
+  [B : (→ Test)])
 
 (check-type
- (elim-Test (AA)
+ (elim-Test (A)
             (λ [x : Test] Nat)
             Z
             (S (Z)))
@@ -127,16 +127,16 @@
 
 ;; should match second branch, but just arity-checking would match 1st
 (check-type
- (elim-Test (BB)
+ (elim-Test (B)
             (λ [x : Test] Nat)
             Z
             (S (Z)))
  : Nat -> (S (Z)))
 
 ;; Vect: indexed "lists" parameterized over length --------------------
-(define-datatype Vect [A : (Type 0)] : [i : Nat] -> (Type 0)
+(define-datatype Vect [A : (Type 0)] : (-> [i : Nat] (Type 0))
   [nil : (Vect A Z)]
-  [cns : [k : Nat] [x99 : A] [xs99 : (Vect A k)] -> (Vect A (S k))])
+  [cns [k : Nat] [x : A] [xs : (Vect A k)] : (Vect A (S k))])
 
 (check-type nil : (Π [A : Type] (Vect A Z)))
 (check-type cns : (Π [A : Type] [k : Nat] (→ A (Vect A k) (Vect A (S k)))))
