@@ -341,7 +341,7 @@
 
     (define paramss
       (or param-namess
-          (stx-map (freshens e) #'((x ...) ...))))
+          (stx-map (compose (freshens e) generate-temporaries) #'((x ...) ...))))
 
     (unless (stx-length=? paramss Cs)
       (raise-ntac-goal-exception
@@ -527,7 +527,7 @@
                   (if (stx-length=? maybe-xs+IH #'(x ... xrec ...))
                       maybe-xs+IH
                       (stx-append ; else generate based on extra-info names
-                       ((freshens name) #'(x ...))
+                       ((freshens name) (generate-temporaries #'(x ...)))
                        ((freshens name)
                         (stx-map (λ _ (generate-temporary 'IH)) #'(xrec ...))))))]
            #:with (new-xs _) (stx-split-at new-xs+IH (stx-length #'(x ...)))
