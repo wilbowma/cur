@@ -6,14 +6,13 @@ this branch: `turnstile-core`
 
 - work-in-progress replacing Cur core with a Turnstile lang
 
-Differences Between Legacy Cur Legacy and Cur with Turnstile Core
-=================================================================
-Legacy: -> alias for Pi 
-Turn: -> is regular arrow type
-
-Turn:
-- `match` requires #:return
-- no function signature forward declaration (`:`)
+Turnstile core:
+- `match` behaves differently:
+  - requires #:return
+  - #:in and #:return are not patterns
+    - (for now) must explicitly declare binders with #:with-indices
+- function signature forward declarations (`:`) currently unsupported
+- olly not working
 
 
 previous README for Cur
