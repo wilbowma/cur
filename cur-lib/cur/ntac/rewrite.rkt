@@ -36,7 +36,10 @@
   (define (reflexivity ptz)
     (match-define (ntt-hole _ goal) (nttz-focus ptz))
     (ntac-match goal
-     [(~== ty a b) ((fill (exact #`(refl #,(unexpand #'ty) #,(unexpand #'a)))) ptz)]))
+     [(~Π [X : _] ... (~== ty a b))
+      ((compose (fill (exact #`(refl #,(unexpand #'ty) #,(unexpand #'a))))
+                (fill (intros)))
+       ptz)]))
 
   (define (symmetry ctxt pt)
     (match-define (ntt-hole _ goal) pt)

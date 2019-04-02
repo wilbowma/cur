@@ -133,3 +133,15 @@
   (by-rewrite ih1)
   (by-rewrite ih2)
   reflexivity)
+
+;; test tacticals --------------------
+(define-theorem silly1
+  (forall (ae : aexp) (== (aeval ae) (aeval ae)))
+;  by-intro
+  (try reflexivity))
+
+(define-theorem silly2
+  (forall (P : Prop) (-> P P))
+  (by-intros P HP)
+  (try reflexivity) ; Just [reflexivity] would have failed
+  (by-apply HP)) ; We can still finish the proof in some other way.
