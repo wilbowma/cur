@@ -45,8 +45,16 @@
 
 (define/rec/match optimize_0plus : aexp -> aexp
   [(ANum n) => (ANum n)]
-  [(APlus (ANum z) e2) => (optimize_0plus e2)]
-  [(APlus  e1 e2) => (APlus  (optimize_0plus e1) (optimize_0plus e2))]
+  ;; [(APlus (ANum z) e2) => (optimize_0plus e2)]
+  ;; [(APlus  e1 e2) => (APlus  (optimize_0plus e1) (optimize_0plus e2))]
+  [(APlus  e1 e2) => (match e1 #:return aexp
+                      [(ANum n1)
+                       (match n1 #:return aexp
+                        [z (optimize_0plus e2)]
+                        [(s n-1) (APlus (optimize_0plus (ANum (s n-1))) (optimize_0plus e2))])]
+                       [(APlus  e3 e4) (APlus (optimize_0plus e1) (optimize_0plus e2))]
+                       [(AMinus e3 e4) (APlus (optimize_0plus e1) (optimize_0plus e2))]
+                       [(AMult  e3 e4) (APlus (optimize_0plus e1) (optimize_0plus e2))])]
   [(AMinus e1 e2) => (AMinus (optimize_0plus e1) (optimize_0plus e2))]
   [(AMult  e1 e2) => (AMult  (optimize_0plus e1) (optimize_0plus e2))])
 
@@ -105,9 +113,9 @@
   ; ANum ----------
   reflexivity
   ; APlus ----------
-  (by-destruct a1) ; generates n136
+  (by-destruct a1) ; generates n181
   ; a1 = ANum
-  (by-destruct n136)
+  (by-destruct n181)
   ; n=0
   (by-apply ih2)
   ; n neq 0
@@ -137,7 +145,6 @@
 ;; test tacticals --------------------
 (define-theorem silly1
   (forall (ae : aexp) (== (aeval ae) (aeval ae)))
-;  by-intro
   (try reflexivity))
 
 (define-theorem silly2

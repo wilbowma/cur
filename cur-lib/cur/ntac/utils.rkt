@@ -4,7 +4,9 @@
  syntax/stx
  syntax/parse
  syntax/id-set
- (for-template turnstile/eval (only-in cur/curnel/turnstile-impl/lang #%plain-app))
+ (for-template turnstile/eval
+               (only-in macrotypes/typecheck-core substs)
+               (only-in cur/curnel/turnstile-impl/lang #%plain-lambda #%plain-app))
  macrotypes/stx-utils
  cur/curnel/turnstile-impl/reflection
  "../curnel/turnstile-impl/stxutils.rkt")
@@ -46,11 +48,13 @@
      (= (syntax-e e1) (syntax-e e2))]
     [(and (stx-pair? e1) (stx-pair? e2))
      (syntax-parse (list e1 e2) ; α equiv
-       ;; XXX: Matches on underlying lambda name... this is breaking abstractions
-       [(((~datum typed-λ) [x1:id (~datum :) ty1] b1)
-         ((~datum typed-λ) [x2:id (~datum :) ty2] b2))
-        (and (stx=? #'ty1 #'ty2 id=?)
-             (stx=? #'b1 (subst #'x1 #'x2 #'b2) id=?))]
+       [(((~literal #%plain-lambda) (~and (_:id ...) xs) . ts1)
+         ((~literal #%plain-lambda) (~and (_:id ...) ys) . ts2))
+        (and (stx-length=? #'xs #'ys) 
+             (stx-length=? #'ts1 #'ts2)
+             (stx-andmap
+              (λ (ty1 ty2) (stx=? ty1 (substs #'xs #'ys ty2)))
+              #'ts1 #'ts2))]
        [_
         (and
          ; short-circuit on length, for performance
