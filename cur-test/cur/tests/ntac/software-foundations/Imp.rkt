@@ -297,7 +297,7 @@
                              (a1 a2 ih1 ih2)])
   ; ANum
   (by-intros n H)
-  (by-rewriteL H)
+  (by-rewriteR H)
   (by-apply E_ANum)
   ; APlus
   (by-intros n H)
@@ -349,7 +349,7 @@
                               (a1 a2 ih1 ih2)])
   #:do
   (by-intros n H)
-  (by-rewriteL H))
+  subst)
   ; ANum
   (by-apply E_ANum)
   ; APlus

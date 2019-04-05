@@ -2,6 +2,7 @@
 ;; Rewrite, using PM equality (the "standard" one)
 
 (provide (for-syntax reflexivity
+                     subst
                      replace
                      rewrite
                      symmetry
@@ -40,6 +41,18 @@
       ((compose (fill (exact #`(refl #,(unexpand #'ty) #,(unexpand #'a))))
                 (fill (intros)))
        ptz)]))
+
+  (define-syntax subst
+    (syntax-parser
+      [_
+       #'(λ (ptz)
+           (eval-proof-steps
+            ptz
+            (for/list ([(H ty) (nttz-context ptz)])
+              (syntax-parse ty
+                [(~== _ L:id R) #`(by-rewrite #,H)]
+                [(~== _ L R:id) #`(by-rewriteL #,H)]
+                [_ #'nop]))))]))
 
   (define (symmetry ctxt pt)
     (match-define (ntt-hole _ goal) pt)
