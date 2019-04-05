@@ -636,7 +636,9 @@
 ;; Returns #f if there are no ntt-apply nodes in proof tree
 (define (find-ntt-apply orig-ptz)
   (let L ([ptz orig-ptz])
-    (if (ntt-apply? (nttz-focus ptz))
+    (define pt (nttz-focus ptz))
+    (if (and (ntt-apply? pt)
+             (> (length (ntt-apply-subterms pt)) 1)) ; skip nodes like rewrite
         ptz
         (if (nttz-done? ptz)
             #f
@@ -678,10 +680,18 @@
                (if (zero? n)
                    ptz
                    (let* ([next-ptz ((compose t ...) ptz)]
+                          ; TODO: what if t0 introduces another apply node?
                           [next-nttz-app (find-ntt-apply next-ptz)]
                           [same-subgoal? (and next-nttz-app
+                                              (> (num-holes/nttz next-nttz-app) 1)
                                               (= (num-holes/nttz current-nttz-app)
                                                  (num-holes/nttz next-nttz-app)))])
+                     (when (and same-subgoal?
+                                (not (eq? (nttz-prev current-nttz-app)
+                                          (nttz-prev next-nttz-app))))
+                       (raise-ntac-goal-exception
+                        "internal err: got the wrong ntt apply node?\n~a"
+                        next-nttz-app))
                      (if same-subgoal? ; put current goal to end
                          (let ([new-nttz-app (to-end next-nttz-app num-solved)])
                            (L (next new-nttz-app) new-nttz-app (sub1 n) num-solved))
