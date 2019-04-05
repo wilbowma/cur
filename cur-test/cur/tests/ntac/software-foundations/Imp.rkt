@@ -47,6 +47,7 @@
   [(ANum n) => (ANum n)]
   ;; [(APlus (ANum z) e2) => (optimize_0plus e2)]
   ;; [(APlus  e1 e2) => (APlus  (optimize_0plus e1) (optimize_0plus e2))]
+  ;; TODO: fix nested patterns
   [(APlus  e1 e2) => (match e1 #:return aexp
                       [(ANum n1)
                        (match n1 #:return aexp
@@ -152,3 +153,102 @@
   (by-intros P HP)
   (try reflexivity) ; Just [reflexivity] would have failed
   (by-apply HP)) ; We can still finish the proof in some other way.
+
+(define-theorem foo1
+  (∀ [n : Nat] (== (<= 0 n) true))
+  (by-intro n)
+  (by-destruct n)
+  reflexivity
+  reflexivity)
+
+(define-theorem foo2
+  (∀ [n : Nat] (== (<= 0 n) true))
+  (by-intro n)
+  (for-each-subgoal
+   (by-destruct n)
+   #:do
+   simpl
+   reflexivity))
+
+;; test incomplete subgoals
+(define-theorem foo3
+  (∀ [n : Nat] (== (<= 0 n) true))
+  (by-intro n)
+  (for-each-subgoal
+   (by-destruct n)
+   #:do simpl)
+  reflexivity
+  reflexivity)
+
+(define-theorem foo4
+  (∀ [n : Nat] (== (<= 0 n) true))
+  (by-intro n)
+  (for-each-subgoal
+   (by-destruct n)
+   #:do reflexivity))
+
+(define-theorem optimize_0plus_sound/try1
+  (forall [a : aexp] (== (aeval (optimize_0plus a)) (aeval a)))
+  (by-intro a)
+  (by-induction a #:as [(n) (a1 a2 ih1 ih2) (a1 a2 ih1 ih2) (a1 a2 ih1 ih2)])
+  ; ANum ----------
+  reflexivity
+  ; APlus ----------
+  (for-each-subgoal
+   (by-destruct a1 #:as [(n) (a3 a4) (a3 a4) (a3 a4)])
+   #:do (try (by-rewrite ih1) (by-rewrite ih2) reflexivity)) ; resolves APlus AMinus AMult
+  ; a1 = ANum
+  (by-destruct n)
+  ; n=0
+  (by-apply ih2)
+  ; n neq 0
+  (by-rewrite ih2)
+  reflexivity
+  ; AMinus ----------
+  (by-rewrite ih1)
+  (by-rewrite ih2)
+  reflexivity
+  ; AMult ----------
+  (by-rewrite ih1)
+  (by-rewrite ih2)
+  reflexivity)
+
+(define-theorem optimize_0plus_sound/try2
+  (forall [a : aexp] (== (aeval (optimize_0plus a)) (aeval a)))
+  (by-intro a)
+  (for-each-subgoal
+   (by-induction a #:as [(n) (a1 a2 ih1 ih2) (a1 a2 ih1 ih2) (a1 a2 ih1 ih2)])
+   #:do (try (by-rewrite ih1) (by-rewrite ih2) reflexivity)) ; resolves AMinus AMult
+  ; ANum ----------
+  reflexivity
+  ; APlus ----------
+  (for-each-subgoal
+   (by-destruct a1 #:as [(n) (a3 a4) (a3 a4) (a3 a4)])
+   #:do (try (by-rewrite ih1) (by-rewrite ih2) reflexivity)) ; resolves APlus AMinus AMult
+  ; a1 = ANum
+  (by-destruct n)
+  ; n=0
+  (by-apply ih2)
+  ; n neq 0
+  (by-rewrite ih2)
+  reflexivity)
+
+(define-theorem optimize_0plus_sound/try3
+  (forall [a : aexp] (== (aeval (optimize_0plus a)) (aeval a)))
+  (by-intro a)
+  (for-each-subgoal
+   (by-induction a #:as [(n) (a1 a2 ih1 ih2) (a1 a2 ih1 ih2) (a1 a2 ih1 ih2)])
+   #:do
+   (try (by-rewrite ih1) (by-rewrite ih2) reflexivity) ; resolves AMinus AMult
+   (try reflexivity)) ; resolves ANum
+  ; APlus ----------
+  (for-each-subgoal
+   (by-destruct a1 #:as [(n) (a3 a4) (a3 a4) (a3 a4)])
+   #:do (try (by-rewrite ih1) (by-rewrite ih2) reflexivity)) ; resolves APlus AMinus AMult
+  ; a1 = ANum
+  (by-destruct n)
+  ; n=0
+  (by-apply ih2)
+  ; n neq 0
+  (by-rewrite ih2)
+  reflexivity)

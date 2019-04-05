@@ -13,7 +13,7 @@
              racket/format
              racket/pretty
              syntax/stx
-             (for-syntax racket/base syntax/parse))
+             (for-syntax racket/base syntax/parse syntax/stx))
  "../stdlib/prop.rkt"
  "../stdlib/sugar.rkt"
  "base.rkt")
@@ -128,10 +128,14 @@
   ;; XXX Maybe new-foc could be #f for failure?
   (eval-proof-steps (next (struct-copy nttz ptz [focus new-foc])) psteps))
 
-;; meta tactic; not a tactic (which take tacticals); takes a tactic.
-(define-for-syntax ((try t) ptz)
-  (with-handlers ([exn:fail:ntac:goal? (lambda (e) ptz)])
-    (t ptz)))
+;; meta tactic; not a tactic (which take tacticals); takes a sequence of tactics
+(define-for-syntax ((try . ts) ptz)
+  (with-handlers ([exn:fail? #;exn:fail:ntac:goal? ; catch other fails too, eg unbound id
+                             (lambda (e)
+                               ;; (displayln "try failed:")
+                               ;; (pretty-print e)
+                               ptz)])
+    ((apply compose (reverse ts)) ptz)))
 
 ;; define-tactical
 
@@ -625,4 +629,63 @@
       [_ #'(fill (make-Or-intro-fn (λ (p q) p) #'left))]))
   (define-syntax (by-right syn)
     (syntax-case syn ()
-      [_ #'(fill (make-Or-intro-fn (λ (p q) q) #'right))])))
+      [_ #'(fill (make-Or-intro-fn (λ (p q) q) #'right))]))
+
+;; find-ntt-apply : nttz -> nttz
+;; Returns nttz with focus that is innermost ntt-apply node to given nttz.
+;; Returns #f if there are no ntt-apply nodes in proof tree
+(define (find-ntt-apply orig-ptz)
+  (let L ([ptz orig-ptz])
+    (if (ntt-apply? (nttz-focus ptz))
+        ptz
+        (if (nttz-done? ptz)
+            #f
+            (L (nttz-up ptz))))))
+
+;; to-end : nttz nat -> nttz
+;; Focus of ptz must be ntt-apply node.
+;; Moves nth node to the end of the node list,
+;; where n is the position of the first hole node.
+;; Returns new nttz with the new apply node as the focus
+(define (to-end ptz n) ; n is the current (hole) node
+  (match-define (nttz ctxt pt prev) ptz)
+  (match-define (ntt-apply _ g nodes proof-fn) pt)
+  (define-values (before this+after) (split-at nodes n))
+  (match-define (cons this-node after) this+after)
+  (define new-pt
+    (make-ntt-apply
+     g
+     (append before after (list this-node)) ; move first hole node to end
+     (λ pfs                                 ; move last pf to nth pos
+       (define-values (before-pfs this+after-pfs) (split-at pfs n))
+       (match-define (cons this-pf after-pfs/rev) (reverse this+after-pfs))
+       (apply proof-fn (append before-pfs (cons this-pf (reverse after-pfs/rev)))))))
+  (_nttz ctxt new-pt prev))
+
+;; applies to innermost ntt-apply node
+(define-syntax (for-each-subgoal stx)
+  (syntax-parse stx
+    [(_ t0 #:do t_ ...)
+     #:with (t ...) (reverse (stx->list #'(t_ ...)))
+     #`(λ (ptz0)
+         (define ptz (t0 ptz0))
+         (define nttz-app (find-ntt-apply ptz)) ; innermost app node from ptz
+         (if nttz-app
+             (let L ([ptz ptz]
+                     [current-nttz-app nttz-app]
+                     [n (length (ntt-apply-subterms (nttz-focus nttz-app)))]
+                     [num-solved 0]) ; the current goal is this position in the list of n
+               (if (zero? n)
+                   ptz
+                   (let* ([next-ptz ((compose t ...) ptz)]
+                          [next-nttz-app (find-ntt-apply next-ptz)]
+                          [same-subgoal? (and next-nttz-app
+                                              (= (num-holes/nttz current-nttz-app)
+                                                 (num-holes/nttz next-nttz-app)))])
+                     (if same-subgoal? ; put current goal to end
+                         (let ([new-nttz-app (to-end next-nttz-app num-solved)])
+                           (L (next new-nttz-app) new-nttz-app (sub1 n) num-solved))
+                         ;; already moved to next subgoal
+                         (L next-ptz next-nttz-app (sub1 n) (add1 num-solved))))))
+             ((compose t ...) ptz)))]))
+)
