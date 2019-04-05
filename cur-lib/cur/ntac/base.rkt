@@ -37,6 +37,7 @@
    (struct-out nttz)
    make-nttz nttz-up nttz-down-context nttz-down-apply nttz-done?
 
+   num-holes/nttz
    num-holes
    to-top
 
@@ -89,6 +90,7 @@
          (apply f (map (λ (c) (loop c)) cs))]
         [(ntt-done _ _ k)
          (loop k)])))
+  (define (num-holes/nttz ptz) (num-holes (nttz-focus ptz)))
   (define (num-holes pt)
     (match pt
       [(ntt-hole _ _) 1]
