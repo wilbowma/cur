@@ -3,6 +3,7 @@
 (require
  cur/stdlib/nat
  cur/stdlib/bool
+ cur/stdlib/prop
  cur/stdlib/sugar
  cur/stdlib/equality
  cur/ntac/base
@@ -251,4 +252,121 @@
   (by-apply ih2)
   ; n neq 0
   (by-rewrite ih2)
+  reflexivity)
+
+(define-datatype aevalR : (-> aexp Nat Prop)
+  [E_ANum (n : Nat) : (aevalR (ANum n) n)]
+  [E_APlus (e1 e2 : aexp) (n1 n2 : Nat) :
+           (-> (aevalR e1 n1)
+               (aevalR e2 n2)
+               (aevalR (APlus e1 e2) (plus n1 n2)))]
+  [E_AMinus (e1 e2 : aexp) (n1 n2 : Nat) :
+            (-> (aevalR e1 n1)
+                (aevalR e2 n2)
+                (aevalR (AMinus e1 e2) (minus n1 n2)))]
+  [E_AMult (e1 e2 : aexp) (n1 n2 : Nat) :
+               (-> (aevalR e1 n1)
+                   (aevalR e2 n2)
+                   (aevalR (AMult e1 e2) (mult n1 n2)))])
+
+(define-theorem aeval_iff_aevalR
+  (∀ [a : aexp] [n : Nat]
+     (iff (aevalR a n)
+          (== (aeval a) n)))
+  (by-intros a n)
+  by-split
+  ;; -> ----------
+  (by-intro H)
+  (by-induction H #:as [(n) (e1 e2 n1 n2 h1 h2 ih1 ih2)
+                            (e1 e2 n1 n2 h1 h2 ih1 ih2)
+                            (e1 e2 n1 n2 h1 h2 ih1 ih2)])
+  reflexivity ; E_ANum
+  (by-rewrite ih1) ; E_APlus
+  (by-rewrite ih2)
+  reflexivity
+  (by-rewrite ih1) ; E_AMinus
+  (by-rewrite ih2)
+  reflexivity
+  (by-rewrite ih1) ; E_AMult
+  (by-rewrite ih2)
+  reflexivity
+  ;; <- ----------
+  (by-generalize n)
+  (by-induction a #:as [(n0) (a1 a2 ih1 ih2)
+                             (a1 a2 ih1 ih2)
+                             (a1 a2 ih1 ih2)])
+  ; ANum
+  (by-intros n H)
+  (by-rewriteL H)
+  (by-apply E_ANum)
+  ; APlus
+  (by-intros n H)
+  (by-rewriteL H)
+  (by-apply E_APlus)
+  (by-apply ih1)
+  reflexivity
+  (by-apply ih2)
+  reflexivity
+  ; AMinus
+  (by-intros n H)
+  (by-rewriteL H)
+  (by-apply E_AMinus)
+  (by-apply ih1)
+  reflexivity
+  (by-apply ih2)
+  reflexivity
+  ; AMult
+  (by-intros n H)
+  (by-rewriteL H)
+  (by-apply E_AMult)
+  (by-apply ih1)
+  reflexivity
+  (by-apply ih2)
+  reflexivity)
+
+(define-theorem aeval_iff_aevalR/shorter
+  (∀ [a : aexp] [n : Nat]
+     (iff (aevalR a n)
+          (== (aeval a) n)))
+  (by-intros a n)
+  by-split
+  ;; -> ----------
+  (by-intro H)
+  (for-each-subgoal
+   (by-induction H #:as [(n) (e1 e2 n1 n2 h1 h2 ih1 ih2)
+                             (e1 e2 n1 n2 h1 h2 ih1 ih2)
+                             (e1 e2 n1 n2 h1 h2 ih1 ih2)])
+   #:do
+   (try (by-rewrite ih1) ; E_APlus EAMinus E_AMult
+        (by-rewrite ih2)
+        reflexivity)
+   (try reflexivity)) ; E_ANum
+  ;; <- ----------
+  (by-generalize n)
+  (for-each-subgoal
+   (by-induction a #:as [(n0) (a1 a2 ih1 ih2)
+                              (a1 a2 ih1 ih2)
+                              (a1 a2 ih1 ih2)])
+  #:do
+  (by-intros n H)
+  (by-rewriteL H))
+  ; ANum
+  (by-apply E_ANum)
+  ; APlus
+  (by-apply E_APlus)
+  (by-apply ih1)
+  reflexivity
+  (by-apply ih2)
+  reflexivity
+  ; AMinus
+  (by-apply E_AMinus)
+  (by-apply ih1)
+  reflexivity
+  (by-apply ih2)
+  reflexivity
+  ; AMult
+  (by-apply E_AMult)
+  (by-apply ih1)
+  reflexivity
+  (by-apply ih2)
   reflexivity)

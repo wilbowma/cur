@@ -237,7 +237,7 @@
                        (splitf-at
                         (stx->list #'([X_ τX_] ...))
                         (syntax-parser
-                          [(_ (~== _ _ _)) #f]
+                          [(_ (~== _ _ _)) #f] ; TODO: split on Prop instead?
                           [(X:id _) (not (syntax-property #'X 'tmp))])))
                      list))
             (~parse inst-args
