@@ -370,3 +370,27 @@
   reflexivity
   (by-apply ih2)
   reflexivity)
+
+(define-theorem aeval_iff_aevalR/shortest
+  (∀ [a : aexp] [n : Nat]
+     (iff (aevalR a n)
+          (== (aeval a) n)))
+  (by-intros a n)
+  by-split
+  ;; -> ----------
+  (by-intro H)
+  (for-each-subgoal (by-induction H) #:do subst reflexivity)
+  ;; <- ----------
+  (by-generalize n)
+  (for-each-subgoal
+   (by-induction a #:as [(n) (a1 a2 ih1 ih2)
+                             (a1 a2 ih1 ih2)
+                             (a1 a2 ih1 ih2)])
+  #:do
+  (by-intros n0 H)
+  subst
+  constructor ; E_ANum
+  (try (by-apply ih1) ; E_APlus E_AMinus E_AMult
+       reflexivity
+       (by-apply ih2)
+       reflexivity)))
