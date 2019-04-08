@@ -116,6 +116,7 @@
     [(e ...)
      (ormap (λ (e1) (has-term? e0 e1 bvs)) (attribute e))]
     [_ #f]))
+(define ((has-term/e? syn) e0) (has-term? e0 syn))
 
 ;; TODO: move me to separate file?
 ;; TODO: use turnstile/type-constraints instead?

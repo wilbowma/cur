@@ -209,7 +209,7 @@
   (for/list ([(_ ty) ctxt]) (ty-fn ty)))
 
 (define (ctx->stx ctxt #:do [ty-fn (λ (x) x)])
-  (for/list ([(x ty) ctxt]) #`[#,x : #,(ty-fn ty)]))
+  (for/list ([(x ty) ctxt]) (list x ': (ty-fn ty))))
 
 ;; converts NtacCtx to Turnstile env
 ;; - NOTE: does not reverse scoping order, so first item is innermost scope

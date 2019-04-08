@@ -308,8 +308,7 @@
       [(_ x #:as param-namess)
        #`(fill (destruct #'x #'param-namess))]))
 
-  ;; TODO: properly handle indexed types (copy from `induction`)
-  (define ((destruct e_ [param-namess #f]) ctxt pt)
+  (define ((destruct e_ [maybe-xss #f]) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
 
     (define e (if (identifier? e_) e_ (normalize e_ ctxt)))
@@ -321,102 +320,102 @@
     (unless e-ty
       (raise-ntac-goal-exception
        "by-destruct: could not find ~a" (stx->datum e)))
-    
+
     (define name (if (identifier? e) e (generate-temporary)))
-    (define/syntax-parse (_ ([A _] ...) ([i_ _] ...) [C ([x τ_] ... _) _] ...)
+
+    (define/syntax-parse ; get define-datatype info (types are unexpanded)
+      (_ ([A _] ...) #;params ([i _] ...) #;indices Cinfo ...)
       (get-match-info e-ty))
 
-    (define Cs #'(C ...))
+    (define num-params (stx-length #'(A ...)))
+    (define num-idxs (stx-length #'(i ...)))
+    
+    (define get-idxs ; extract indices from *unexpanded* (curried single-app) type
+      (if (stx-null? #'(i ...))
+          (λ (t) null)
+          (λ (t) (get-idxs/unexp t num-idxs))))
 
-    ;; infer params and indices from e-ty
-    (define/syntax-parse ((X ...) (i ...))
-      (syntax-parse e-ty
-        [((~literal #%plain-app) _ . name-ty-args)
-         (stx-split-at #'name-ty-args (stx-length #'(A ...)))]))
-
-    (define/syntax-parse ((τ ...) ...)
-      (stx-map
-       (λ (ts) (stx-map (normalize/ctxt ctxt) ts))
-       (substs #'(X ...) #'(A ...) #'((τ_ ...) ...))))
-
-    (define paramss
-      (or param-namess
-          (stx-map (compose (freshens e) generate-temporaries) #'((x ...) ...))))
-
-    (unless (stx-length=? paramss Cs)
+    (when (and maybe-xss (not (stx-length=? maybe-xss #'(Cinfo ...))))
       (raise-ntac-goal-exception
-       "by-destruct: given wrong number of parameter names: ~a"
-       (stx->datum param-namess)))
+       "destruct: not enough sets of names: given ~a, expected ~a"
+       (stx-length maybe-xss) (stx-length #'(Cinfo ...))))
 
-    ;; pats and Cinstances are same except pat is used in match pattern,
-    ;; which drops params (bc elim methods do not re-bind params)
-    (define pats
-      (stx-map
-       (λ (C ps)
-         (if (stx-null? ps)
-             C
-             #`(#,C . #,ps)))
-       Cs paramss))
-    (define Cinstances
-      (stx-map
-       (λ (C ps)
-         (if (and (stx-null? ps) (stx-null? #'(X ...)))
-             C
-             #`(#,C X ... . #,ps)))
-       Cs paramss))
+    ;; infer from e-ty: params (Aval ...) and indices (ival ...)
+    (define/syntax-parse ((Aval ...) (ival ...))
+      (syntax-parse e-ty
+        [((~literal #%plain-app) _ . e-ty-args)
+         (stx-split-at #'e-ty-args num-params)]))
 
-    ;; split ctxt at where `name` is bound:
-    ;; - innermost binding of outer-ctxt is `name`
-    ;; - if e is not id, then outer-ctxt is empty
-    (define-values (outer-ctxt inner-ctxt)
-      (if (identifier? e_)
-          (ctx-lookup/split ctxt name)
-          (values (mk-empty-ctx) ctxt)))
+    ;; stxs-to-change: parts of the goal (and ctxt tys) to update, in each subgoal.
+    ;; Consists of `e` and the index values from its type
+    (define stxs-to-change (cons e #'(ival ...)))
 
-    ;; split inner-ctxt according to whether its types contain `e`
-    ;; - inner/noname: bindings have types that do not contain `e`
-    ;; - inner/name: type of first binding (call it x) that has `e`
-    ;;   - the rest of inner/name is the rest of inner-ctxt after `x`
-    ;;     - these bindings must be re-bound because they may reference `x`
-    (define-values (inner/noname inner/name)
-      (ctx-splitf/ty/outerin inner-ctxt (λ (t) (not (has-term? e t)))))
+    ;; mk-update: Stx Stxs -> (-> Ty Ty)
+    ;; Consumes an instance of the destructed term and its new indices.
+    ;; Returns a function that updates a type by replacing any `stxs-to-change`
+    ;; with the given stxs
+    (define (mk-update #:inst inst #:idxs idxs)
+      (unless (stx-length=? #'(ival ...) idxs)
+        (raise-ntac-goal-exception
+         "name: mk-update: wrong number of indices, given ~a: ~a; expected ~a, eg ~a"
+         (stx-length idxs) (stx->datum idxs)
+         (stx-length #'(ival ...)) (stx->datum (resugar-type e-ty))))
+      (subst-terms/es (cons inst idxs) stxs-to-change))
+
+    ;; modify ctxt:
+    ;; 1) remove e \in stxs-to-change, if id
+    ;; 2) partition into:
+    ;; - ctxt-to-change: ctx items whose type contains element of stxs-to-change
+    ;;    - These items are affected by the induction and must be updated.
+    ;; - ctxt-unchanged: remaining items
+    ;; Items are bound in the same relative order.
+    (define-values (ctxt-to-change ctxt-unchanged)
+      (ctx-partition/ty
+       (ctx-removes ctxt (stx-filter id? stxs-to-change))
+       (λ (t) (stx-ormap (has-term/e? t) stxs-to-change))))
+
+    ;; generate subgoals and elim methods in one pass
+    ;; subgoals: list of ntt proof tree nodes
+    ;; mk-match-clauses: list of fns that turn a proof term into a match clause
+    (define-values (subgoals mk-match-clauses)
+      (for/lists (subgoals mk-match-clauses)
+                 ([maybe-xs (if maybe-xss
+                                (in-stx-list maybe-xss)
+                                (stx-map (λ _ #'()) #'(Cinfo ...)))] ; names not given, gen tmp for now
+                  [Cinfo (in-stx-list #'(Cinfo ...))])
+        (syntax-parse Cinfo
+          [[C ([x τ_] ... τout_) ((xrec . _) ...)]
+           #:with new-xs
+                  (if (stx-length=? maybe-xs #'(x ...))
+                      maybe-xs
+                      ; else generate based on extra-info names
+                      ((freshens e_) (generate-temporaries #'(x ...))))
+           #:with (τ ... τout) (substs #'(Aval ... . new-xs)
+                                       #'(A ... x ...)
+                                       #'(τ_ ... τout_))
+           #:with pat (if (stx-null? #'new-xs) #'C #'(C . new-xs))
+           #:do[(define update-ty
+                  (mk-update #:inst #'(C Aval ... . new-xs) #:idxs (get-idxs #'τout)))
+                (define (update-ctxt old-ctxt)
+                  (define tmp-ctxt
+                    (ctx-adds ctxt-unchanged #'new-xs #'(τ ...) #:do normalize))
+                  (ctx-append tmp-ctxt
+                              (ctx-map
+                               (compose (normalize/ctxt tmp-ctxt) update-ty)
+                               ctxt-to-change)))]
+           (values
+            (make-ntt-context ; subgoal
+             update-ctxt
+             (make-ntt-hole
+              (normalize (update-ty goal) (update-ctxt ctxt))))
+            (λ (pf)           ; fn to make match clause from a proof term
+              #`[pat
+                 (λ #,@(ctx->stx ctxt-to-change #:do (compose unexpand update-ty))
+                   #,pf)]))])))
 
     (make-ntt-apply
      goal
-     (stx-map
-      (λ (Cinstance C-types params)
-        ;; adding params into ctx is slightly tricky:
-        ;; - a param-type may refer to inner-ctxt binding
-        ;;   - see plus-n-Sm, IH param, in rewrite-with-previous.rkt
-        ;; - but a binding's type in inner-ctxt may also reference param
-        ;;   - see destruct n in length-app-sym, in Poly.rkt
-        ;; Current insertion algo:
-        ;; 1. remove name from outer-ctxt
-        ;; 2. add params to inner/noname
-        ;; 3. update types in inner/name with destructed term instances
-        ;; 4. merge together updated outer-ctxt, inner/noname, and inner/name
-        (define (update-ctxt old-ctxt)
-          (define tmp-ctxt
-            (ctx-append
-             (if (identifier? e_)
-                 (ctx-remove-inner outer-ctxt) ; drop name from old-ctxt
-                 (mk-empty-ctx))
-             (ctx-adds
-              inner/noname
-              (stx->list params)
-              (stx->list C-types))))
-          ;(ctx-append
-           ;tmp-ctxt
-           (ctx-fold ; update ty in ctxt with (subst-term Cinstance name _)
-            (λ (h ctxt-acc) (normalize (subst-term Cinstance e h) ctxt-acc))
-            inner/name
-            tmp-ctxt))
-        (make-ntt-context
-          update-ctxt
-          (make-ntt-hole (normalize (subst-term Cinstance e goal) (update-ctxt ctxt)))))
-      Cinstances
-      #'((τ ...) ...)
-      paramss)
+     subgoals
      (λ pfs
        (quasisyntax/loc goal
          ;; each match body must be an eta-expansion of the pf \in pfs,
@@ -425,19 +424,12 @@
             #:as #,name
             #:with-indices i ...
             #:in #,(unexpand e-ty)
-            #:return (Π #,@(for/list ([(x ty) inner/name])
-                             #`[#,x : #,(unexpand (subst-term name e ty))])
-                         #,(unexpand (subst-term name e goal)))
-                 . #,(stx-map
-                      (λ (pat Cinstance pf)
-                        #`[#,pat
-                           (λ #,@(for/list ([(x ty) inner/name])
-                                   #`[#,x : #,(unexpand (subst-term Cinstance e ty))])
-                             #,pf)])
-                      pats
-                      Cinstances
-                      pfs))
-          #,@(ctx-ids inner/name))))))
+            #:return #,(let ([update-Prop-ty
+                              (compose unexpand (mk-update #:inst name #:idxs #'(i ...)))])
+                         #`(Π #,@(ctx->stx ctxt-to-change #:do update-Prop-ty)
+                              #,(update-Prop-ty goal)))
+            . #,(map (λ (pf->clause pf) (pf->clause pf)) mk-match-clauses pfs))
+          #,@(ctx-ids ctxt-to-change))))))
 
   (define-syntax (by-induction syn)
     (syntax-case syn ()
@@ -698,4 +690,17 @@
                          ;; already moved to next subgoal
                          (L next-ptz next-nttz-app (sub1 n) (add1 num-solved))))))
              ((compose t ...) ptz)))]))
+
+(define-syntax (constructor stx)
+  (syntax-parse stx
+    [T:id
+     #'(λ (ptz)
+         (for/fold ([ptz ptz])
+                   ([name (namespace-mapped-symbols)]
+                    #:when (with-handlers ([exn? (lambda _ #f)])
+                             (typeof (expand/df (datum->syntax #'T name)))))
+           (define next-ptz
+             (eval-proof-step ptz #`(try (by-apply #,(datum->syntax #'T name)))))
+           #:final (not (eq? ptz next-ptz))
+           next-ptz))]))
 )

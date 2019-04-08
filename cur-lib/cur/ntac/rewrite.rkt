@@ -274,7 +274,17 @@
             (~fail #:unless (stx-length=? #'(X ...) #'inst-args)
                    (raise-ntac-goal-exception
                     "by-apply: could not infer instantiation of: ~a; try explicit #:with args?\n"
-                    (stx->datum name))))
+                    (stx->datum name)))
+            (~parse new-thm
+                    (normalize
+                     (substs #'inst-args
+                             #'(X ...)
+                             (if tgt-name (stx-car #'(antecedent ...)) #'consequent))
+                     ctxt))
+            (~fail #:unless (typecheck? #'new-thm target)
+                   (raise-ntac-goal-exception
+                    "by-apply: applying ~a does not produce term with goal type ~a"
+                   (stx->datum name) (stx->datum #`#,(resugar-type target)))))
       (if tgt-name
           (let ([new-thm (substs #'inst-args #'(X ...) #'consequent)])
             (make-ntt-apply
@@ -314,7 +324,7 @@
     (match-define (ntt-hole _ goal) pt)
     (make-ntt-apply
      goal
-     (list (make-ntt-hole #'False))
+     (list (make-ntt-hole (normalize #'False ctxt)))
      (λ (body-pf) ; proof of false
        (quasisyntax/loc goal
          (new-elim #,body-pf (λ y #,(unexpand goal)))))))
