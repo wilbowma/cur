@@ -7,6 +7,7 @@
  "list.rkt")
 
 (provide Ascii ascii Ascii-Str (rename-out [Ascii-Str String])
+         (for-syntax ~String)
          empty-ascii-str
          ascii-str-concat
          ascii-str-length
@@ -31,6 +32,14 @@
   (syntax-case syn ()
     [(_ e ...)
      #'(build-list Ascii e ...)]))
+
+(begin-for-syntax
+  (require (for-syntax racket/base syntax/parse))
+  (define-syntax ~String
+    (pattern-expander
+     (syntax-parser
+       [:id #'(~List ~Ascii)]
+       [(_ . rst) #'((~List ~Ascii) . rst)]))))
 
 (define/rec/match ascii-equal? : Ascii Ascii -> Bool
   [(ascii a1 a2 a3 a4 a5 a6 a7)

@@ -8,7 +8,7 @@
 (provide
  List
  elim-List
- nil cons (for-syntax nil cons)
+ nil cons (for-syntax nil cons ~List)
  list-ref
  length andmap andmap2
  build-list (rename-out [build-list lst])
