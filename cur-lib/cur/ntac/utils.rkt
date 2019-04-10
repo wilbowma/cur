@@ -142,14 +142,17 @@
           (define da2 (syntax-property #'y 'display-as))]
      #:when (or (and da1 da2 (stx-e da1) (stx-e da2) (free-identifier=? da1 da2))
                 (or (and (not da1) (not da2))
-                    (and (not da1) (not (stx-e da2))) ; why sometimes #'#f?
-                    (and (not (stx-e da1)) (not da2)))
+                    (and (not da1) da2 (not (stx-e da2))) ; why sometimes #'#f?
+                    (and da1 (not (stx-e da1)) (not da2)))
                 (and da1 da2 (not (stx-e da1)) (not (stx-e da2))))
      null]
     [((~and (~not (~literal #%plain-app)) x:id)
       (~and (~not (~literal #%plain-app)) y:id))
      #:when (free-identifier=? #'x #'y)
      null]
+    [(((~literal #%plain-lambda) (x) e1)
+      ((~literal #%plain-lambda) (y) e2))
+     ((unify bvs) #'e1 (subst #'x #'y #'e2))]
     [((e1 ...) (e2 ...))
      #:do[(define e1-lst (stx->list #'(e1 ...)))
           (define e2-lst (stx->list #'(e2 ...)))]
@@ -162,6 +165,7 @@
           (define e1 (car e1s))
           (define e2 (car e2s))
           (define res ((unify bvs) e1 e2))
+          ;; TODO: subst `res` into (cdr e1s) and (cdr e2s)
           (and res
                (L (append res acc) (cdr e1s) (cdr e2s)))]))]
     [((~and (~not (~literal #%plain-app)) d1) ; datums
