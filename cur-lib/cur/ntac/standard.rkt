@@ -183,19 +183,27 @@
          (quasisyntax/loc goal (λ (#,the-name : #,(unexpand #'P)) #,body-pf)))))]))
 
 ;; generalize is opposite of intro
-;; TODO: (generalize x) should also lift out y\in ctx where ctx[y] references x
 (define ((generalize name) ctxt pt)
   (match-define (ntt-hole _ goal) pt)
+
+  (define-values (ctxt-to-change ctxt-unchanged)
+    (ctx-partition/ty
+     (ctx-remove ctxt name)
+     (λ (t) (has-term? name t))))
+
     (make-ntt-apply
      goal
      (list
       (make-ntt-context
-       (ctx-remove/id name)
+       (λ _ ctxt-unchanged)
        (make-ntt-hole
-        (normalize #`(Π [#,name : #,(ctx-lookup ctxt name)] #,goal)
-                   (ctx-remove ctxt name)))))
+        (normalize
+         #`(Π [#,name : #,(ctx-lookup ctxt name)]
+              #,@(ctx-tys->stx ctxt-to-change) ; TODO: need names?
+              #,goal)
+         ctxt-unchanged))))
      (lambda (body-pf)
-       (quasisyntax/loc goal (#,body-pf #,name)))))
+       (quasisyntax/loc goal (#,body-pf #,name . #,(ctx-ids ctxt-to-change))))))
 
 ;; A pattern emerges:
 ;; tacticals must take additional arguments as ntac-syntax
@@ -240,6 +248,7 @@
            (λ #,@(for/list ([name the-names] [P (stx->list the-Ps)])
                    #`[#,name : #,(unexpand P)])
              #,body-pf)))))]))
+
   (define-syntax (by-intros syn)
     (syntax-parse syn
       [(_ x:id ...)
