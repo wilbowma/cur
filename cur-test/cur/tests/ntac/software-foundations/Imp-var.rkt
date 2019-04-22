@@ -174,7 +174,6 @@
   reflexivity)
  
 (define-theorem ceval-deterministic
-;(ntac/trace
   (∀ [c : com] [st : State] [st1 : State] [st2 : State]
      (-> (ceval c st st1)
          (ceval c st st2)
@@ -189,106 +188,101 @@
                          (st st1 b c1 c2 bE E IH) ; iffalse
                          (b st c bE) ; whilefalse
                          (st0 st10 st20 b c bE E1 E2 IH1 IH2)]) ; whiletrue
-  ; 1
+  ; 1 ESkip
   (by-intros st2b E2b)
-  ;; TODO: not working if inversion is supplied explicit names
-  ;  (by-inversion E2b #:as st0 H0 H1)
-  (by-inversion E2b)
+  (by-inversion E2b #:as st0 H0 H1)
 ;  subst ; TODO: use subst instead of explicit rewrites
-  (by-rewriteL Heq849) ; +313
-  (by-rewriteL Heq850)
+  (by-rewriteL H0)
+  (by-rewriteL H1)
   reflexivity
-  ; 2
+  ; 2 EAss
   (by-intros st2b E2b)
-  (by-inversion E2b)
-  ;  (by-inversion E2b #:as st0 a0 n0 x0 H4 H3 H1 H2 H0)
+  (by-inversion E2b #:as st0 a0 n0 x0 H0 H1 H2 H3 H4)
   (by-rewriteL E)
-  (by-rewriteL Heq1005)
-  (by-rewriteL X222992)
-  (by-rewriteL Heq1006)
-  (by-rewriteL Heq1007)
-  (by-rewriteL Heq1008)
+  (by-rewriteL H1)
+  (by-rewriteL H0)
+  (by-rewriteL H2)
+  (by-rewriteL H3)
+  (by-rewriteL H4)
   reflexivity
-  ; 3
+  ; 3 ESeq
   (by-intros st2b E2b)
-  (by-inversion E2b)
   ;subst
-  ;; (by-inversion E2b #:as c10 c20 st0 st10 st20 E10 E20 H1 H2 H3 H4)
-  (by-assert EQ1 (== st10 st11166))
+  (by-inversion E2b #:as c11 c21 st1 st11 st21 E11 E21 H0 H1 H2 H3)
+  (by-assert EQ1 (== st10 st11))
   (by-apply IH10) ; EQ1
-  (by-rewriteL Heq1195)
-  (by-rewriteL Heq1197)
+  (by-rewriteL H1)
+  (by-rewriteL H3)
   by-assumption ; end EQ1
   (by-apply IH20)
-  (by-rewriteL Heq1194)
-  (by-rewriteL Heq1196)
+  (by-rewriteL H0)
+  (by-rewriteL H2)
   (by-rewrite EQ1)
   by-assumption
-  ;; 4
+  ;; 4 EIfTrue
   (by-intros st2b E2b)
-  (by-inversion E2b)
-  ;; (by-inversion E2b #:as st0 st10 b0 c10 c20 bE0 E0 H1 H2)
+  (by-inversion E2b #:as [(st0 st10 b0 c10 c20 bE0 E0 H0 H1 H2 H3 H4)
+                          (st0 st10 b0 c10 c20 bE0 E0 H0 H1 H2 H3 H4)])
   ;; 4a
   (by-apply IH)
-  (by-rewriteL Heq1380)
-  (by-rewriteL Heq1381)
-  (by-rewriteL Heq1383)
+  (by-rewriteL H0)
+  (by-rewriteL H1)
+  (by-rewriteL H3)
   by-assumption
   ;; 4b
-  (by-rewriteL Heq1411 #:in bE)
-  (by-rewriteL Heq1414 #:in bE)
-  (by-rewrite bE #:in X2441390)
-  (by-discriminate X2441390)
-  ;; 5
+  (by-rewriteL H1 #:in bE)
+  (by-rewriteL H4 #:in bE)
+  (by-rewrite bE #:in bE0)
+  (by-discriminate bE0)
+  ;; 5 EIfFalse
   (by-intros st2b E2b)
-  ;  (by-inversion E2b #:as st0 st10 b0 c10 c20 bE0 E0 H1 H2)
-  (by-inversion E2b)
+  (by-inversion E2b #:as [(st0 st10 b0 c10 c20 bE0 E0 H0 H1 H2 H3 H4)
+                          (st0 st10 b0 c10 c20 bE0 E0 H0 H1 H2 H3 H4)])
   ;; 5a
-  (by-rewriteL Heq1564 #:in bE)
-  (by-rewriteL Heq1567 #:in bE)
-  (by-rewrite bE #:in X2381543) ; +16
-  (by-discriminate X2381543)
+  (by-rewriteL H1 #:in bE)
+  (by-rewriteL H4 #:in bE)
+  (by-rewrite bE #:in bE0)
+  (by-discriminate bE0)
   ;; 5b
   (by-apply IH)
-  (by-rewriteL Heq1593)
-  (by-rewriteL Heq1594)
-  (by-rewriteL Heq1595)
+  (by-rewriteL H0)
+  (by-rewriteL H1)
+  (by-rewriteL H2)
   by-assumption
-  ;; 6
+  ;; 6 EWhileFalse
   (by-intros st2b E2b)
-  ;;  (by-inversion E2b #:as b0 st0 c0 bE0)
-  (by-inversion E2b)
+  (by-inversion E2b #:as [(b0 st0 c0 bE0 H0 H1 H2 H3)
+                          (st0 st1 st2 b0 c0 bE0 H0 H1 H2 H3 H4 H5)])
   ;; 6a
-  (by-rewriteL Heq1771)
-  (by-rewriteL Heq1772)
+  (by-rewriteL H0)
+  (by-rewriteL H1)
   reflexivity
   ;; 6b
-  (by-rewriteL Heq1809 #:in bE)
-  (by-rewriteL Heq1811 #:in bE)
-  (by-rewrite bE #:in X2551780)
-  (by-discriminate X2551780)
-  ;; 7
+  (by-rewriteL H3 #:in bE)
+  (by-rewriteL H5 #:in bE)
+  (by-rewrite bE #:in bE0)
+  (by-discriminate bE0)
+  ;; 7 EWhileTrue
   (by-intros st2b E2b)
-  ;  (by-inversion E2b #:as st0 st10 st20 b0 c0 bE0 E10 E20 H1 H2 H3 H4)
-  (by-inversion E2b)
+  (by-inversion E2b #:as [(b0 st1 c0 bE0 H0 H1 H2 H3)
+                          (st1 st11 st21 b0 c0 bE0 E10 E20 H0 H1 H2 H3)])
   ;; 7a
-  (by-rewriteL Heq1961 #:in bE)
-  (by-rewriteL Heq1963 #:in bE)
-  (by-rewrite bE #:in X2491948)
-  (by-discriminate X2491948)
+  (by-rewriteL H1 #:in bE)
+  (by-rewriteL H3 #:in bE)
+  (by-rewrite bE #:in bE0)
+  (by-discriminate bE0)
   ;; 7b
-  (by-assert EQ1 (== st10 st11965))
+  (by-assert EQ1 (== st10 st11))
   (by-apply IH1) ; EQ1
-  (by-rewriteL Heq1998)
-  (by-rewriteL Heq1999)
+  (by-rewriteL H1)
+  (by-rewriteL H2)
   by-assumption ; end EQ1
   (by-apply IH2)
   (by-rewrite EQ1)
-  (by-rewriteL Heq1997)
-  (by-rewriteL Heq1999)
-  (by-rewriteL Heq2000)
-  by-assumption
- )
+  (by-rewriteL H0)
+  (by-rewriteL H2)
+  (by-rewriteL H3)
+  by-assumption)
 
 (check-type ceval-deterministic
   : (∀ [c : com] [st : State] [st1 : State] [st2 : State]

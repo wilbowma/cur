@@ -2,7 +2,7 @@
 ;; Rewrite, using PM equality (the "standard" one)
 
 (provide (for-syntax reflexivity
-                     subst
+                     subst substL
                      replace
                      rewrite
                      symmetry
@@ -49,6 +49,18 @@
               (syntax-parse ty
                 [(~== _ L:id R) #`(by-rewrite #,H)]
                 [(~== _ L R:id) #`(by-rewriteL #,H)]
+                [_ #'nop]))))]))
+  ;; when L and R are both id, rewrite L with R, ie prefer rewriteL
+  (define-syntax substL
+    (syntax-parser
+      [_
+       #'(λ (ptz)
+           (eval-proof-steps
+            ptz
+            (for/list ([(H ty) (nttz-context ptz)])
+              (syntax-parse ty
+                [(~== _ L R:id) #`(by-rewriteL #,H)]
+                [(~== _ L:id R) #`(by-rewrite #,H)]
                 [_ #'nop]))))]))
 
   (define (symmetry ctxt pt)
