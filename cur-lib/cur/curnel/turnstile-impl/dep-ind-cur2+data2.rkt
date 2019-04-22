@@ -173,11 +173,10 @@
    ;; - must work with unexpanded stx bc TY still undefined
    ;; eg, if TY is base type, references in τin_ or τout_ will appear unexpanded
    #:with (τA ...) (substs #'(A ...) #'(A_ ...) #'(τA_ ...))
-   #:with (τi ... τ) (datum->syntax #'TY (stx-map unexpand #'(τi_ ... τ_)))
-   #:with ((τin ... τout) ...) (datum->syntax #'TY
-                                 (stx-map
-                                  (λ (ts) (stx-map unexpand ts))
-                                  (subst #'TY #'TY- #'((τin_ ... τout_) ...))))
+   #:with (τi ... τ) (stx-map (unexpand/ctx #'TY) #'(τi_ ... τ_))
+   #:with ((τin ... τout) ...) (stx-map
+                                (λ (ts) (stx-map (unexpand/ctx #'TY) ts))
+                                (subst #'TY #'TY- #'((τin_ ... τout_) ...)))
 
    ;; - each (xrec ...) is subset of (x ...) that are recur args,
    ;; ie, they are not fresh ids

@@ -38,8 +38,12 @@
   (define Type-
     (type-info
      #f ; match info
-     (syntax-parser [(~Type n) (if (= 99 (stx-e #'n)) #'Type #'(Type n))]) ; resugar
-     (syntax-parser [(~Type n) (if (= 99 (stx-e #'n)) #'TypeTop #'(Type n))]))) ; unexpand
+     (syntax-parser [(~Type n) (if (= 99 (stx-e #'n))
+                                   (syntax/loc this-syntax Type)
+                                   (syntax/loc this-syntax (Type n)))]) ; resugar
+     (syntax-parser [(~Type n) (if (= 99 (stx-e #'n))
+                                   (syntax/loc this-syntax TypeTop)
+                                   (syntax/loc this-syntax (Type n)))]))) ; unexpand
   )
 
 (define-typed-syntax Type
