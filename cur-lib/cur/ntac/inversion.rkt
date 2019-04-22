@@ -137,7 +137,8 @@
            #,name
            ; motive
            #,(with-syntax ([(i* ...) (generate-temporaries #'(i ...))])
-               (with-syntax ([(==-ty ...) (stx-map unexpand #'((== i* ival) ...))])
+               (with-syntax ([(==-ty ...) (stx-map (λ (ii ty) #`(== #,ii #,(unexpand ty)))
+                                                   #'(i* ...) #'(ival ...))])
                  #`(λ i* ... #,name
                       (-> ==-ty ... #,(unexpand goal)))))
            ; methods
