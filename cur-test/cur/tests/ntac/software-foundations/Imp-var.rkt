@@ -14,6 +14,8 @@
  rackunit/turnstile
  "../rackunit-ntac.rkt")
 
+;; nb: this file may take a few min to run
+
 (define (total-map [A : Type]) (-> String A))
 (define (update_ [A : Type] [m : (total-map A)] [x : String] [v : A])
   (λ [y : String] (if (string-equal? x y) v (m y))))
@@ -170,3 +172,126 @@
   reflexivity
   (by-apply EAss #:with-var [st (update empty-st "X" 2)])
   reflexivity)
+ 
+(define-theorem ceval-deterministic
+;(ntac/trace
+  (∀ [c : com] [st : State] [st1 : State] [st2 : State]
+     (-> (ceval c st st1)
+         (ceval c st st2)
+         (== State st1 st2)))
+  (by-intros c st st1 st2 E1 E2)
+  ;; TODO: fixme: this will be shadowed (by induction E1 with no params) if it's st2
+  (by-generalize st2)
+  (by-induction E1 #:as [(st) ; skip
+                         (st a1 n x E) ; ass
+                         (c10 c20 st0 st10 st20 E10 E20 IH10 IH20) ; seq
+                         (st st1 b c1 c2 bE E IH) ; iftrue
+                         (st st1 b c1 c2 bE E IH) ; iffalse
+                         (b st c bE) ; whilefalse
+                         (st0 st10 st20 b c bE E1 E2 IH1 IH2)]) ; whiletrue
+  ; 1
+  (by-intros st2b E2b)
+  ;; TODO: not working if inversion is supplied explicit names
+  ;  (by-inversion E2b #:as st0 H0 H1)
+  (by-inversion E2b)
+;  subst ; TODO: use subst instead of explicit rewrites
+  (by-rewriteL Heq849) ; +313
+  (by-rewriteL Heq850)
+  reflexivity
+  ; 2
+  (by-intros st2b E2b)
+  (by-inversion E2b)
+  ;  (by-inversion E2b #:as st0 a0 n0 x0 H4 H3 H1 H2 H0)
+  (by-rewriteL E)
+  (by-rewriteL Heq1005)
+  (by-rewriteL X222992)
+  (by-rewriteL Heq1006)
+  (by-rewriteL Heq1007)
+  (by-rewriteL Heq1008)
+  reflexivity
+  ; 3
+  (by-intros st2b E2b)
+  (by-inversion E2b)
+  ;subst
+  ;; (by-inversion E2b #:as c10 c20 st0 st10 st20 E10 E20 H1 H2 H3 H4)
+  (by-assert EQ1 (== st10 st11166))
+  (by-apply IH10) ; EQ1
+  (by-rewriteL Heq1195)
+  (by-rewriteL Heq1197)
+  by-assumption ; end EQ1
+  (by-apply IH20)
+  (by-rewriteL Heq1194)
+  (by-rewriteL Heq1196)
+  (by-rewrite EQ1)
+  by-assumption
+  ;; 4
+  (by-intros st2b E2b)
+  (by-inversion E2b)
+  ;; (by-inversion E2b #:as st0 st10 b0 c10 c20 bE0 E0 H1 H2)
+  ;; 4a
+  (by-apply IH)
+  (by-rewriteL Heq1380)
+  (by-rewriteL Heq1381)
+  (by-rewriteL Heq1383)
+  by-assumption
+  ;; 4b
+  (by-rewriteL Heq1411 #:in bE)
+  (by-rewriteL Heq1414 #:in bE)
+  (by-rewrite bE #:in X2441390)
+  (by-discriminate X2441390)
+  ;; 5
+  (by-intros st2b E2b)
+  ;  (by-inversion E2b #:as st0 st10 b0 c10 c20 bE0 E0 H1 H2)
+  (by-inversion E2b)
+  ;; 5a
+  (by-rewriteL Heq1564 #:in bE)
+  (by-rewriteL Heq1567 #:in bE)
+  (by-rewrite bE #:in X2381543) ; +16
+  (by-discriminate X2381543)
+  ;; 5b
+  (by-apply IH)
+  (by-rewriteL Heq1593)
+  (by-rewriteL Heq1594)
+  (by-rewriteL Heq1595)
+  by-assumption
+  ;; 6
+  (by-intros st2b E2b)
+  ;;  (by-inversion E2b #:as b0 st0 c0 bE0)
+  (by-inversion E2b)
+  ;; 6a
+  (by-rewriteL Heq1771)
+  (by-rewriteL Heq1772)
+  reflexivity
+  ;; 6b
+  (by-rewriteL Heq1809 #:in bE)
+  (by-rewriteL Heq1811 #:in bE)
+  (by-rewrite bE #:in X2551780)
+  (by-discriminate X2551780)
+  ;; 7
+  (by-intros st2b E2b)
+  ;  (by-inversion E2b #:as st0 st10 st20 b0 c0 bE0 E10 E20 H1 H2 H3 H4)
+  (by-inversion E2b)
+  ;; 7a
+  (by-rewriteL Heq1961 #:in bE)
+  (by-rewriteL Heq1963 #:in bE)
+  (by-rewrite bE #:in X2491948)
+  (by-discriminate X2491948)
+  ;; 7b
+  (by-assert EQ1 (== st10 st11965))
+  (by-apply IH1) ; EQ1
+  (by-rewriteL Heq1998)
+  (by-rewriteL Heq1999)
+  by-assumption ; end EQ1
+  (by-apply IH2)
+  (by-rewrite EQ1)
+  (by-rewriteL Heq1997)
+  (by-rewriteL Heq1999)
+  (by-rewriteL Heq2000)
+  by-assumption
+ )
+
+(check-type ceval-deterministic
+  : (∀ [c : com] [st : State] [st1 : State] [st2 : State]
+     (-> (ceval c st st1)
+         (ceval c st st2)
+         (== State st1 st2))))
