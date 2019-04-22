@@ -90,11 +90,15 @@
   ;; surface rewrite tactics --------------------
   (define-syntax (by-rewrite syn)
     (syntax-case syn ()
+      [(_ H #:in target)
+       #`(fill (rewrite #'H #:inst-args #'() #:in #'target))]
       [(_ H . es)
        #`(fill (rewrite #'H #:inst-args #'es))]))
 
   (define-syntax (by-rewriteL syn)
     (syntax-case syn ()
+      [(_ H #:in target)
+       #`(fill (rewrite #'H #:left? #t #:inst-args #'() #:in #'target))]
       [(_ H . es)
        #`(fill (rewrite #'H #:left? #t #:inst-args #'es))]))
 
@@ -112,8 +116,16 @@
   ;; L/R then marked as "source" and "target":
   ;; - [default] L = tgt, R = src, ie, replace "L" with "R" (ie coq rewrite ->)
   ;; - if left? = #t, flip and replace "R" with "L" (ie coq rewrite <-)
-  (define ((rewrite name #:left? [left-src? #f] #:inst-args [inst-args_ #'()]) ctxt pt)
+  (define ((rewrite name #:left? [left-src? #f]
+                         #:inst-args [inst-args_ #'()]
+                         #:in [tgt-name #f])
+           ctxt pt)
     (match-define (ntt-hole _ goal) pt)
+
+    (define target ; target of the rewrite is either goal or some hypoth in ctxt
+      (or (and tgt-name (ctx-lookup ctxt tgt-name))
+          goal))
+
     (ntac-match (or (ctx-lookup ctxt name) ; thm in ctx
                     (typeof (expand/df name))) ; prev proved tm
      [(~or
@@ -127,7 +139,7 @@
                      (if (= (stx-length #'(X ...)) (stx-length inst-args_))
                          (stx-map (normalize/ctxt ctxt) inst-args_)
                          ; else search
-                         (syntax-parse goal
+                         (syntax-parse target
                            [(~== _ goal/L goal/R)
                             (let ([x+es
                                    (or
@@ -156,13 +168,42 @@
                             #'inst-args
                             #'(X ...)
                             #'(TY/uninst thm/L/uninst thm/R/uninst))))))
-      ;; set L and R as source/target term, depending on specified direction
+      ;; set L and R as src/tgt term, depending on specified direction
+      ;; Naming Note: "tgt" here = "target of subst"; differs from "target" (of rewrite) above
       (with-syntax ([(tgt src) (if left-src? #'(R L) #'(L R))])
+        (define new-target (subst-term #'src #'tgt target))
+        (if tgt-name
+            (let* ([new-ctx (ctx-remove ctxt tgt-name)]
+                   [new-target+ (normalize new-target new-ctx)])
+              (make-ntt-apply
+               goal
+               (list
+                (make-ntt-context
+                 (λ (old-ctxt) (ctx-add new-ctx tgt-name new-target+))
+                 (make-ntt-hole goal)))
+               (λ (pf)
+                 ;; TODO: handle iff (see (not tgt-name) case below)
+                 (quasisyntax/loc tgt-name
+                   ((λ [#,tgt-name : #,(unexpand new-target+)] #,pf)
+                    #,(with-syntax*
+                        ([tgt-id (format-id #'tgt "~a" (generate-temporary))]
+                         [H (format-id name "~a" (generate-temporary))]
+                         [thm/inst #`(#,name #,@(stx-map unexpand #'inst-args))]
+                         [THM (if left-src? ; flipped when compared to below
+                                  #`(sym #,(unexpand #'TY) #,(unexpand #'L) #,(unexpand #'R) thm/inst)
+                                  #'thm/inst)])
+                        (quasisyntax/loc name
+                          (new-elim
+                           THM
+                           (λ [tgt-id : #,(unexpand #'TY)]
+                             (λ [H : (== #,(unexpand #'TY) #,(unexpand #'tgt) tgt-id)]
+                               #,(unexpand (subst-term #'tgt-id #'tgt target))))
+                           #,tgt-name))))))))
         (make-ntt-apply
          goal
-         (list (make-ntt-hole (normalize (subst-term #'src #'tgt goal) ctxt)))
+         (list (make-ntt-hole (normalize new-target ctxt)))
          (λ (pf)
-           (if (attribute TY) ; rewrite with == type
+           (if (attribute TY) ; rewrite with == type; else rewrite with iff
                (with-syntax*
                  ([tgt-id (format-id #'tgt "~a" (generate-temporary))]
                   [H (format-id name "~a" (generate-temporary))]
@@ -175,12 +216,12 @@
                     THM
                     (λ [tgt-id : #,(unexpand #'TY)]
                       (λ [H : (== #,(unexpand #'TY) #,(unexpand #'src) tgt-id)]
-                        #,(unexpand (subst-term #'tgt-id #'tgt goal))))
+                        #,(unexpand (subst-term #'tgt-id #'tgt target))))
                     #,pf)))
                (quasisyntax/loc goal
                  (match #,name #:as #,name #:return #,goal
                   [(conj l->r r->l)
-                   #,(if left-src? #`(l->r #,pf) #`(r->l #,pf))]))))))]))
+                   #,(if left-src? #`(l->r #,pf) #`(r->l #,pf))])))))))]))
 
   ;; replace tactic
   (define ((replace ty from to) ctxt pt)
@@ -238,7 +279,7 @@
   ;; `name` is applied to `tgt-name` if it is not #f, o.w. the proof of goal
   (define ((apply-fn name #:with [inst-args_ #'()]
                           #:with-var [inst-var+args_ #'()]
-                           #:in [tgt-name #f]) ctxt pt)
+                          #:in [tgt-name #f]) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
     (define target
       (or (and tgt-name (ctx-lookup ctxt tgt-name))

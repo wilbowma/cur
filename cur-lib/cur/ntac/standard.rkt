@@ -527,9 +527,23 @@
           [[C ([x τ_] ... τout_) ((xrec . _) ...)]
            #:do[(define new-xs+IH ; make sure enough names supplied
                   (if (stx-length=? maybe-xs+IH #'(x ... xrec ...))
-                      maybe-xs+IH
+                      maybe-xs+IH ; TODO: still check for clashes?
                       (stx-append ; else generate based on extra-info names
-                       ((freshens name) (generate-temporaries #'(x ...)))
+                       ((freshens name)
+                        (stx-map
+                         (λ (id)
+                           (if (or (ctx-has-id? ctxt-unchanged id)
+                                   (syntax-parse goal
+                                     [(~Π [y : _] ... body)
+                                      (stx-ormap (λ (y) (stx-datum-equal? y id)) #'(y ...))]
+                                     [_ #f])
+                                   (stx-ormap ; see ceval-deterministic Imp example where this check is needed
+                                    (λ (y)    ; ie, due folding substs; do all substs at once instead?
+                                      (and (id? y) (stx-datum-equal? y id)))
+                                    stxs-to-change))
+                               (generate-temporary id)
+                               id))
+                         #'(x ...)))
                        ((freshens name)
                         (stx-map (λ _ (generate-temporary 'IH)) #'(xrec ...))))))]
            #:with (new-xs _) (stx-split-at new-xs+IH (stx-length #'(x ...)))
