@@ -21,7 +21,11 @@
 
 (begin-for-syntax
 
-  (define ((inversion name [new-xss_ #f]) ctxt pt)
+  ;; new-xss = nested stx list of ids
+  ;; Note: inversion does not check whether new-xss has correct shape or num ids;
+  ;; instead it uses given ids until it runs out, and then generates fresh ids.
+  ;; This enables cleaner invocations of the tactic, esp when most cases are False
+  (define ((inversion name [new-xss #'()]) ctxt pt)
     (match-define (ntt-hole _ goal) pt)
     (define name-ty (or (ctx-lookup ctxt name) ; thm in ctx
                         (typeof (expand/df name))))
@@ -46,9 +50,18 @@
           (λ (t) null)
           (λ (t) (get-idxs/unexp t num-idxs))))
 
-    (define new-xss
-      (or new-xss_
-          (stx-map (λ (_) null) #'(Cinfo ...))))
+    (define (next-id! hint)
+      (syntax-parse new-xss
+        [() ((freshen name) (generate-temporary hint))]
+        [(() . rst)
+         (set! new-xss #'rst)
+         (next-id! hint)]
+        [((x . rstx) . rst)
+         (set! new-xss #'(rstx . rst))
+         #'x]))
+    ;; TODO: this could result in unintuitive names if xs were generated
+    (define (push-back-ids! xs)
+      (set! new-xss (cons xs new-xss)))
 
     ; === Extract provided params (Aval ...) and indices (ival ...)
     (define/syntax-parse ((Aval ...) (ival ...))
@@ -65,18 +78,12 @@
     ;; mk-elim-methods : (listof (or/c #f (-> term term)))
     (define-values [subgoals mk-elim-methods]
       (for/lists (subgoals mk-elim-methods)
-                 ([Cinfo (in-stx-list #'(Cinfo ...))]
-                  [new-xs (in-stx-list new-xss)])
-
-        (define (next-id hint)
-          (if (stx-null? new-xs)
-            ((freshen name) (generate-temporary hint))
-            (begin0 (stx-car new-xs) (set! new-xs (stx-cdr new-xs)))))
+                 ([Cinfo (in-stx-list #'(Cinfo ...))])
 
         (syntax-parse Cinfo
           [[C ([x_ τx_] ... τout_)
               ([xrec_ . _] ...)]
-           #:with (x ...) (stx-map next-id #'(x_ ...))
+           #:with (x ...) (stx-map next-id! #'(x_ ...))
            #:with (xrec ...) ((freshens name) #'(xrec_ ...))
            #:with (τx ... τout) (substs #'(Aval ... x ...)
                                         #'(A    ... x_ ...)
@@ -102,7 +109,7 @@
                                 #:normalize (normalize/ctxt ctxt+xs))
              ; Add derived equalities to context and make subgoal
              [(derived ==s ==-pfs)
-              (define derived-==-ids   (map (λ (_) (next-id 'Heq)) ==s))
+              (define derived-==-ids   (map (λ (_) (next-id! 'Heq)) ==s))
               (define derived-bindings (map mk-bind-stx derived-==-ids ==s))
 
               (define (update-ctxt ctxt)
@@ -120,6 +127,7 @@
 
              ; Contradiction; generate a proof instead of creating a hole
              [(impossible false-pf)
+              (push-back-ids! #'(x ...))
               (values (make-ntt-exact #'False false-pf)
                       (λ (pf)
                         #`(λ x ... xrec ... ==-id ...
