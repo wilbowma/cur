@@ -284,7 +284,100 @@
   (by-rewriteL H3)
   by-assumption)
 
+(define-theorem ceval-deterministic/subst
+  (∀ [c : com] [st : State] [st1 : State] [st2 : State]
+     (-> (ceval c st st1)
+         (ceval c st st2)
+         (== State st1 st2)))
+  (by-intros c st st1 st2 E1 E2)
+  ;; TODO: fixme: this will be shadowed (by induction E1 with no params) if it's st2
+  (by-generalize st2)
+  (by-induction E1 #:as [(st) ; skip
+                         (st a1 n x E) ; ass
+                         (c10 c20 st0 st10 st20 E10 E20 IH10 IH20) ; seq
+                         (st st1 b c1 c2 bE E IH) ; iftrue
+                         (st st1 b c1 c2 bE E IH) ; iffalse
+                         (b st c bE) ; whilefalse
+                         (st0 st10 st20 b c bE E1 E2 IH1 IH2)]) ; whiletrue
+  ; 1 ESkip
+  (by-intros st2b E2b)
+  (by-inversion E2b #:as st0 H0 H1)
+  subst
+  reflexivity
+  ; 2 EAss
+  (by-intros st2b E2b)
+  (by-inversion E2b #:as st0 a0 n0 x0 H0 H1 H2 H3 H4)
+  subst
+  reflexivity
+  ; 3 ESeq
+  (by-intros st2b E2b)
+  (by-inversion E2b #:as c11 c21 st1 st11 st21 E11 E21 H0 H1 H2 H3)
+  subst
+  (by-assert EQ1 (== st10 st11))
+  (by-apply IH10) ; EQ1
+  by-assumption ; end EQ1
+  (by-apply IH20)
+  (by-rewrite EQ1)
+  by-assumption
+  ;; 4 EIfTrue
+  (by-intros st2b E2b)
+  (by-inversion E2b #:as [(st0 st10 b0 c10 c20 bE0 E0 H0 H1 H2 H3 H4)
+                          (st0 st10 b0 c10 c20 bE0 E0 H0 H1 H2 H3 H4)])
+  ;; 4a
+  subst
+  (by-apply IH)
+  by-assumption
+  ;; 4b
+  subst
+  (by-rewrite bE #:in bE0)
+  (by-discriminate bE0)
+  ;; 5 EIfFalse
+  (by-intros st2b E2b)
+  (by-inversion E2b #:as [(st0 st10 b0 c10 c20 bE0 E0 H0 H1 H2 H3 H4)
+                          (st0 st10 b0 c10 c20 bE0 E0 H0 H1 H2 H3 H4)])
+  ;; 5a
+  subst
+  (by-rewrite bE #:in bE0)
+  (by-discriminate bE0)
+  ;; 5b
+  subst
+  (by-apply IH)
+  by-assumption
+  ;; 6 EWhileFalse
+  (by-intros st2b E2b)
+  (by-inversion E2b #:as [(b0 st0 c0 bE0 H0 H1 H2 H3)
+                          (st0 st1 st2 b0 c0 bE0 H0 H1 H2 H3 H4 H5)])
+  ;; 6a
+  subst
+  reflexivity
+  ;; 6b
+  subst
+  (by-rewrite bE #:in bE0)
+  (by-discriminate bE0)
+  ;; 7 EWhileTrue
+  (by-intros st2b E2b)
+  (by-inversion E2b #:as [(b0 st1 c0 bE0 H0 H1 H2 H3)
+                          (st1 st11 st21 b0 c0 bE0 E10 E20 H0 H1 H2 H3)])
+  ;; 7a
+  subst
+  (by-rewrite bE #:in bE0)
+  (by-discriminate bE0)
+  ;; 7b
+  subst
+  (by-assert EQ1 (== st10 st11))
+  (by-apply IH1) ; EQ1
+  by-assumption ; end EQ1
+  (by-apply IH2)
+  (by-rewrite EQ1)
+  by-assumption)
+
 (check-type ceval-deterministic
+  : (∀ [c : com] [st : State] [st1 : State] [st2 : State]
+     (-> (ceval c st st1)
+         (ceval c st st2)
+         (== State st1 st2))))
+
+(check-type ceval-deterministic/subst
   : (∀ [c : com] [st : State] [st1 : State] [st2 : State]
      (-> (ceval c st st1)
          (ceval c st st2)

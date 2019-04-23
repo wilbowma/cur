@@ -2,7 +2,7 @@
 ;; Rewrite, using PM equality (the "standard" one)
 
 (provide (for-syntax reflexivity
-                     subst substL
+                     substR substL (rename-out [substL subst])
                      replace
                      rewrite
                      symmetry
@@ -39,7 +39,7 @@
                 (fill (intros)))
        ptz)]))
 
-  (define-syntax subst
+  (define-syntax substR
     (syntax-parser
       [_
        #'(λ (ptz)
@@ -55,13 +55,29 @@
     (syntax-parser
       [_
        #'(λ (ptz)
+           (define ctxt (nttz-context ptz))
            (eval-proof-steps
             ptz
-            (for/list ([(H ty) (nttz-context ptz)])
-              (syntax-parse ty
-                [(~== _ L R:id) #`(by-rewriteL #,H)]
-                [(~== _ L:id R) #`(by-rewrite #,H)]
-                [_ #'nop]))))]))
+            (let L ([Hs (ctx-ids ctxt)])
+              (if (null? Hs)
+                  null
+                  (let ([H (car Hs)])
+                    (append 
+                     (syntax-parse (ctx-lookup ctxt H)
+                       [(~== _ L R:id)
+                        (cons #`(by-rewriteL #,H)
+                              (for/list ([H2 (ctx-ids ctxt)]
+                                         #:when (and (not (free-id=? H H2))
+                                                     (has-term? #'R (ctx-lookup ctxt H2))))
+                                #`(by-rewriteL #,H #:in #,H2)))]
+                       [(~== _ L:id R)
+                        (cons #`(by-rewrite #,H)
+                              (for/list ([H2 (ctxt-ids ctxt)]
+                                         #:when (and (not (free-id=? H H2))
+                                                     (has-term? #'L (ctx-lookup ctxt H2))))
+                                #`(by-rewrite #,H #:in #,H2)))]
+                       [_ null])
+                     (L (cdr Hs))))))))]))
 
   (define (symmetry ctxt pt)
     (match-define (ntt-hole _ goal) pt)
@@ -139,7 +155,7 @@
           goal))
 
     (ntac-match (or (ctx-lookup ctxt name) ; thm in ctx
-                    (typeof (expand/df name))) ; prev proved tm
+                    (typeof (expand/df name))) ; prev proved thm
      [(~or
        (~and (~or (~== TY L R) ; already-instantiated thm
                   (~and (~And (~Π [_ : L] R) (~Π [_ : R2] L2)) ; iff (only works for entire goal)
@@ -180,18 +196,24 @@
                             #'inst-args
                             #'(X ...)
                             #'(TY/uninst thm/L/uninst thm/R/uninst))))))
+
       ;; set L and R as src/tgt term, depending on specified direction
       ;; Naming Note: "tgt" here = "target of subst"; differs from "target" (of rewrite) above
       (with-syntax ([(tgt src) (if left-src? #'(R L) #'(L R))])
         (define new-target (subst-term #'src #'tgt target))
         (if tgt-name
-            (let* ([new-ctx (ctx-remove ctxt tgt-name)]
-                   [new-target+ (normalize new-target new-ctx)])
+            (let*-values ([(ctxt-to-change ctxt-unchanged) ; TODO: ctxt-to-change needs to be in proof term?
+                           (ctx-partition/ty
+                            (ctx-remove ctxt tgt-name)
+                            (λ (t) (has-term? tgt-name t)))]
+                          [(new-target+) (normalize new-target ctxt-unchanged)])
               (make-ntt-apply
                goal
                (list
                 (make-ntt-context
-                 (λ (old-ctxt) (ctx-add new-ctx tgt-name new-target+))
+                 (λ (old-ctxt)
+                   (ctx-append (ctx-add ctxt-unchanged tgt-name new-target+)
+                               ctxt-to-change))
                  (make-ntt-hole goal)))
                (λ (pf)
                  ;; TODO: handle iff (see (not tgt-name) case below)
