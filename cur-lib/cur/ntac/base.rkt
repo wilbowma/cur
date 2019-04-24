@@ -37,8 +37,9 @@
    (struct-out nttz)
    make-nttz nttz-up nttz-down-context nttz-down-apply nttz-done?
 
-   num-holes/nttz
    num-holes
+   num-holes/z
+   num-holes/z/local
    to-top
 
    new-proof-tree
@@ -90,7 +91,8 @@
          (apply f (map (λ (c) (loop c)) cs))]
         [(ntt-done _ _ k)
          (loop k)])))
-  (define (num-holes/nttz ptz) (num-holes (nttz-focus ptz)))
+  (define (num-holes/z ptz) (num-holes/z/local (to-top ptz)))
+  (define (num-holes/z/local ptz) (num-holes (nttz-focus ptz)))
   (define (num-holes pt)
     (match pt
       [(ntt-hole _ _) 1]
@@ -115,7 +117,8 @@
   (define (to-top tz)
     (if (nttz-done? tz)
         tz
-        (to-top (nttz-up tz))))
+        (parameterize ([current-tracing? #t]) ; TODO: hack to avoid ntt-done err; replace with new param
+          (to-top (nttz-up tz)))))
   (define (nttz-up nttz)
     ((nttz-prev nttz) (nttz-focus nttz)))
 

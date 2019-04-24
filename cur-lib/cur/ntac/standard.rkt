@@ -13,7 +13,7 @@
              racket/format
              racket/pretty
              syntax/stx
-             (for-syntax racket/base syntax/parse syntax/stx))
+             (for-syntax racket/base syntax/parse syntax/stx macrotypes/stx-utils))
  "../stdlib/prop.rkt"
  "../stdlib/sugar.rkt"
  "base.rkt"
@@ -47,7 +47,7 @@
     (match (nttz-focus tz)
       [(ntt-hole _ goal)
        (when (current-tracing?)
-         (let ([hole-count (num-holes (nttz-focus (to-top tz)))])
+         (let ([hole-count (num-holes/z tz)])
            (if (> hole-count 1)
                (printf "\n(subgoal 1 of ~a)\n\n" hole-count)
                (printf "\n"))))
@@ -659,13 +659,20 @@
         (if (nttz-done? ptz)
             #f
             (L (nttz-up ptz))))))
+(define (find-parent ptz num-goals)
+  (cond
+    [(nttz-done? ptz) #f]
+    [(>= (num-holes/z/local ptz) num-goals) ptz]
+    [else (find-parent (nttz-up ptz) num-goals)]))
 
-;; to-end : nttz nat -> nttz
-;; Focus of ptz must be ntt-apply node.
+;; to-end : nttz-apply-focus nat -> nttz
+;; **Focus of ptz must be ntt-apply node.**
 ;; Moves nth node to the end of the node list,
 ;; where n is the position of the first hole node.
 ;; Returns new nttz with the new apply node as the focus
-(define (to-end ptz n) ; n is the current (hole) node
+(define (to-end ptz [n (index-where ; n is the current/first (hole) node
+                        (ntt-apply-subterms (nttz-focus ptz))
+                        ntt-contains-hole?)])
   (match-define (nttz ctxt pt prev) ptz)
   (match-define (ntt-apply _ g nodes proof-fn) pt)
   (define-values (before this+after) (split-at nodes n))
@@ -679,6 +686,34 @@
        (match-define (cons this-pf after-pfs/rev) (reverse this+after-pfs))
        (apply proof-fn (append before-pfs (cons this-pf (reverse after-pfs/rev)))))))
   (_nttz ctxt new-pt prev))
+
+;; takes a sequence of tactics
+;; 1) runs the first one
+;; 2) then for each subgoal produced, runs the subsequent tactics
+;; equivalent to coq ";" tactical
+(define-syntax (seq stx)
+  (syntax-parse stx
+    [(_) #'nop]
+    [(_ t) #'t]
+    [(_ t0 t ...)
+     #`(λ (ptz0)
+         (define num-goals0 (num-holes/z ptz0))
+         (define ptz (t0 ptz0))
+         (define num-goals (num-holes/z ptz))
+         (define num-new-goals (add1 (- num-goals num-goals0)))
+         (cond
+           [(< num-goals num-goals0) ptz]
+           [(= num-goals0 num-goals) ((seq t ...) ptz)]
+           [else
+            (let L ([n num-new-goals] [ptz ptz])
+              (if (zero? n)
+                  ptz
+                  (let* ([next-ptz ((seq t ...) ptz)])
+                    (cond
+                      [(>= (num-holes/z next-ptz) num-new-goals) ; didnt complete any goals
+                       (L (sub1 n)
+                          (next (to-end (find-parent next-ptz num-new-goals))))]
+                      [else next-ptz]))))]))]))
 
 ;; applies to innermost ntt-apply node
 (define-syntax (for-each-subgoal stx)
@@ -699,9 +734,9 @@
                           ; TODO: what if t0 introduces another apply node?
                           [next-nttz-app (find-ntt-apply next-ptz)]
                           [same-subgoal? (and next-nttz-app
-                                              (> (num-holes/nttz next-nttz-app) 1)
-                                              (= (num-holes/nttz current-nttz-app)
-                                                 (num-holes/nttz next-nttz-app)))])
+                                              (> (num-holes/z/local next-nttz-app) 1)
+                                              (= (num-holes/z/local current-nttz-app)
+                                                 (num-holes/z/local next-nttz-app)))])
                      (when (and same-subgoal?
                                 (not (eq? (nttz-prev current-nttz-app)
                                           (nttz-prev next-nttz-app))))

@@ -284,7 +284,8 @@
   (by-rewriteL H3)
   by-assumption)
 
-(define-theorem ceval-deterministic/subst
+;; dont run to save time
+#;(define-theorem ceval-deterministic/subst
   (∀ [c : com] [st : State] [st1 : State] [st2 : State]
      (-> (ceval c st st1)
          (ceval c st st2)
@@ -371,13 +372,78 @@
   (by-rewrite EQ1)
   by-assumption)
 
+(define-theorem ceval-deterministic/subst/seq
+;(ntac/trace
+  (∀ [c : com] [st : State] [st1 : State] [st2 : State]
+     (-> (ceval c st st1)
+         (ceval c st st2)
+         (== State st1 st2)))
+  (by-intros c st st1 st2 E1 E2)
+  ;; TODO: fixme: this will be shadowed (by induction E1 with no params) if it's st2
+  (by-generalize st2)
+  (seq
+   (by-induction E1 #:as [(st0) ; skip
+                          (st0 a n x E) ; ass
+                          (c1 c2 st0 st10 st20 E10 E20 IH1 IH2) ; seq
+                          (st0 st10 b c1 c2 bE E IH) ; iftrue
+                          (st0 st10 b c1 c2 bE E IH) ; iffalse
+                          (b st0 c0 bE) ; whilefalse
+                          (st0 st10 st20 b c bE E10 E20 IH1 IH2)]) ; whiletrue
+   (by-intros st2b E2b)
+   ;; not specifying explicit names here works fine;
+   ;; but specifying these (somewhat unintuitive) names helps code maintenance
+   (by-inversion E2b #:as [(c11 c22/st11 st01 st11/bE0 st21) ; case 3
+                           (bE0 E0 H0 H1 H2/st11 H3 H4)
+                           (st02 st12/bE1 b0 c12 c22 bE1)]) ; case 4b, 5a, 6b
+   subst)
+  ; 1 ESkip
+  reflexivity
+  ; 2 EAss
+  reflexivity
+  ; 3 ESeq
+  (by-assert EQ1 (== st10 st11/bE0))
+  (by-apply IH1) ; EQ1
+  by-assumption  ; end EQ1
+  (by-apply IH2)
+  (by-rewrite EQ1)
+  by-assumption
+  ;; 4 EIfTrue
+  (by-apply IH)                 ; 4a
+  by-assumption
+  (by-rewrite bE #:in bE1) ; 4b
+  (by-discriminate bE1)
+  ;; 5 EIfFalse
+  (by-rewrite bE #:in bE0) ; 5a
+  (by-discriminate bE0)
+  (by-apply IH)                 ; 5b
+  by-assumption
+  ;; 6 EWhileFalse
+  reflexivity                   ; 6a
+  (by-rewrite bE #:in st12/bE1) ; 6b
+  (by-discriminate st12/bE1)
+  ;; 7 EWhileTrue
+  (by-rewrite bE #:in st11/bE0)     ; 7a
+  (by-discriminate st11/bE0)
+  (by-assert EQ1 (== st10 H2/st11)) ; 7b
+  (by-apply IH1) ; EQ1
+  by-assumption  ; end EQ1
+  (by-apply IH2)
+  (by-rewrite EQ1)
+  by-assumption)
+
 (check-type ceval-deterministic
   : (∀ [c : com] [st : State] [st1 : State] [st2 : State]
      (-> (ceval c st st1)
          (ceval c st st2)
          (== State st1 st2))))
 
-(check-type ceval-deterministic/subst
+#;(check-type ceval-deterministic/subst
+  : (∀ [c : com] [st : State] [st1 : State] [st2 : State]
+     (-> (ceval c st st1)
+         (ceval c st st2)
+         (== State st1 st2))))
+
+(check-type ceval-deterministic/subst/seq
   : (∀ [c : com] [st : State] [st1 : State] [st2 : State]
      (-> (ceval c st st1)
          (ceval c st st2)
