@@ -50,18 +50,18 @@
           (λ (t) null)
           (λ (t) (get-idxs/unexp t num-idxs))))
 
+    (define tmps? #f) ; this flag prevents re-using generated names (see push-back-ids!)
     (define (next-id! hint)
       (syntax-parse new-xss
-        [() ((freshen name) (generate-temporary hint))]
+        [() (set! tmps? #t) ((freshen name) (generate-temporary hint))]
         [(() . rst)
          (set! new-xss #'rst)
          (next-id! hint)]
         [((x . rstx) . rst)
          (set! new-xss #'(rstx . rst))
          #'x]))
-    ;; TODO: this could result in unintuitive names if xs were generated
     (define (push-back-ids! xs)
-      (set! new-xss (cons xs new-xss)))
+      (unless tmps? (set! new-xss (cons xs new-xss))))
 
     ; === Extract provided params (Aval ...) and indices (ival ...)
     (define/syntax-parse ((Aval ...) (ival ...))
