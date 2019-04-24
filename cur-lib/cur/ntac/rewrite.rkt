@@ -150,6 +150,10 @@
            ctxt pt)
     (match-define (ntt-hole _ goal) pt)
 
+    (when (and tgt-name (not (ctx-has-id? ctxt tgt-name)))
+      (raise-ntac-goal-exception
+       "rewrite #:in: ~a id unbound in ctxt" (stx->datum tgt-name)))
+
     (define target ; target of the rewrite is either goal or some hypoth in ctxt
       (or (and tgt-name (ctx-lookup ctxt tgt-name))
           goal))
