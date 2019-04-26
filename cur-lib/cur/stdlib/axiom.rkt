@@ -1,5 +1,5 @@
 #lang racket/base
-(provide define-axiom print-assumptions
+(provide define-axiom print-assumptions im-an-axiom
          (for-syntax axiom find-all-axioms))
 
 (require syntax/parse/define
