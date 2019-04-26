@@ -13,9 +13,10 @@
              racket/format
              racket/pretty
              syntax/stx
-             (for-syntax racket/base syntax/parse syntax/stx macrotypes/stx-utils))
+             (for-syntax racket/base syntax/parse racket/syntax syntax/stx macrotypes/stx-utils))
  "../stdlib/prop.rkt"
  "../stdlib/sugar.rkt"
+ "../stdlib/axiom.rkt"
  "base.rkt"
  "inversion.rkt")
 
@@ -139,6 +140,10 @@
     ((apply compose (reverse ts)) ptz)))
 
 ;; define-tactical
+
+(define-syntax assign-type/m
+  (syntax-parser
+    [(_ e tag τ) (syntax-property #'e (stx->datum #'tag) ((current-type-eval) #'τ))]))
 
 (begin-for-syntax
 
@@ -784,4 +789,25 @@
   (define-syntax (by-discriminate syn)
     (syntax-case syn ()
       [(_ H) #'(fill (inversion #'H))]))
+
+  (define-syntax admit
+    (syntax-parser
+      [(ad name) ; fill one hole
+       #`(λ (ptz)
+           (let ([goal (ntt-goal (nttz-focus ptz))])
+             (next
+              (struct-copy
+               nttz ptz
+               [focus
+                (make-ntt-exact
+                 goal
+                 #`(assign-type/m (#%plain-app im-an-axiom 'name)
+                                  : #,(unexpand goal)))]))))]
+      [_ ; fill all holes
+       #'(λ (ptz)
+           (let L ([ptz ptz]) ; fill all holes
+             (if (nttz-done? ptz)
+                 ptz
+                 (L ((admit #,(gensym 'admitted-thm)) ptz)))))]))
 )
+
