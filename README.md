@@ -84,10 +84,13 @@ Try it out: open up DrRacket and put the following in the definition area:
 
 ;; Write some macros and Racket meta-programs over dependently-typed code
 (begin-for-syntax
+  ; Cur redefines some Racket identifiers, so we sometimes need to rename Racket functions we want to use.
+  (require
+    (only-in racket/base [sub1 r:sub1]))
   (define (nat->unary n)
     (if (zero? n)
         #`z
-        #`(s #,(nat->unary (sub1 n))))))
+        #`(s #,(nat->unary (r:sub1 n))))))
 
 (define-syntax (define-numbers syn)
   (syntax-case syn ()
