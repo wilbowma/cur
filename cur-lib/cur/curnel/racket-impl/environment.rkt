@@ -4,7 +4,8 @@
  syntax/id-table
  racket/dict
  (for-template
-  "runtime.rkt"))
+  "runtime.rkt")
+ "runtime-utils.rkt")
 
 (provide
  type-of-id
@@ -32,12 +33,12 @@ this impossible in general.
 ; Expects an identifier defined as a Cur identifier
 ; Returns it's type as a cur-runtime-term?
 (define (type-of-id name)
-  (identifier-info-type (dict-ref (current-cur-environment) name (lambda () (syntax-local-eval name)))))
+  (identifier-info-type (dict-ref (current-cur-environment) (make-type-name name) (lambda () (syntax-local-eval (make-type-name name))))))
 
 (define (identifier-def name)
   ;; TODO: Catch specific error
   (with-handlers ([values (lambda (_) #f)])
-    (identifier-info-delta-def (syntax-local-eval name))))
+    (identifier-info-delta-def (syntax-local-eval (make-type-name name)))))
 
 ; Excepts an ordered list of pairs of an identifier and a type, as a cur-runtime-term, and a thunk.
 ; Adds a binding for each identifier to the identifier-info containing the type, within the scope of
@@ -47,7 +48,7 @@ this impossible in general.
                   (for/fold ([g (current-cur-environment)])
                             ([name (map car ctx)]
                              [type (map cdr ctx)])
-                    (dict-set g name (identifier-info type #f)))])
+                    (dict-set g (make-type-name name) (identifier-info type #f)))])
     (th)))
 
 ;; Binds the names of ctx in an internal definition context before calling f

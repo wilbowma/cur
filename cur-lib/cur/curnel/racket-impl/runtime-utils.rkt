@@ -24,11 +24,19 @@
  cur-runtime-constant?
  cur-runtime-axiom-telescope?
 
+ make-delta-name
+ make-type-name
+ make-type-name-sym
+ make-delta-name-sym
  )
 
 #|
 Utilities for working with cur-runtime-terms
  |#
+(define (make-delta-name name) (format-id name "delta:~a" name #:source name))
+(define (make-delta-name-sym name) (format-symbol "delta:~a" name))
+(define (make-type-name name) (format-id name "type:~a" name #:source name))
+(define (make-type-name-sym name) (format-symbol "type:~a" name))
 
 ; rator must be a cur-runtime-term?, and rands must be a list of cur-runtime-terms?
 ; The result is a cur-runtime-term?
@@ -77,16 +85,16 @@ Utilities for working with cur-runtime-terms
            ;; TODO: catch proper error
            ;; TODO: Abstract this syntax-local-eval madness
            #:when (constant-info? (with-handlers ([values (lambda (_) #f)])
-                                    (syntax-local-eval #'name)))
+                                    (syntax-local-eval (make-type-name #'name))))
            #:attr reversed-rand-ls '()
-           #:attr constructor-index (constant-info-constructor-index (syntax-local-eval #'name))))
+           #:attr constructor-index (constant-info-constructor-index (syntax-local-eval (make-type-name #'name)))))
 
 (define-syntax-class/pred cur-runtime-constant #:attributes (name rand-ls constructor-index index-rand-ls)
   #:commit
   (pattern e:_runtime-constant
            #:attr name #'e.name
            #:attr rand-ls (reverse (attribute e.reversed-rand-ls))
-           #:attr index-rand-ls (drop (attribute rand-ls) (constant-info-param-count (syntax-local-eval #'name)))
+           #:attr index-rand-ls (drop (attribute rand-ls) (constant-info-param-count (syntax-local-eval (make-type-name #'name))))
            #:attr constructor-index (attribute e.constructor-index)))
 
 (define make-cur-runtime-constant cur-apply*)

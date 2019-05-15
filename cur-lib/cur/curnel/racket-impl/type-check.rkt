@@ -324,24 +324,26 @@ However, we don't really want the type system to be extensible since we desire a
   (syntax-parse syn
     #:datum-literals (:)
     [(_:top-level-id name:id body:cur-expr)
-     #:with delta (format-id #'name "delta:~a" #'name #:source #'name)
+     #:with delta (make-delta-name #'name)
+     #:with type-name (make-type-name #'name)
      ;; TODO: Can we avoid duplicating the syntax of the body?
      #`(begin
          (define-for-syntax delta #'body.reified)
          (define name body.reified)
-         (define-for-syntax name (identifier-info #'body.type delta)))]))
+         (define-for-syntax type-name (identifier-info #'body.type delta)))]))
 
 (define-syntax (typed-axiom syn)
   (syntax-parse syn
     #:datum-literals (:)
     [(_:definition-id name:id : type:cur-axiom-telescope)
      #:with c (format-id this-syntax "constant:~a" #'name #:source #'name)
+     #:with type-name (make-type-name #'name)
      #`(begin
          (struct c constant (#,@(attribute type.name-ls)) #:transparent
 ;           #:extra-constructor-name name1
            #:reflection-name 'name)
          (define name ((curry c)))
-         (define-for-syntax name
+         (define-for-syntax type-name
            (constant-info #'type.reified #f 0 #f #f #f #f #f #f #f #f)))]))
 
 ;; Inductive types
@@ -368,7 +370,7 @@ However, we don't really want the type system to be extensible since we desire a
 ;; would generate some what less code, and would make generating constants slightly easier. But, not
 ;; worth it.
 (define-for-syntax (make-typed-constant-transformer name)
-  (let ([info (syntax-local-eval name)])
+  (let ([info (syntax-local-eval (make-type-name name))])
     (lambda (stx)
       (syntax-parse stx
         [(_ rand-ls:cur-expr ...)
@@ -427,6 +429,7 @@ However, we don't really want the type system to be extensible since we desire a
      #:with (d-param-ann ...) d-param-ann-ls
      #:with (d-index-name ...) d-index-name-ls
      #:with (d-index-ann ...) d-index-ann-ls
+     #:with type-name (make-type-name #'name)
      #`(begin
          (define dispatch (box #f))
          (struct structD constant (#,@(attribute type.name-ls)) #:transparent
@@ -436,7 +439,7 @@ However, we don't really want the type system to be extensible since we desire a
 
          (define name ((curry structD)))
 
-         (define-for-syntax name
+         (define-for-syntax type-name
            ;; TODO: Really need inductive-info and constructor-info, inheriting constant-info
            (constant-info
             #'type.reified
@@ -462,7 +465,7 @@ However, we don't really want the type system to be extensible since we desire a
     [(_ name dispatch (c-name : _c-type:cur-expr) ...)
      #:with ((~var c-type (cur-runtime-constructor-telescope #'name)) ...) #'(_c-type.reified ...)
      #:do [(define constructor-count (length (attribute c-name)))
-           (define param-count (constant-info-param-count (syntax-local-eval #'name)))
+           (define param-count (constant-info-param-count (syntax-local-eval (make-type-name #'name))))
            (define-values (ls-ls-name-param-c ls-ls-name-index-c)
              (for/fold ([ls-param '()]
                         [ls-index '()])
@@ -497,6 +500,7 @@ However, we don't really want the type system to be extensible since we desire a
      #:with ((c-param-ann ...) ...) c-param-ann-ls-ls
      #:with ((c-index-ann ...) ...) c-index-ann-ls-ls
      #:with ((i ...) ...) (attribute c-type.name-ls)
+     #:with (type-c-name ...) (map make-type-name (attribute c-name))
      #`(begin
          (struct structC constant (i ...) #:transparent
 ;           #:extra-constructor-name runtime-c-name
@@ -510,7 +514,7 @@ However, we don't really want the type system to be extensible since we desire a
 
          (set-box! dispatch (build-dispatch (list c-name-pred ...)))
 
-         (define-for-syntax c-name
+         (define-for-syntax type-c-name
            (constant-info
             #'c-type
             #f
@@ -540,7 +544,7 @@ However, we don't really want the type system to be extensible since we desire a
   ;; Construct the expected motive type; expects well-typed cur-runtime-term? inputs and must produce
   ;; well-typed cur-runtime-term? outputs
   (define (motive-type syn D param-ls)
-    (let* ([info (syntax-local-eval D)]
+    (let* ([info (syntax-local-eval (make-type-name D))]
            [name-ls (constant-info-index-name-ls info)]
            [param-name-ls (constant-info-param-name-ls info)]
            [ann-ls (map (curry subst* param-ls param-name-ls) (constant-info-index-ann-ls info))])
@@ -573,7 +577,7 @@ However, we don't really want the type system to be extensible since we desire a
   (define (branch-type syn constr-name param-ls motive)
     (define/syntax-parse t:cur-runtime-telescope (get-type (cur-apply* syn constr-name param-ls)))
     (define/syntax-parse d:cur-runtime-constant (attribute t.result))
-    (let* ([info (syntax-local-eval constr-name)]
+    (let* ([info (syntax-local-eval (make-type-name constr-name))]
            [recursive-index-ls (constant-info-recursive-index-ls info)]
            [param-count (constant-info-param-count info)])
       (let-values ([(inductive-name-ls inductive-ann-ls)
@@ -642,7 +646,7 @@ However, we don't really want the type system to be extensible since we desire a
       (syntax->datum (car (syntax-property (attribute target.type) 'origin))))
      #:with type:cur-runtime-constant #'ttype
      #:do [(define inductive-name #'type.name)
-           (define info (syntax-local-eval inductive-name))
+           (define info (syntax-local-eval (make-type-name inductive-name)))
            (define param-count (constant-info-param-count info))
            (define rand-ls (attribute type.rand-ls))
            (define-values (param-ls index-ls)

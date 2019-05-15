@@ -1,7 +1,9 @@
 #lang s-exp "../main.rkt"
 (require
  (for-syntax "utils.rkt"
-             "../curnel/racket-impl/stxutils.rkt")
+             "../curnel/racket-impl/stxutils.rkt"
+             "../curnel/racket-impl/runtime-utils.rkt"
+             )
  "../stdlib/sugar.rkt"
  "../curnel/racket-impl/reflection.rkt" ; simpl needs cur-normalize
  "../curnel/racket-impl/runtime.rkt" ; destruct needs constant-info
@@ -225,14 +227,14 @@
 
   (define ((destruct name [param-namess #f]) ctxt pt)
     (define name-ty (dict-ref ctxt name))
-    (define c-info (syntax-local-eval name-ty))
+    (define c-info (syntax-local-eval (make-type-name name-ty)))
 
     (define Cs
       (constant-info-constructor-ls c-info))
     (define C-types
       (map
        identifier-info-type
-       (map syntax-local-eval Cs)))
+       (map (compose syntax-local-eval make-type-name) Cs)))
     (define paramss
       (if param-namess
           (syntax->list param-namess)
@@ -284,11 +286,11 @@
   ;; TODO: combine this with induction (below)
   (define ((destruct/elim name [param-namess #f]) ctxt pt)
     (define name-ty (dict-ref ctxt name))
-    (define c-info (syntax-local-eval name-ty))
+    (define c-info (syntax-local-eval (make-type-name name-ty)))
 
     (define Cs
       (constant-info-constructor-ls c-info))
-    (define C-infos (map syntax-local-eval Cs))
+    (define C-infos (map (compose syntax-local-eval make-type-name) Cs))
     (define C-types (map identifier-info-type C-infos))
 
     (define paramss
@@ -357,11 +359,11 @@
     (match-define (ntt-hole _ goal) pt)
 
     (define name-ty (dict-ref ctxt name))
-    (define c-info (syntax-local-eval name-ty))
+    (define c-info (syntax-local-eval (make-type-name name-ty)))
 
     ;; Cs = the (data constructors) for name-ty
     (define Cs (constant-info-constructor-ls c-info))
-    (define C-infos (map syntax-local-eval Cs))
+    (define C-infos (map (compose syntax-local-eval make-type-name) Cs))
     (define C-types (map identifier-info-type C-infos))
 
     ;; for each C, param-names consists of:
