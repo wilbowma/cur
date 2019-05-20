@@ -14,7 +14,8 @@
          (prefix-in r: racket/base)
          (for-syntax (for-syntax syntax/parse)
                      syntax/stx racket/pretty
-                     macrotypes/stx-utils 
+                     macrotypes/stx-utils
+                     cur/curnel/turnstile-impl/stxutils
                      turnstile/type-constraints))
 
 (define-typed-syntax let
@@ -30,14 +31,15 @@
    ;  [⊢ ((λ [x- : τ] ... body-) e- ...)]
 
 (begin-for-syntax
-  (define ((mk-method τout name) eis clause) ; 2 args: ei tys and clause
+  (define ((mk-method τout name recur?) eis clause) ; 2 args: ei tys and clause
     (syntax-parse (list eis clause)
       [(_ [x:id body]) #'body] ; no subst, bc x is just nullary constructor
       ;; TODO: combine the following 4 cases
       [((_ ([y:id τin] ... _) ()) ; no rec, no anno
         [(con:id x:id ...) body])
        #:with body* (substs #'(y ...) #'(x ...) #'body)
-       #`(λ [y : τin] ... body*)]
+       #:with (τin/ ...) (stx-map (λ (t) (syntax-property t 'recur recur?)) #'(τin ...))
+       #`(λ [y : τin/] ... body*)]
       [((_ ([y:id τin] ... _) ()) ; no rec, with anno
         [(con:id [x:id tag:id ty] ...) body])
        ;; TODO: for this to work, must inst τin
@@ -45,11 +47,13 @@
        ;; #:fail-unless (typechecks? #'(ty ...) #'(τin ...))
        ;;                "match: pattern annotation type mismatch"
        #:with body* (substs #'(y ...) #'(x ...) #'body)
-       #`(λ [y : ty] ... body*)]
+       #:with (τin/ ...) (stx-map (λ (t) (syntax-property t 'recur recur?)) #'(τin ...))
+       #`(λ [y : τin/] ... body*)]
       [((_ ([y:id τ] ... _) ((yrec . _) ...)) ; rec, no anno
         [(con:id x:id ...) body])
        #:with (ih ...) (generate-temporaries #'(yrec ...)) ; yrec is dup of y; must gen tmp
        #:with body/ys (substs #'(y ...) #'(x ...) #'body)
+       ;; TODO: propagate recur?
        #'(λ y ... ih ... body/ys)]
       [((_ ([y:id τin] ... _) ((yrec))) ; rec, with anno
         [(con:id [x:id tag:id ty] ...) body])
@@ -59,6 +63,7 @@
        ;;                "match: pattern annotation type mismatch"
        #:with yrec* (generate-temporary #'yrec)
        #:with body* (substs #'(y ...) #'(x ...) #'body)
+       ;; TODO: propagate recur?
        #`(λ [y : ty] ... [yrec* : #,(subst #'yrec name τout)] body*)])))
 
 ;; TODO:
@@ -115,7 +120,7 @@
                 "extra info error: check that number of clauses matches type declaration"
 ;;  #:with (m ...) (stx-map (mk-method #'e- #'τ #'τout modulepath this-syntax) #'(ei ...) #'clauses)
   #:with (m ...) (stx-map
-                  (mk-method #'τout #'x)
+                  (mk-method #'τout #'x (syntax-property (typeof #'e) 'recur))
                   (substs #'params #'(orig-param ...) #'(ei ...)) ; use params from τin, not ei
                   #'clauses)
   ;; #:do[(printf "match methods for ~a:\n" #'e)
@@ -132,13 +137,14 @@
   [≻ out])
 
 (begin-for-syntax
-  (define (mk-eval id) (format-id id "eval-~a" id))
-  (define (mk-~ id) (format-id id "~~~a" id)))
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
 ;; helper fns for define/rec/match
-(begin-for-syntax
+
+  ;; TODO: why do these fns need to be defined here
+  ;; (as opposed to curnel/turnstile-impl/stxutils)
+  ;; helper fns for define/rec/match
   ;; - input stx arg must be fully expanded
   (define (get-app stx name n)
     (syntax-parse stx
@@ -167,6 +173,7 @@
         this-syntax
         (stx-map (unsubst-app name name-eval num-args) #'(x ...))
         this-syntax this-syntax)])))
+
 ;; usage:
 ;; (define/rec/match name : [x : ty_in1] ... ty-to-match ... [y : ty_in2] ... -> ty_out
 ;;  [pat ... => body] ...
@@ -181,7 +188,7 @@
 ;; - check coverage of pats
 ;; - check that body has type ty_out; currently, mismatch wont error
 ;;(require (for-syntax racket/pretty))
-(define-typed-syntax define/rec/match 
+(define-typed-syntax define/rec/match
   [(_ name:id
       (~datum :)
       [x (~datum :) ty_in1] ...
@@ -189,7 +196,7 @@
       [y (~datum :) ty_in2] ...
       (~datum ->) ty_out
       [pat ... (~datum =>) body] ...) ≫
-     #:fail-unless (or (zero? (stx-length #'(x ...)))
+     #:fail-unless (or (zero? (stx-length #'(x ...))) ; TODO: remove this restriction?
                        (zero? (stx-length #'(y ...))))
      "cannot have both pre and post pattern matching args"
  ;    #:do[(printf "fn: ~a ----------------\n" (stx->datum #'name))]
@@ -205,11 +212,27 @@
                                           #`(#,@#'((x ty_in1) ...)
                                              #,@x+τs))
                                         #'(([xpat xpatτ] ...) ...))
+     #:with (ty-to-match/ ...) (stx-map ; 'recur is for termination check
+                                (λ (t) (syntax-property t 'recur #t))
+                                #'(ty-to-match ...))
+     #:do[(define old-tycheck (current-typecheck-relation))
+          (current-typecheck-relation ; new typecheck-relation with termination guard check
+           (λ (t1 t2)
+             (and (old-tycheck t1 t2)
+                  (or (not (syntax-property t2 'recur))
+                      (and (syntax-property t2 'recur)
+                           (let ([t1-recur-ok? (syntax-property t1 'recur)])
+                             (begin0 t1-recur-ok?
+                               (unless t1-recur-ok?
+                                 (fprintf (current-error-port)
+                                          "Failed termination check for arg of type ~a:\n"
+                                          (stx->datum (resugar-type t1)))))))))))]
      [([x+pat ≫ x+pat- : x+patτ] ...)
       ([y ≫ y*- : ty_in2] ...
        ;; for now, assume recursive references are fns
-       [name ≫ name- : (Π [x : ty_in1] ... [x0 : ty-to-match] ... [y : ty_in2] ... ty_out)])
+       [name ≫ name- : (Π [x : ty_in1] ... [x0 : ty-to-match/] ... [y : ty_in2] ... ty_out)])
       ⊢ body ≫ body- ⇐ ty_out] ...
+     #:do[(current-typecheck-relation old-tycheck)]
      #:do[(define arity (stx-length #'(x ... ty-to-match ... y ...)))]
      ;; #:do[
      ;;      (displayln 'body-)
