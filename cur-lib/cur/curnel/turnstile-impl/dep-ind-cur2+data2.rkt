@@ -25,7 +25,8 @@
       [C:id
        #:when (datacons? (syntax-local-value #'C (λ () #f))) ; nullary constructor
        ((datacons-pat->ctxt (syntax-local-value #'C)) pat ty)]
-      [:id (list (list pat ty))] ; patvar
+      ;; TODO: only set 'recur for rec args?
+      [:id (list (list pat (syntax-property ty 'recur #t)))] ; patvar
       [(C . _)
        ((datacons-pat->ctxt (syntax-local-value #'C)) pat ty)])))
 

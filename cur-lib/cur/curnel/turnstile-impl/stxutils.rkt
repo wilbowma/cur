@@ -46,8 +46,6 @@
      (datum->syntax syn (map (lambda (e) (subst v x e bvs)) (attribute e)))]
     [_ syn]))
 
-(define (datum=? e1 e2) (equal? (syntax->datum e1) (syntax->datum e2)))
-
 ;; takes a list of values and a list of identifiers, in dependency order, and substitutes them into syn.
 ;; TODO PERF: reverse
 (define (subst* v-ls x-ls syn)
@@ -94,3 +92,7 @@
 
 ;; remove id v from lst
 (define (remove-id v lst) (remove v lst free-identifier=?))
+
+(define (mk-eval id) (format-id id "eval-~a" id))
+(define (mk-~ id) (format-id id "~~~a" id))
+
