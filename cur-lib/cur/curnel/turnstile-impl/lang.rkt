@@ -21,7 +21,8 @@
 
 (require (only-in turnstile/base
                   define-typed-syntax syntax-parse/typecheck get-orig assign-type
-                  define-typed-variable-syntax
+                  define-typed-variable-syntax current-typecheck-relation
+                  current-check-relation
                   subst substs typecheck? typechecks? typeof add-expected-type
                   current-type-eval expand/df typecheck-fail-msg/multi)
          turnstile/eval
