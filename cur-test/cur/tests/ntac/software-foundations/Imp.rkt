@@ -115,9 +115,9 @@
   ; ANum ----------
   reflexivity
   ; APlus ----------
-  (by-destruct a1) ; generates n181
+  (by-destruct a1) ; generates n202
   ; a1 = ANum
-  (by-destruct n181)
+  (by-destruct n202)
   ; n=0
   (by-apply ih2)
   ; n neq 0
