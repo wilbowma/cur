@@ -10,7 +10,7 @@
 (require cur/curnel/turnstile-impl/dep-ind-cur2+sugar
          "nat.rkt"
          (prefix-in r: racket/base)
-         (for-syntax (for-syntax syntax/parse)
+         (for-syntax (for-syntax syntax/parse racket/base)
                      syntax/stx racket/pretty
                      macrotypes/stx-utils 
                      cur/curnel/turnstile-impl/stxutils
@@ -65,7 +65,12 @@
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
-;; helper fns for define/rec/match
+  ;; decrements size prop of `ty`
+  (define (dec-size ty)
+    (define sz (syntax-property ty '$))
+    (syntax-property ty '$ (if sz #`(< #,sz) (generate-temporary))))
+
+  ;; helper fns for define/rec/match2
 
   ;; TODO: why do these fns need to be defined here
   ;; (as opposed to curnel/turnstile-impl/stxutils)
@@ -118,7 +123,10 @@
      #:with (elim-Name ([A _] ...) _ [C ([x τin] ... τout) ((xrec _ ...) ...)] ...) exinfo
      #:with (C/sz ...) (stx-map (λ (t) (mk-sz t #'TY)) #'(C ...))
      #`(begin
+         (begin-for-syntax ; pattern expander
+           (define-syntax C/sz (make-rename-transformer #'C)) ...)
          (define-syntax C/sz
+           (datacons
            (syntax-parser
              [(_ (~optional (~seq #:size j:id) #:defaults ([j (generate-temporary)]))
                  A ... x ...) ;; TODO: rename A ...? dont want subst to be done by stx template here
@@ -145,7 +153,16 @@
               #:with C+ (local-expand #'(C A ... x ...) 'expression null)
               #:with Cty (typeof #'C+)
               #:with Cty/sz (add-size #'Cty #'sz)
-              (syntax-property #'C+ ': #'Cty/sz)]))
+              (syntax-property #'C+ ': #'Cty/sz)])
+           (λ (p t)
+             (define x+tys
+               ((datacons-pat->ctxt (syntax-local-value #'C)) p t))
+             (stx-map
+              (λ (x+ty)
+                (list (stx-car x+ty) ; x
+                      (dec-size (stx-cadr x+ty)))) ; ty
+              x+tys))
+           ))
          ...)]))
      
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
