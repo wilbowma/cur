@@ -490,7 +490,7 @@
     (define stxs-to-change (cons name #'(ival ...)))
 
     ;; mk-update: Stx Stxs -> (-> Ty Ty)
-    ;; Consumes an instance of the destructed term its new indices.
+    ;; Consumes an instance of the destructed term and its new indices.
     ;; Returns a function that updates a type by replacing any `stxs-to-change`
     ;; with the given stxs
     (define (mk-update #:inst inst #:idxs idxs)

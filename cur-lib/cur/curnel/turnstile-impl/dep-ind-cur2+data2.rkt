@@ -9,13 +9,9 @@
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
 (provide define-datatype
-         (for-syntax datacons pat->ctxt (rename-out [get-is get-idxs/unexp])))
+         (for-syntax datacons datacons-pat->ctxt pat->ctxt (rename-out [get-is get-idxs/unexp])))
 
 (begin-for-syntax
-  ;; decrements size prop of `from` and transfer to `to`
-  (define (dec-size from to)
-    (define sz (syntax-property from '$))
-    (syntax-property to '$ (if sz #`(< #,sz) (generate-temporary))))
   (struct datacons (proc pat->ctxt)
     #:property prop:procedure (struct-field-index proc))
   ;; pattern `pat` has (unexpanded) type `ty`
@@ -93,7 +89,7 @@
                                       #'(τ ...))))])
                    (if (stx-null? ps)
                        res
-                       (let ([x+tys (pat->ctxt (car ps) (dec-size t (car τs)))])
+                       (let ([x+tys (pat->ctxt (car ps) (transfer-props t (car τs)))])
                          (L (append res x+tys)
                             (cdr ps)
                             (cdr xs)
