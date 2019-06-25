@@ -315,8 +315,7 @@
    [≻ (begin-
       ;; Define the inductive type `TY`.
       (define-type* TY : [A : τA] ... [i : τi] ... -> τ
-        #:extra #,'is-inductive
-        elim-TY
+        #:implements get-datatype-def #'(is-inductive elim-TY
         ([A τA] ...)
         ([i τi] ...)
         (C-pat ...)
@@ -405,7 +404,7 @@
            get-constructor-patterns)
   ; Differs from turnstile+'s get-match-info in that it accepts an identifer
   (define (get-match-info I)
-    (type-info-match (eval-syntax I)))
+    (dict-ref (eval-syntax I) #'get-datatype-def))
 
   (define (has-type-info? I)
     (with-handlers ([exn? (λ _ #f)]) (type-info? (eval-syntax I))))

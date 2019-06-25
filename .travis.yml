@@ -18,7 +18,7 @@ before_install:
   - cat ../travis-racket/install-racket.sh | bash
   - export PATH="${RACKET_DIR}/bin:${PATH}"
   # install Turnstile, use `cur` branch`
-  - git clone -b cur https://github.com/stchang/macrotypes.git
+  - git clone -b generic-type-methods https://github.com/stchang/macrotypes.git
   - raco pkg install --auto macrotypes/macrotypes-lib/
   - raco pkg install --auto macrotypes/turnstile-lib/
   - raco pkg install --auto macrotypes/rackunit-macrotypes-lib/
