@@ -153,7 +153,7 @@
               #:with Cty (typeof #'C+)
               #:with Cty/sz (add-size #'Cty #'sz)
               (syntax-property #'C+ ': #'Cty/sz)])
-           (λ (p t)
+           (λ (p t) ; pat->ctxt
              (define x+tys
                ((datacons-pat->ctxt (syntax-local-value #'C)) p t))
              (stx-map

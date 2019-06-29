@@ -212,7 +212,7 @@
 ;; uses intro+destruct version of intro tactic
 (define-theorem plus-1-neq-0*
   (∀ [n : Nat] (== Bool (beq-nat (plus 1 n) 0) false))
-  (by-intro n #:as [() (n-1)])
+  (by-intros n #:as [() (n-1)])
   reflexivity
   reflexivity)
 
@@ -244,7 +244,7 @@
 (define-theorem zero-neq-one
   (∀ [n : Nat]
      (== Bool (nat-equal? 0 (plus 1 n)) false))
-  (by-intro n #:as [() (n-1)])
+  (by-intros n #:as [() (n-1)])
   reflexivity
   ; -------
   reflexivity)
