@@ -19,6 +19,7 @@
  "../stdlib/sugar.rkt"
  "../stdlib/axiom.rkt"
  "base.rkt"
+ "metantac.rkt"
  "inversion.rkt")
 
 ;; define-nttz-cmd ?
@@ -161,24 +162,6 @@
       [(_ H ty)
        #`(fill (assert #'H #'ty))]))
 
-  (define-syntax-parameter $ptz (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
-  (define-syntax-parameter $ctxt (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
-  (define-syntax-parameter $pt (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
-  (define-syntax-parameter $goal (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
-  (define-syntax-parameter $fill (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
- #; (define-syntax-parameter $pf (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
-
-;; define-tactical
-  (define-syntax define-tactical
-    (syntax-parser
-      [(_ name [pat body ...] ...)
-       #'(define-syntax name
-           (syntax-parser
-             [pat
-              #'(λ (ptz)
-                  (syntax-parameterize
-                      ([$ptz (make-rename-transformer #'ptz)])
-                    body ...))] ...))]))
 ;; meta tactic; not a tactic (which take tacticals); takes a sequence of tactics
 #;(define-for-syntax ((try . ts) ptz)
   (with-handlers ([exn:fail? #;exn:fail:ntac:goal? ; catch other fails too, eg unbound id
@@ -195,64 +178,6 @@
                                ;; (pretty-print e)
                                $ptz)])
     ((apply compose (reverse (list t ...))) $ptz))])
-#;  (define-syntax node
-    (syntax-parser
-      [(_ goal) #'(make-ntt-hole goal)]
-      [(_ goal #:ctx x (~datum :) ty) #'(make-ntt-context (λ (ctx) (ctx-add ctx x ty)) (make-ntt-hole goal))]
-      [(_ proof/xholes (~datum :) goal (~or (~datum ⇓) #:where) (~seq x:id (~datum :) subgoal) ...)
-       #'(make-ntt-apply
-          goal
-          (list subgoal ...)
-          (λ (x ...)
-            (quasisyntax/loc goal proof/xholes))
-          #;(λ (pf)
-            (syntax-parameterize
-                ([$pf (syntax-parser [:id #'pf])]);(unsyntax pf)])])
-              (quasisyntax/loc goal proof/holes))))]))
-
-  (define-syntax define-tactic
-    (syntax-parser
-      #;[(_ (name . args) . body)
-       #'(define ((name . args) ctxt pt)
-           (let ([goal (ntt-goal pt)])
-             (syntax-parameterize
-                 ([$ctxt (make-rename-transformer #'ctxt)]
-                  [$pt  (make-rename-transformer #'pt)]
-                  [$goal (make-rename-transformer #'goal)])
-               . body)))]
-      [(_ name [pat (~optional (~seq (~or #:current-goal #:goal) goalpat) #:defaults ([goalpat (generate-temporary)])) body ...] ...) ; each body produces pt; each tactic must be ptz -> ptz
-       #'(define-syntax name
-           (syntax-parser
-             [pat
-              #'(λ (ptz)
-                  (next
-                   (struct-copy
-                    nttz ptz
-                    [focus
-                     (let* ([ctxt (nttz-context ptz)]
-                            [pt (nttz-focus ptz)]
-                            [goal (ntt-goal pt)])
-                       (syntax-parse goal
-                         [goalpat
-                          (syntax-parameterize
-                              ([$ptz (make-rename-transformer #'ptz)]
-                               [$ctxt (make-rename-transformer #'ctxt)]
-                               [$pt  (make-rename-transformer #'pt)]
-                               [$goal (make-rename-transformer #'goal)]
-                               [$fill ; make this local, so it has access to and can insert $goal to make-ntt-apply
-                                (syntax-parser
-                                  [(_ pf) #'(make-ntt-exact goal pf)]
-                                  #;[(_ go) #'(make-ntt-hole go)]
-                                  #;[(_ go #:ctx x (~datum :) ty) #'(make-ntt-context (λ (ctx) (ctx-add ctx x ty)) (make-ntt-hole go))]
-;                                  [(_ proof/xholes #:where (~seq (~var x id) (~datum :) subgoal) (... (... ...)))
-                                  [(_ proof/holes #:where [x (~datum :) ty (~datum ⊢) (~var ?hole id) (~datum :) subgoal] (... (... ...)))
-                                   #'(make-ntt-apply
-                                      goal
-                                      ;                                      (list subgoal (... (... ...)))
-                                      (list (make-ntt-context (λ (ctx) (ctx-add ctx x ty)) (make-ntt-hole subgoal)) (... (... ...)))
-                                      (λ (?hole (... (... ...)))
-                                        (quasisyntax/loc goal proof/holes)))])])
-                            body ...)]))])))] ...))]))
 
   (define-syntax with-ctx
     (syntax-parser
