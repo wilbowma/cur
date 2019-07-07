@@ -1,6 +1,6 @@
 #lang s-exp "../main.rkt"
 
-(provide (for-syntax (all-defined-out) inversion))
+(provide (for-syntax (all-defined-out) by-inversion))
 
 (require
  (for-syntax "ctx.rkt" "utils.rkt"
@@ -828,7 +828,7 @@
            #:final (not (eq? ptz next-ptz))
            next-ptz))]))
 
-  (define-syntax (by-inversion syn)
+#;  (define-syntax (by-inversion syn)
     (syntax-parse syn
       [(_ H) #'(fill (inversion #'H))]
       [(_ H #:as name:id ...) #'(fill (inversion #'H #'[(name ...)]))]
@@ -848,7 +848,7 @@
 
   (define-syntax (by-discriminate syn)
     (syntax-case syn ()
-      [(_ H) #'(fill (inversion #'H))]))
+      [(_ H) #'(by-inversion H)]));#'(fill (inversion #'H))]))
 
   (define-syntax admit
     (syntax-parser

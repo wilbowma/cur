@@ -1,5 +1,5 @@
 #lang s-exp "../main.rkt"
-(provide (for-syntax inversion))
+(provide (for-syntax by-inversion))
 
 ;; `by-inversion` tactic in ntac/standard
 
@@ -8,6 +8,7 @@
  "../stdlib/sugar.rkt"
  "../stdlib/equality.rkt"
  "base.rkt"
+ "metantac.rkt"
  "prove-unify.rkt"
   (for-syntax "ctx.rkt" "utils.rkt"
               (only-in macrotypes/typecheck-core subst substs)
@@ -21,11 +22,22 @@
 
 (begin-for-syntax
 
+  (define-syntax by-inversion
+    (syntax-parser
+      [(_ H) #'(by-inversion* H #:as ())]
+      [(_ H #:as (~var name id) ...) #'(by-inversion* H #:as [(name ...)])]
+      [(_ H #:as (names ...)) #'(by-inversion* H #:as (names ...))]))
+  (define-tactic by-inversion*
+    [(_ H #:as (names ...))
+     (define pt $pt)
+     (define ctxt $ctxt)
+     (define name #'H)
   ;; new-xss = nested stx list of ids
   ;; Note: inversion does not check whether new-xss has correct shape or num ids;
   ;; instead it uses given ids until it runs out, and then generates fresh ids.
   ;; This enables cleaner invocations of the tactic, esp when most cases are False
-  (define ((inversion name [new-xss #'()]) ctxt pt)
+     ;  (define ((inversion name [new-xss #'()]) ctxt pt)
+     (define new-xss #'(names ...))
     (match-define (ntt-hole _ goal) pt)
     (define name-ty (or (ctx-lookup ctxt name) ; thm in ctx
                         (typeof (expand/df name))))
@@ -34,17 +46,17 @@
     ;; A = params
     ;; i = indices
     ;; x = non-recursive args to constructors
-    ;; xrec = recrusive args to constructors
+    ;; xrec = recursive args to constructors
     ;; irec = indices to recursive args
     (define/syntax-parse
-      (_ elim-TY ([A τA] ...)
-         ([i τi_] ...)
+      (_ elim-TY ([A τA] (... ...))
+         ([i τi_] (... ...))
          _
-         Cinfo ...)
+         Cinfo (... ...))
       (get-match-info name-ty))
 
-    (define num-params (stx-length #'(A ...)))
-    (define num-idxs   (stx-length #'(i ...)))
+    (define num-params (stx-length #'(A (... ...))))
+    (define num-idxs   (stx-length #'(i (... ...))))
 
     (define get-idxs ; extract indices from *unexpanded* (curried single-app) type
       (if (zero? num-idxs)
@@ -64,37 +76,36 @@
     (define (push-back-ids! xs)
       (unless tmps? (set! new-xss (cons xs new-xss))))
 
-    ; === Extract provided params (Aval ...) and indices (ival ...)
-    (define/syntax-parse ((Aval ...) (ival ...))
+    ; === Extract provided params (Aval (... ...)) and indices (ival (... ...))
+    (define/syntax-parse ((Aval (... ...)) (ival (... ...)))
       (syntax-parse name-ty
         [((~literal #%plain-app) _ . name-ty-args)
          (stx-split-at #'name-ty-args num-params)]))
 
-    (define/syntax-parse (τi ...)
+    (define/syntax-parse (τi (... ...))
       (stx-map (normalize/ctxt ctxt)
-               (substs #'(Aval ...) #'(A ...) #'(τi_ ...))))
+               (substs #'(Aval (... ...)) #'(A (... ...)) #'(τi_ (... ...)))))
 
     ; === Generate subgoals for each data constructor case
     ;; subgoals : (listof ntt)
     ;; mk-elim-methods : (listof (or/c #f (-> term term)))
-    (define-values [subgoals mk-elim-methods]
-      (for/lists (subgoals mk-elim-methods)
-                 ([Cinfo (in-stx-list #'(Cinfo ...))])
+    (define subgoals
+      (for/list ([Cinfo (in-stx-list #'(Cinfo (... ...)))])
 
         (syntax-parse Cinfo
-          [[C ([x_ τx_] ... τout_)
-              ([xrec_ . _] ...)]
-           #:with (x ...) (stx-map next-id! #'(x_ ...))
-           #:with (xrec ...) ((freshens name) #'(xrec_ ...))
-           #:with (τx ... τout) (substs #'(Aval ... x ...)
-                                        #'(A    ... x_ ...)
-                                        #'(τx_ ... τout_))
+          [[C ([x_ τx_] (... ...) τout_)
+              ([xrec_ . _] (... ...))]
+           #:with (x (... ...)) (stx-map next-id! #'(x_ (... ...)))
+           #:with (xrec (... ...)) ((freshens name) #'(xrec_ (... ...)))
+           #:with (τx (... ...) τout) (substs #'(Aval (... ...) x (... ...))
+                                        #'(A    (... ...) x_ (... ...))
+                                        #'(τx_ (... ...) τout_))
 
-           #:do [(define ctxt+xs (ctx-adds ctxt #'(x ...) #'(τx ...)
+           #:do [(define ctxt+xs (ctx-adds ctxt #'(x (... ...)) #'(τx (... ...))
                                            #:do normalize))]
 
-           #:with (iout ...) (map (normalize/ctxt ctxt+xs) (get-idxs #'τout))
-           #:with (==-id ...) (stx-map (λ (_) (generate-temporary 'eq)) #'(i ...))
+           #:with (iout (... ...)) (map (normalize/ctxt ctxt+xs) (get-idxs #'τout))
+           #:with (==-id (... ...)) (stx-map (λ (_) (generate-temporary 'eq)) #'(i (... ...)))
 
            #;
            #:do #;[(printf "** ~s\n** ~s\n** ~s\n------------\n"
@@ -120,21 +131,23 @@
                            [τ (in-list (append (attribute τx) ==s))])
                   (ctx-add ctxt x (normalize τ ctxt))))
 
-              (values (make-ntt-context update-ctxt (make-ntt-hole goal))
-                      (λ (pf)
-                        #`(λ x ... xrec ... ==-id ...
-                             ((λ #,@derived-bindings #,pf)
-                              #,@==-pfs))))]
+              (make-ntt-apply
+               goal
+               (list (make-ntt-context update-ctxt (make-ntt-hole goal)))
+               (λ (pf)
+                 #`(λ x (... ...) xrec (... ...) ==-id (... ...)
+                      ((λ #,@derived-bindings #,pf)
+                       #,@==-pfs))))]
 
              ; Contradiction; generate a proof instead of creating a hole
              [(impossible false-pf)
-              (push-back-ids! #'(x ...))
-              (values (make-ntt-exact #'False false-pf)
-                      (λ (pf)
-                        #`(λ x ... xrec ... ==-id ...
-                             (new-elim
-                              #,pf
-                              (λ _ #,(unexpand goal))))))])])))
+              (push-back-ids! #'(x (... ...)))
+              (make-ntt-exact
+               goal
+               #`(λ x (... ...) xrec (... ...) ==-id (... ...)
+                    (new-elim
+                     #,false-pf
+                     (λ _ #,(unexpand goal)))))])])))
 
     (make-ntt-apply
      goal
@@ -145,12 +158,13 @@
            ; target
            #,name
            ; motive
-           #,(with-syntax ([(i* ...) (generate-temporaries #'(i ...))])
-               (with-syntax ([(==-ty ...) (stx-map (λ (ii ty) #`(== #,ii #,(unexpand ty)))
-                                                   #'(i* ...) #'(ival ...))])
-                 #`(λ i* ... #,name
-                      (-> ==-ty ... #,(unexpand goal)))))
+           #,(with-syntax ([(i* (... ...)) (generate-temporaries #'(i (... ...)))])
+               (with-syntax ([(==-ty (... ...)) (stx-map (λ (ii ty) #`(== #,ii #,(unexpand ty)))
+                                                         #'(i* (... ...)) #'(ival (... ...)))])
+                 #`(λ i* (... ...) #,name
+                      (-> ==-ty (... ...) #,(unexpand goal)))))
            ; methods
-           . #,(map (λ (mk pf) (mk pf)) mk-elim-methods pfs))
+           . #,pfs)
           ; arguments (refl proofs)
-          #,@(stx-map unexpand #'((refl τi ival) ...))))))))
+          #,@(stx-map unexpand #'((refl τi ival) (... ...)))))))
+     ]))

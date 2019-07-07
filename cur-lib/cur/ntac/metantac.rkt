@@ -10,12 +10,14 @@
  "base.rkt")
 
 (begin-for-syntax
-
   (define-syntax-parameter $ptz (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
   (define-syntax-parameter $ctxt (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
   (define-syntax-parameter $pt (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
   (define-syntax-parameter $goal (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
+  (define-syntax-parameter $pfs (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
   (define-syntax-parameter $fill ; ↪
+    (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
+  (define-syntax $fills
     (syntax-parser
       [(_ goal pf) #'(make-ntt-exact goal pf)]
       #;[(_ go) #'(make-ntt-hole go)]
@@ -27,7 +29,29 @@
           ;                                      (list subgoal (... (... ...)))
           (list (make-ntt-context (λ (ctx) (ctx-add ctx x ty)) (make-ntt-hole subgoal)) ...)
           (λ (?hole ...)
-            (quasisyntax/loc goal proof/holes)))]))
+            (quasisyntax/loc goal proof/holes)))]
+#;      [(_ goal proof/holes #:subgoals subgoals)
+       #'(make-ntt-apply
+          goal
+          ;                                      (list subgoal (... (... ...)))
+          (map realsubgoal-pt (map subgoal-goal subgoals))
+          #;(list (make-ntt-context (λ (ctx) (ctx-add ctx x ty)) (make-ntt-hole subgoal)) ...)
+          (λ pfs
+            (syntax-parameterize
+                ([$pfs (syntax-parser [_ #'(map (λ (sb pf) ((subgoal-mk-term sb) pf)) subgoals pfs)])])
+              (quasisyntax/loc goal
+                proof/holes))))]
+      [(_ goal proof/holes #:subgoals subgoals)
+       #'(make-ntt-apply
+          goal
+          ;                                      (list subgoal (... (... ...)))
+          subgoals
+          #;(list (make-ntt-context (λ (ctx) (ctx-add ctx x ty)) (make-ntt-hole subgoal)) ...)
+          (λ pfs
+            (syntax-parameterize
+                ([$pfs (syntax-parser [_ #'pfs])])
+              (quasisyntax/loc goal
+                proof/holes))))]))
 
   ;; old version of $fill
 #;  (define-syntax node
@@ -96,7 +120,7 @@
                                       #:where
                                       [x (~datum :) ty (~datum ⊢) (~var ?hole id) (~datum :) subgoal]
                                       (... (... ...)))
-                                   #'(make-ntt-apply
+                                   #`(make-ntt-apply
                                       goal
                                       ;(list subgoal (... (... ...)))
                                       (list
