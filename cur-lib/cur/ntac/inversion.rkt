@@ -131,25 +131,56 @@
                            [τ (in-list (append (attribute τx) ==s))])
                   (ctx-add ctxt x (normalize τ ctxt))))
 
-              (make-ntt-apply
+              #;(make-ntt-apply
                goal
                (list (make-ntt-context update-ctxt (make-ntt-hole goal)))
                (λ (pf)
                  #`(λ x (... ...) xrec (... ...) ==-id (... ...)
                       ((λ #,@derived-bindings #,pf)
-                       #,@==-pfs))))]
+                       #,@==-pfs))))
+              (define/syntax-parse (x+==ids (... ...)) (append (attribute x)  derived-==-ids))
+              (define/syntax-parse (τ+==s (... ...)) (append (attribute τx) ==s))
+              ($stx/holes
+               goal
+               (λ x (... ...) xrec (... ...) ==-id (... ...)
+                  ((λ #,@derived-bindings #,?HOLE)
+                   #,@==-pfs))
+               #:where [x+==ids : τ+==s] (... ...) ⊢ ?HOLE : goal)]
 
              ; Contradiction; generate a proof instead of creating a hole
              [(impossible false-pf)
               (push-back-ids! #'(x (... ...)))
-              (make-ntt-exact
+              #;(make-ntt-exact
                goal
                #`(λ x (... ...) xrec (... ...) ==-id (... ...)
                     (new-elim
                      #,false-pf
-                     (λ _ #,(unexpand goal)))))])])))
+                     (λ _ #,(unexpand goal)))))
+              ($stx/leaf
+               goal
+               (λ x (... ...) xrec (... ...) ==-id (... ...)
+                  (new-elim
+                   #,false-pf
+                   (λ _ #,(unexpand goal)))))])])))
 
-    (make-ntt-apply
+    ($stx/compose
+     goal
+     ((new-elim
+       ; target
+       #,name
+       ; motive
+       #,(with-syntax ([(i* (... ...)) (generate-temporaries #'(i (... ...)))])
+           (with-syntax ([(==-ty (... ...)) (stx-map (λ (ii ty) #`(== #,ii #,(unexpand ty)))
+                                                     #'(i* (... ...)) #'(ival (... ...)))])
+             #`(λ i* (... ...) #,name
+                  (-> ==-ty (... ...) #,(unexpand goal)))))
+       ; methods
+       . #,$pfs)
+      ; arguments (refl proofs)
+      #,@(stx-map unexpand #'((refl τi ival) (... ...))))
+     #:with subgoals)
+    
+    #;(make-ntt-apply
      goal
      subgoals
      (λ pfs ;; constructs proof term, from each subgoals' proof terms

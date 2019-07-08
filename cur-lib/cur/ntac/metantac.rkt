@@ -6,17 +6,45 @@
  (for-syntax "ctx.rkt" "utils.rkt"
              racket/stxparam
              syntax/stx
+             macrotypes/stx-utils
   (for-syntax racket/base syntax/parse racket/syntax syntax/stx macrotypes/stx-utils))
  "base.rkt")
 
 (begin-for-syntax
-  (define-syntax-parameter $ptz (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
+
+    (define-syntax-parameter $ptz (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
   (define-syntax-parameter $ctxt (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
   (define-syntax-parameter $pt (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
   (define-syntax-parameter $goal (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
   (define-syntax-parameter $pfs (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
   (define-syntax-parameter $fill ; ↪
     (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
+
+  (define-syntax $stx/holes ; mks a node
+    (syntax-parser
+      [(_ goal proof/holes #:where [x : τ] ooo (~datum ⊢) ?HOLE (~datum :) subgoal)
+       #'(make-ntt-apply
+          goal
+          (list (make-ntt-context
+                 (λ (ctxt)
+                   (for/fold ([ctxt ctxt]) ([x (in-stx-list #'(x ooo))] [τ (in-stx-list #'(τ ooo))])
+                     (ctx-add ctxt x (normalize τ ctxt))))
+                 (make-ntt-hole subgoal)))
+          (λ (?HOLE) (quasisyntax/loc goal proof/holes)))]))
+  (define-syntax $stx/leaf
+    (syntax-parser
+      [(_ goal term)
+       #'(make-ntt-exact goal (quasisyntax/loc goal term))]))
+  (define-syntax $stx/compose
+    (syntax-parser
+      [(_ goal proof/holes #:with subgoals)
+       #'(make-ntt-apply
+          goal
+          subgoals
+          (λ pfs
+            (syntax-parameterize
+                ([$pfs (syntax-parser [_ #'pfs])])
+              (quasisyntax/loc goal proof/holes))))]))
   (define-syntax $fills
     (syntax-parser
       [(_ goal pf) #'(make-ntt-exact goal pf)]
