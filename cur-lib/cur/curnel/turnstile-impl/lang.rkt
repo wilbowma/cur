@@ -24,7 +24,8 @@
                   define-typed-variable-syntax current-typecheck-relation
                   current-check-relation
                   subst substs typecheck? typechecks? typeof add-expected-type
-                  current-type-eval expand/df typecheck-fail-msg/multi)
+                  current-type-eval expand/df typecheck-fail-msg/multi
+                  ⇒ ⇐ ≫ ⊢ ≻)
          turnstile/eval
          turnstile/typedefs
          (for-syntax macrotypes/stx-utils syntax/stx
