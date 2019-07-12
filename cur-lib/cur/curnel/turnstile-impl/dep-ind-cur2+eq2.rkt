@@ -1,5 +1,6 @@
 #lang s-exp "dep-ind-cur2.rkt"
-(require (only-in turnstile define-typed-syntax)
+(require (only-in turnstile/base ⇒ ⇐ ≫ ⊢ ≻)
+         (only-in turnstile define-typed-syntax)
          (only-in turnstile/typedefs define-type)
          "dep-ind-cur2+sugar.rkt")
 
