@@ -7,12 +7,12 @@
              racket/stxparam
              syntax/stx
              macrotypes/stx-utils
-  (for-syntax racket/base syntax/parse racket/syntax syntax/stx macrotypes/stx-utils))
+             (for-syntax racket/base syntax/parse racket/syntax syntax/stx macrotypes/stx-utils))
  "base.rkt")
 
 (begin-for-syntax
 
-    (define-syntax-parameter $ptz (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
+  (define-syntax-parameter $ptz (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
   (define-syntax-parameter $ctxt (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
   (define-syntax-parameter $pt (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
   (define-syntax-parameter $goal (λ (stx) (raise-syntax-error #f "can only be used with define-tactic" stx)))
@@ -108,24 +108,36 @@
                   (syntax-parameterize
                       ([$ptz (make-rename-transformer #'ptz)])
                     body ...))] ...))]))
-
   (define-syntax define-tactic
     (syntax-parser
-      #;[(_ (name . args) . body)
-       #'(define ((name . args) ctxt pt)
-           (let ([goal (ntt-goal pt)])
-             (syntax-parameterize
-                 ([$ctxt (make-rename-transformer #'ctxt)]
-                  [$pt  (make-rename-transformer #'pt)]
-                  [$goal (make-rename-transformer #'goal)])
-               . body)))]
       [(_ name
           [pat (~optional (~seq (~or #:current-goal #:goal) goalpat)
                           #:defaults ([goalpat (generate-temporary)]))
                body ...] ...) ; each body produces pt; each tactic must be ptz -> ptz
-       #'(define-syntax name
+       #:with name-internal (generate-temporary #'name)
+       #:with (dispatching-body ...) (stx-map ;  make bodies dispatch to name-internal
+                                      (syntax-parser
+                                        [((hd:id . rst)) #:when (free-id=? #'hd #'name) ; body is recursive call
+                                          #'#'(name-internal . rst)]
+                                        [_ #'(if (identifier? this-syntax)
+                                                 #'name-internal
+                                                 (datum->syntax this-syntax
+                                                   (cons #'name-internal (stx-cdr this-syntax))))])
+                                      #'((body ...) ...))
+       ;; filter out unneeded internal cases (ie recursive calls)
+       #:with ((internal-pat internal-gpat internal-body) ...)
+              (for/list
+                  ([p (in-stx-list #'(pat ...))]
+                   [gp (in-stx-list #'(goalpat ...))]
+                   [bs (in-stx-list #'((body ...) ...))]
+                   #:when (and (stx-pair? (stx-car bs)) ; keep non-recursive call cases
+                               (not (free-id=? #'name (stx-car (stx-car bs))))))
+                (list p gp bs))
+      #'(begin
+         (define-syntax name (syntax-parser [pat dispatching-body] ...)) ; dispatching, surface macro
+         (define-syntax name-internal ; the actual tactic macro
            (syntax-parser
-             [pat
+             [internal-pat
               #'(λ (ptz)
                   (next
                    (struct-copy
@@ -135,7 +147,7 @@
                             [pt (nttz-focus ptz)]
                             [goal (ntt-goal pt)])
                        (syntax-parse goal
-                         [goalpat
+                         [internal-gpat
                           (syntax-parameterize
                               ([$ptz (make-rename-transformer #'ptz)]
                                [$ctxt (make-rename-transformer #'ctxt)]
@@ -156,8 +168,8 @@
                                        (... (... ...)))
                                       (λ (?hole (... (... ...)))
                                         (quasisyntax/loc goal proof/holes)))])])
-                            body ...)]))])))] ...))]))
-
+                            . internal-body)]))])))] ...)))
+       ]))
 
 )
 

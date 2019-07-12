@@ -22,13 +22,10 @@
 
 (begin-for-syntax
 
-  (define-syntax by-inversion
-    (syntax-parser
-      [(_ H) #'(by-inversion* H #:as ())]
-      [(_ H #:as (~var name id) ...) #'(by-inversion* H #:as [(name ...)])]
-      [(_ H #:as (names ...)) #'(by-inversion* H #:as (names ...))]))
-  (define-tactic by-inversion*
-    [(_ H #:as (names ...))
+  (define-tactic by-inversion
+    [(_ H) (by-inversion H #:as ())]
+    [(_ H #:as (~var name id) ...) (by-inversion H #:as [(name ...)])]
+    [(_ H #:as namess)
      (define pt $pt)
      (define ctxt $ctxt)
      (define name #'H)
@@ -37,7 +34,7 @@
   ;; instead it uses given ids until it runs out, and then generates fresh ids.
   ;; This enables cleaner invocations of the tactic, esp when most cases are False
      ;  (define ((inversion name [new-xss #'()]) ctxt pt)
-     (define new-xss #'(names ...))
+     (define new-xss #'namess)
     (match-define (ntt-hole _ goal) pt)
     (define name-ty (or (ctx-lookup ctxt name) ; thm in ctx
                         (typeof (expand/df name))))
