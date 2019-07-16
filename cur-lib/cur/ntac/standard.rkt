@@ -212,12 +212,13 @@
      (node (λ (name : #,(unexpand #'P)) #,pf1) : $goal
            #:where
            pf1 : (node (cur-rename #'name #'x #'body) #:ctx #'name : #'P))])]
-  [b-i:id
+  [b-i:id (by-intro #:id-ctx b-i)]
+  [(_ #:id-ctx id-ctx)
    (ntac-match $goal
     [(~Π (x:id : P:expr) body:expr)
 ;     (by-intro #,(datum->syntax #'b-i (stx-e #'x)))
      (let ()
-       (define name (datum->syntax #'b-i (stx-e #'x)))
+       (define name (datum->syntax #'id-ctx (stx-e #'x)))
        ($fill (λ (#,name : #,(unexpand #'P)) #,pf1)
              #:where
              [name : #'P ⊢ pf1 : (cur-rename name #'x #'body)]))])])
