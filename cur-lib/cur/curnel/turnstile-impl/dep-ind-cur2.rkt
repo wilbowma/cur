@@ -134,4 +134,4 @@
      #:with _ ((current-type-eval) #'τ)
      #'(define-syntax alias (make-variable-like-transformer #'τ))]
     [(_ (f [x:id : τ]) e)
-     #'(typed-define f (λ/1 [x : τ] body))]))
+     #'(typed-define f (λ/1 [x : τ] e))]))
