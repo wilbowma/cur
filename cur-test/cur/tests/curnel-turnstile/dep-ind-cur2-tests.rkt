@@ -1,6 +1,6 @@
 #lang s-exp cur/curnel/turnstile-impl/dep-ind-cur2
 (require cur/curnel/turnstile-impl/dep-ind-cur2+eq
-         cur/curnel/turnstile-impl/dep-ind-cur2+data
+         cur/curnel/turnstile-impl/dep-ind-cur2+data2
          cur/curnel/turnstile-impl/dep-ind-cur2+sugar
          rackunit/turnstile)
 
