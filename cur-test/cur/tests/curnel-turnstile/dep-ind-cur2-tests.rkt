@@ -1,8 +1,8 @@
 #lang s-exp cur/curnel/turnstile-impl/dep-ind-cur2
-(require cur/curnel/turnstile-impl/dep-ind-cur2+eq
-         cur/curnel/turnstile-impl/dep-ind-cur2+data2
-         cur/curnel/turnstile-impl/dep-ind-cur2+sugar
-         rackunit/turnstile)
+(require
+ cur/curnel/turnstile-impl/dep-ind-cur2+data2
+ cur/curnel/turnstile-impl/dep-ind-cur2+sugar
+ rackunit/turnstile)
 
 ; Π → λ ∀ ≻ ⊢ ≫ ⇒
 
@@ -168,6 +168,40 @@
 (check-type (plus (S Z) (S Z)) : Nat -> (S (S Z)))
 (check-type (plus (S (S Z)) (S Z)) : Nat -> (S (S (S Z))))
 (check-type (plus (S Z) (S (S Z))) : Nat -> (S (S (S Z))))
+
+
+;; equality -------------------------------------------------------------------
+
+(require (only-in turnstile struct #%app- void- define-typed-syntax ⇒ ⇐ ≫ ⊢ ≻))
+
+
+(struct =- (l r) #:transparent)
+
+(define-typed-syntax (= t1 t2) ≫
+  [⊢ t1 ≫ t1- ⇒ ty]
+  [⊢ t2 ≫ t2- ⇐ ty]
+  ---------------------
+  [⊢ (#%app- =- t1- t2-) ⇒ Type])
+
+(define-typed-syntax (eq-refl e) ≫
+  [⊢ e ≫ e- ⇒ _ (⇒ ~Type)]
+  ----------
+  [⊢ (#%app- void-) ⇒ (= e- e-)])
+
+;; eq-elim: t : T
+;;          P : (T -> Type)
+;;          pt : (P t)
+;;          w : T
+;;          peq : (= t w)
+;;       -> (P w)
+(define-typed-syntax (eq-elim t P pt w peq) ≫
+  [⊢ t ≫ t- ⇒ ty]
+  [⊢ P ≫ P- ⇐ (→ ty Type)]
+  [⊢ pt ≫ pt- ⇐ (P- t-)]
+  [⊢ w ≫ w- ⇐ ty]
+  [⊢ peq ≫ peq- ⇐ (= t- w-)]
+  --------------
+  [⊢ pt- ⇒ (P- w-)])
 
 ;; plus zero (left)
 (check-type (λ [n : Nat] (eq-refl n))
