@@ -8,10 +8,13 @@
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
-(provide Type (for-syntax (rename-out [~Type* ~Type])) TypeTop (rename-out [Type Prop]) ; TODO: define separate Prop
-         Π (for-syntax ~Π)
-         (rename-out [λ/1 λ] [app #%app] [app/eval app/eval/1] [typed-define define])
-         ann provide module* submod for-syntax begin-for-syntax)
+(provide
+ Type
+ (for-syntax (rename-out [~Type* ~Type]))
+ (rename-out [Type Prop]) ; TODO: define separate Prop
+ Π (for-syntax ~Π)
+ (rename-out [λ/1 λ] [app #%app] [app/eval app/eval/1] [typed-define define])
+ ann provide module* submod for-syntax begin-for-syntax)
 
 (begin-for-syntax (current-use-stop-list? #f))
 
@@ -21,6 +24,15 @@
 ;; Type = (Type 0)
 
 (define-internal-type/new Type- (Type n) #:lazy #:arg-pattern (((~literal quote) n)))
+
+;; to give non-argument form
+(begin-for-syntax
+  (define-syntax ~Type*
+    (pattern-expander
+     (syntax-parser
+       [:id #'(~Type _)]
+       [(_ n) #'(~Type n)]))))
+
 (define-typed-syntax Type
   [:id ≫ --- [≻ (Type 0)]]
   [(_ n:exact-nonnegative-integer) ≫
@@ -31,51 +43,68 @@
          ':
           (syntax/loc this-syntax (Type n+1)))]])
 
-(begin-for-syntax
-  (define-syntax ~Type*
-    (pattern-expander
-     (syntax-parser
-       [_:id #'(~Type n)]
-       [(_ n) #'(~Type n)]))))
-
-;; for convenience, Type that is a supertype of all (Type n)
-;; TODO: get rid of this?
-(define-syntax TypeTop (make-variable-like-transformer #'(Type 99)))
-
+; runtime representation
 (define-internal-binding-type/new Π-- Π)
 (define-simple-macro (Π- (x- : A-) B-) (Π-- A- (λ- (x-) B-)))
 
+;; Given an domain universe level n and co-domain level m, what is the level of the function type?
+(define-for-syntax (unv-max n m)
+  (if (zero? m)
+      ; impredicative
+      m
+      ; predicative
+      (max n m)))
+
 (define-typed-syntax Π
-  [(_ (x:id (~datum : ) A) B) ≫
-   [⊢ A ≫ A- ⇐ TypeTop]
-   [[x ≫ x-- : A-] ⊢ B ≫ B- ⇐ TypeTop]
-   #:with x- (transfer-prop 'display-as #'x (transfer-prop 'tmp #'x #'x--))
+  ; Check
+  [(_ (x:id (~datum :) A) B) ⇐ (~Type n:nat) ≫
+   [⊢ A ≫ A- ⇐ (Type n)]
+   [[x ≫ x-- : A-] ⊢ B ≫ B- ⇐ (Type n)]
+   ; TODO: Oh look a pattern. Should be built into [x >> x-] form, or something.
+   ; TODO: Why do we need both 'tmp and 'display-as? Can't we use 'display-as as the boolean and the name
+   #:with x-
+   (transfer-prop 'display-as #'x (transfer-prop 'tmp #'x #'x--))
    ---------
-   [⊢ (Π- (x- : A-) B-) ⇒ Type]])
+   [⊢ (Π- (x- : A-) B-)]]
+  ; impredicativity
+  ; TODO: Having this as a separate rule is wayyy too slow.
+  ; It causes considerable backtracking in syntax-parse, I suppose?
+  ; Leaving this here for future debugging.
+  #;[(_ (x:id (~datum :) A) B)  ≫
+   [⊢ A ≫ A- ⇒ (~Type n:nat)]
+   [[x ≫ x-- : A-] ⊢ B ≫ B- ⇒ (~Type 0)]
+   #:with x-
+   (transfer-prop 'display-as #'x (transfer-prop 'tmp #'x #'x--))
+   ---------
+   [⊢ (Π- (x- : A-) B-) ⇒ (Type 0)]]
+  [(_ (x:id (~datum :) A) B)  ≫
+   [⊢ A ≫ A- ⇒ (~Type n:nat)]
+   [[x ≫ x-- : A-] ⊢ B ≫ B- ⇒ (~Type m:nat)]
+   #:with x-
+   (transfer-prop 'display-as #'x (transfer-prop 'tmp #'x #'x--))
+   ---------
+   [⊢ (Π- (x- : A-) B-) ⇒ (Type #,(unv-max (syntax-e #'n) (syntax-e #'m)))]])
 
 ;; type check relation --------------------------------------------------------
 ;; - must come after type defs
 
 (begin-for-syntax
-
   (define old-relation (current-typecheck-relation))
   (current-typecheck-relation
    (lambda (t1 t2)
-     ;; (printf "t1 = ~a\n" (syntax->datum t1))
-     ;; (printf "t2 = ~a\n" (syntax->datum t2))
-     (define t1+
-       (syntax-parse t1
-         [((~literal Type) _) ((current-type-eval) t1)]
-         [_ t1]))
-     (or (type=? t1+ t2) ; equality
-         (syntax-parse (list t1+ t2)
-           [((~Type n) (~Type m)) (or (<= (stx-e #'n) (stx-e #'m))
-                                      (and (>= (stx-e #'n) 99) ; both are "TypeTop"
-                                           (>= (stx-e #'m) 99)))]
-           [((~Π [x1 : τ_in1] τ_out1) (~Π [x2 : τ_in2] τ_out2))
-            (and (type=? #'τ_in1 #'τ_in2)
-                 (typecheck? (subst #'x2 #'x1 #'τ_out1) #'τ_out2))]
-           [_ #;[(printf "failed to type check: ~a\n" (syntax->datum this-syntax))] #f])))))
+   ;; (printf "t1 = ~a\n" (syntax->datum t1)) ~a\n" (syntax->datum t1))
+   ;; (printf "t2 = ~a\n" (syntax->datum t2))
+   (define t1+
+     (syntax-parse t1
+       [((~literal Type) _) ((current-type-eval) t1)]
+       [_ t1]))
+   (or (type=? t1+ t2) ; equality
+       (syntax-parse (list t1+ t2)
+         [((~Type n) (~Type m)) (<= (stx-e #'n) (stx-e #'m))]
+         [((~Π [x1 : τ_in1] τ_out1) (~Π [x2 : τ_in2] τ_out2))
+          (and (type=? #'τ_in1 #'τ_in2)
+               (typecheck? (subst #'x2 #'x1 #'τ_out1) #'τ_out2))]
+         [_ #;[(printf "failed to type check: ~a\n" (syntax->datum this-syntax))] #f])))))
 
 ;; lambda and #%app -----------------------------------------------------------
 (define-typed-syntax λ/1
@@ -83,19 +112,19 @@
   [(_ y:id e) ⇐ (~Π [x:id : τ_in] τ_out) ≫
    [[x ≫ x- : τ_in] ⊢ #,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]
    ---------
-   [⊢ (λ- (x-) e-) ⇒ (Π [x : τ_in] #,(syntax-parse (typeof #'e-) [~Type* #'Type][_ #'τ_out]))]]
+   [⊢ (λ- (x-) e-) ⇒ (Π [x : τ_in] τ_out)]]
   ;; both expected ty and annotations
   [(_ [y:id (~datum :) τ_in*] e) ⇐ (~Π [x:id : τ_in] τ_out) ≫
-   [⊢ τ_in* ≫ τ_in** ⇐ Type]
+   [⊢ τ_in* ≫ τ_in** ⇒ (~Type _)]
    #:when (typecheck? #'τ_in** #'τ_in)
    [[x ≫ x- : τ_in] ⊢ [#,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]]
    -------
-   [⊢ (λ- (x-) e-) ⇒ (Π [x : τ_in] #,(syntax-parse (typeof #'e-) [~Type* #'Type][_ #'τ_out]))]]
+   [⊢ (λ- (x-) e-) ⇒ (Π [x : τ_in] τ_out)]]
   ;; annotations only
   [(_ [x:id (~datum :) τ_in] e) ≫
    [[x ≫ x- : τ_in] ⊢ [e ≫ e- ⇒ τ_out] [τ_in ≫ τ_in- ⇒ _]]
    -------
-   [⊢ (λ- (x-) e-) ⇒ (Π [#,(transfer-prop 'tmp #'x #'x-) : τ_in-] τ_out)]])
+   [⊢ (λ- (x-) e-) ⇒ #,(quasisyntax/loc this-syntax (Π [#,(transfer-prop 'display-as #'x (transfer-prop 'tmp #'x #'x-)) : τ_in-] τ_out))]])
 
 (define-typerule/red (app e_fn e_arg) ≫
   [⊢ e_fn ≫ e_fn- ⇒ (~Π [X : τ_in] τ_out)]
