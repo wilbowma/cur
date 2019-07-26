@@ -29,16 +29,16 @@
 (define (id (A : Type) (x : A)) x)
 
 (check-type
- ((id (ML-= True T T))
-  (ML-refl True (id True T)))
- : (ML-= True T T)
- -> (ML-refl True T))
+ ((id (ML-= True I I))
+  (ML-refl True (id True I)))
+ : (ML-= True I I)
+ -> (ML-refl True I))
 
 ; no curry
 (check-type
- (id (ML-= True T T) (ML-refl True (id True T)))
- : (ML-= True T T)
- -> (ML-refl True T))
+ (id (ML-= True I I) (ML-refl True (id True I)))
+ : (ML-= True I I)
+ -> (ML-refl True I))
 
 ;; prove some properties of equality
 ;; - with both built-in and user-defined datatypes
