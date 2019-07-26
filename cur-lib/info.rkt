@@ -8,4 +8,4 @@
 (define build-deps '())
 (define pkg-desc "implementation (no documentation, tests) part of \"cur\".")
 (define version "0.42")
-(define pkg-authors '(wilbowma))
+(define pkg-authors '(wilbowma stchang))

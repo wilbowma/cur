@@ -10,5 +10,4 @@
     "rackunit-macrotypes-lib"))
 (define update-implies '("cur-lib"))
 (define pkg-desc "Tests for \"cur\".")
-(define pkg-authors '(wilbowma))
-
+(define pkg-authors '(wilbowma stchang))
