@@ -10,7 +10,7 @@
   (provide check-output)
   (require rackunit racket/port)
   (define-syntax-rule (check-output expect body ...)
-    (check-equal? 'expect (with-output-to-string (λ () body ...)))))
+    (check-equal? (with-output-to-string (λ () body ...)) 'expect)))
 (require 'check-output)
 
 
