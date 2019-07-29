@@ -115,9 +115,9 @@
   ; ANum ----------
   reflexivity
   ; APlus ----------
-  (by-destruct a1) ; generates n202
+  (by-destruct a1 #:as [(n1) (a11 a12 ih11 ih12) (a11 a12 ih11 ih12) (a11 a12 ih11 ih12)])
   ; a1 = ANum
-  (by-destruct n181)
+  (by-destruct n1)
   ; n=0
   (by-apply ih2)
   ; n neq 0
