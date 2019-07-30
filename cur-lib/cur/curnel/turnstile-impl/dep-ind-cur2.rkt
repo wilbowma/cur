@@ -8,7 +8,7 @@
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
-(provide Type (for-syntax ~Type) TypeTop (rename-out [Type Prop]) ; TODO: define separate Prop
+(provide Type (for-syntax (rename-out [~Type* ~Type])) TypeTop (rename-out [Type Prop]) ; TODO: define separate Prop
          Π (for-syntax ~Π)
          (rename-out [λ/1 λ] [app #%app] [app/eval app/eval/1] [typed-define define])
          ann provide module* submod for-syntax begin-for-syntax)
@@ -19,8 +19,8 @@
 
 ;; set (Type n) : (Type n+1)
 ;; Type = (Type 0)
-(struct Type- (n) #:transparent #:omit-define-syntaxes) ; runtime representation
-(begin-for-syntax
+#;(struct Type- (n) #:transparent #:omit-define-syntaxes) ; runtime representation
+#;(begin-for-syntax
   (define Type-id (expand/df #'Type-))
   (define-syntax ~Type
     (pattern-expander
@@ -46,6 +46,7 @@
                                    (syntax/loc this-syntax (Type n)))]))) ; unexpand
   )
 
+(define-internal-type/new Type- (Type n) #:lazy #:arg-pattern (((~literal quote) n)))
 (define-typed-syntax Type
   [:id ≫ --- [≻ (Type 0)]]
   [(_ n:exact-nonnegative-integer) ≫
@@ -55,6 +56,13 @@
          (syntax/loc this-syntax (#%plain-app Type- 'n))
          ':
           (syntax/loc this-syntax (Type n+1)))]])
+
+(begin-for-syntax
+  (define-syntax ~Type*
+    (pattern-expander
+     (syntax-parser
+       [_:id #'(~Type n)]
+       [(_ n) #'(~Type n)]))))
 
 ;; for convenience, Type that is a supertype of all (Type n)
 ;; TODO: get rid of this?
@@ -101,14 +109,14 @@
   [(_ y:id e) ⇐ (~Π [x:id : τ_in] τ_out) ≫
    [[x ≫ x- : τ_in] ⊢ #,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]
    ---------
-   [⊢ (λ- (x-) e-) ⇒ (Π [x : τ_in] #,(syntax-parse (typeof #'e-) [~Type #'Type][_ #'τ_out]))]]
+   [⊢ (λ- (x-) e-) ⇒ (Π [x : τ_in] #,(syntax-parse (typeof #'e-) [~Type* #'Type][_ #'τ_out]))]]
   ;; both expected ty and annotations
   [(_ [y:id (~datum :) τ_in*] e) ⇐ (~Π [x:id : τ_in] τ_out) ≫
    [⊢ τ_in* ≫ τ_in** ⇐ Type]
    #:when (typecheck? #'τ_in** #'τ_in)
    [[x ≫ x- : τ_in] ⊢ [#,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]]
    -------
-   [⊢ (λ- (x-) e-) ⇒ (Π [x : τ_in] #,(syntax-parse (typeof #'e-) [~Type #'Type][_ #'τ_out]))]]
+   [⊢ (λ- (x-) e-) ⇒ (Π [x : τ_in] #,(syntax-parse (typeof #'e-) [~Type* #'Type][_ #'τ_out]))]]
   ;; annotations only
   [(_ [x:id (~datum :) τ_in] e) ≫
    [[x ≫ x- : τ_in] ⊢ [e ≫ e- ⇒ τ_out] [τ_in ≫ τ_in- ⇒ _]]
