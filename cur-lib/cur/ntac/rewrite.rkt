@@ -4,9 +4,7 @@
 
 (provide (for-syntax reflexivity
                      substR substL (rename-out [substL subst])
-                     replace
                      rewrite
-                     symmetry
                      apply-fn
                      by-apply
                      by-replace
@@ -22,13 +20,11 @@
 (begin-for-syntax
 
   ;; TODO: handle Π goals
-  (define (reflexivity ptz)
-    (match-define (ntt-hole _ goal) (nttz-focus ptz))
-    (ntac-match goal
-     [(~Π [X : _] ... (~== ty a b))
-      ((compose (fill (exact #`(refl #,(unexpand #'ty) #,(unexpand #'a))))
-                (fill (intros)))
-       ptz)]))
+ (define-tactical reflexivity
+   [:id #:current-goal (~Π [X : _] (... ...) (~== ty a b))
+    ((compose (fill (exact #`(refl #,(unexpand #'ty) #,(unexpand #'a))))
+              (fill (intros)))
+     $ptz)])
 
   (define-syntax substR
     (syntax-parser
@@ -70,39 +66,18 @@
                        [_ null])
                      (L (cdr Hs))))))))]))
 
-  (define (symmetry ctxt pt)
-    (match-define (ntt-hole _ goal) pt)
-    (ntac-match goal
-     [(~== TY L R)
-      (make-ntt-apply
-       goal
-       (list (make-ntt-hole (normalize #'(== TY R L) ctxt)))
-       (λ (pf)
-         (quasisyntax/loc goal
-           (sym #,(unexpand #'TY) #,(unexpand #'R) #,(unexpand #'L) #,pf))))]))
-
-  (define ((symmetry/in name) ctxt pt)
-    (match-define (ntt-hole _ goal) pt)
-    (ntac-match (ctx-lookup ctxt name)
-     [(~== TY L R)
-      (make-ntt-apply
-       goal
-       (list
-        (make-ntt-context
-         (λ (old-ctxt)
-           (define tmp-ctx (ctx-remove old-ctxt name))
-           (ctx-add tmp-ctx name (normalize #'(== TY R L) tmp-ctx)))
-         (make-ntt-hole goal)))
-       (λ (pf)
-         (quasisyntax/loc name
-           ((λ [#,name : (== #,(unexpand #'TY) #,(unexpand #'R) #,(unexpand #'L))]
-              #,pf)
-            (sym #,(unexpand #'TY) #,(unexpand #'L) #,(unexpand #'R) #,name)))))]))
-
-  (define-syntax by-symmetry
-    (syntax-parser
-      [:id #`(fill symmetry)]
-      [(_ #:in H) #`(fill (symmetry/in #'H))]))
+  (define-tactic by-symmetry
+    [:id #:current-goal (~== TY L R)
+     ($fill (sym #,(unexpand #'TY) #,(unexpand #'R) #,(unexpand #'L) #,pf)
+            #:where [⊢ pf : (normalize #'(== TY R L) $ctxt)])]
+    [(_ #:in H)
+     (syntax-parse (ctx-lookup $ctxt #'H)
+       [(~== TY L R)
+        ($fill
+         ((λ [H : (== #,(unexpand #'TY) #,(unexpand #'R) #,(unexpand #'L))]
+            #,pf)
+          (sym #,(unexpand #'TY) #,(unexpand #'L) #,(unexpand #'R) H))
+         #:where [#:update #'H : #'(== TY R L) ⊢ pf : $goal])])])
 
   ;; rewrite tactics ----------------------------------------------------------
 
@@ -253,33 +228,19 @@
                    #,(if left-src? #`(l->r #,pf) #`(r->l #,pf))])))))))]))
 
   ;; replace tactic
-  (define ((replace ty from to) ctxt pt)
-    (match-define (ntt-hole _ goal) pt)
-    ;; (define ty (transfer-scopes goal ty_ ctxt))
-    ;; (define from (transfer-scopes goal from_ ctxt))
-    ;; (define to (transfer-scopes goal to_ ctxt))
-    (with-syntax ([tgt-id (format-id from "tgt")]
-                  [H (format-id from "H")])
-      (make-ntt-apply
-       goal
-       (list
-        (make-ntt-hole (normalize (subst-term to from goal) ctxt))
-        (make-ntt-hole (quasisyntax/loc goal (== #,ty #,to #,from))))
-       (lambda (body-pf arg-pf)
-         (quasisyntax/loc goal
-           ((λ [H : (== #,ty #,to #,from)]
+  (define-tactic (by-replace ty from to)
+    (with-syntax ([tgt-id (format-id #'from "tgt")]
+                  [H (format-id #'from "H")])
+      ($fill ((λ [H : (== ty to from)]
               (new-elim
                H
-               (λ [tgt-id : #,ty]
-                 (λ [H : (== #,ty #,to tgt-id)]
-                   #,(subst-term #'tgt-id from goal)))
+               (λ [tgt-id : ty]
+                 (λ [H : (== ty to tgt-id)]
+                   #,(subst-term #'tgt-id #'from $goal)))
                #,body-pf))
-            #,arg-pf))))))
-
-  (define-syntax (by-replace syn)
-    (syntax-case syn ()
-      [(_ ty from to)
-       #`(fill (replace #'ty #'from #'to))]))
+              #,arg-pf)
+        #:where [⊢ body-pf : (normalize (subst-term #'to #'from $goal) $ctxt)]
+                [⊢ arg-pf : #'(== ty to from)])))
 
 ;; apply tactic --------------------
 

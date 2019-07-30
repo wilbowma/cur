@@ -49,9 +49,15 @@
     (syntax-parser
       [[(~datum ⊢) (~var ?hole id) (~datum :) subgoal] ; no ctx
        #'(make-ntt-hole subgoal)]
-      [[ctx (~datum ⊢) (~var ?hole id) (~datum :) subgoal] ; drop in ctx as in ctx.rkt
+      [[#:ctx ctx (~datum ⊢) (~var ?hole id) (~datum :) subgoal] ; drop in ctx as in ctx.rkt
        #'(make-ntt-context
           (λ _ ctx)
+          (make-ntt-hole subgoal))]
+      [[#:update x : ty (~datum ⊢) (~var ?hole id) (~datum :) subgoal] ; x already in ctx
+       #'(make-ntt-context
+          (λ (old-ctxt)
+            (define tmp-ctx (ctx-remove old-ctxt x))
+            (ctx-add tmp-ctx x (normalize ty tmp-ctx)))
           (make-ntt-hole subgoal))]
       [[x (~datum :) ty (~datum ⊢) (~var ?hole id) (~datum :) subgoal]
        #'(make-ntt-context
@@ -115,14 +121,22 @@
     (syntax-parser
       [(_ (name:id . pat) . body) ; single-pat case
        #'(define-tactical name [(name . pat) . body])]
-      [(_ name [pat body ...] ...)
+      [(_ name [pat
+                (~optional (~seq (~or #:current-goal #:goal) goalpat)
+                           #:defaults ([goalpat (generate-temporary)]))
+                body ...] ...)
        #'(define-syntax name
            (syntax-parser
              [pat
               #'(λ (ptz)
-                  (syntax-parameterize
-                      ([$ptz (make-rename-transformer #'ptz)])
-                    body ...))] ...))]))
+                  (let* ([ctxt (nttz-context ptz)]
+                         [pt (nttz-focus ptz)]
+                         [goal (ntt-goal pt)])
+                    (syntax-parse goal
+                      [goalpat
+                       (syntax-parameterize
+                           ([$ptz (make-rename-transformer #'ptz)])
+                         body ...)])))] ...))]))
   (define-syntax define-tactic
     (syntax-parser
       [(_ (name . pat) . body) #'(define-tactic name [(name . pat) . body])]

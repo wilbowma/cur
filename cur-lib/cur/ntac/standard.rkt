@@ -188,7 +188,7 @@
        (λ (t) (has-term? #'x t))))
     ($fill (#,body-pf x . #,(ctx-ids ctxt-to-change))
            #:where
-           [ctxt-unchanged ⊢
+           [#:ctx ctxt-unchanged ⊢
             body-pf : (normalize
                        #`(Π [x : #,(ctx-lookup $ctxt #'x)]
                             #,@(ctx-tys->stx ctxt-to-change) ; TODO: need names?
