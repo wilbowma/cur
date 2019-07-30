@@ -19,32 +19,6 @@
 
 ;; set (Type n) : (Type n+1)
 ;; Type = (Type 0)
-#;(struct Type- (n) #:transparent #:omit-define-syntaxes) ; runtime representation
-#;(begin-for-syntax
-  (define Type-id (expand/df #'Type-))
-  (define-syntax ~Type
-    (pattern-expander
-     (syntax-parser
-       [:id #'(~Type _)]
-       [(_ n)
-        #'(~or
-           ((~literal Type) n)   ; unexpanded
-           ((~literal #%plain-app) ; expanded
-            (~and C:id ; TODO: this free-id=? sometimes fails
-                  (~fail #:unless (stx-datum-equal? #;free-identifier=? #'C Type-id)
-                              (format "type mismatch, expected Type, given ~a"
-                                      (syntax->datum #'C))))
-            ((~literal quote) n)))])))
-  (define Type-
-    (type-info
-     #f ; match info
-     (syntax-parser [(~Type n) (if (= 99 (stx-e #'n))
-                                   (syntax/loc this-syntax Type)
-                                   (syntax/loc this-syntax (Type n)))]) ; resugar
-     (syntax-parser [(~Type n) (if (= 99 (stx-e #'n))
-                                   (syntax/loc this-syntax TypeTop)
-                                   (syntax/loc this-syntax (Type n)))]))) ; unexpand
-  )
 
 (define-internal-type/new Type- (Type n) #:lazy #:arg-pattern (((~literal quote) n)))
 (define-typed-syntax Type
