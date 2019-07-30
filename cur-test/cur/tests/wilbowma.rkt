@@ -6,7 +6,7 @@
 (typecheck-fail/toplvl
  (define-datatype Inf : (-> Type Type)
    (Delay : (forall (A : Type) (-> A Inf A))))
- #:with-msg "type mismatch: Inf has type \\(→ \\(Type 0\\) \\(Type 0\\)\\), expected Type")
+ #:with-msg "expected \\(Type n\\) \\(for some n\\), given \\(→ \\(Type 0\\) \\(Type 0\\)\\)")
 
 ; #2
 #;(define-datatype Inf : (-> Type Type)
