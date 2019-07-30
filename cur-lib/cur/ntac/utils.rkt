@@ -9,7 +9,7 @@
                (only-in cur/curnel/lang #%plain-lambda #%plain-app))
  macrotypes/stx-utils
  cur/curnel/reflection
- "../curnel/stxutils.rkt")
+ "../curnel/stxutils.rkt") ; imports subst
 (provide (all-defined-out))
 
 (define ((freshen src) x) (datum->syntax src (stx-e x)))
@@ -173,3 +173,5 @@
      #:when (equal? (syntax-e #'d1) (syntax-e #'d2))
      null]
     [_ #f]))
+
+(define (remove-id v lst) (remove v lst free-identifier=?))

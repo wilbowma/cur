@@ -1,4 +1,5 @@
-#lang s-exp "../main.rkt"
+#lang cur/metantac
+
 ;; Rewrite, using PM equality (the "standard" one)
 
 (provide (for-syntax reflexivity
@@ -14,20 +15,9 @@
                      by-symmetry
                      (rename-out [by-rewrite by-rewriteR])))
 
-(require
- "../stdlib/prop.rkt" ; for False (see inversion), And (rewrite)
- "../stdlib/sugar.rkt"
- "../stdlib/equality.rkt"
- "base.rkt"
- "standard.rkt"
-  (for-syntax "ctx.rkt" "utils.rkt"
-              (only-in macrotypes/typecheck-core subst substs)
-              macrotypes/stx-utils
-              racket/list
-              racket/match
-              racket/pretty
-              syntax/stx
-              (for-syntax racket/base syntax/parse)))
+(require cur/stdlib/prop ; for False (see inversion), And (rewrite)
+         cur/stdlib/equality
+         "standard.rkt")
 
 (begin-for-syntax
 

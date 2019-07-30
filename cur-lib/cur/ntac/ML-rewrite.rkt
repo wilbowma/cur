@@ -1,4 +1,4 @@
-#lang s-exp "../main.rkt"
+#lang cur/metantac
 ;; Rewrite, but using Martin-Lof equality
 ;; Significant code duplicate between this and rewrite.rkt;
 ;; someone should play the abstraction game (and abstract over *any* equivalence...?)
@@ -9,17 +9,8 @@
                      by-rewriteL
                      (rename-out [by-rewrite by-rewriteR])))
 
-(require
- "../stdlib/sugar.rkt"
- "../stdlib/equality.rkt"
- "base.rkt"
- "standard.rkt"
- (for-syntax "ctx.rkt" "utils.rkt"
-             (only-in macrotypes/typecheck-core subst substs)
-             macrotypes/stx-utils
-             cur/curnel/stxutils
-             racket/match
-             (for-syntax racket/base syntax/parse)))
+(require cur/stdlib/equality
+         "standard.rkt")
 
 (begin-for-syntax
 

@@ -1,26 +1,13 @@
-#lang s-exp "../main.rkt"
+#lang cur/metantac
 
 (provide (for-syntax (all-defined-out) by-inversion))
 
-(require
- (for-syntax "ctx.rkt" "utils.rkt"
-             (except-in macrotypes/stx-utils)
-             (only-in macrotypes/typecheck-core subst substs)
-             racket/exn
-             racket/port
-             racket/list
-             racket/match
-             racket/format
-             racket/pretty
-             racket/stxparam
-             syntax/stx
-             (for-syntax racket/base syntax/parse racket/syntax syntax/stx macrotypes/stx-utils))
- "../stdlib/prop.rkt"
- "../stdlib/sugar.rkt"
- "../stdlib/axiom.rkt"
- "base.rkt"
- "metantac.rkt"
- "inversion.rkt")
+(require (for-syntax racket/exn
+                     racket/port
+                     racket/format)
+         cur/stdlib/prop
+         cur/stdlib/axiom
+         "inversion.rkt")
 
 ;; define-nttz-cmd ?
 (define-for-syntax (nop ptz) ptz)

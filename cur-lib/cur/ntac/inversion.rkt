@@ -1,24 +1,10 @@
-#lang s-exp "../main.rkt"
+#lang cur/metantac
+
 (provide (for-syntax by-inversion))
 
-;; `by-inversion` tactic in ntac/standard
+;; `by-inversion` tactic
 
-(require
- "../stdlib/prop.rkt" ; for False (see inversion)
- "../stdlib/sugar.rkt"
- "../stdlib/equality.rkt"
- "base.rkt"
- "metantac.rkt"
- "prove-unify.rkt"
-  (for-syntax "ctx.rkt" "utils.rkt"
-              (only-in macrotypes/typecheck-core subst substs)
-              macrotypes/stx-utils
-              racket/list
-              racket/match
-              racket/pretty
-              syntax/stx
-              (for-syntax racket/base syntax/parse)))
-
+(require cur/stdlib/equality "prove-unify.rkt")
 
 (begin-for-syntax
 

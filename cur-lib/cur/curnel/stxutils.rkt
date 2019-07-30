@@ -90,9 +90,6 @@
         (set! n (add1 n))
         (format-id x "~a~a" (or x 'x) n #:source x))))
 
-;; remove id v from lst
-(define (remove-id v lst) (remove v lst free-identifier=?))
-
 (define (mk-eval id) (format-id id "eval-~a" id))
 (define (mk-~ id) (format-id id "~~~a" id))
 
