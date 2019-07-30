@@ -31,7 +31,6 @@
           goal)])))
 
 ;; display tactic
-;; TODO: print number of subgoals
 (begin-for-syntax
   (define (display-focus tz)
     (match (nttz-focus tz)
@@ -79,15 +78,17 @@
        (printf "Not at hole.\n")])
     tz))
 
-(begin-for-syntax
+(begin-for-syntax ; interactive
   (define current-proof null)
   (define (reset-current-proof!)
     (set! current-proof null))
   (define (current-proof-add! stx)
     (set! current-proof (cons stx current-proof)))
-(define (interactive ptz)
+(define-tactical interactive
+  [:id
+   (let L ([curr-ptz $ptz])
   (current-tracing? 1)
-  (display-focus ptz)
+  (display-focus curr-ptz)
   (define cmd-stx
     (let/ec esc
       (parameterize ([current-eval
@@ -101,8 +102,8 @@
     (with-handlers ([exn:fail:ntac:goal?
                      (lambda (e)
                        (displayln (exn->string e))
-                       ptz)])
-      (eval-proof-step ptz cmd-stx)))
+                       curr-ptz)])
+      (eval-proof-step curr-ptz cmd-stx)))
   (if (nttz-done? next-ptz)
       (begin
         (printf "complete proof script:\n")
@@ -112,7 +113,8 @@
         (reset-current-proof!)
         (current-tracing? #f)
         next-ptz)
-      (interactive next-ptz))))
+      (L next-ptz)))]))
+
 
 (define-for-syntax ((fill t #:rest [psteps #'()]) ptz)
   (define new-foc (t (nttz-context ptz) (nttz-focus ptz)))
@@ -120,43 +122,18 @@
   (eval-proof-steps (next (struct-copy nttz ptz [focus new-foc])) psteps))
 
 
-
 (define-syntax assign-type/m
   (syntax-parser
     [(_ e tag τ) (syntax-property #'e (stx->datum #'tag) ((current-type-eval) #'τ))]))
 
+;; more tactics --------------------------------------------------
 (begin-for-syntax
 
-  (define ((assert H ty) ctxt pt)
-    (match-define (ntt-hole _ goal) pt)
+  (define-tactic (by-assert H ty)
+    (define ty+ (normalize #'ty $ctxt))
+    ($fill ((λ (H : ty) #,body-pf) #,arg-pf)
+           #:where [⊢ arg-pf : ty+] [#'H : ty+ ⊢ body-pf : $goal]))
 
-    (make-ntt-apply
-     goal
-     (let ([ty+ (normalize ty ctxt)])
-       (list
-        (make-ntt-hole ty+)
-        (make-ntt-context
-         (ctx-add/id H ty+)
-         (make-ntt-hole goal))))
-     (lambda (arg-pf body-pf)
-       (quasisyntax/loc goal
-         ((λ (#,H : #,ty)
-            #,body-pf)
-          #,arg-pf)))))
-
-  (define-syntax (by-assert syn)
-    (syntax-case syn ()
-      [(_ H ty)
-       #`(fill (assert #'H #'ty))]))
-
-;; meta tactic; not a tactic (which take tacticals); takes a sequence of tactics
-#;(define-for-syntax ((try . ts) ptz)
-  (with-handlers ([exn:fail? #;exn:fail:ntac:goal? ; catch other fails too, eg unbound id
-                             (lambda (e)
-                               ;; (displayln "try failed:")
-                               ;; (pretty-print e)
-                               ptz)])
-    ((apply compose (reverse ts)) ptz)))
 (define-tactical try
   [(_ t ...)
   (with-handlers ([exn:fail? #;exn:fail:ntac:goal? ; catch other fails too, eg unbound id
@@ -170,35 +147,12 @@
     (syntax-parser
       [(_ [x ty] body)
        #'(make-ntt-context (λ (ctx) (ctx-add ctx x ty)) (make-ntt-hole body))]))
-;; when name = #f, ie programmer does not give name
-;; use scope from stx for introduced id
-#;(define-tactic (intro [name #f] #:stx [stx #f])
-  (ntac-match $goal
-   [(~Π (x:id : P:expr) body:expr)
-    (let ()
-      (define the-name (or name (datum->syntax stx (stx-e #'x))))
-      (node (λ (#,the-name : #,(unexpand #'P)) #,pf1) : $goal
-            #:where
-            pf1 : (node (cur-rename the-name #'x #'body) #:ctx the-name : #'P))
-      #;(make-ntt-apply
-       $goal
-       (list,
-        (make-ntt-context
-         (ctx-add/id the-name #'P)
-         (make-ntt-hole (cur-rename the-name #'x #'body))))
-       (lambda (body-pf)
-         (quasisyntax/loc $goal (λ (#,the-name : #,(unexpand #'P)) #,body-pf)))))]))
+
 (define-tactic by-intro
   [(_ name) #:current-goal (~Π (x:id : P:expr) body:expr)
    ($fill (λ (name : #,(unexpand #'P)) #,hole1)
          #:where
-;         hole1 : ($node (cur-rename #'name #'x #'body) #:ctx #'name : #'P))
-         [#'name : #'P ⊢ hole1 : (cur-rename #'name #'x #'body)])
-#;(ntac-match $goal
-    [(~Π (x:id : P:expr) body:expr)
-     (node (λ (name : #,(unexpand #'P)) #,pf1) : $goal
-           #:where
-           pf1 : (node (cur-rename #'name #'x #'body) #:ctx #'name : #'P))])]
+         [#'name : #'P ⊢ hole1 : (cur-rename #'name #'x #'body)])]
   [b-i:id (by-intro #:id-ctx b-i)]
   [(_ #:id-ctx id-ctx)
    (ntac-match $goal
@@ -226,46 +180,20 @@
        (lambda (body-pf)
          (quasisyntax/loc goal (λ (#,the-name : #,(unexpand #'P)) #,body-pf)))))]))
 
-;; generalize is opposite of intro
-(define ((generalize name) ctxt pt)
-  (match-define (ntt-hole _ goal) pt)
-
-  (define-values (ctxt-to-change ctxt-unchanged)
-    (ctx-partition/ty
-     (ctx-remove ctxt name)
-     (λ (t) (has-term? name t))))
-
-    (make-ntt-apply
-     goal
-     (list
-      (make-ntt-context
-       (λ _ ctxt-unchanged)
-       (make-ntt-hole
-        (normalize
-         #`(Π [#,name : #,(ctx-lookup ctxt name)]
-              #,@(ctx-tys->stx ctxt-to-change) ; TODO: need names?
-              #,goal)
-         ctxt-unchanged))))
-     (lambda (body-pf)
-       (quasisyntax/loc goal (#,body-pf #,name . #,(ctx-ids ctxt-to-change))))))
-
-;; A pattern emerges:
-;; tacticals must take additional arguments as ntac-syntax
-;; define-tactical should generate a phase 2 definition like the one below, and a functional version
-;; of the tactical (perhaps by-tactical-name)
-#;  (define-syntax (by-intro syn)
-    (syntax-parse syn
-      [(_ syn:id #:as paramss)
-       #`(compose (fill (destruct #'syn #'paramss)) (fill (intro #'syn)))]
-      [(_ syn:id)
-       #`(fill (intro #'syn))]
-      [b-i:id
-       #`(fill (intro #:stx #'b-i))]))
-
-  ;; generalize: opposite of intro
-  (define-syntax (by-generalize syn)
-    (syntax-case syn ()
-      [(_ syn) #`(fill (generalize #'syn))]))
+  ;; generalize is opposite of intro
+  (define-tactic (by-generalize x)
+    (define-values (ctxt-to-change ctxt-unchanged)
+      (ctx-partition/ty
+       (ctx-remove $ctxt #'x)
+       (λ (t) (has-term? #'x t))))
+    ($fill (#,body-pf x . #,(ctx-ids ctxt-to-change))
+           #:where
+           [ctxt-unchanged ⊢
+            body-pf : (normalize
+                       #`(Π [x : #,(ctx-lookup $ctxt #'x)]
+                            #,@(ctx-tys->stx ctxt-to-change) ; TODO: need names?
+                            #,$goal)
+                       ctxt-unchanged)]))
 
 (define ((intros #:stx [stx #f]) ctxt pt)
   (match-define (ntt-hole _ goal) pt)
@@ -303,7 +231,6 @@
       [(_ syn:id #:as paramss)
        #`(compose (fill (destruct #'syn #'paramss)) (fill (intro #'syn)))]))
 
-;; define-tactical
 (define ((exact a) ctxt pt)
   (match-define (ntt-hole _ goal) pt)
   (unless (cur-type-check? a goal #:local-env (ctx->env ctxt))
@@ -312,12 +239,13 @@
                                (stx->datum (resugar-type goal))))
   (make-ntt-exact goal a))
 
-  (define-syntax (by-exact syn)
-    (syntax-case syn ()
-      [(_ syn)
-       #`(fill (exact #'syn))]))
+  (define-tactic (by-exact e)
+    (unless (cur-type-check? #'e $goal #:local-env (ctx->env $ctxt))
+      (raise-ntac-goal-exception "~a does not have type ~a"
+                                 (stx->datum (resugar-type #'e))
+                                 (stx->datum (resugar-type $goal))))
+    ($fill #'e))
 
-;;define-tactical
 (define-tactic by-assumption
   [_
    (let ([res (for/or ([(k v) $ctxt] #:when (cur-equal? v $goal #:local-env (ctx->env $ctxt)))
@@ -336,11 +264,6 @@
   (unless ntt
     (raise-ntac-goal-exception "could not find matching assumption for goal ~a" goal))
   ntt)
-
-  #;(define-syntax (by-assumption syn)
-    (syntax-case syn ()
-      [_
-       #`(fill assumption)]))
 
   (define (obvious ctxt pt)
     (match-define (ntt-hole _ goal) pt)
@@ -662,43 +585,22 @@
            #,(map (λ (pf->meth pf) (pf->meth pf)) mk-elim-methods pfs))
           #,@(ctx-ids ctxt-to-change))))))
 
-  (define (split-fn ctxt pt)
-    (match-define (ntt-hole _ goal) pt)
-    (ntac-match goal
-      [(~And X Y)
-       (make-ntt-apply
-        goal
-        (list (make-ntt-hole (normalize #'X ctxt))
-              (make-ntt-hole (normalize #'Y ctxt)))
-        (λ (proj1 proj2)
-          #`(conj #,(unexpand #'X)
-                  #,(unexpand #'Y)
-                  #,proj1
-                  #,proj2)))]))
+  (define-tactic by-split
+    [_ #:current-goal (~And X Y)
+       ($fill (conj #,(unexpand #'X)
+                    #,(unexpand #'Y)
+                    #,proj1
+                    #,proj2)
+              #:where [⊢ proj1 : #'X] [⊢ proj2 : #'Y])])
 
-  (define-syntax (by-split syn)
-    (syntax-case syn ()
-      [_ #'(fill split-fn)]))
-
-  (define ((make-Or-intro-fn which constructor) ctxt pt)
-    (match-define (ntt-hole _ goal) pt)
-    (ntac-match goal
-      [(~Or X Y)
-       (make-ntt-apply
-        goal
-        (list (make-ntt-hole (normalize (which #'X #'Y) ctxt)))
-        (λ (pf)
-          #`(#,constructor
-             #,(unexpand #'X)
-             #,(unexpand #'Y)
-             #,pf)))]))
-
-  (define-syntax (by-left syn)
-    (syntax-case syn ()
-      [_ #'(fill (make-Or-intro-fn (λ (p q) p) #'left))]))
-  (define-syntax (by-right syn)
-    (syntax-case syn ()
-      [_ #'(fill (make-Or-intro-fn (λ (p q) q) #'right))]))
+  (define-tactic by-left
+    [_ #:current-goal (~Or X Y)
+       ($fill (left #,(unexpand #'X) #,(unexpand #'Y) #,pf)
+              #:where [⊢ pf : #'X])])
+  (define-tactic by-right
+    [_ #:current-goal (~Or X Y)
+       ($fill (right #,(unexpand #'X) #,(unexpand #'Y) #,pf)
+              #:where [⊢ pf : #'Y])])
 
 ;; find-ntt-apply : nttz -> nttz
 ;; Returns nttz with focus that is innermost ntt-apply node to given nttz.
@@ -816,23 +718,9 @@
            #:final (not (eq? ptz next-ptz))
            next-ptz))]))
 
-#;  (define-syntax (by-inversion syn)
-    (syntax-parse syn
-      [(_ H) #'(fill (inversion #'H))]
-      [(_ H #:as name:id ...) #'(fill (inversion #'H #'[(name ...)]))]
-      [(_ H #:as (names ...)) #'(fill (inversion #'H #'(names ...)))]))
-
-  (define-syntax (elim-False syn)
-    (syntax-parse syn
-      [:id #'(fill (elim-False-fn))]))
-  (define ((elim-False-fn) ctxt pt)
-    (match-define (ntt-hole _ goal) pt)
-    (make-ntt-apply
-     goal
-     (list (make-ntt-hole (normalize #'False ctxt)))
-     (λ (body-pf) ; proof of false
-       (quasisyntax/loc goal
-         (new-elim #,body-pf (λ y #,(unexpand goal)))))))
+  (define-tactic elim-False
+    [:id ($fill (new-elim #,body-pf (λ y #,(unexpand $goal)))
+                #:where [⊢ body-pf : (normalize #'False $ctxt)])])
 
   (define-syntax (by-discriminate syn)
     (syntax-case syn ()
@@ -858,4 +746,3 @@
                  ptz
                  (L ((admit #,(gensym 'admitted-thm)) ptz)))))]))
 )
-

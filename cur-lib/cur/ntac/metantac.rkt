@@ -45,7 +45,20 @@
             (syntax-parameterize
                 ([$pfs (syntax-parser [_ #'pfs])])
               (quasisyntax/loc goal proof/holes))))]))
-  (define-syntax $fills
+  (define-for-syntax HO->ntt
+    (syntax-parser
+      [[(~datum ⊢) (~var ?hole id) (~datum :) subgoal] ; no ctx
+       #'(make-ntt-hole subgoal)]
+      [[ctx (~datum ⊢) (~var ?hole id) (~datum :) subgoal] ; drop in ctx as in ctx.rkt
+       #'(make-ntt-context
+          (λ _ ctx)
+          (make-ntt-hole subgoal))]
+      [[x (~datum :) ty (~datum ⊢) (~var ?hole id) (~datum :) subgoal]
+       #'(make-ntt-context
+          (λ (ctx) (ctx-add ctx x ty))
+          (make-ntt-hole subgoal))]))
+
+#;  (define-syntax $fills
     (syntax-parser
       [(_ goal pf) #'(make-ntt-exact goal pf)]
       #;[(_ go) #'(make-ntt-hole go)]
@@ -100,6 +113,8 @@
   ;; define-tactical
   (define-syntax define-tactical
     (syntax-parser
+      [(_ (name:id . pat) . body) ; single-pat case
+       #'(define-tactical name [(name . pat) . body])]
       [(_ name [pat body ...] ...)
        #'(define-syntax name
            (syntax-parser
@@ -110,6 +125,7 @@
                     body ...))] ...))]))
   (define-syntax define-tactic
     (syntax-parser
+      [(_ (name . pat) . body) #'(define-tactic name [(name . pat) . body])]
       [(_ name
           [pat (~optional (~seq (~or #:current-goal #:goal) goalpat)
                           #:defaults ([goalpat (generate-temporary)]))
@@ -158,12 +174,14 @@
                                   [(_ pf) #'(make-ntt-exact goal pf)]
                                   [(_ proof/holes
                                       #:where
-                                      [x (~datum :) ty (~datum ⊢) (~var ?hole id) (~datum :) subgoal]
+                                      (~and HO
+                                            [_ (... (... ...)) (~datum ⊢) (~var ?hole id) (~datum :) subgoal])
                                       (... (... ...)))
                                    #`(make-ntt-apply
                                       goal
                                       ;(list subgoal (... (... ...)))
-                                      (list
+                                      (list . #,(stx-map HO->ntt #'(HO (... (... ...)))))
+                                      #;(list
                                        (make-ntt-context (λ (ctx) (ctx-add ctx x ty)) (make-ntt-hole subgoal))
                                        (... (... ...)))
                                       (λ (?hole (... (... ...)))
