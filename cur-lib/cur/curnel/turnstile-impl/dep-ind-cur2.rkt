@@ -60,8 +60,16 @@
 ;; TODO: get rid of this?
 (define-syntax TypeTop (make-variable-like-transformer #'(Type 99)))
 
-;; old Π/c now Π, old Π now Π/1
-(define-type Π #:with-binders [X : TypeTop] : TypeTop -> Type)
+(define-internal-binding-type/new Π-- Π)
+(define-simple-macro (Π- (x- : A-) B-) (Π-- A- (λ- (x-) B-)))
+
+(define-typed-syntax Π
+  [(_ (x:id (~datum : ) A) B) ≫
+   [⊢ A ≫ A- ⇐ TypeTop]
+   [[x ≫ x-- : A-] ⊢ B ≫ B- ⇐ TypeTop]
+   #:with x- (transfer-prop 'display-as #'x (transfer-prop 'tmp #'x #'x--))
+   ---------
+   [⊢ (Π- (x- : A-) B-) ⇒ Type]])
 
 ;; type check relation --------------------------------------------------------
 ;; - must come after type defs
