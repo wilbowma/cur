@@ -78,8 +78,13 @@
    ---------
    [⊢ (Π- (x- : A-) B-) ⇒ (Type 0)]]
   [(_ (x:id (~datum :) A) B)  ≫
-   [⊢ A ≫ A- ⇒ (~Type n:nat)]
-   [[x ≫ x-- : A-] ⊢ B ≫ B- ⇒ (~Type m:nat)]
+   ; NB: Expect a type of arbitrary level, for better errors
+   [⊢ A ≫ A- ⇒ (~or (~Type n:nat) U₁)]
+   [[x ≫ x-- : A-] ⊢ B ≫ B- ⇒ (~or (~Type m:nat) U₂)]
+   #:fail-unless (attribute n)
+   (type-error #:src #'A- #:msg "expected (Type n) (for some n), given ~a" #'U₁)
+   #:fail-unless (attribute m)
+   (type-error #:src #'B- #:msg "expected (Type m) (for some m), given ~a" #'U₂)
    #:with x-
    (transfer-prop 'display-as #'x (transfer-prop 'tmp #'x #'x--))
    ---------
