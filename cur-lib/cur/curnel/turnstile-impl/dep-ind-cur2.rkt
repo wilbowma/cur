@@ -1,31 +1,36 @@
 #lang turnstile/lang
 (require turnstile/eval turnstile/typedefs turnstile/more-utils)
 
-; a basic dependently-typed calculus
-; - with inductive datatypes
-
-;; dep-ind-cur2 is dep-ind-cur cleaned up and using better abstractions
-
-; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
+;;;; The Calculus of Constructions.
+;;;; ------------------------------------------------------------------------
 
 (provide
  Type
  (for-syntax (rename-out [~Type* ~Type]))
  (rename-out [Type Prop]) ; TODO: define separate Prop
  Π (for-syntax ~Π)
- (rename-out [λ/1 λ] [app #%app] [app/eval app/eval/1] [typed-define define])
- ann provide module* submod for-syntax begin-for-syntax)
+ λ
+ (rename-out [app #%app]
+             ; TODO: Do not export as app/eval/1
+             [app/eval app/eval/1])
+ define ann
+ ; TODO: These should not be provided here.
+ provide module* submod for-syntax begin-for-syntax)
 
 (begin-for-syntax (current-use-stop-list? #f))
 
-;; type definitions -----------------------------------------------------------
+;;; Type Definitions
+;;; -----------------------------------------------------------
 
-;; set (Type n) : (Type n+1)
-;; Type = (Type 0)
+;; Universe hierarchy
+;; ------------------------------------------------
 
+; set (Type n) : (Type n+1)
+; TODO: Remove Type as an alias for (Type 0)
+; Type = (Type 0)
 (define-internal-type/new Type- (Type n) #:lazy #:arg-pattern (((~literal quote) n)))
 
-;; to give non-argument form
+;; To support the Type = (Type 0) alias
 (begin-for-syntax
   (define-syntax ~Type*
     (pattern-expander
@@ -38,22 +43,22 @@
   [(_ n:exact-nonnegative-integer) ≫
    #:with n+1 (+ (syntax-e #'n) 1)
   -------------
-  [≻ #,(syntax-property 
+  ;; TODO: Need a lazy attach type... ⇒/lazy ?
+  [≻ #,(syntax-property
          (syntax/loc this-syntax (#%plain-app Type- 'n))
          ':
           (syntax/loc this-syntax (Type n+1)))]])
 
-; runtime representation
+;; Π types
+;; ------------------------------------------------
+
 (define-internal-binding-type/new Π-- Π)
 (define-simple-macro (Π- (x- : A-) B-) (Π-- A- (λ- (x-) B-)))
 
-;; Given an domain universe level n and co-domain level m, what is the level of the function type?
+;; Given an domain universe level n and co-domain level m, what is the level of
+;; the function type?
 (define-for-syntax (unv-max n m)
-  (if (zero? m)
-      ; impredicative
-      m
-      ; predicative
-      (max n m)))
+  (if (zero? m) m (max n m)))
 
 (define-typed-syntax Π
   ; Check
@@ -66,6 +71,7 @@
    (transfer-prop 'display-as #'x (transfer-prop 'tmp #'x #'x--))
    ---------
    [⊢ (Π- (x- : A-) B-)]]
+
   ; impredicativity
   ; TODO: Having this as a separate rule is wayyy too slow.
   ; It causes considerable backtracking in syntax-parse, I suppose?
@@ -77,6 +83,7 @@
    (transfer-prop 'display-as #'x (transfer-prop 'tmp #'x #'x--))
    ---------
    [⊢ (Π- (x- : A-) B-) ⇒ (Type 0)]]
+
   [(_ (x:id (~datum :) A) B)  ≫
    ; NB: Expect a type of arbitrary level, for better errors
    [⊢ A ≫ A- ⇒ (~or (~Type n:nat) U₁)]
@@ -90,72 +97,89 @@
    ---------
    [⊢ (Π- (x- : A-) B-) ⇒ (Type #,(unv-max (syntax-e #'n) (syntax-e #'m)))]])
 
-;; type check relation --------------------------------------------------------
-;; - must come after type defs
+;; Type check relation
+;; NB: Must be defined after all types
+;; ------------------------------------------------
 
 (begin-for-syntax
-  (define old-relation (current-typecheck-relation))
   (current-typecheck-relation
    (lambda (t1 t2)
-   ;; (printf "t1 = ~a\n" (syntax->datum t1)) ~a\n" (syntax->datum t1))
-   ;; (printf "t2 = ~a\n" (syntax->datum t2))
-   (define t1+
-     (syntax-parse t1
-       [((~literal Type) _) ((current-type-eval) t1)]
-       [_ t1]))
-   (or (type=? t1+ t2) ; equality
-       (syntax-parse (list t1+ t2)
-         [((~Type n) (~Type m)) (<= (stx-e #'n) (stx-e #'m))]
-         [((~Π [x1 : τ_in1] τ_out1) (~Π [x2 : τ_in2] τ_out2))
-          (and (type=? #'τ_in1 #'τ_in2)
-               (typecheck? (subst #'x2 #'x1 #'τ_out1) #'τ_out2))]
-         [_ #;[(printf "failed to type check: ~a\n" (syntax->datum this-syntax))] #f])))))
+     ; Since universes are type checked lazily, if the type we're checking (t1)
+     ; is a universe, force it,
+     (define t1+
+       (syntax-parse t1
+         [((~literal Type) _) ((current-type-eval) t1)]
+         [_ t1]))
+     (or (type=? t1+ t2) ; equality
+         (syntax-parse (list t1+ t2)
+           [((~Type n) (~Type m)) (<= (stx-e #'n) (stx-e #'m))]
+           [((~Π [x1 : τ_in1] τ_out1) (~Π [x2 : τ_in2] τ_out2))
+            (and (type=? #'τ_in1 #'τ_in2)
+                 (typecheck? (subst #'x2 #'x1 #'τ_out1) #'τ_out2))]
+           ; NB: Overwrite, do not preserve, old relation.
+           [_ #f])))))
 
-;; lambda and #%app -----------------------------------------------------------
-(define-typed-syntax λ/1
-  ;; expected ty only
+;;; Term Definitions
+;;; -----------------------------------------------------------
+
+;; Function and application
+;; ------------------------------------------------
+(define-typed-syntax λ
+  ; expected ty only
   [(_ y:id e) ⇐ (~Π [x:id : τ_in] τ_out) ≫
    [[x ≫ x- : τ_in] ⊢ #,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]
    ---------
    [⊢ (λ- (x-) e-) ⇒ (Π [x : τ_in] τ_out)]]
-  ;; both expected ty and annotations
+
+  ; both expected ty and annotations
   [(_ [y:id (~datum :) τ_in*] e) ⇐ (~Π [x:id : τ_in] τ_out) ≫
    [⊢ τ_in* ≫ τ_in** ⇒ (~Type _)]
    #:when (typecheck? #'τ_in** #'τ_in)
    [[x ≫ x- : τ_in] ⊢ [#,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]]
    -------
    [⊢ (λ- (x-) e-) ⇒ (Π [x : τ_in] τ_out)]]
-  ;; annotations only
+
+  ; annotations only
   [(_ [x:id (~datum :) τ_in] e) ≫
-   [[x ≫ x- : τ_in] ⊢ [e ≫ e- ⇒ τ_out] [τ_in ≫ τ_in- ⇒ _]]
+   [[x ≫ x-- : τ_in] ⊢ [e ≫ e- ⇒ τ_out] [τ_in ≫ τ_in- ⇒ _]]
+   #:with x-
+   (transfer-prop 'display-as #'x (transfer-prop 'tmp #'x #'x--))
    -------
-   [⊢ (λ- (x-) e-) ⇒ #,(quasisyntax/loc this-syntax (Π [#,(transfer-prop 'display-as #'x (transfer-prop 'tmp #'x #'x-)) : τ_in-] τ_out))]])
+   [⊢ (λ- (x-) e-) ⇒ (Π [x- : τ_in-] τ_out)]])
+
+(begin-for-syntax
+  ; Pattern for Racket's #%plain-lambda
+  (define-syntax ~λ-
+    (pattern-expander
+     (syntax-parser
+       [(_ (x:id ...) e ...)
+        #`(~or ((~literal #%plain-lambda) (x ...) e ...)
+               ; TODO: Who adds #%expression?
+               ((~literal #%expression) ((~literal #%plain-lambda) (x ...) e ...)))]))))
 
 (define-typerule/red (app e_fn e_arg) ≫
   [⊢ e_fn ≫ e_fn- ⇒ (~Π [X : τ_in] τ_out)]
   [⊢ e_arg ≫ e_arg- ⇐ τ_in]
   #:with τ_out- (reflect (subst #'e_arg- #'X #'τ_out)) ; TODO: fix orig
   -----------------------------
-  [⊢ (app/eval e_fn- e_arg-) ⇒ τ_out- #;(app/eval (λ- (X) τ_out) e_arg-)]
+  [⊢ (app/eval e_fn- e_arg-) ⇒ τ_out-]
   #:where app/eval
-  [(#%plain-app
-    (~or ((~literal #%plain-lambda) (x) e)
-         ((~literal #%expression) ((~literal #%plain-lambda) (x) e))) ; TODO: who adds this?
-    arg)
-   ~> #,(subst #'arg #'x #'e)])
+  [(#%plain-app (~λ- (x) e) arg) ~> #,(subst #'arg #'x #'e)])
+
+;;; Other Definitions
+;;; -----------------------------------------------------------
 
 (define-typed-syntax (ann e (~datum :) τ) ≫
   [⊢ e ≫ e- ⇐ τ]
   --------
   [⊢ e- ⇒ τ])
 
-;; top-level ------------------------------------------------------------------
-(define-syntax typed-define
-  (syntax-parser
-    [(_ alias:id τ)
-     ; expand τ just to check,
-     ; but throw away, otherwise we run into stxprop module problems
-     #:with _ ((current-type-eval) #'τ)
-     #'(define-syntax alias (make-variable-like-transformer #'τ))]
-    [(_ (f [x:id : τ]) e)
-     #'(typed-define f (λ/1 [x : τ] e))]))
+; TODO: This shouldn't inline x all over the place.
+; Instead, create x-, do the usual thing. But this will require a δ reduction
+; rule.
+(define-typed-syntax (define x:id e) ≫
+  ; NB: Must type check, but cannot use the expanded result or we run into
+  ; stxprop module problems.
+  [⊢ e ≫ _ ⇒ _]
+  -----
+  [≻ (define-syntax x (make-variable-like-transformer #'e))])
