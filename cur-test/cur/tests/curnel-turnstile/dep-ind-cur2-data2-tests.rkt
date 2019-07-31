@@ -288,3 +288,15 @@
 ;; (check-type (TY (λ [x : Type] x)) : Type) ; BAD ; 2018-06-24: fixed
 
 ;; (check-type (λ [x : Type]  x) : (Π [A : Type] Type))
+
+; Strict positivity test
+(typecheck-fail/toplvl
+ ; Curry's paradox
+ (define-datatype Bad : (Type 0)
+   [intro_B : (-> (-> Bad Bad) Bad)])
+ #:with-msg "does not satisfy strict positivity")
+
+(typecheck-fail/toplvl
+ (define-datatype A : Prop
+   [intro_A : (-> (-> (-> A Prop) Prop) A)])
+ #:with-msg "does not satisfy strict positivity")
