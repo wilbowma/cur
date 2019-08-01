@@ -493,12 +493,11 @@
     ;; generate subgoals and elim methods in one pass
     ;; subgoals: list of ntt proof tree nodes
     ;; mk-elim-methods: list of fns that turn a proof term into an elim method
-    (define-values (subgoals mk-elim-methods)
-      (for/lists (subgoals mk-elim-methods)
-                 ([maybe-xs+IH (if maybe-xss+IH
-                                   (in-stx-list maybe-xss+IH)
-                                   (stx-map (λ _ #'()) #'(Cinfo ...)))] ; names not given, gen tmp for now
-                  [Cinfo (in-stx-list #'(Cinfo ...))])
+    (define subgoals
+      (for/list ([maybe-xs+IH (if maybe-xss+IH
+                                  (in-stx-list maybe-xss+IH)
+                                  (stx-map (λ _ #'()) #'(Cinfo ...)))] ; names not given, gen tmp for now
+                 [Cinfo (in-stx-list #'(Cinfo ...))])
         (syntax-parse Cinfo
           [[C ([x τ_] ... τout_) ((xrec . _) ...)]
            #:do[(define new-xs+IH ; make sure enough names supplied
@@ -537,16 +536,24 @@
                                #,(update-IH-ty goal)))
            #:do[(define update-ty
                   (mk-update #:inst #'(C Aval ... . new-xs) #:idxs (get-idxs #'τout)))
-                (define (update-ctxt old-ctxt)
+                ;(define (update-ctxt old-ctxt)
                   (define tmp-ctxt
                     (ctx-adds ctxt-unchanged
                               new-xs+IH
                               #'(τ ... . IHτs) #:do normalize))
-                  (ctx-append tmp-ctxt
+                  (define new-ctxt
+                    (ctx-append tmp-ctxt
                               (ctx-map
                                (compose (normalize/ctxt tmp-ctxt) update-ty)
-                               ctxt-to-change)))]
-           (values
+                               ctxt-to-change)))
+                (define new-goal (normalize (update-ty goal) new-ctxt))] ; new specialized subgoal
+           ($stx/holes
+            goal
+            (λ #,@new-xs+IH
+              (λ #,@(ctx->stx ctxt-to-change #:do (compose unexpand update-ty))
+                #,pf))
+            #:where [#:ctx new-ctxt ⊢ pf : new-goal])
+#;           (values
             (make-ntt-context ; subgoal
              update-ctxt
              (make-ntt-hole
@@ -561,14 +568,14 @@
       (for ([subg subgoals]
             [exp-subg (in-stx-list expected-subgoals)])
         (match subg
-          [(ntt-context _ _ update (ntt-hole _ subgoal))
+          [(ntt-apply _ _ (list (ntt-context _ _ update (ntt-hole _ subgoal))) _)
            (unless (typecheck? subgoal (normalize exp-subg (update ctxt)))
              (raise-ntac-goal-exception
               "induction: encountered subgoal ~a that does not match expected: ~a"
               (stx->datum (resugar-type subgoal))
               (stx->datum exp-subg)))])))
     
-    (make-ntt-apply
+#;    (make-ntt-apply
      goal
      subgoals
      (λ pfs ;; constructs induction proof term, from proof terms for each subgoal
@@ -583,7 +590,22 @@
                        #,(update-Prop-ty goal))))
            .
            #,(map (λ (pf->meth pf) (pf->meth pf)) mk-elim-methods pfs))
-          #,@(ctx-ids ctxt-to-change))))))
+          #,@(ctx-ids ctxt-to-change)))))
+    ($stx/compose
+     goal
+     ((new-elim
+       #,name
+       #,(with-syntax ([is (generate-temporaries #'(ival ...))])
+           (define update-Prop-ty
+             (compose unexpand (subst-terms/es #'is #'(ival ...))))
+           #`(λ #,@#'is #,name
+                (Π #,@(ctx->stx ctxt-to-change #:do update-Prop-ty)
+                   #,(update-Prop-ty goal))))
+       .
+       #,$pfs)
+;       #,(map (λ (pf->meth pf) (pf->meth pf)) mk-elim-methods $pfs))
+      #,@(ctx-ids ctxt-to-change))
+     #:with subgoals))
 
   (define-tactic by-split
     [_ #:current-goal (~And X Y)

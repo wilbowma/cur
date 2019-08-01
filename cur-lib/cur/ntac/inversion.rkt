@@ -71,7 +71,6 @@
 
     ; === Generate subgoals for each data constructor case
     ;; subgoals : (listof ntt)
-    ;; mk-elim-methods : (listof (or/c #f (-> term term)))
     (define subgoals
       (for/list ([Cinfo (in-stx-list #'(Cinfo (... ...)))])
 
@@ -107,7 +106,7 @@
               (define derived-==-ids   (map (λ (_) (next-id! 'Heq)) ==s))
               (define derived-bindings (map mk-bind-stx derived-==-ids ==s))
 
-              (define (update-ctxt ctxt)
+#;              (define (update-ctxt ctxt)
                 ; NOTE: xrec not added to context -- TODO do something with it?
                 (for/fold ([ctxt ctxt])
                           ([x (in-list (append (attribute x)  derived-==-ids))]

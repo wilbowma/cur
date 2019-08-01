@@ -30,6 +30,11 @@
                    (for/fold ([ctxt ctxt]) ([x (in-stx-list #'(x ooo))] [τ (in-stx-list #'(τ ooo))])
                      (ctx-add ctxt x (normalize τ ctxt))))
                  (make-ntt-hole subgoal)))
+          (λ (?HOLE) (quasisyntax/loc goal proof/holes)))]
+      [(_ goal proof/holes #:where [#:ctx new-ctx (~datum ⊢) ?HOLE (~datum :) subgoal])
+       #'(make-ntt-apply
+          goal
+          (list (make-ntt-context (λ (old-ctxt) new-ctx) (make-ntt-hole subgoal)))
           (λ (?HOLE) (quasisyntax/loc goal proof/holes)))]))
   (define-syntax $stx/leaf
     (syntax-parser
