@@ -5,7 +5,7 @@
 
 ;; dep-ind-cur2 library, adding some sugar like auto-currying
 
-(provide (for-syntax (rename-out [~Π/c ~Π]))
+(provide (for-syntax (rename-out [~Π/c ~Π]) ~#%app)
          → ; → = Π = ∀
          (rename-out
           [→ Π] [→ Pi] [→ ∀] [→ forall] [→ ->]
@@ -67,6 +67,28 @@
 (define-nested/R λ/c λ)
 (define-nested/L app/c #%app)
 (define-nested/L app/eval/c app/eval/1)
+
+(begin-for-syntax
+  (define (fold-plain-app stx)
+    (let loop ([stx stx]
+               [acc '()])
+      (syntax-parse stx
+        [((~literal #%plain-app) e1 a1)
+         (loop #'e1 (cons #'a1 acc))]
+        [last
+         #`(last #,acc)])))
+
+  (define-syntax ~#%app
+    (pattern-expander
+     (syntax-parser
+       [(_ e)
+        #`e]
+       [(_ e a)
+        #`(#%plain-app e a)]
+       [(_ e a (~and (~literal ...) ooo))
+        #'(~and TMP
+                (~parse (e (a ooo))
+                        (fold-plain-app #'TMP)))]))))
 
 (define-syntax define/c
   (syntax-parser
