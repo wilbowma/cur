@@ -2,11 +2,10 @@
 (require
  turnstile/more-utils
  (for-syntax turnstile/more-utils)
- "dep-ind-cur2.rkt")
+ "coc.rkt")
 
-;;;; TODO: Language should extend CC, so clients only require this file.
-;;;; Zea saccharata
-;;;; A curnel with a little bit of sugar, to simplify complex typing rules.
+;;;; CoC saccharata (after zea saccharata)
+;;;; CoC, but with a little bit of sugar in the curnel, to simplify complex typing rules.
 ;;;; ------------------------------------------------------------------------
 
 (provide
@@ -22,7 +21,11 @@
   [→ Π] [→ Pi] [→ ∀] [→ forall] [→ ->]
   [λ/c λ] [λ/c lambda]
   [app/c #%app] [app/eval/c app/eval]
-  [define/c define]))
+  [define/c define])
+ ; rexport
+ (except-out
+  (all-from-out "coc.rkt")
+  #%app λ Π define app/eval (for-syntax ~Π ~λ)))
 
 ;;; Curried core forms.
 ;;; -----------------------------------------------------------
@@ -90,7 +93,7 @@
 ;; ------------------------------------------------
 
 (define-nested/L app/c #%app)
-(define-nested/L app/eval/c app/eval/1)
+(define-nested/L app/eval/c app/eval)
 
 ;; Curried define
 ;; ------------------------------------------------

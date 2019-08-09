@@ -1,13 +1,8 @@
-#lang s-exp cur/curnel/turnstile-impl/dep-ind-cur2
-(require cur/curnel/turnstile-impl/dep-ind-cur2+sugar
-         cur/curnel/turnstile-impl/dep-ind-cur2+data2
-         rackunit/turnstile)
+#lang s-exp cur/curnel/cic-saccharata
+(require rackunit/turnstile)
 
-; Π → λ ∀ ≻ ⊢ ≫ ⇒
 
-;; same as dep-ind-fixed-tests except uses dep-ind-cur
-;; - constructor params and indices must be applied separately
-
+;; Some tests with non-trivial inductive types
 
 (define-datatype Nat : Type
   [Z : Nat]
@@ -45,7 +40,8 @@
 (check-type cons : (∀ [A : (Type 0)] (→ A (List A) (List A))))
 (check-type (null Nat) : (List Nat))
 (check-type (null Nat) : (List Nat) -> (null Nat))
-;; TODO: should these next 2 work?
+; TODO: should these next 2 work?
+; Odd behavior due to auto currying macros...
 (check-type (null Nat) : (→ (List Nat)))
 (check-type ((null Nat)) : (List Nat))
 (check-type (cons Nat) : (→ Nat (List Nat) (List Nat)))
@@ -158,7 +154,7 @@
 
 ;; length
 
-(check-type 
+(check-type
  (elim-Vect (nil Nat)
             (λ [k : Nat] [v : (Vect Nat k)] Nat)
             Z
@@ -167,7 +163,7 @@
                 (λ [IH : Nat]
                   (S IH)))))
  : Nat -> Z)
-  
+
 (check-type
  (elim-Vect (cns Nat Z Z (nil Nat))
             (λ [k : Nat] [v : (Vect Nat k)] Nat)
@@ -177,7 +173,7 @@
                 (λ [IH : Nat]
                   (S IH)))))
  : Nat -> (S Z))
-           
+
 (check-type
  (elim-Vect (((cns Nat) (S (Z))) (Z) (((cns Nat) (Z)) (Z) (nil Nat)))
             (λ [k : Nat] [v : (Vect Nat k)] Nat)
@@ -277,7 +273,7 @@
  (vappend Nat (S Z) (S Z) (cns Nat Z Z (nil Nat)) (cns Nat Z Z (nil Nat)))
  : (Vect Nat (S (S Z)))
  -> (cns Nat (S Z) Z (cns Nat Z Z (nil Nat))))
- 
+
 ;; append 1 + 2
 (check-type
  (vappend Nat (S Z) (S (S Z))
@@ -285,7 +281,7 @@
   (cns Nat (S Z) Z (cns Nat Z Z (nil Nat))))
  : (Vect Nat (S (S (S Z))))
 -> (cns Nat (S (S Z)) Z (cns Nat (S Z) Z (cns Nat Z Z (nil Nat)))))
- 
+
 ;; append 2 + 1
 (check-type
  (vappend Nat (S (S Z)) (S Z)

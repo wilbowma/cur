@@ -6,10 +6,10 @@
  syntax/id-set
  (for-template turnstile/eval
                (only-in macrotypes/typecheck-core substs)
-               (only-in cur/curnel/turnstile-impl/lang #%plain-lambda #%plain-app))
+               (only-in cur/curnel/lang #%plain-lambda #%plain-app))
  macrotypes/stx-utils
- cur/curnel/turnstile-impl/reflection
- "../curnel/turnstile-impl/stxutils.rkt")
+ cur/curnel/reflection
+ "../curnel/stxutils.rkt")
 (provide (all-defined-out))
 
 (define ((freshen src) x) (datum->syntax src (stx-e x)))

@@ -7,13 +7,12 @@
 (provide define-sized-datatype
          define/rec/match2)
 
-(require cur/curnel/turnstile-impl/dep-ind-cur2+sugar
-         "nat.rkt"
+(require "nat.rkt"
          (prefix-in r: racket/base)
          (for-syntax (for-syntax syntax/parse racket/base)
                      syntax/stx racket/pretty
-                     macrotypes/stx-utils 
-                     cur/curnel/turnstile-impl/stxutils
+                     macrotypes/stx-utils
+                     cur/curnel/stxutils
                      turnstile/type-constraints))
 
 
@@ -73,7 +72,7 @@
   ;; helper fns for define/rec/match2
 
   ;; TODO: why do these fns need to be defined here
-  ;; (as opposed to curnel/turnstile-impl/stxutils)
+  ;; (as opposed to curnel/stxutils)
   ;; helper fns for define/rec/match2
   ;; - input stx arg must be fully expanded
   (define (get-app stx name n)

@@ -17,7 +17,7 @@
  (for-syntax "ctx.rkt" "utils.rkt"
              (only-in macrotypes/typecheck-core subst substs)
              macrotypes/stx-utils
-             cur/curnel/turnstile-impl/stxutils
+             cur/curnel/stxutils
              racket/match
              (for-syntax racket/base syntax/parse)))
 

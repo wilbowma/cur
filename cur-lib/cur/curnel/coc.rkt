@@ -6,18 +6,15 @@
 
 (provide
  Type
- (for-syntax (rename-out [~Type* ~Type]))
+ (for-syntax
+  (rename-out [~Type* ~Type]))
  (rename-out [Type Prop]) ; TODO: define separate Prop
  Π (for-syntax ~Π)
  λ (for-syntax ~λ)
- (rename-out
-  [app #%app]
-  ; TODO: Do not export as app/eval/1
-  [app/eval app/eval/1])
+ (rename-out [app #%app])
+ app/eval
  (for-syntax ~#%app)
- define ann
- ; TODO: These should not be provided here.
- provide module* submod for-syntax begin-for-syntax)
+ define ann)
 
 (begin-for-syntax (current-use-stop-list? #f))
 

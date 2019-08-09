@@ -19,7 +19,7 @@
  (for-template turnstile/typedefs)
 ; (for-template turnstile/examples/dep-ind-cur)
  (for-template macrotypes/stx-utils)
- (for-template "dep-ind-cur2.rkt")
+ (for-template "coc.rkt")
  (for-template (only-in racket/base quote #%expression void #%plain-lambda #%plain-app list))
  )
 
