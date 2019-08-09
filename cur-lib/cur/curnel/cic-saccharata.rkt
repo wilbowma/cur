@@ -1,13 +1,16 @@
 #lang turnstile/lang
-(require (except-in "dep-ind-cur2.rkt" λ #%app Π ~Π ~#%app ~λ)
-         (except-in "dep-ind-cur2+sugar.rkt" define)
-         turnstile/eval turnstile/typedefs turnstile/more-utils)
+(require
+ #;(except-in "coc-saccharata.rkt" define)
+ "coc-saccharata.rkt"
+ turnstile/eval turnstile/typedefs turnstile/more-utils)
 
-;;;; The Calculus of Constructions + strictly positive inductive type schemas
+;;;; The Calculus of Constructions + strictly positive inductive type schemas,
+;;;; plus necessary sugar.
 ;;;; More or less the Calculus of Inductive Constructions.
 ;;;; ------------------------------------------------------------------------
 
 (provide
+ (all-from-out "coc-saccharata.rkt")
  define-datatype
  (for-syntax
   ; rename for backwards compatibility, for now.

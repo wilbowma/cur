@@ -4,18 +4,16 @@
 ;; -> is normal arrow type and not alias for Π,
 ;; but ∀ and forall is alias for Π
 
-(provide (all-from-out cur/curnel/turnstile-impl/dep-ind-cur2+sugar)
-         let
+(provide let
          match
          define-implicit
          define/rec/match)
 
-(require cur/curnel/turnstile-impl/dep-ind-cur2+sugar
-         (prefix-in r: racket/base)
+(require (prefix-in r: racket/base)
          (for-syntax (for-syntax syntax/parse)
                      syntax/stx racket/pretty
                      macrotypes/stx-utils
-                     cur/curnel/turnstile-impl/stxutils
+                     cur/curnel/stxutils
                      turnstile/type-constraints))
 
 (define-typed-syntax let
@@ -143,7 +141,7 @@
 ;; helper fns for define/rec/match
 
   ;; TODO: why do these fns need to be defined here
-  ;; (as opposed to curnel/turnstile-impl/stxutils)
+  ;; (as opposed to curnel/stxutils)
   ;; helper fns for define/rec/match
   ;; - input stx arg must be fully expanded
   (define (get-app stx name n)

@@ -43,7 +43,7 @@
 (module* tauto #f
   (require turnstile
            (for-syntax syntax/parse)
-           (only-in "../curnel/turnstile-impl/dep-ind-cur2+sugar.rkt" [#%app typed-app]))
+           (only-in "../curnel/coc-saccharata.rkt" [#%app typed-app]))
 
   (provide tauto)
 

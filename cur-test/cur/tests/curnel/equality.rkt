@@ -1,16 +1,10 @@
-#lang s-exp cur/curnel/turnstile-impl/dep-ind-cur2
-(require cur/curnel/turnstile-impl/dep-ind-cur2+sugar
-         cur/curnel/turnstile-impl/dep-ind-cur2+data2
-         rackunit/turnstile)
+#lang s-exp cur/curnel/cic-saccharata
+(require rackunit/turnstile)
 
-; Π → λ ∀ ≻ ⊢ ≫ ⇒
+;; Testing the identity type.
 
-;; same as dep-ind-cur2-eq-tests except uses data2
-
-;; testing user-defined equality
-
-(define-datatype my= [A : (Type 0)] : (-> [a : A] [b : A] (Type 0))
-  (my-refl [a : A] : (my= A a a)))
+(define-datatype my= (A : (Type 0)) : (-> [a : A] [b : A] (Type 0))
+  (my-refl (a : A) : (my= A a a)))
 
 (define-datatype Nat : Type
   [Z : Nat]
@@ -135,6 +129,7 @@
             (my= A y z)
             (my= A x z)))))
 
+
 ;; Paulin-Mohring (ie, coq-like) equality (2 params, 1 index)
 
 (define-datatype pm= [A : (Type 0)] [a : A] : (-> [b : A] (Type 0))
@@ -150,13 +145,6 @@
 (check-type (λ [A : Type] (λ [x : A] [y : A] (pm-refl A y)))
             : (Π [A : Type] (Π [x : A][y : A] (pm= A y y))))
 
-;; debug pm= id:
-#;(elim-pm=
-  (pm-refl Nat Z)
-  (λ [b : Nat]
-    (λ [e : (pm= Nat Z b)]
-      (pm= Nat Z b)))
-  (pm-refl Nat Z))
 (check-type
  (elim-pm=
   (pm-refl Nat Z)

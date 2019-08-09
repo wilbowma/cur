@@ -4,7 +4,11 @@
  provide require for-syntax
  all-from-out rename-out except-out all-defined-out
  only-in except-in
- ;; begin-for-syntax
+ begin-for-syntax
+ module+
+ module*
+ module
+ submod
  ;; define-values begin define #%app λ
  #%plain-app void #%plain-lambda printf displayln quote begin
  define-syntax define-for-syntax
@@ -14,10 +18,6 @@
                 racket/syntax)))
 
 (require (for-syntax racket/base syntax/parse racket/syntax))
-
-(require "dep-ind-cur2.rkt")
-(provide (all-from-out "dep-ind-cur2.rkt")
-         (rename-out [λ lambda]))
 
 (require (only-in turnstile/base
                   define-typed-syntax syntax-parse/typecheck get-orig assign-type
@@ -32,10 +32,8 @@
                      (for-syntax racket/base syntax/parse)))
 (provide (all-from-out turnstile/base turnstile/eval turnstile/typedefs))
 
-(require "dep-ind-cur2+data2.rkt")
-(provide (all-from-out "dep-ind-cur2+data2.rkt"))
-
-; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
+(require "cic-saccharata.rkt")
+(provide (all-from-out "cic-saccharata.rkt"))
 
 ;; shims for old cur forms
 
@@ -89,7 +87,7 @@
   [(_ TY:id (~datum :) n:exact-nonnegative-integer ty
       [C:id (~datum :) tyC] ...) ≫
   ;; [⊢ ty ≫ ty- ⇐ Type] ; use unexpanded
-  ;; [⊢ tyC ≫ tyC- ⇐ Type] ... ; ow, must use ~unbound as in dep-ind-cur2+data2
+  ;; [⊢ tyC ≫ tyC- ⇐ Type] ... ; ow, must use ~unbound as in
   #:with [([A tyA] ...) ty-rst] (take-Π #'ty (stx-e #'n))
 ;  #:with [([i tyi] ...) ty0] (split-Π #'ty-rst)
   #:with ([([CA _] ...) tyC-rst/CA] ...) (stx-map (λ (t) (take-Π t (stx-e #'n))) #'(tyC ...))
@@ -114,8 +112,6 @@
   #:with (elim-Name . _) (get-match-info #'τ)
   ---
   [≻ (elim-Name target- motive method ...)])
-
-
 
 (require
  (for-syntax "reflection.rkt"))
