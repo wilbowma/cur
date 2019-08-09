@@ -205,7 +205,7 @@
 
    ; TODO This pending Turnstile issue.
    ; https://github.com/stchang/macrotypes/issues/95
-   #;[[A_ ≫ A- : τA_ ≫ τA-] ... ⊢ [τTY_ ≫ (~Π [i : τi_] ... τ_) ⇒ (~Type _)]]
+   #;[[A_ ≫ A- key τA_ ≫ τA- ⇒ (~Type _)] ... ⊢ [τTY_ ≫ (~Π [i : τi_] ... τ_) ⇒ (~Type _)]]
 
    #:do [(define num-params (stx-length (attribute A-)))
          (define num-idxs (stx-length (attribute i)))]
