@@ -9,10 +9,12 @@
  (for-syntax (rename-out [~Type* ~Type]))
  (rename-out [Type Prop]) ; TODO: define separate Prop
  Π (for-syntax ~Π)
- λ
- (rename-out [app #%app]
-             ; TODO: Do not export as app/eval/1
-             [app/eval app/eval/1])
+ λ (for-syntax ~λ)
+ (rename-out
+  [app #%app]
+  ; TODO: Do not export as app/eval/1
+  [app/eval app/eval/1])
+ (for-syntax ~#%app)
  define ann
  ; TODO: These should not be provided here.
  provide module* submod for-syntax begin-for-syntax)
@@ -155,7 +157,14 @@
        [(_ (x:id ...) e ...)
         #`(~or ((~literal #%plain-lambda) (x ...) e ...)
                ; TODO: Who adds #%expression?
-               ((~literal #%expression) ((~literal #%plain-lambda) (x ...) e ...)))]))))
+               ((~literal #%expression) ((~literal #%plain-lambda) (x ...) e ...)))])))
+
+  ; Pattern for Cur's λ
+  (define-syntax ~λ
+    (pattern-expander
+     (syntax-parser
+       [(_ (x:id (~datum :) A) e)
+        #`(~and (~λ- (x) e) (~parse A (typeof #'x)))]))))
 
 (define-typerule/red (app e_fn e_arg) ≫
   [⊢ e_fn ≫ e_fn- ⇒ (~Π [X : τ_in] τ_out)]
@@ -165,6 +174,13 @@
   [⊢ (app/eval e_fn- e_arg-) ⇒ τ_out-]
   #:where app/eval
   [(#%plain-app (~λ- (x) e) arg) ~> #,(subst #'arg #'x #'e)])
+
+(begin-for-syntax
+  (define-syntax ~#%app
+    (pattern-expander
+     (syntax-parser
+       [(_ e₁ e₂)
+        #`((~literal #%plain-app) e₁ e₂)]))))
 
 ;;; Other Definitions
 ;;; -----------------------------------------------------------
