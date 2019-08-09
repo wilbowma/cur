@@ -1,29 +1,66 @@
 #lang turnstile/lang
-(require turnstile/more-utils
-         (for-syntax turnstile/more-utils)
-         "dep-ind-cur2.rkt")
+(require
+ turnstile/more-utils
+ (for-syntax turnstile/more-utils)
+ "dep-ind-cur2.rkt")
 
-;; dep-ind-cur2 library, adding some sugar like auto-currying
+;;;; TODO: Language should extend CC, so clients only require this file.
+;;;; Zea saccharata
+;;;; A curnel with a little bit of sugar, to simplify complex typing rules.
+;;;; ------------------------------------------------------------------------
 
-(provide (for-syntax (rename-out [~Π/c ~Π]) ~#%app)
-         → ; → = Π = ∀
-         (rename-out
-          [→ Π] [→ Pi] [→ ∀] [→ forall] [→ ->]
-          [λ/c λ] [λ/c lambda] [app/c #%app] [app/eval/c app/eval]
-          [define/c define]))
+(provide
+ (for-syntax
+  multi-decl
+  xs+τ
+  (rename-out [~Π/c ~Π])
+  (rename-out [~λ/c ~λ])
+  ~#%app)
+ →
+ ; → = Π = ∀
+ (rename-out
+  [→ Π] [→ Pi] [→ ∀] [→ forall] [→ ->]
+  [λ/c λ] [λ/c lambda]
+  [app/c #%app] [app/eval/c app/eval]
+  [define/c define]))
+
+;;; Curried core forms.
+;;; -----------------------------------------------------------
+
+;; Curried Π
+;; ------------------------------------------------
 
 (begin-for-syntax
-  (define-syntax-class xs+τ #:attributes ([fst 0] [rst 1])
+  ; Syntax classes for parsing an arbitrary number of variables with the same
+  ; type annotation: e.g., [x ... : A]
+  (define-syntax-class multi-decl #:attributes ([fst 0] [rst 1] [all 1])
     (pattern [(~var x0 id) (~var x id) ... (~datum :) τ]
              #:with fst #'[x0 : τ]
-             #:with (rst ...) (stx-map (λ (x) #`[#,x : τ]) #'(x ...)))
+             #:with (rst ...) (stx-map (λ (x) #`[#,x : τ]) #'(x ...))
+             #:with (all ...) (cons #'fst (attribute rst))))
+
+  ; λ declarations can omit the type
+  (define-syntax-class multi-λ-decl #:attributes ([fst 0] [rst 1] [all 1])
+    (pattern d:multi-decl
+             #:with fst (attribute d.fst)
+             #:with (rst ...) (attribute d.rst)
+             #:with (all ...) (attribute d.all))
+    (pattern x:id
+             #:with fst #'x
+             #:with (rst ...) '()
+             #:with (all ...) (list #'fst)))
+
+  ; Π declarations can omit the type
+  (define-syntax-class xs+τ #:attributes ([fst 0] [rst 1])
+    (pattern d:multi-decl
+             #:with fst #'d.fst
+             #:with (rst ...) (attribute d.rst))
     (pattern τ ; no label, ie non-dependent →
              #:with fst #`[#,(syntax-property
                               (syntax-property (generate-temporary 'X) 'tmp #t)
                               'display-as
                               #'→) : τ]
              #:with (rst ...) #'())))
-
 ;; → = Π = ∀
 ;; usages:
 ;; (→ [x y z : τ] ... τout)
@@ -32,12 +69,46 @@
 (define-syntax →
   (syntax-parser
     [(_ t) #'t]
-    [(_ (~var b xs+τ) . rst)
+    [(_ b:xs+τ . rst)
      (quasisyntax/loc this-syntax
        (Π b.fst #,(quasisyntax/loc this-syntax (→ b.rst ... . rst))))]))
 
+;; Curried λ
+;; ------------------------------------------------
+
+; Currying.
+(define-nested/R λ/c- λ)
+
+; Support multi-declaration.
+(define-syntax λ/c
+  (syntax-parser
+    [(_ d:multi-λ-decl ... e)
+     (quasisyntax/loc this-syntax
+       (λ/c- d.all ... ... e))]))
+
+;; Curried application
+;; ------------------------------------------------
+
+(define-nested/L app/c #%app)
+(define-nested/L app/eval/c app/eval/1)
+
+;; Curried define
+;; ------------------------------------------------
+
+(define-syntax define/c
+  (syntax-parser
+    [(_ x:id e) (syntax/loc this-syntax (define x e))]
+    [(_ (f:id d:multi-λ-decl ...) e)
+     (syntax/loc this-syntax
+       (define f (λ/c d ... e)))]))
+
+;;; Pattern expanders for curried core forms.
+;;; -----------------------------------------------------------
+
 (begin-for-syntax
-  ;; curried expander
+  ;; Curried Π
+  ;; ------------------------------------------------
+
   (define-syntax ~Π/c
     (pattern-expander
      (syntax-parser
@@ -46,29 +117,25 @@
        [(_ (~var b x+τ) (~and (~literal ...) ooo) t_out)
         #'(~and TMP
                 (~parse ([b.x (~datum :) b.τ] ooo t_out)
-                        (stx-parse/fold #'TMP (~Π b rst))))]))))
+                        (stx-parse/fold #'TMP (~Π b rst))))])))
 
-;; abbrevs for Π/c
-;; (→ τ_in τ_out) == (Π (unused : τ_in) τ_out)
-#;(define-simple-macro (→ τ_in ... τ_out)
-  #:with (X ...) (stx-map
-                  (λ (x)
-                    (syntax-property
-                     (syntax-property x 'tmp #t)
-                     'display-as
-                     #'→))
-                  (generate-temporaries #'(τ_in ...)))
-  #:with out/srcloc (syntax/loc this-syntax (Π/c [X : τ_in] ... τ_out))
-  out/srcloc)
-;; ;; (∀ (X) τ) == (∀ ([X : Type]) τ)
-;; (define-simple-macro (∀ X ...  τ)
-;;   (Π [X : Type] ... τ))
+  ;; Curried λ
+  ;; ------------------------------------------------
 
-(define-nested/R λ/c λ)
-(define-nested/L app/c #%app)
-(define-nested/L app/eval/c app/eval/1)
+  ; TODO: Copy pasta from Π/c
+  (define-syntax ~λ/c
+    (pattern-expander
+     (syntax-parser
+       [(_ t) #'t]
+       [(_ (~var b x+τ) t_out) #'(~λ b t_out)]
+       [(_ (~var b x+τ) (~and (~literal ...) ooo) t_out)
+        #'(~and TMP
+                (~parse ([b.x (~datum :) b.τ] ooo t_out)
+                        (stx-parse/fold #'TMP (~λ b rst))))])))
 
-(begin-for-syntax
+  ;; Curried app
+  ;; ------------------------------------------------
+
   (define (fold-plain-app stx)
     (let loop ([stx stx]
                [acc '()])
@@ -89,9 +156,3 @@
         #'(~and TMP
                 (~parse (e (a ooo))
                         (fold-plain-app #'TMP)))]))))
-
-(define-syntax define/c
-  (syntax-parser
-    [(_ x:id e) #'(define x e)]
-    [(_ (f:id x+τ ...) e)
-     #'(define f (λ/c x+τ ... e))]))
