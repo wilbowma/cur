@@ -203,6 +203,10 @@
    ; Validate the type of TY
    [[A_ ≫ A- : τA_] ... ⊢ [τTY_ ≫ (~Π [i : τi-] ... τ-) ⇒ (~Type _)]]
 
+   ; TODO This pending Turnstile issue.
+   ; https://github.com/stchang/macrotypes/issues/95
+   #;[[A_ ≫ A- : τA_ ≫ τA-] ... ⊢ [τTY_ ≫ (~Π [i : τi_] ... τ_) ⇒ (~Type _)]]
+
    #:do [(define num-params (stx-length (attribute A-)))
          (define num-idxs (stx-length (attribute i)))]
 
@@ -211,11 +215,23 @@
    "must explicitly declare output of constructors for types with indices > 0"
 
    ; Validate the types of the constructors
-   ; TODO: Lot of re-expansion going on. See turnstile-merging for work on a fix.
+   ; TODO This pending Turnstile issue.
+   ; https://github.com/stchang/macrotypes/issues/95
+   #;[; Add TY to the environment
+    [TY ≫ TY- : (Π [A- : τA-] ... [i : τi] ... τ) ≫]
+    ; Add the parameters to the environment
+    ; TODO: Need to reexpand A_ to get binding right.
+    ;   Would be nice if Turnstile supported a syntax for giving pre-expanded versions...
+    ;   using, e.g., [A- : τA-] ... but that doesn't seem possible.
+    [A_ ≫ A : τA_ ≫ τA] ...
+    ⊢ [(Π x+τx ... τC) ≫ (~Π [i+x : τin] ... τout) ⇒ (~Type _)] ...]
+
+   ; TODO: Lot of re-expansion going on as a result of this.
    [[A_ ≫ A : τA_] ...
     ; Need TY in env
-    ; Must reexpand τTY_ in scope of A ..., to get scopes right.
+    ; TODO: Have to reexpand τTY_ because telescope patterns aren't working
     [TY ≫ TY- : (Π [A_ : τA_] ... τTY_)]
+    ;[TY ≫ TY- : (Π [A- : τA-] ... [i : τi_] ... τ_)]
     ⊢
     ; NOTE: While it appears that there could be a reference to TY in its own
     ; type, this isn't possible since we already validated τTY_.
@@ -225,6 +241,8 @@
     [(Π x+τx ... τC) ≫ (~and A_c (~Π [i+x : τin_] ... τout_)) ⇒ (~Type _)] ...]
 
    ;; Reconstruct surface types with proper binders and references.
+   ;; This is only necessary, I conjecture, because of problems which cause
+   ;; re-expansion above.
 
    ; Replace the unexpanded `A_ ...` with the expanded and fresh `A ...` in each
    ; of the unexpanded `τA_ ...`, since only `A ...` will be bound.
@@ -290,6 +308,16 @@
    #:with eval-TY (format-id #'TY "match-~a" #'TY)
    ; Types of methods
    #:with (τm ...) (generate-temporaries #'(m ...))
+   ; Instantiated parameters
+   #:with (A+ ...) (generate-temporaries #'(A ...))
+   ; Instantiated indices
+   ;#:with (i+ ...) (generate-temporaries #'(i ...))
+   ; Duplicate instantiated parameters for each constructor
+   #:with ((AxC+ ...) ...) (stx-map generate-temporaries #'((AxC ...) ...))
+   ; Unexpand anything that references (the now instantiated) parameters
+   ; #:with (τi+ ...) (generate-temporaries #'(τi ...))
+   ; #:with ((τin+ ...) ...) (stx-map generate-temporaries #'((τin ...) ...))
+   #:with ((τouti+ ...) ...) (stx-map generate-temporaries #'((τouti ...) ...))
    ; Constructor pattern for each reduction rule for this eliminator.
    #:with (C-pat ...) (stx-map
                        (λ (C xs)
@@ -337,6 +365,9 @@
         ;   [⊢ v ≫ v- ⇒ (TY-patexpand A ... i* ...)]
         ; But, we can get better inference if we specialize when we can (i.e.,
         ; when there are no parameters or indices to bind).
+        ; TODO: Would be nice if turnstile could automatically switch modes when
+        ; given a concrete type instead of pattern variables. Not sure how to
+        ; detect that.
         #,(if (zero? (+ num-params num-idxs))
               #'[⊢ v ≫ v- ⇐ TY]
               #'[⊢ v ≫ v- ⇒ (TY-patexpand A ... i* ...)])
@@ -345,9 +376,39 @@
         ; references the *names* `A ...` is now instantiated with the particular
         ; parameters from the type of `v-`, since we use the names `A ...` as
         ; the pattern variables in its type.
+
+        ; We need to unexpand the concrete parameters and indices in the rest of
+        ; this define-typerule/red.
+        ; TODO: Trying to bind the expanded versions results in inexplicable
+        ; errors in rewrite-forall. Suspect bug in rewrite.rkt
+        ; TODO: I don't quite understand why this is necessary
         ;
-        ; For reasons I can't explain yet, this means we need to unexpand any
-        ; references to these concrete parameters and indices.
+        ; If we don't, we get odd binding failures.
+        ; An example is rev-invol from the "Tactics.rkt" software-foundations test.
+        ; (list X) is a parameter to ==, where X is itself a parameter.
+        ; When we do not unexpand (list X), some identifier information on X is
+        ; lost, and X is not considered equal to the parameter Y from the
+        ; definition of list, which X has instantiated.
+        ;#:with (A+ ...) (stx-map unexpand #'(A ...))
+        ;#:with (i+ (... ...)) (stx-map unexpand #'(i* ...))
+        ;#:with ((AxC+ ...) ...) (stx-map (lambda _ #'(A+ ...)) #'(C ...))
+
+        ; TODO: The following does not make any sense to me.
+        ; I think we ought to need to expand `τi ...` and `τin ...`, the same as
+        ; above with `A+ ...`.
+        ; But if we do, tests in Tactics-*.rkt fail with weird unbound `#%app`
+        ; errors.
+        ; Perhaps because these have already been unexpanded ...?
+        ; But if so, then unexpanding `τouti ...` should also fail, since they are
+        ; derived from the already unexpanded `τout ...`.
+        ; Actually, this seems to have to do with the error that prevents me
+        ; from abstracting ANY of these....
+        ; #:with (τi+ ...) (stx-map unexpand #'(τi ...))
+        ; #:with ((τin+ ...) ...) (stx-map (curry stx-map unexpand) #'((τin ...) ...))
+        ; Perhaps it has to do with whether the type goes to the context, and
+        ; contains identifiers for the context?
+        ; That would also mesh with the above unexpansions...
+        ;#:with ((τouti+ ...) ...) (stx-map (curry stx-map unexpand) #'((τouti ...) ...))
 
         ; Check the type of the motive, which expects the indices `i ...` of
         ; types `τi ...`.
@@ -362,6 +423,10 @@
         ; NOTE: Escape the current quasi, re-enter syntax-quote so that the
         ; unquasisyntax splicing is delayed; it doesn't happen until define-typerule/red
         ; runs, when `A ...` are concrete.
+        ; TODO: These two lines should be equivalent to the third, but this
+        ; fails only for rewrite-forall. Suspect bug in rewrite.rkt?
+        ;#:with (A+ ...) (stx-map unexpand #'(A ...))
+        ;[⊢ P ≫ P- ⇐ (Π [i : τi] ... (→ (TY A+ ... i ...) (Type 9001)))]
         #,#'[⊢ P ≫ P- ⇐ (Π [i : τi] ...
                           (→ (TY #,@(stx-map unexpand #'(A ...)) i ...) (Type 9001)))]
 
