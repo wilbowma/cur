@@ -172,6 +172,22 @@
         (stx-map (unsubst-app name name-eval num-args) #'(x ...))
         this-syntax this-syntax)])))
 
+;; define/rec/match is definitely unsound.
+;;
+;; Bugs that needs test cases:
+;; 1. different return types in branches
+;; 2. incomplete coverage
+;; 3. fail to terminate by 2 arguments, one smaller in each case, but not lexicographically smaller in either.
+;;
+;; Replace with case/fix, plus pattern compiler in style of Coq?
+
+;; Desired syntax?:
+;; (define/fixpoint (name (~or [x : A] (~seq #:struct [x : A])) ...) : ty_out
+;;   [pat ... => body] ...)
+;;
+;; where #:struct denotes a structurally decreasing argument on which the function is defined.
+;;
+
 ;; usage:
 ;; (define/rec/match name : [x : ty_in1] ... ty-to-match ... [y : ty_in2] ... -> ty_out
 ;;  [pat ... => body] ...
@@ -216,6 +232,12 @@
      #:do[(define old-tycheck (current-typecheck-relation))
           (current-typecheck-relation ; new typecheck-relation with termination guard check
            (λ (t1 t2)
+             ; Guard condition is:
+             ; we are currently checking that t1 (the type we have?) is equivalent to t2 (the expected type?)
+             ; both t1 and t2 type check normally, and either
+             ; 1. t2 is not recursive, i.e., we're not expecting a recursive argument.
+             ; 2. t2 is recursive, thus we're checking a recursive argument, and
+             ;    t1 is also recursive (i.e. was tagged as smaller in define-datatype)
              (and (old-tycheck t1 t2)
                   (or (not (syntax-property t2 'recur))
                       (and (syntax-property t2 'recur)
