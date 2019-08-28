@@ -125,7 +125,7 @@
          (begin-for-syntax ; pattern expander
            (define-syntax C/sz (make-rename-transformer #'C)) ...)
          (define-syntax C/sz
-           (datacons
+           (mk-cons+pat-transformer
            (syntax-parser
              [(_ (~optional (~seq #:size j:id) #:defaults ([j (generate-temporary)]))
                  A ... x ...) ;; TODO: rename A ...? dont want subst to be done by stx template here
@@ -153,9 +153,8 @@
               #:with Cty (typeof #'C+)
               #:with Cty/sz (add-size #'Cty #'sz)
               (syntax-property #'C+ ': #'Cty/sz)])
-           (λ (p t) ; pat->ctxt
-             (define x+tys
-               ((datacons-pat->ctxt (syntax-local-value #'C)) p t))
+           (λ (p t)
+             (define x+tys (pat->ctxt (subst #'C #'C/sz p) t))
              (stx-map
               (λ (x+ty)
                 (list (stx-car x+ty) ; x
