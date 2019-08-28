@@ -7,18 +7,18 @@
   [Z : Nat]
   [S : (→ Nat Nat)])
 
-(define/rec/match plus : nat [n : nat] -> nat
-  [z => n]
-  [(s x) => (s (plus x n))])
+(define/rec/match plus : Nat [n : Nat] -> Nat
+  [Z => n]
+  [(S x) => (S (plus x n))])
 
-(define/rec/match minus : nat nat -> nat
-  [z _ => z]
-  [(s n-1) z => (s n-1)]
-  [(s n-1) (s m-1) => (minus n-1 m-1)])
+(define/rec/match minus : Nat Nat -> Nat
+  [Z _ => Z]
+  [(S n-1) z => (S n-1)]
+  [(S n-1) (S m-1) => (minus n-1 m-1)])
 
-(define/rec/match mult : nat [n : nat] -> nat
-  [z => z]
-  [(s x) => (plus n (mult x n))])
+(define/rec/match mult : Nat [n : Nat] -> Nat
+  [Z => Z]
+  [(S x) => (plus n (mult x n))])
 
 (check-type
  (λ (x : (Type 1)) x)
