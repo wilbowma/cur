@@ -14,6 +14,12 @@ Turnstile core:
 - function signature forward declarations (`:`) currently unsupported
 - olly not working
 
+## install instructions
+To install Cur and Turnstile:
+  - raco pkg install https://github.com/stchang/macrotypes.git?path=macrotypes-lib#cur
+  - raco pkg install https://github.com/stchang/macrotypes.git?path=turnstile-lib#cur
+  - raco pkg install https://github.com/wilbowma/cur.git?path=cur-lib#turnstile-core
+
 
 previous README for Cur
 =======================
