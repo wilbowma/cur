@@ -213,10 +213,14 @@
      #:with (ty-to-match/ ...) (stx-map ; 'recur is for termination check
                                 (λ (t) (syntax-property t 'recur #t))
                                 #'(ty-to-match ...))
-     #:do[(define old-tycheck (current-typecheck-relation))
-          (current-typecheck-relation ; new typecheck-relation with termination guard check
+     [([x+pat ≫ x+pat- : x+patτ] ...)
+      ([y ≫ y*- : ty_in2] ...
+       ;; for now, assume recursive references are fns
+       [name ≫ name- : (Π [x : ty_in1] ... [x0 : ty-to-match/] ... [y : ty_in2] ... ty_out)])
+      ⊢ [body ≫ body- ⇐ ty_out]
+      #:where typecheck-relation
            (λ (t1 t2)
-             (and (old-tycheck t1 t2)
+             (and (old-typecheck-relation t1 t2)
                   (or (not (syntax-property t2 'recur))
                       (and (syntax-property t2 'recur)
                            (let ([t1-recur-ok? (syntax-property t1 'recur)])
@@ -224,17 +228,9 @@
                                (unless t1-recur-ok?
                                  (fprintf (current-error-port)
                                           "Failed termination check for arg of type ~a:\n"
-                                          (stx->datum (resugar-type t1)))))))))))]
-     [([x+pat ≫ x+pat- : x+patτ] ...)
-      ([y ≫ y*- : ty_in2] ...
-       ;; for now, assume recursive references are fns
-       [name ≫ name- : (Π [x : ty_in1] ... [x0 : ty-to-match/] ... [y : ty_in2] ... ty_out)])
-      ⊢ body ≫ body- ⇐ ty_out] ...
-     #:do[(current-typecheck-relation old-tycheck)]
+                                          (stx->datum (resugar-type t1))))))))))
+      #:where check-relation (current-typecheck-relation)] ...
      #:do[(define arity (stx-length #'(x ... ty-to-match ... y ...)))]
-     ;; #:do[
-     ;;      (displayln 'body-)
-     ;;      (stx-map (compose displayln syntax->datum) #'(body- ...))]
      #:with ((x*- ...) ...) (stx-map
                              (λ (x+pats)
                                (stx-take x+pats (stx-length #'(x ...))))
