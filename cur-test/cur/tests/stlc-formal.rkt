@@ -48,10 +48,6 @@
   [multi-step : (∀ [x : X] [y : X] [z : X]
                    (-> (R x y) (multi X R y z) (multi X R x z)))])
 
-; x R y   y R* y
-; ------------
-;   x R* z
-
 ;; ========
 ;;  SYNTAX
 ;; ========
@@ -194,7 +190,7 @@
   (by-apply multi-step)
   (by-apply ST-AppAbs)
   simpl
-  auto ; doesn't exist
+  auto
   simpl
   (by-apply multi-refl))
 
@@ -212,11 +208,11 @@
   (by-apply multi-step) ; by-apply: could not infer instantiation of: multi-step; try explicit #:with or #:with-var args?
   (by-apply ST-App1)
   (by-apply ST-AppAbs)
-  auto ; doesn't exist
+  auto
   simpl
   (by-apply multi-step)
   (by-apply ST-AppAbs)
-  auto ; doesn't exist
+  auto
   simpl
   (by-apply multi-step)
   (by-apply ST-TestTru)
@@ -240,11 +236,11 @@
   (by-apply multi-step) ; by-apply: could not infer instantiation of: multi-step; try explicit #:with or #:with-var args?
   (by-apply ST-App2)
   (by-apply ST-AppAbs)
-  auto ; doesn't exist
+  auto
   simpl
   (by-apply multi-step)
   (by-apply ST-App2)
-  auto ; doesn't exist
+  auto
   (by-apply ST-TestTru)
   (by-apply multi-step)
   (by-apply ST-AppAbs)
