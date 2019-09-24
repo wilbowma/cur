@@ -118,7 +118,7 @@
   ; By default, auto only uses the hypotheses of the current goal and the
   ; hints of the database named core.
   (define (auto ptz)
-    (define asptz (with-handlers ([exn:fail? #;exn:fail:ntac:goal? (lambda (e) ptz)]) (by-obvious ptz)))
+    (define asptz (with-handlers ([exn:fail? (lambda (e) ptz)]) (by-obvious ptz)))
     (if (nttz-done? asptz)
         asptz
         (let ([inptz (by-intros-hints ptz)])
