@@ -7,9 +7,9 @@
   cur/stdlib/equality
   cur/stdlib/nat
   cur/stdlib/bool
-  cur/cur-lib/cur/ntac/hint
-  cur/cur-lib/cur/ntac/base
-  cur/cur-lib/cur/ntac/standard
+  cur/ntac/hint
+  cur/ntac/base
+  cur/ntac/standard
   cur/ntac/rewrite)
 
 (define-datatype natprod : Prop
