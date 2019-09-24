@@ -6,6 +6,7 @@
                      replace
                      rewrite
                      symmetry
+                     apply-fn
                      by-apply
                      by-replace
                      by-rewrite
