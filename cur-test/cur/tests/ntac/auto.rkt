@@ -8,7 +8,12 @@
   cur/stdlib/nat
   cur/stdlib/bool
   cur/ntac/hint
-  cur/ntac/base
+  (except-in cur/ntac/base
+             ntac-proc
+             define-theorem
+             define-theorem/for-export
+             ntac
+             ntac/debug)
   cur/ntac/standard
   cur/ntac/rewrite)
 
@@ -86,19 +91,25 @@
          (== p true)
          (== (and p q) true)))
   (hints-add! pred-example-1)
-  auto
-  clear-hints!)
+  auto)
 
 (define-theorem plus-n-0
   (∀ [n : Nat] (== Nat n (plus n 0)))
   (by-intro n)
-  simpl
   (by-induction n #:as [() (n-1 IH)])
   reflexivity
-  simpl
   (by-rewriteL IH)
   reflexivity)
 
 (define-theorem plus-n-0p
   (∀ [n : Nat] (== Nat n (plus n 0)))
   auto)
+
+(define-theorem plus-n-0pp
+  (∀ [n : Nat] (== Nat n (plus n 0)))
+  (by-intro n)
+  (by-induction n #:as [() (n-1 IH)])
+  (set-auto-depth! 2)
+  auto ; note that this only keeps the reflexivity step despite taking two steps!
+  (by-rewriteL IH)
+  reflexivity)
