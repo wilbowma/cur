@@ -35,12 +35,16 @@
   (by-rewriteL eq1)
   (by-apply eq2))
 
+(set-auto-depth! 2)
+
 (define-theorem silly1p
   (∀ [n : Nat] [m : Nat] [o : Nat] [p : Nat]
      (-> (== n m)
          (== (pair n o) (pair n p))
          (== (pair n o) (pair m p))))
   auto)
+
+(set-auto-depth! 4)
 
 (define-theorem silly2
   (∀ [n : Nat] [m : Nat] [o : Nat] [p : Nat]
@@ -109,7 +113,6 @@
   (∀ [n : Nat] (== Nat n (plus n 0)))
   (by-intro n)
   (by-induction n #:as [() (n-1 IH)])
-  (set-auto-depth! 2)
-  auto ; note that this only keeps the reflexivity step despite taking two steps!
+  (auto 2) ; note that this only keeps the reflexivity step despite taking two steps!
   (by-rewriteL IH)
   reflexivity)

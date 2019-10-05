@@ -5,7 +5,8 @@
 (provide define-theorem
          define-theorem/for-export
          ntac
-         ntac/debug)
+         ntac/debug
+         set-auto-depth!)
 
 (require
   (for-syntax "ctx.rkt"
@@ -13,7 +14,8 @@
               racket/list
               racket/set
               racket/match
-              (for-syntax racket/base))
+              (for-syntax racket/base
+                          syntax/parse))
   "base.rkt"
   "standard.rkt"
   "rewrite.rkt")
@@ -80,18 +82,7 @@
   ; assumption: in general, we use auto on relatively trivial proofs; this
   ; implies that the depth of our search tree will not be very deep, and it is
   ; therefore suitable to use BFS capped at a particular depth
-  (define max-auto-depth (make-parameter null))
-  (define max-auto-depth-default 4)
-
-  (define (set-max-auto-depth! depth)
-    (max-auto-depth depth))
-
-  ; we can short-circuit sooner if we're just looking for an intermediate solution
-  (define-syntax (set-auto-depth! syn)
-    (syntax-case syn ()
-      [(_ d) #'(begin
-                 (set-max-auto-depth! d)
-                 (λ (ptz) ptz))]))
+  (define default-max-auto-depth (make-parameter 4))
 
   (define (by-auto-helper ptz depth path
                           #:initial-hole-count [initial-hole-count (num-holes/z ptz)]
@@ -181,22 +172,27 @@
   ;
   ; By default, auto only uses the hypotheses of the current goal and the
   ; hints of the database named core.
-  (define (auto ptz)
+  (define ((auto^ n) ptz)
     (define asptz (with-handlers ([exn:fail? (lambda (e) ptz)]) (by-obvious ptz)))
     (if (nttz-done? asptz)
         asptz
         (let* ([inptz (by-intros-hints ptz)]
                [auto-result (parameterize ([auto-result-hash (make-hash)])
-                              (by-auto-helper inptz (max-auto-depth) '()))])
+                              (by-auto-helper inptz n '()))])
           (if (false? auto-result)
               (raise-ntac-goal-exception "automatic proof failed")
               auto-result))))
 
+  (define-syntax auto
+    (syntax-parser
+      [(_ n:nat)
+       #`(auto^ n)]
+      [_ #`(auto^ (default-max-auto-depth))]))
+
   (define (ntac-proc ty ps)
     (let ()
       ; hints are only active within scope of proc
-      (parameterize ([hints hints-default]
-                     [max-auto-depth max-auto-depth-default])
+      (parameterize ([hints hints-default])
         (define ctxt (mk-empty-ctx))
         (define init-pt
           (new-proof-tree (cur-expand ty)))
@@ -239,3 +235,9 @@
        (begin0
          (ntac-proc #'ty #'pf)
          (current-tracing? #f)))]))
+
+; we can short-circuit sooner if we're just looking for an intermediate solution
+(define-syntax (set-auto-depth! syn)
+    (syntax-case syn ()
+      [(_ d) (begin (default-max-auto-depth (eval #'d))
+                    #'(void))]))
