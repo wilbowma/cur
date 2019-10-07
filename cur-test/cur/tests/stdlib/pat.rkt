@@ -60,6 +60,10 @@
   [(s (s x)) => (bad-rec-pat? (s x))])
  #:with-msg "type mismatch.*s x")
 
+(define/rec/match multi-pat : Nat Nat Nat -> Nat
+  [_ _ z => 0]
+  [n m (s l-1) => (multi-pat n m l-1)])
+
 ;; from Gimenez 1995
 ;; example that is easy for pattern match, hard with Nat elim
 (define/rec/match even? : Nat -> Bool

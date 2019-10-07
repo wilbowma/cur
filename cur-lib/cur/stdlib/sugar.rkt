@@ -227,23 +227,39 @@
                                 (λ (t) (syntax-property t 'recur #t))
                                 #'(ty-to-match ...))
      #:do[(define old-tycheck (current-typecheck-relation))
+          (define old-check (current-check-relation))
+          (define allowed-non-recur (sub1 (stx-length #'(ty-to-match/ ...))))
+          (define error-handler
+            (λ (t1 t2)
+              (begin (current-typecheck-relation old-tycheck)
+                     (current-check-relation old-check)
+                     (fprintf (current-error-port)
+                     "Failed termination check for arg of type ~a:\n"
+                     (stx->datum (resugar-type t1)))
+                     #f)))
           (current-typecheck-relation ; new typecheck-relation with termination guard check
            (λ (t1 t2)
              (and (old-tycheck t1 t2)
                   (let ([t2-no-recur? (syntax-property t2 'no-recur)])
                       (begin0 (not t2-no-recur?)
                           (when t2-no-recur?
-                              (fprintf (current-error-port)
-                                  "Failed termination check for arg of type ~a:\n"
-                                  (stx->datum (resugar-type t1))))))
+                              (error-handler t1 t2))))
                   (or (not (syntax-property t2 'recur))
                       (and (syntax-property t2 'recur)
                            (let ([t1-recur-ok? (syntax-property t1 'recur)])
-                             (begin0 t1-recur-ok?
-                               (unless t1-recur-ok?
-                                 (fprintf (current-error-port)
-                                          "Failed termination check for arg of type ~a:\n"
-                                          (stx->datum (resugar-type t1)))))))))))]
+                             (or t1-recur-ok?
+                                 (if (pair? (syntax-property t1 ':)) ; hack to figure out if we have a recursive def (S n)
+                                     (error-handler t1 t2)
+                                     (if (zero? allowed-non-recur)
+                                         (error-handler t1 t2)
+                                         (begin (set! allowed-non-recur (sub1 allowed-non-recur)) #t))))))))))
+            (current-check-relation
+              (λ (t1 t2)
+                (let ([old-check-res (old-check t1 t2)])
+                  (begin0 old-check-res
+                          (unless old-check-res
+                                  (current-typecheck-relation old-tycheck)
+                                  (current-check-relation old-check))))))]
      [([x+pat ≫ x+pat- : x+patτ] ...)
       ([y ≫ y*- : ty_in2/] ...
        ;; for now, assume recursive references are fns
