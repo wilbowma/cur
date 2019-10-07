@@ -39,11 +39,11 @@
     (syntax-parse pat
       [(~or C:id (C:id . _))
        #:when (type-pattern-transformer? (syntax-local-value #'C (λ () #f)))
-       ((type-pattern-transformer-pattern->ctxt (syntax-local-value #'C)) pat ty)]
+       ((type-pattern-transformer-pattern->ctxt (syntax-local-value #'C)) pat (syntax-property ty 'recur #t))]
       ; datum
       [(~datum _) null]
       ; pattern variable case
-      [:id (list (list pat (syntax-property ty 'recur #t)))]))
+      [:id (list (list pat ty))]))
 
   ;; ty is unexpanded, series of curried mono-applications of type constructor
   (define (get-curried-operator ty)
