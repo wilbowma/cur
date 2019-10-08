@@ -249,7 +249,7 @@
                            (let ([t1-recur-ok? (syntax-property t1 'recur)])
                              (or t1-recur-ok?
                                  (if (pair? (syntax-property t1 ':)) ; hack to figure out if we have a recursive def (S n)
-                                     (error-handler t1 t2)
+                                     (error-handler t1 t2)           ; TODO: use a better test here
                                      (if (zero? allowed-non-recur)
                                          (error-handler t1 t2)
                                          (begin (set! allowed-non-recur (sub1 allowed-non-recur)) #t))))))))))
@@ -265,7 +265,8 @@
        ;; for now, assume recursive references are fns
        [name ≫ name- : (Π [x : ty_in1/] ... [x0 : ty-to-match/] ... [y : ty_in2/] ... ty_out)])
       ⊢ body ≫ body- ⇐ ty_out] ...
-     #:do[(current-typecheck-relation old-tycheck)]
+     #:do[(current-typecheck-relation old-tycheck)
+          (current-check-relation old-check)]
      #:do[(define arity (stx-length #'(x ... ty-to-match ... y ...)))]
      ;; #:do[
      ;;      (displayln 'body-)
