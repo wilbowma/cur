@@ -75,7 +75,8 @@
      #:with name/internal-expander (mk-~ #'name/internal)
      #:with name-expander #'name
      #:with (p ...) (generate-temporaries #'(A ... i+x ...))
-     #'(begin-
+     (syntax/loc this-syntax
+       (begin-
          (define-type name/internal : [A : τA] ... [i+x : τ] ... -> τ-out . rst)
 
          (define-syntax name
@@ -122,7 +123,7 @@
 
          (begin-for-syntax
            (define-syntax name-expander
-             (make-rename-transformer #'name/internal-expander))))]))
+             (make-rename-transformer #'name/internal-expander)))))]))
 
 ;;; Define types with automagic currying
 ;;; -----------------------------------------------------------
