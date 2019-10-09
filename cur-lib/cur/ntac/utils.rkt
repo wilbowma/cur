@@ -4,7 +4,7 @@
  syntax/stx
  syntax/parse
  syntax/id-set
- (for-template turnstile/eval
+ (for-template turnstile+/eval
                (only-in macrotypes/typecheck-core substs)
                (only-in cur/curnel/lang #%plain-lambda #%plain-app))
  macrotypes/stx-utils
@@ -119,7 +119,7 @@
 (define ((has-term/e? syn) e0) (has-term? e0 syn))
 
 ;; TODO: move me to separate file?
-;; TODO: use turnstile/type-constraints instead?
+;; TODO: use turnstile+/type-constraints instead?
 ;; unify
 ;; tries to unify e1 with e2, where bvs closes over e1
 ;; returns list of (stx)pairs [x e], where x \in bvs, and e \in e2,

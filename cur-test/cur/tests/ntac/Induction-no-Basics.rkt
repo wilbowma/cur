@@ -9,7 +9,7 @@
  cur/ntac/standard
  cur/ntac/rewrite
  (prefix-in ML: cur/ntac/ML-rewrite)
- rackunit/turnstile
+ rackunit/turnstile+
  "rackunit-ntac.rkt") 
 
 ;; examples from SF Ch 2: Induction.v

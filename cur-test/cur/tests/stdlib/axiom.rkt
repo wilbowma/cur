@@ -6,7 +6,7 @@
  cur/stdlib/equality
  cur/stdlib/axiom
  (only-in racket/base module)
- rackunit/turnstile)
+ rackunit/turnstile+)
 
 (module check-output racket/base
   (provide check-output)

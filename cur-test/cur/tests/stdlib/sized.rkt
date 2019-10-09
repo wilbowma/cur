@@ -6,7 +6,7 @@
  cur/stdlib/bool
  cur/stdlib/prop
  cur/stdlib/list
- rackunit/turnstile)
+ rackunit/turnstile+)
 
 ;; tests for pattern matching in define/rec/match (from stdlib/sugar)
 

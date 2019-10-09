@@ -1,7 +1,7 @@
 #lang cur
 (require
  cur/stdlib/sugar
- rackunit/turnstile)
+ rackunit/turnstile+)
 
 (define-datatype Nat : Type
   [Z : Nat]

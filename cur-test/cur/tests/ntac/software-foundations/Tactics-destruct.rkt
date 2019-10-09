@@ -4,7 +4,7 @@
          cur/ntac/base
          cur/ntac/standard
          cur/ntac/rewrite
-         rackunit/turnstile
+         rackunit/turnstile+
          "../rackunit-ntac.rkt")
 
 ; Software Foundations Tactics.v, part 5 of 5

@@ -1,5 +1,5 @@
-#lang turnstile/lang
-(require turnstile/eval turnstile/typedefs turnstile/more-utils)
+#lang turnstile+/quicklang
+(require turnstile+/eval turnstile+/typedefs turnstile+/more-utils)
 
 ;;;; The Calculus of Constructions.
 ;;;; ------------------------------------------------------------------------

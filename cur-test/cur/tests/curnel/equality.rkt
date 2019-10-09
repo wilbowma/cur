@@ -1,5 +1,5 @@
 #lang s-exp cur/curnel/cic-saccharata
-(require rackunit/turnstile)
+(require rackunit/turnstile+)
 
 ;; Testing the identity type.
 

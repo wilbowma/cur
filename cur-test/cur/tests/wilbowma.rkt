@@ -1,7 +1,7 @@
 #lang cur
 
 (require cur/stdlib/sugar
-         rackunit/turnstile)
+         rackunit/turnstile+)
 
 (typecheck-fail/toplvl
  (define-datatype Inf : (-> Type Type)

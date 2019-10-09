@@ -7,7 +7,7 @@
          cur/ntac/standard
          cur/ntac/rewrite
          "rackunit-ntac.rkt"
-         rackunit/turnstile)
+         rackunit/turnstile+)
 
 ;; testing implicit args
 ;; may be some dup from software-foundations/Poly.rkt
