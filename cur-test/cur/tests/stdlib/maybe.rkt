@@ -4,7 +4,7 @@
  cur/stdlib/sugar
  cur/stdlib/bool
  cur/stdlib/maybe
- rackunit/turnstile)
+ rackunit/turnstile+)
 
 (check-type (some true) : (Maybe Bool) -> (some Bool true))
 (check-type

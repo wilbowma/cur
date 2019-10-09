@@ -5,7 +5,7 @@
  cur/stdlib/bool
  cur/stdlib/nat
  cur/stdlib/equality
- rackunit/turnstile)
+ rackunit/turnstile+)
 
 (check-type PM-sym : (∀ [A : Type] [x : A] [y : A]
                         (-> (== A x y)

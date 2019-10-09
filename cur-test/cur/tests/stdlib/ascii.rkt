@@ -6,7 +6,7 @@
  cur/stdlib/sugar
  cur/stdlib/bool
  cur/stdlib/nat
- rackunit/turnstile)
+ rackunit/turnstile+)
 
 (check-type ascii : (-> Bool Bool Bool Bool Bool Bool Bool Ascii))
 

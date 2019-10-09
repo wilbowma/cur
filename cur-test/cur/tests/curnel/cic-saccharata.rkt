@@ -1,5 +1,5 @@
 #lang cur
-(require rackunit/turnstile rackunit)
+(require rackunit/turnstile+ rackunit)
 
 ;; Check (Type n) : (Type n+1)
 (check-type Type : (Type 1) -> (Type 0))
