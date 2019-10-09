@@ -6,7 +6,7 @@
          define-theorem/for-export
          ntac
          ntac/debug
-         set-auto-depth!)
+         current-max-auto-depth)
 
 (require
   (for-syntax "ctx.rkt"
@@ -21,31 +21,33 @@
   "rewrite.rkt")
 
 (begin-for-syntax
-  (define hints (make-parameter null))
-  (define hints-default '())
+  (define current-hints (make-parameter null))
 
   ; bypass phase-level restriction in hints-add!
+  ; TODO: Should be a guard on the parameter.
   (define (set-hints! . v)
     ; ignore any duplicate hints
     (begin
       (define diff-set (set-subtract (list->set (filter symbol? (map syntax->datum v)))
-                                     (list->set (map syntax->datum (hints)))))
+                                     (list->set (map syntax->datum (current-hints)))))
       (define diff-list
         (filter (lambda (e) (set-member? diff-set (syntax->datum e))) v))
-      (hints (append diff-list (hints)))))
-  
+      (current-hints (append diff-list (current-hints)))))
+
+  ; TODO: Probably remove; should use parameter interface, not imperative interface.
   (define-syntax (hints-add! syn)
     (syntax-case syn ()
-      [(_ H ...) #'(begin
-                 (set-hints! #'H ...)
-                 (λ (ptz) ptz))]))
+      [(_ H ...)
+       #'(parameterize ([current-hints (append (current-hints) (list #'H ...))])
+           (lambda (ptz) ptz))]))
 
   (define (display-hints tz)
-    (printf "~a" (map (compose symbol->string syntax->datum) (hints)))
+    (printf "~a" (map (compose symbol->string syntax->datum) (current-hints)))
     tz)
 
+  ; TODO Remove; user should use parameter interface, not imperative interface.
   (define (clear-hints! tz)
-    (hints '())
+    (current-hints '())
     tz)
 
   ; nothing novel is introduced here, but it works better
@@ -67,22 +69,23 @@
   (struct tactic-preset (proc id no-name-arg?) #:transparent)
   ; results caching should be scoped to a single auto run
   ; in case identifiers are re-bound
-  (define auto-result-hash (make-parameter null))
+  (define current-auto-result-hash (make-parameter null))
   ; note that tactic attempts will happen in this order
-  (define auto-tactics
-    (list (tactic-preset (lambda (name) (fill (apply-fn name))) "apply" #f)
-          (tactic-preset (lambda (name) (fill assumption)) "assumption" #t)
-          (tactic-preset (lambda (name) reflexivity) "reflexivity" #t)
-          (tactic-preset (lambda (name) simpl) "simpl" #t)
-          (tactic-preset (lambda (name) (fill (rewrite name #:left? #f))) "rewrite" #f)
-          (tactic-preset (lambda (name) (fill (rewrite name #:left? #t))) "rewriteL" #f)
-          (tactic-preset (lambda (name) (fill (destruct name))) "destruct" #f)
-          (tactic-preset (lambda (name) (fill (induction name))) "induction" #f)))
+  (define current-auto-tactics
+    (make-parameter
+     (list (tactic-preset (lambda (name) (fill (apply-fn name))) "apply" #f)
+           (tactic-preset (lambda (name) (fill assumption)) "assumption" #t)
+           (tactic-preset (lambda (name) reflexivity) "reflexivity" #t)
+           (tactic-preset (lambda (name) simpl) "simpl" #t)
+           (tactic-preset (lambda (name) (fill (rewrite name #:left? #f))) "rewrite" #f)
+           (tactic-preset (lambda (name) (fill (rewrite name #:left? #t))) "rewriteL" #f)
+           (tactic-preset (lambda (name) (fill (destruct name))) "destruct" #f)
+           (tactic-preset (lambda (name) (fill (induction name))) "induction" #f))))
 
   ; assumption: in general, we use auto on relatively trivial proofs; this
   ; implies that the depth of our search tree will not be very deep, and it is
   ; therefore suitable to use BFS capped at a particular depth
-  (define default-max-auto-depth (make-parameter 4))
+  (define current-max-auto-depth (make-parameter 4))
 
   (define (by-auto-helper ptz depth path
                           #:initial-hole-count [initial-hole-count (num-holes/z ptz)]
@@ -94,14 +97,14 @@
     ; a continuation/return through mutation and breaking
     (let* ([solution #f]
            [solution-path '()]
-           [thm-names-temp (append (hints) (ctx-ids (nttz-context ptz)))]
+           [thm-names-temp (append (current-hints) (ctx-ids (nttz-context ptz)))]
            [thm-names (if (empty? thm-names-temp)
                           (list #'dummy) ; hack for empty context
                           thm-names-temp)]
            [new-worklist (if (<= depth 0)
                              worklist
                              (append worklist (foldl append '()
-                               (for/list ([tactic auto-tactics])
+                               (for/list ([tactic (current-auto-tactics)])
                                  #:break solution
                                  (filter (compose not false? car)
                                          (for/list ([thm-name thm-names])
@@ -115,41 +118,32 @@
                                                         (cons (tactic-preset-id tactic) "")
                                                         (cons (tactic-preset-id tactic)
                                                               (symbol->string (syntax->datum thm-name)))))
+                                                  (define result-hash (current-auto-result-hash))
                                                   (define result
-                                                    (if (hash-has-key? (auto-result-hash) hash-key)
-                                                        (hash-ref (auto-result-hash) hash-key)
+                                                    (if (hash-has-key? result-hash hash-key)
+                                                        (hash-ref result-hash hash-key)
                                                         (with-handlers ([exn:fail? (lambda (e) (begin #;(printf "~a\n" e) false))])
-                                                          (begin #;(if (tactic-preset-no-name-arg? tactic)
-                                                                     (printf "DEPTH: ~a Running ~a with path ~a\n"
-                                                                             depth
-                                                                             (tactic-preset-id tactic)
-                                                                             (reverse path))
-                                                                     (printf "DEPTH: ~a Running ~a with ~a with path ~a\n"
-                                                                             depth
-                                                                             (tactic-preset-id tactic)
-                                                                             (symbol->string (syntax->datum thm-name))
-                                                                             (reverse path)))
-                                                                 (define nptz (((tactic-preset-proc tactic) thm-name) ptz))
-                                                                 (if (nttz-done? nptz)
-                                                                     (begin (set! solution nptz)
-                                                                            (set! solution-path (cons new-path-node path)))
-                                                                     ; keep track of nodes with the least subgoals remaining, so that we
-                                                                     ; can return partial solutions if no full solution is found
-                                                                     (let ([hole-count (num-holes/z nptz)])
-                                                                       (when (< hole-count min-hole-count)
-                                                                         (begin (set! min-hole-ptz nptz)
-                                                                                (set! min-hole-count hole-count)
-                                                                                (set! min-hole-path (cons new-path-node path))))))
+                                                          (begin
+                                                            (define nptz (((tactic-preset-proc tactic) thm-name) ptz))
+                                                            (if (nttz-done? nptz)
+                                                                (begin (set! solution nptz)
+                                                                       (set! solution-path (cons new-path-node path)))
+                                                                ; keep track of nodes with the least subgoals remaining, so that we
+                                                                ; can return partial solutions if no full solution is found
+                                                                (let ([hole-count (num-holes/z nptz)])
+                                                                  (when (< hole-count min-hole-count)
+                                                                    (begin (set! min-hole-ptz nptz)
+                                                                           (set! min-hole-count hole-count)
+                                                                           (set! min-hole-path (cons new-path-node path))))))
                                                                  nptz))))
-                                                  (hash-set! (auto-result-hash) hash-key false) ; subsequent hits should just be filtered out
+                                                  ; NOTE: current-auto-result-hash could have been modified while computing result.
+                                                  (hash-set! (current-auto-result-hash) hash-key false) ; subsequent hits should just be filtered out
                                                   (list result (sub1 depth) (cons new-path-node path)))))))))])
       (if ((compose not false?) solution)
-          (begin (printf "auto solution: ~a\n" (reverse solution-path)) solution)
+          solution
           (begin (if (empty? new-worklist)
                      (if (< min-hole-count initial-hole-count)
-                         (begin (printf "auto solution with ~a subgoal(s) met: ~a\n"
-                                        (- initial-hole-count min-hole-count)
-                                        (reverse min-hole-path)) min-hole-ptz)
+                         min-hole-ptz
                          false)
                      (by-auto-helper (first (first new-worklist))
                                      (second (first new-worklist))
@@ -173,6 +167,7 @@
   ; By default, auto only uses the hypotheses of the current goal and the
   ; hints of the database named core.
   (define ((auto^ n) ptz)
+    ; TODO More specific failure handler?
     (define asptz (with-handlers ([exn:fail? (lambda (e) ptz)]) (by-obvious ptz)))
     (if (nttz-done? asptz)
         asptz
@@ -187,12 +182,12 @@
     (syntax-parser
       [(_ n:nat)
        #`(auto^ n)]
-      [_ #`(auto^ (default-max-auto-depth))]))
+      [_ #`(auto^ (current-max-auto-depth))]))
 
   (define (ntac-proc ty ps)
     (let ()
       ; hints are only active within scope of proc
-      (parameterize ([hints hints-default])
+      (parameterize ([current-hints (current-hints)])
         (define ctxt (mk-empty-ctx))
         (define init-pt
           (new-proof-tree (cur-expand ty)))
@@ -206,7 +201,6 @@
           (proof-tree->complete-term
            final-pt
            ps))
-        ;      (pretty-print (syntax->datum pf))
         pf))))
 
 ;; Syntax - redefinitions using modified ntac-proc
@@ -230,14 +224,5 @@
 (define-syntax ntac/debug
   (syntax-parser
     [(_ ty . pf)
-     (begin
-       (current-tracing? 1)
-       (begin0
-         (ntac-proc #'ty #'pf)
-         (current-tracing? #f)))]))
-
-; we can short-circuit sooner if we're just looking for an intermediate solution
-(define-syntax (set-auto-depth! syn)
-    (syntax-case syn ()
-      [(_ d) (begin (default-max-auto-depth (eval #'d))
-                    #'(void))]))
+     (parameterize ([curren-tracing? 1])
+       (ntac-proc #'ty #'pf))]))

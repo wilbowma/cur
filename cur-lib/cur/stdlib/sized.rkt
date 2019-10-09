@@ -199,15 +199,11 @@
      ;; - needed to check size-preservation fns
      ;; tycheck-rel used by typerules themselves
      ;; - needed for termination check of rec calls
-     #:do[(define old-tycheck (current-check-relation))
-          (current-typecheck-relation ; new typecheck-relation with termination guard check
-           (mk-tycheck/sz old-tycheck))
-          (current-check-relation (current-typecheck-relation))]
      [([x+pat ≫ x+pat- : x+patτ] ...)
       ([name ≫ name- : (Π [x : ty-to-match<] ... ty_out<)])
-      ⊢ body ≫ body- ⇐ ty_out] ...
-     #:do[(current-check-relation old-tycheck)
-          (current-typecheck-relation old-tycheck)]
+      ⊢ [body ≫ body- ⇐ ty_out]
+      #:where typecheck-relation (mk-tycheck/sz old-typecheck-relation)
+      #:where check-relation (current-typecheck-relation)] ...
      #:do[(define arity (stx-length #'(x ...)))]
      #:with ((x*- ...) ...) (stx-map
                              (λ (x+pats)
@@ -293,16 +289,12 @@
                                           #`(#,@#'((x ty_in1) ...) ; append x+tyin1 with pat binders and tys
                                              #,@x+τs))
                                         #'(([xpat xpatτ] ...) ...))
-     #:do[(define old-tycheck (current-typecheck-relation))
-          (current-typecheck-relation ; new typecheck-relation with termination guard check
-           (mk-tycheck/sz old-tycheck))]
-     
      [([x+pat ≫ x+pat- : x+patτ] ...)
       ([y ≫ y*- : ty_in2] ...
        ;; for now, assume recursive references are fns
        [name ≫ name- : (Π [x : ty_in1] ... [x0 : ty-to-match<] ... [y : ty_in2] ... ty_out)])
-      ⊢ body ≫ body- ⇐ ty_out] ...
-     #:do[(current-typecheck-relation old-tycheck)]
+      ⊢ [body ≫ body- ⇐ ty_out]
+      #:where typecheck-relation (mk-tycheck/sz old-typecheck-relation)] ...
      #:do[(define arity (stx-length #'(x ... ty-to-match ... y ...)))]
      #:with ((x*- ...) ...) (stx-map
                              (λ (x+pats)
