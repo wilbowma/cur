@@ -6,7 +6,7 @@
          cur/ntac/base
          cur/ntac/standard
          cur/ntac/ML-rewrite
-         rackunit/turnstile)
+         rackunit/turnstile+)
 
 ;; <= (example needing recursion on more than on arg)
 (define/rec/match leb : Nat Nat -> Bool

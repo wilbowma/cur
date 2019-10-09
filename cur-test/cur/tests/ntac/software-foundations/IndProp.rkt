@@ -5,7 +5,7 @@
          cur/ntac/base
          cur/ntac/standard
          cur/ntac/rewrite
-         rackunit/turnstile
+         rackunit/turnstile+
          "../rackunit-ntac.rkt")
 
 ; examples from Software Foundations IndProp.v

@@ -2,7 +2,7 @@
 (require cur/stdlib/sugar
          cur/ntac/base
          cur/ntac/standard
-         rackunit/turnstile
+         rackunit/turnstile+
          "rackunit-ntac.rkt")
 
 ;; test generalize introduces proper scopes

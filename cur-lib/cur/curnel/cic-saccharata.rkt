@@ -1,8 +1,8 @@
-#lang turnstile/lang
+#lang turnstile+/quicklang
 (require
  #;(except-in "coc-saccharata.rkt" define)
  "coc-saccharata.rkt"
- turnstile/eval turnstile/typedefs turnstile/more-utils)
+ turnstile+/eval turnstile+/typedefs turnstile+/more-utils)
 
 ;;;; The Calculus of Constructions + strictly positive inductive type schemas,
 ;;;; plus necessary sugar.
@@ -22,13 +22,13 @@
 
 ;;; Define a notion of transformer for types that can be used as patterns.
 ;;;
-;;; NOTE: This stuff will go away once we merge turnstile's generic type function
+;;; NOTE: This stuff will go away once we merge turnstile+'s generic type function
 ;;; stuff.
 ;;; -----------------------------------------------------------
 
 (begin-for-syntax
   ;; A type-pattern-transformer is a syntax-transformer that can be used as a
-  ;; turnstile typed-term or in a pattern matcher to bind its arguments.
+  ;; turnstile+ typed-term or in a pattern matcher to bind its arguments.
   (struct type-pattern-transformer (transformer pattern->ctxt)
     #:property prop:procedure (struct-field-index transformer))
 
@@ -390,7 +390,7 @@
 ; Strict positivity
 ; https://coq.inria.fr/doc/language/cic.html#positivity-condition
 (begin-for-syntax
-  ; Differs from turnstile's get-match into in that it accepts an identifer
+  ; Differs from turnstile+'s get-match-info in that it accepts an identifer
   (define (get-match-info I)
     (type-info-match (eval-syntax I)))
 

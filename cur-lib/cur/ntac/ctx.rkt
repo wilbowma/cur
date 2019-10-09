@@ -4,7 +4,7 @@
 ;; - the context for an ntac proof tree node
 
 ;; NOTE:
-;; This is different/unrelated to Turnstile's type environment representation,
+;; This is different/unrelated to Turnstile+'s type environment representation,
 ;; which is implemented with a Racket defintion context.
 ;;
 ;; More specifically, tactics require different operations, eg
@@ -211,12 +211,12 @@
 (define (ctx->stx ctxt #:do [ty-fn (λ (x) x)])
   (for/list ([(x ty) ctxt]) (list x ': (ty-fn ty))))
 
-;; converts NtacCtx to Turnstile env
+;; converts NtacCtx to Turnstile+ env
 ;; - NOTE: does not reverse scoping order, so first item is innermost scope
 (define (ctx->env c)
   (map item->stx (ctx-items c)))
 
-;; converts a CtxItem to stx object for use with turnstile
+;; converts a CtxItem to stx object for use with turnstile+
 (define (item->stx i)
   (cons (ctxitem-id i) (ctxitem-type i)))
 

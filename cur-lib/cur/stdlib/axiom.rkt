@@ -4,7 +4,7 @@
 
 (require syntax/parse/define
          racket/pretty
-         turnstile/base turnstile/typedefs
+         turnstile+/base turnstile+/typedefs
          (for-syntax racket/base (only-in racket/list append-map)))
 
 ;; runtime support for axioms

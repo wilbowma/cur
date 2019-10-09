@@ -4,7 +4,7 @@
  cur/stdlib/equality
  cur/stdlib/sugar
  cur/stdlib/sigma
- rackunit/turnstile)
+ rackunit/turnstile+)
 
 (define P (λ (x : Nat) (ML-= Nat x 5)))
 (define test-p (pair P 5 (ML-refl Nat 5)))

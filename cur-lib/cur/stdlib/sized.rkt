@@ -13,7 +13,7 @@
                      syntax/stx racket/pretty
                      macrotypes/stx-utils
                      cur/curnel/stxutils
-                     turnstile/type-constraints))
+                     turnstile+/type-constraints))
 
 
 ;; features:
@@ -195,7 +195,7 @@
                                           #`(#,@#'((x ty-to-match) ...) ; append x+tyin to pat binders+tys
                                              #,@x+τs))
                                         #'(([xpat xpatτ] ...) ...))
-     ;; check-rel used by (turnstile) bidir judgements
+     ;; check-rel used by (turnstile+) bidir judgements
      ;; - needed to check size-preservation fns
      ;; tycheck-rel used by typerules themselves
      ;; - needed for termination check of rec calls

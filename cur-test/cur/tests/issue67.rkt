@@ -1,5 +1,5 @@
 #lang cur
-(require rackunit/turnstile)
+(require rackunit/turnstile+)
 
 (define-datatype Nat : (Type 0)
   (z : Nat)

@@ -41,7 +41,7 @@
   (-> P False))
 
 (module* tauto #f
-  (require turnstile
+  (require turnstile+
            (for-syntax syntax/parse)
            (only-in "../curnel/coc-saccharata.rkt" [#%app typed-app]))
 

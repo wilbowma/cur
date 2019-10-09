@@ -5,7 +5,7 @@
  cur/stdlib/nat
  cur/stdlib/maybe
  cur/stdlib/list
- rackunit/turnstile)
+ rackunit/turnstile+)
 
 (check-type (nil Nat) : (List Nat) -> (nil Nat))
 (check-not-type (nil Nat) : (List Bool))

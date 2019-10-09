@@ -6,7 +6,7 @@
  cur/stdlib/bool
  cur/stdlib/nat
  cur/stdlib/equality
- rackunit/turnstile)
+ rackunit/turnstile+)
 
 (check-type False : Type)
 (check-type True : Type)
