@@ -197,8 +197,6 @@
      #:fail-unless (or (zero? (stx-length #'(x ...))) ; TODO: remove this restriction?
                        (zero? (stx-length #'(y ...))))
      "cannot have both pre and post pattern matching args"
-     #:fail-unless (not (zero? (+ (stx-length #'(x ...)) (stx-length #'(y ...)) (stx-length #'(ty-to-match ...)))))
-     "must have at least one argument for pattern matching"
  ;    #:do[(printf "fn: ~a ----------------\n" (stx->datum #'name))]
      #:with (([xpat xpatτ] ...) ...)
      (stx-map
@@ -206,71 +204,33 @@
         (stx-appendmap pat->ctxt pats #'(ty-to-match ...)))
       #'((pat ...) ...))
 ;     #:do[(printf "pattern binders: ~a\n" (stx->datum #'(([xpat xpatτ] ...) ...)))]
-     ; the following types only need to be used in recursive type checks
-     #:with (ty_in1/ ...) (if (not (zero? (stx-length #'(ty-to-match ...))))
-                              #'(ty_in1 ...)
-                                  (stx-map ; 'recur is for termination check
-                                (λ (t) (syntax-property t 'no-recur #t))
-                                #'(ty_in1 ...)))
-     #:with (ty_in2/ ...) (if (not (zero? (stx-length #'(ty-to-match ...))))
-                              #'(ty_in2 ...)
-                                  (stx-map ; 'recur is for termination check
-                                (λ (t) (syntax-property t 'no-recur #t))
-                                #'(ty_in2 ...)))
      #:with (x0 ...) (generate-temporaries #'(ty-to-match ...))
      #:with (([x+pat x+patτ] ...) ...) (stx-map
                                         (λ (x+τs)
-                                          #`(#,@#'((x ty_in1/) ...)
+                                          #`(#,@#'((x ty_in1) ...)
                                              #,@x+τs))
                                         #'(([xpat xpatτ] ...) ...))
      #:with (ty-to-match/ ...) (stx-map ; 'recur is for termination check
                                 (λ (t) (syntax-property t 'recur #t))
                                 #'(ty-to-match ...))
-     #:do[(define old-tycheck (current-typecheck-relation))
-          (define old-check (current-check-relation))
-          (define allowed-non-recur (sub1 (stx-length #'(ty-to-match/ ...))))
-          (define error-handler
-            (λ (t1 t2)
-              (begin (current-typecheck-relation old-tycheck)
-                     (current-check-relation old-check)
-                     (fprintf (current-error-port)
-                     "Failed termination check for arg of type ~a:\n"
-                     (stx->datum (resugar-type t1)))
-                     #f)))
-          (current-typecheck-relation ; new typecheck-relation with termination guard check
+     [([x+pat ≫ x+pat- : x+patτ] ...)
+      ([y ≫ y*- : ty_in2] ...
+       ;; for now, assume recursive references are fns
+       [name ≫ name- : (Π [x : ty_in1] ... [x0 : ty-to-match/] ... [y : ty_in2] ... ty_out)])
+      ⊢ [body ≫ body- ⇐ ty_out]
+      #:where typecheck-relation
            (λ (t1 t2)
-             (and (old-tycheck t1 t2)
-                  (let ([t2-no-recur? (syntax-property t2 'no-recur)])
-                      (begin0 (not t2-no-recur?)
-                          (when t2-no-recur?
-                              (error-handler t1 t2))))
+             (and (old-typecheck-relation t1 t2)
                   (or (not (syntax-property t2 'recur))
                       (and (syntax-property t2 'recur)
                            (let ([t1-recur-ok? (syntax-property t1 'recur)])
-                             (or t1-recur-ok?
-                                 (if (pair? (syntax-property t1 ':)) ; hack to figure out if we have a recursive def (S n)
-                                     (error-handler t1 t2)           ; TODO: use a better test here
-                                     (if (zero? allowed-non-recur)
-                                         (error-handler t1 t2)
-                                         (begin (set! allowed-non-recur (sub1 allowed-non-recur)) #t))))))))))
-            (current-check-relation
-              (λ (t1 t2)
-                (let ([old-check-res (old-check t1 t2)])
-                  (begin0 old-check-res
-                          (unless old-check-res
-                                  (current-typecheck-relation old-tycheck)
-                                  (current-check-relation old-check))))))]
-     [([x+pat ≫ x+pat- : x+patτ] ...)
-      ([y ≫ y*- : ty_in2/] ...
-       ;; for now, assume recursive references are fns
-       [name ≫ name- : (Π [x : ty_in1/] ... [x0 : ty-to-match/] ... [y : ty_in2/] ... ty_out)])
-      ⊢ body ≫ body- ⇐ ty_out] ...
-     #:do[(current-typecheck-relation old-tycheck)
-          (current-check-relation old-check)]
+                             (begin0 t1-recur-ok?
+                               (unless t1-recur-ok?
+                                 (fprintf (current-error-port)
+                                          "Failed termination check for arg of type ~a:\n"
+                                          (stx->datum (resugar-type t1))))))))))
+      #:where check-relation (current-typecheck-relation)] ...
      #:do[(define arity (stx-length #'(x ... ty-to-match ... y ...)))]
-     ;; #:do[
-     ;;      (displayln 'body-)
-     ;;      (stx-map (compose displayln syntax->datum) #'(body- ...))]
      #:with ((x*- ...) ...) (stx-map
                              (λ (x+pats)
                                (stx-take x+pats (stx-length #'(x ...))))
