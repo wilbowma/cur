@@ -5,8 +5,7 @@
 (provide define-theorem
          define-theorem/for-export
          ntac
-         ntac/debug
-         current-max-auto-depth)
+         ntac/debug)
 
 (require
   (for-syntax "ctx.rkt"
@@ -21,25 +20,19 @@
   "rewrite.rkt")
 
 (begin-for-syntax
-  (define current-hints (make-parameter null))
-
-  ; bypass phase-level restriction in hints-add!
-  ; TODO: Should be a guard on the parameter.
-  (define (set-hints! . v)
-    ; ignore any duplicate hints
-    (begin
-      (define diff-set (set-subtract (list->set (filter symbol? (map syntax->datum v)))
-                                     (list->set (map syntax->datum (current-hints)))))
-      (define diff-list
-        (filter (lambda (e) (set-member? diff-set (syntax->datum e))) v))
-      (current-hints (append diff-list (current-hints)))))
+  ; assumption: newly added hints are more relevant, so ordering matters
+  (define current-hints
+    (make-parameter null
+                    (lambda (v)
+                      (remove-duplicates v (lambda (a b) (equal? (syntax->datum a)
+                                                                 (syntax->datum b)))))))
 
   ; TODO: Probably remove; should use parameter interface, not imperative interface.
   (define-syntax (hints-add! syn)
     (syntax-case syn ()
       [(_ H ...)
-       #'(parameterize ([current-hints (append (current-hints) (list #'H ...))])
-           (lambda (ptz) ptz))]))
+       #'(begin (current-hints (append (list #'H ...) (current-hints))) ; append newer first for ordering
+                (lambda (ptz) ptz))]))
 
   (define (display-hints tz)
     (printf "~a" (map (compose symbol->string syntax->datum) (current-hints)))
@@ -122,7 +115,7 @@
                                                   (define result
                                                     (if (hash-has-key? result-hash hash-key)
                                                         (hash-ref result-hash hash-key)
-                                                        (with-handlers ([exn:fail? (lambda (e) (begin #;(printf "~a\n" e) false))])
+                                                        (with-handlers ([exn:fail? (lambda (e) false)])
                                                           (begin
                                                             (define nptz (((tactic-preset-proc tactic) thm-name) ptz))
                                                             (if (nttz-done? nptz)
@@ -167,12 +160,11 @@
   ; By default, auto only uses the hypotheses of the current goal and the
   ; hints of the database named core.
   (define ((auto^ n) ptz)
-    ; TODO More specific failure handler?
-    (define asptz (with-handlers ([exn:fail? (lambda (e) ptz)]) (by-obvious ptz)))
+    (define asptz (with-handlers ([exn:fail:ntac:goal? (lambda (e) ptz)]) (by-obvious ptz)))
     (if (nttz-done? asptz)
         asptz
         (let* ([inptz (by-intros-hints ptz)]
-               [auto-result (parameterize ([auto-result-hash (make-hash)])
+               [auto-result (parameterize ([current-auto-result-hash (make-hash)])
                               (by-auto-helper inptz n '()))])
           (if (false? auto-result)
               (raise-ntac-goal-exception "automatic proof failed")
@@ -224,5 +216,5 @@
 (define-syntax ntac/debug
   (syntax-parser
     [(_ ty . pf)
-     (parameterize ([curren-tracing? 1])
+     (parameterize ([current-tracing? 1])
        (ntac-proc #'ty #'pf))]))

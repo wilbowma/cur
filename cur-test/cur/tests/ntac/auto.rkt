@@ -35,7 +35,8 @@
   (by-rewriteL eq1)
   (by-apply eq2))
 
-(set-auto-depth! 2)
+(begin-for-syntax
+  (current-max-auto-depth 2))
 
 (define-theorem silly1p
   (∀ [n : Nat] [m : Nat] [o : Nat] [p : Nat]
@@ -44,7 +45,8 @@
          (== (pair n o) (pair m p))))
   auto)
 
-(set-auto-depth! 4)
+(begin-for-syntax
+  (current-max-auto-depth 4))
 
 (define-theorem silly2
   (∀ [n : Nat] [m : Nat] [o : Nat] [p : Nat]
