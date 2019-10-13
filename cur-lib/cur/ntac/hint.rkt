@@ -31,7 +31,7 @@
     (syntax-case syn ()
       [(_ (hints ...) ps ...)
        #'(lambda (ptz) (parameterize ([current-hints (append (list #'hints ...) (current-hints))])
-                         (foldl (lambda (p tz) (eval-proof-step tz p)) ptz (list #'ps ...))))]))
+                         (foldl (lambda (p tz) (if (nttz-done? tz) tz (eval-proof-step tz p))) ptz (list #'ps ...))))]))
  
   (define (display-hints tz)
     (printf "~a\n" (map (compose symbol->string syntax->datum) (current-hints)))
