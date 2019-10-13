@@ -27,20 +27,14 @@
                       (remove-duplicates v (lambda (a b) (equal? (syntax->datum a)
                                                                  (syntax->datum b)))))))
 
-  ; TODO: Probably remove; should use parameter interface, not imperative interface.
-  (define-syntax (hints-add! syn)
+  (define-syntax (hints syn)
     (syntax-case syn ()
-      [(_ H ...)
-       #'(begin (current-hints (append (list #'H ...) (current-hints))) ; append newer first for ordering
-                (lambda (ptz) ptz))]))
-
+      [(_ (hints ...) ps ...)
+       #'(lambda (ptz) (parameterize ([current-hints (append (list #'hints ...) (current-hints))])
+                         (foldl (lambda (p tz) (eval-proof-step tz p)) ptz (list #'ps ...))))]))
+ 
   (define (display-hints tz)
-    (printf "~a" (map (compose symbol->string syntax->datum) (current-hints)))
-    tz)
-
-  ; TODO Remove; user should use parameter interface, not imperative interface.
-  (define (clear-hints! tz)
-    (current-hints '())
+    (printf "~a\n" (map (compose symbol->string syntax->datum) (current-hints)))
     tz)
 
   ; nothing novel is introduced here, but it works better
@@ -176,10 +170,10 @@
        #`(auto^ n)]
       [_ #`(auto^ (current-max-auto-depth))]))
 
-  (define (ntac-proc ty ps)
+  (define (ntac-proc ty ps #:hints [hints (current-hints)])
     (let ()
       ; hints are only active within scope of proc
-      (parameterize ([current-hints (current-hints)])
+      (parameterize ([current-hints hints])
         (define ctxt (mk-empty-ctx))
         (define init-pt
           (new-proof-tree (cur-expand ty)))
@@ -198,8 +192,8 @@
 ;; Syntax - redefinitions using modified ntac-proc
 (define-syntax (define-theorem stx)
   (syntax-parse stx
-    [(_ x:id ty ps ...)
-     #:with e (local-expand (ntac-proc #'ty #'(ps ...)) 'expression null)
+    [(_ x:id (~optional (~seq #:hints (hints:id ...)) #:defaults ([(hints 1) null])) ty ps ...)
+     #:with e (local-expand (ntac-proc #'ty #'(ps ...) #:hints (attribute hints)) 'expression null)
      (quasisyntax/loc stx (define x e))]))
 
 (define-syntax (define-theorem/for-export stx)

@@ -92,12 +92,16 @@
   by-assumption)
 
 (define-theorem pred-example-2p
+  #:hints (pred-example-2)
   (∀ [p : Bool] [q : Bool]
      (-> (== p q)
          (== p true)
          (== (and p q) true)))
-  (hints-add! pred-example-1)
-  auto)
+  display-hints
+  (hints (pred-example-3) display-hints)
+  (hints (pred-example-1 pred-example-3)
+         display-hints
+         auto))
 
 (define-theorem plus-n-0
   (∀ [n : Nat] (== Nat n (plus n 0)))
