@@ -207,12 +207,11 @@
                                         [body (attribute body)])
                                #`(#,pats => #,body))
      (if (<= (stx-length #'(ty-to-match ...)) 1)
-         #`#,(with-handlers ([exn:fail:recur? (lambda (e) (begin (printf (exn-message e)) (fprintf (current-error-port) (exn-message e)) #'void))])
+         #`#,(with-handlers ([exn:fail:recur? (lambda (e) (begin (fprintf (current-error-port) (exn-message e)) #'void))])
                (local-expand #`(define/rec/match^ name : decls-x ... ty-to-match ... decls-y ... -> ty_out pat-bodies ...) 'top-level null))
          #`#,(for/or ([i (build-list (stx-length #'(ty-to-match ...)) values)])
                (with-handlers ([exn:fail:recur? (lambda (e) (if (< i (sub1 (stx-length #'(ty-to-match ...)))) #f (begin (fprintf (current-error-port) (exn-message e)) #'void)))])
-                 (begin (printf "~a\n" #`(define/rec/match^ name : #,i decls-x ... ty-to-match ... decls-y ... -> ty_out pat-bodies ...))
-                        (local-expand #`(define/rec/match^ name : #,i decls-x ... ty-to-match ... decls-y ... -> ty_out pat-bodies ...) 'top-level null)))))]))
+                 (local-expand #`(define/rec/match^ name : #,i decls-x ... ty-to-match ... decls-y ... -> ty_out pat-bodies ...) 'top-level null))))]))
 
 (define-typed-syntax define/rec/match^
   [(_ name:id
@@ -228,8 +227,7 @@
      "cannot have both pre and post pattern matching args"
      #:fail-unless (not (zero? (+ (stx-length #'(x ...)) (stx-length #'(y ...)) (stx-length #'(ty-to-match ...)))))
      "must have at least one argument for pattern matching"
-     #:do[(printf "~a\n~a\n~a\n" #'((pat ...) ...) #'decreasing-arg #'(ty-to-match ...))]
-     #:do[(printf "fn: ~a ----------------\n" (stx->datum #'name))]
+;     #:do[(printf "fn: ~a ----------------\n" (stx->datum #'name))]
      #:with (([xpat xpatτ] ...) ...)
      (stx-map
       (λ (pats)
