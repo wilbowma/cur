@@ -207,11 +207,11 @@
                                         [body (attribute body)])
                                #`(#,pats => #,body))
      (if (<= (stx-length #'(ty-to-match ...)) 1)
-         #`#,(with-handlers ([exn:fail:recur? (lambda (e) (begin (fprintf (current-error-port) (exn-message e)) #'void))])
-               (local-expand #`(define/rec/match^ name : decls-x ... ty-to-match ... decls-y ... -> ty_out pat-bodies ...) 'top-level null))
-         #`#,(for/or ([i (build-list (stx-length #'(ty-to-match ...)) values)])
-               (with-handlers ([exn:fail:recur? (lambda (e) (if (< i (sub1 (stx-length #'(ty-to-match ...)))) #f (begin (fprintf (current-error-port) (exn-message e)) #'void)))])
-                 (local-expand #`(define/rec/match^ name : #,i decls-x ... ty-to-match ... decls-y ... -> ty_out pat-bodies ...) 'top-level null))))]))
+         (with-handlers ([exn:fail:recur? (lambda (e) (begin (fprintf (current-error-port) (exn-message e)) #'void))])
+           (local-expand #`(define/rec/match^ name : decls-x ... ty-to-match ... decls-y ... -> ty_out pat-bodies ...) 'top-level null))
+         (for/or ([i (build-list (stx-length #'(ty-to-match ...)) values)])
+           (with-handlers ([exn:fail:recur? (lambda (e) (if (< i (sub1 (stx-length #'(ty-to-match ...)))) #f (begin (fprintf (current-error-port) (exn-message e)) #'void)))])
+             (local-expand #`(define/rec/match^ name : #,i decls-x ... ty-to-match ... decls-y ... -> ty_out pat-bodies ...) 'top-level null))))]))
 
 (define-typed-syntax define/rec/match^
   [(_ name:id
