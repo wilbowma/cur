@@ -8,12 +8,6 @@
   cur/stdlib/nat
   cur/stdlib/bool
   cur/ntac/hint
-  (except-in cur/ntac/base
-             ntac-proc
-             define-theorem
-             define-theorem/for-export
-             ntac
-             ntac/debug)
   cur/ntac/standard
   cur/ntac/rewrite)
 

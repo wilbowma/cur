@@ -12,9 +12,11 @@
    (only-meta-in 0 cur)
    (only-meta-in 0 cur/stdlib/nat)
    (only-meta-in 0 cur/stdlib/bool)
-   (only-in (only-meta-in 0 cur/stdlib/sugar) ∀ forall ->)
+   (only-in (only-meta-in 0 cur/curnel/coc-saccharata) ∀ forall ->)
    (only-meta-in 0 cur/stdlib/equality)
-   cur/ntac/base cur/ntac/standard
+   (only-in cur/ntac/base ntac ntac-proc)
+   (except-in cur/ntac/hint ntac ntac-proc) @;{ TODO: fixme }
+   cur/ntac/standard
    cur/ntac/rewrite))
 
 
@@ -60,7 +62,7 @@ These macros follow the naming convention @racket[by-_tactical].
 
 @(define curnel-eval
    (curnel-sandbox
-    "(require cur/ntac/base cur/ntac/standard cur/ntac/rewrite cur/stdlib/sugar cur/stdlib/nat cur/stdlib/bool cur/stdlib/equality)"))
+    "(require cur/ntac/hint cur/ntac/standard cur/ntac/rewrite cur/stdlib/sugar cur/stdlib/nat cur/stdlib/bool cur/stdlib/equality)")) @;{ TODO: fixme }
 
 @subsection{Usage}
 
@@ -85,10 +87,8 @@ Run the ntac @racket[tactic ...] to produce a term inhabiting @racket[type].
 @defform[(define-theorem name ty ps ...)]{
 Short hand for @racket[(define name (ntac ty ps ...))]
 @examples[#:eval curnel-eval
-(eval:alts
 (define-theorem nat-id (forall (x : Nat) Nat)
   by-intro by-assumption)
-(void))
 ]
 }
 
@@ -465,49 +465,6 @@ for recursive arguments.
 
 }
 
-@defform*[((by-destruct/elim name)
-           (by-destruct/elim name #:as param-namess))]{
-
-Short hand for @racket[(fill (destruct/elim #'x))] or @racket[(fill (destruct/elim #'x #'param-namess))].
-
-@examples[#:eval curnel-eval
-(define negb
-  (λ [b : Bool]
-    (new-elim b (λ [b : Bool] Bool) false true)))
-(negb true)
-(negb false)
-(negb (negb true))
-(negb (negb false))
-
-(define-theorem negb-invol
-  (forall [b : Bool] (== Bool (negb (negb b)) b))
-  (by-intro b)
-  (by-destruct/elim b)
-  @code:comment{true case}
-  display-focus
-  simpl
-  display-focus
-  reflexivity
-  @code:comment{false case}
-  display-focus
-  simpl
-  display-focus
-  reflexivity)
-]
-}
-
-@defproc[(destruct/elim [name identifier?] [param-namess syntax? #f]) tactical?]{
-
-Splits the goal into @racket[n] subgoals, where
-@racket[n] is the number of possible cases for @racket[name].
-
-The resulting proof term uses @racket[new-elim].
-
-@racket[param-namess] should be a list of list of identifiers, which are used
-as the binders in each clause. If not specified, the original binder names from
-the @racket[data] declaration are used.
-}
-
 @; induction ----------------------------------------
 
 @defform[(by-induction name #:as param-namess)]{
@@ -569,6 +526,111 @@ Handles @racket[exn:fail:ntac:goal] by printing the message and continuing the R
   by-obvious)
  z))
 ]
+}
+
+@; auto ----------------------------------------
+
+@section{Auto-related Tactics}
+@defmodule[cur/ntac/hint]
+Ntac provides an automatic proof solving tactic that generates proof steps
+using pairs of tactic presets and identifiers from the current context and a
+user-defined hints database.
+
+@defthing[auto tactic?]{
+The Cur implementation of @hyperlink["https://coq.inria.fr/refman/proof-engine/tactics.html#coq:tacn.auto" "Coq's auto"].
+
+We first try @racket[by-obvious] for trivial goals. If this fails, we then
+introduce each variable to context and exhaustively attempt pairings of preset
+tactics and identifiers.
+
+The tactic returns when either the @racket[goal] has
+been completed or the maximum number of tactic applications specified by
+@racket[current-max-auto-depth] has been reached.
+
+@examples[#:eval curnel-eval
+  (define-theorem plus-n-0
+    (∀ [n : Nat] (== Nat n (plus n 0)))
+      auto)
+]
+}
+
+@defthing[current-max-auto-depth parameter?]{
+A phase 1 parameter for defining the maximum search depth for @racket[auto]. By
+default, up to 4 tactics are applied to the initial tree zipper state before
+failure.
+}
+
+@defthing[current-hints parameter?]{
+A phase 1 parameter denoting the current hints database used by @racket[auto]. By
+default, this parameter is empty.
+
+Uses a @racket[guard] to ensure that values are ordered and unique. The ordering
+of the hints determines the order of @racket[tactic] application.
+}
+
+@defthing[display-hints tactic?]{
+Print the local hints database.
+}
+
+@defform[(define-theorem #:hints (hint ...) name ty ps ...)]{
+Short hand for @racket[(define name (ntac ty ps ...))].
+
+Optionally allows for specification of a hints database scoped to the theorem.
+               
+@examples[#:eval curnel-eval
+(define-theorem pred-example-1
+  (∀ [p : Bool]
+     (== (and p p) p))
+  (by-intros p)
+  (by-destruct p)
+  reflexivity
+  reflexivity)
+(define-theorem pred-example-2
+  #:hints (pred-example-1)
+  (∀ [p : Bool] [q : Bool]
+     (-> (== p q)
+         (== p true)
+         (== (and p q) true)))
+  display-hints
+  auto)
+]
+}
+
+@defform[(hints hint ...)]{
+Create a new hints database closure extending @racket[current-hints] while
+prepending the specified list of hints.
+
+@examples[#:eval curnel-eval
+(define-theorem pred-example-1
+  (∀ [p : Bool]
+     (== (and p p) p))
+  (by-intros p)
+  (by-destruct p)
+  reflexivity
+  reflexivity)
+(define-theorem pred-example-2
+  #:hints (pred-example-1)
+  (∀ [p : Bool] [q : Bool]
+     (-> (== p q)
+         (== p true)
+         (== (and p q) true)))
+  display-hints
+  (hints (pred-example-2) display-hints)
+  display-hints
+  auto)
+]
+}
+
+@defstruct*[tactic-preset ([proc tactic?] [id syntax?] [no-name-arg? boolean?]) #:transparent]{
+A preset definition of a @racket[tactic]. Includes metadata for the desired
+identifier and whether the tactic consumes an identifier when invoked.
+}
+
+@defthing[current-auto-tactics parameter?]{
+A phase 1 parameter for denoting the list of @racket[tactic-preset] to try for @racket[auto].
+
+The ordering of the presets determines execution order, so it is recommended to
+arrange base cases first (e.g. @racket[by-assumption]).
 }
 
 @; rewrite subsec ----------------------------------------
@@ -642,151 +704,6 @@ Rewrites from left-to-right (equivalent to Coq's @tt{<-}), i.e.,
 for a theorem @racket[(== A x y)], @racket[y] is replaced with @racket[x].
 }
 
-
-@; rewrite/thm ----------------------------------------
-
-@defform[(by-rewrite/thm thm . es)]{
-Rewrites the current goal with @racket[thm], where @racket[thm] is a theorem
-defined with @racket[define-theorem], instantiating with @racket[es] if
-necessary.
-
-Rewrites from right-to-left (equivalent to Coq's @tt{->}), i.e.,
-for a theorem @racket[(== A x y)], @racket[x] is replaced with @racket[y].
-
-Short hand for @racketblock[(let ([thm-info (syntax-local-eval #'thm)])
-                              (fill (rewrite #'thm
-                                             #:thm-name (theorem-info-name thm-info)
-                                             #:thm (theorem-info-orig thm-info)
-                                             #:es #'es)))]
-
-@examples[#:eval curnel-eval
-(define-theorem negb-invol
-  (forall [b : Bool] (== Bool (not (not b)) b))
-  (by-intro b)
-  (by-destruct/elim b)
-  simpl
-  reflexivity
-  simpl
-  reflexivity)
-(define-theorem not-applied-twice
-  (∀ [f : (-> Bool Bool)]
-     (-> (∀ [x : Bool] (== Bool (f x) (not x)))
-         (∀ [b : Bool] (== Bool (f (f b)) b))))
-  (by-intros f H b)
-  display-focus
-  (by-rewrite H b)
-  display-focus
-  (by-rewrite H (not b))
-  display-focus
-  (by-rewrite/thm negb-invol b)
-  display-focus
-  reflexivity)
-]
-}
-
-@defform[(by-rewriteR/thm thm . es)]{Same as @racket[(by-rewrite/thm thm . es)].}
-
-@defform[(by-rewriteL/thm thm . es)]{
-Rewrites the current goal with @racket[thm], where @racket[thm] is a theorem
-defined with @racket[define-theorem], instantiating with @racket[es] if
-necessary.
-
-Rewrites from left-to-right (equivalent to Coq's @tt{<-}), i.e.,
-for a theorem @racket[(== A x y)], @racket[y] is replaced with @racket[x].
-
-Short hand for @racketblock[(let ([thm-info (syntax-local-eval #'thm)])
-                              (fill (rewrite #'thm
-                                             #:thm-name (theorem-info-name thm-info)
-                                             #:thm (theorem-info-orig thm-info)
-                                             #:left? #t
-                                             #:es #'es)))]
-}
-
-
-
-@; rewrite/thm/normalized ----------------------------------------
-@defform[(by-rewrite/thm/normalized thm . es)]{
-
-Rewrites the current goal with the @emph{normalized} version of @racket[thm],
-where @racket[thm] is a theorem defined with @racket[define-theorem],
-instantiating with @racket[es] if necessary.
-
-Rewrites from right-to-left (equivalent to Coq's @tt{->}), i.e.,
-for a theorem @racket[(== A x y)], @racket[x] is replaced with @racket[y].
-
-Short hand for @racketblock[(let ([thm-info (syntax-local-eval #'thm)])
-                              (fill (rewrite #'thm
-                                             #:thm-name (theorem-info-name thm-info)
-                                             #:thm (cur-reflect (identifier-info-type thm-info))
-                                             #:es #'es)))]
-
-@examples[#:eval curnel-eval
-(define-theorem plus-n-0
-  (∀ [n : Nat] (== Nat n (plus n z)))
-  (by-intro n)
-  simpl ;; this step doesnt do anything except get everything in expanded form
-  (by-induction n #:as [() (n-1 IH)])
-  @code:comment{zero case}
-  reflexivity
-  @code:comment{succ case}
-  simpl
-  (by-rewriteL IH)
-  reflexivity)
-(define-theorem plus-n-Sm
-  (∀ [n : Nat] [m : Nat]
-     (== Nat (s (plus n m)) (plus n (s m))))
-  (by-intro n)
-  (by-intro m)
-  simpl
-  (by-induction n #:as [() (n-1 IH)])
-  @code:comment{zero case}
-  simpl
-  reflexivity
-  @code:comment{succ case}
-  simpl
-  (by-rewrite IH)
-  reflexivity)
-
-(define-theorem plus_comm
-  (∀ [n : Nat] [m : Nat]
-     (== Nat (plus n m) (plus m n)))
-  (by-intro n)
-  (by-intro m)
-  simpl
-  (by-induction n #:as [() (n-1 IH)])
-  @code:comment{zero case}
-  simpl
-  display-focus
-  (by-rewriteL/thm/normalized plus-n-0 m)
-  display-focus
-  reflexivity
-  @code:comment{succ case}
-  simpl
-  (by-rewriteL/thm/normalized plus-n-Sm m n-1)
-  (by-rewrite IH)
-  reflexivity)
-]
-}
-
-@defform[(by-rewriteR/thm/normalized thm . es)]{Same as @racket[(by-rewrite/thm/normalized thm . es)].}
-
-@defform[(by-rewriteL/thm/normalized thm . es)]{
-
-Rewrites the current goal with the @emph{normalized} version of @racket[thm],
-where @racket[thm] is a theorem defined with @racket[define-theorem],
-instantiating with @racket[es] if necessary.
-
-Rewrites from left-to-right (equivalent to Coq's @tt{<-}), i.e.,
-for a theorem @racket[(== A x y)], @racket[y] is replaced with @racket[x].
-
-Short hand for @racketblock[(let ([thm-info (syntax-local-eval #'thm)])
-                              (fill (rewrite #'thm
-                                             #:thm-name (theorem-info-name thm-info)
-                                             #:thm (cur-reflect (identifier-info-type thm-info))
-                                             #:left? #t
-                                             #:es #'es)))]
-}
-
 @; rewrite ----------------------------------------
 @defproc[(rewrite [name identifier?] [#:left? left? boolean? #f]
                                      [#:es es syntax? #'()]
@@ -811,6 +728,38 @@ Replaces instances of @racket[from] in the goal, which has type @racket[ty],
 with @racket[to]. Adds @racket[ty] as a subgoal.
 
 @examples[#:eval curnel-eval
+(define-theorem plus-n-Sm
+    (∀ [n : Nat] [m : Nat]
+       (== Nat (s (plus n m)) (plus n (s m))))
+    (by-intro n)
+    (by-intro m)
+    simpl
+    (by-induction n #:as [() (n-1 IH)])
+    ; zero case
+    simpl
+    reflexivity
+    ; succ case
+    simpl
+    (by-rewrite IH)
+    reflexivity)
+(define-theorem plus_comm
+    (∀ [n : Nat] [m : Nat]
+       (== Nat (plus n m) (plus m n)))
+    (by-intro n)
+    (by-intro m)
+    simpl
+    (by-induction n #:as [() (n-1 IH)])
+    ; zero case
+    simpl
+    display-focus
+    (by-rewriteL plus-n-0 m)
+    display-focus
+    reflexivity
+    ; succ case
+    simpl
+    (by-rewriteL plus-n-Sm m n-1)
+    (by-rewrite IH)
+    reflexivity)
 (define-theorem plus-assoc
   (∀ [n : Nat] [m : Nat] [p : Nat]
      (== Nat (plus n (plus m p)) (plus (plus n m) p)))
@@ -828,15 +777,15 @@ with @racket[to]. Adds @racket[ty] as a subgoal.
      (== Nat (plus n (plus m p))
                (plus m (plus n p))))
   (by-intros n m p)
-  (by-rewrite/thm plus-assoc n m p)
+  (by-rewrite plus-assoc n m p)
   display-focus
   (by-replace Nat (plus n m) (plus m n))
   display-focus
-  (by-rewriteL/thm plus-assoc m n p)
+  (by-rewriteL plus-assoc m n p)
   reflexivity
   @code:comment{proof of by-replace theorem}
   display-focus
-  (by-rewrite/thm plus_comm m n)
+  (by-rewrite plus_comm m n)
   display-focus
   reflexivity)
 ]
