@@ -32,14 +32,14 @@
   (struct type-pattern-transformer (transformer pattern->ctxt)
     #:property prop:procedure (struct-field-index transformer))
 
-  ;; Transform a pattern `pat` of 'type' `ty` into a a ctxt, representing the
+  ;; Transform a pattern `pat` of 'type' `ty` into a ctxt, representing the
   ;; arguments (and their types) that will be bound in the clause of matcher
   ;; using this pattern.
   (define (pattern->ctxt pat ty)
     (syntax-parse pat
       [(~or C:id (C:id . _))
        #:when (type-pattern-transformer? (syntax-local-value #'C (λ () #f)))
-       ((type-pattern-transformer-pattern->ctxt (syntax-local-value #'C)) pat (syntax-property ty 'recur #t))]
+       ((type-pattern-transformer-pattern->ctxt (syntax-local-value #'C)) pat ty)]
       ; datum
       [(~datum _) null]
       ; pattern variable case
@@ -240,9 +240,16 @@
 
    ; Replace recursive references to `TY-` by the surface `TY` in the types of
    ; constructors, and unexpand them in the context of `TY`.
-   #:with ((τin ... τout) ...) (stx-map
-                                (λ (ts) (stx-map (unexpand/ctx #'TY) ts))
-                                (subst #'TY #'TY- #'((τin_ ... τout_) ...)))
+    #:with ((τin^ ... τout) ...) (stx-map
+                                 (λ (ts) (stx-map (unexpand/ctx #'TY) ts))
+                                 (subst #'TY #'TY- #'((τin_ ... τout_) ...)))
+
+   ; Decorate each recursive argument's type with a 'recur property.
+   #:with ((τin ...) ...) (for/list ([types (attribute τin^)])
+                            (for/list ([A types])
+                              (if (free-identifier=? (get-curried-operator A) #'TY)
+                                (syntax-property A 'recur #t #t)
+                                A)))
 
    ; Figure out the recursive arguments.
    ; Each `xrec ...` is the subset of `x ...` that are recur arguments, i.e.,

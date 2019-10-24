@@ -30,12 +30,12 @@
    [(s x) => (bad-plus (s x) n)])
  #:with-msg "type mismatch.*s x")
 
-(typecheck-fail/toplvl
- (define/rec/match bad-minus : Nat Nat -> Nat
+(define/rec/match bad-minus : Nat Nat -> Nat
    [z _ => z]
    [(s n-1) z => (s n-1)]
    [(s n-1) (s m-1) => (bad-minus n-1 (s m-1))])
- #:with-msg "type mismatch.*s m-1")
+
+(check-type bad-minus : (-> Nat Nat Nat))
 
 ; more examples, courtesy of issue #93
 (typecheck-fail/toplvl
@@ -46,7 +46,7 @@
 (typecheck-fail/toplvl
   (define/rec/match bang!1 : [n : Nat] -> (== 0 1)
     [=> (bang!1 n)])
- #:with-msg "type mismatch.*n")
+ #:with-msg "must have at least one argument for pattern matching")
 
 (typecheck-fail/toplvl
   (define/rec/match bang!2 : -> (== 0 1)
@@ -63,6 +63,8 @@
 (define/rec/match multi-pat : Nat Nat Nat -> Nat
   [_ _ z => 0]
   [n m (s l-1) => (multi-pat n m l-1)])
+
+(check-type multi-pat : (-> Nat Nat Nat Nat))
 
 ;; from Gimenez 1995
 ;; example that is easy for pattern match, hard with Nat elim
