@@ -3,7 +3,7 @@
  cur/stdlib/sugar
  cur/stdlib/nat
  cur/stdlib/bool
- rackunit/turnstile)
+ rackunit/turnstile+)
 
 (typecheck-fail/toplvl (define add2 (λ x x))
  #:with-msg "no expected type, add annotations")

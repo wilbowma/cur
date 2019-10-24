@@ -2,7 +2,7 @@
 (require
  cur/stdlib/sugar
  cur/stdlib/prop
- rackunit/turnstile)
+ rackunit/turnstile+)
 
 (typecheck-fail/toplvl
  (define-datatype Nat : Type

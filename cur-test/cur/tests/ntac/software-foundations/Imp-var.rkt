@@ -11,7 +11,7 @@
  cur/ntac/base
  cur/ntac/standard
  cur/ntac/rewrite
- rackunit/turnstile
+ rackunit/turnstile+
  "../rackunit-ntac.rkt")
 
 ;; nb: this file may take a few min to run

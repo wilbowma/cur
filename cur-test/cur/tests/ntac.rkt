@@ -2,7 +2,7 @@
 
 (require
  "ntac/rackunit-ntac.rkt"
- rackunit/turnstile
+ rackunit/turnstile+
  cur/stdlib/nat
  cur/stdlib/bool
  cur/stdlib/prop

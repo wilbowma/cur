@@ -5,7 +5,7 @@
          cur/ntac/standard
          cur/ntac/rewrite
          "../rackunit-ntac.rkt"
-         rackunit/turnstile)
+         rackunit/turnstile+)
 
 ;; This file is similar to Poly.rkt, except it tries to use as many implicit
 ;; args as possible

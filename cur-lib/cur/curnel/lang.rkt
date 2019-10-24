@@ -19,18 +19,18 @@
 
 (require (for-syntax racket/base syntax/parse racket/syntax))
 
-(require (only-in turnstile/base
+(require (only-in turnstile+/base
                   define-typed-syntax syntax-parse/typecheck get-orig assign-type
                   define-typed-variable-syntax current-typecheck-relation
                   current-check-relation
                   subst substs typecheck? typechecks? typeof add-expected-type
                   current-type-eval expand/df typecheck-fail-msg/multi
                   ⇒ ⇐ ≫ ⊢ ≻)
-         turnstile/eval
-         turnstile/typedefs
+         turnstile+/eval
+         turnstile+/typedefs
          (for-syntax macrotypes/stx-utils syntax/stx
                      (for-syntax racket/base syntax/parse)))
-(provide (all-from-out turnstile/base turnstile/eval turnstile/typedefs))
+(provide (all-from-out turnstile+/base turnstile+/eval turnstile+/typedefs))
 
 (require "cic-saccharata.rkt")
 (provide (all-from-out "cic-saccharata.rkt"))

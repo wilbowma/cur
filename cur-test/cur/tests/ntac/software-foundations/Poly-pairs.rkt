@@ -4,7 +4,7 @@
          cur/ntac/base
          cur/ntac/standard
          cur/ntac/rewrite
-         rackunit/turnstile
+         rackunit/turnstile+
          "../rackunit-ntac.rkt")
 
 ;; part 2 of 3 of Software Foundations Poly.v chapter

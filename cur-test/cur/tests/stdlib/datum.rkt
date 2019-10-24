@@ -2,7 +2,7 @@
 (require
  cur/stdlib/datum
  cur/stdlib/bool ; as a concrete type/value
- rackunit/turnstile)
+ rackunit/turnstile+)
 
 (typecheck-fail "" #:with-msg "Could not find datum parser")
 (typecheck-fail 0 #:with-msg "Could not find datum parser")

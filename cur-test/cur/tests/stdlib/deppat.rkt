@@ -3,7 +3,7 @@
  cur/stdlib/sugar
  cur/stdlib/nat
  cur/stdlib/bool
- rackunit/turnstile)
+ rackunit/turnstile+)
 
 ;; tests for dependent pattern matching; from Cockx thesis
 

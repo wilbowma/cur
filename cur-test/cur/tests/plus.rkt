@@ -2,7 +2,7 @@
 
 (require
  cur/stdlib/sugar
- rackunit/turnstile)
+ rackunit/turnstile+)
 
 (data Nat : 0 Type
   (z : Nat)

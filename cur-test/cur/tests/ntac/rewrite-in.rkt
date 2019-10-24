@@ -6,7 +6,7 @@
          cur/ntac/standard
          cur/ntac/rewrite
          "rackunit-ntac.rkt"
-         rackunit/turnstile)
+         rackunit/turnstile+)
 
 ;; test rewriting in ctx hypotheses
 

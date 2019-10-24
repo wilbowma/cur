@@ -11,7 +11,7 @@
          cur/ntac/base
          cur/ntac/standard
          cur/ntac/ML-rewrite
-         rackunit/turnstile
+         rackunit/turnstile+
          "rackunit-ntac.rkt")
 
 ;; separate tests for destruct tactic

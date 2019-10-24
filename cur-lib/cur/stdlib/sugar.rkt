@@ -14,7 +14,7 @@
                      syntax/stx racket/pretty
                      macrotypes/stx-utils
                      cur/curnel/stxutils
-                     turnstile/type-constraints))
+                     turnstile+/type-constraints))
 
 (define-typed-syntax let
   [(_ ((~or (~describe "unannotated" [x:id ex])
@@ -392,7 +392,7 @@
                      constraints)))]
        ;; TODO: fail if couldnt infer all Ximplicit?
        #:with τexplicits/inst (inst-types/cs/orig #'(Ximplicit ...) substs #'τexplicits datum=?)
-;       [⊢ Y ≫ Y- ⇐ τexplicit/inst] (... ...) ; TODO: Turnstile not liking this (... ...) ellipses syntax
+;       [⊢ Y ≫ Y- ⇐ τexplicit/inst] (... ...) ; TODO: Turnstile+ not liking this (... ...) ellipses syntax
        #:with Ys- (for/list ([y (in-stx-list #'Ys)]
                              [t (in-stx-list #'τexplicits/inst)])
                     (expand/df (add-expected-type y t)))
@@ -422,7 +422,7 @@
                constraints))]
         ;; TODO: fail if couldnt infer type for all Ximplicit?
         #:with τexplicits/inst (inst-types/cs/orig #'(Ximplicit ...) substs #'τexplicits datum=?)
-;        [⊢ Y ≫ Y- ⇐ τexplicit/inst] (... ...) ; Turnstile doesnt like this nested ellipsis
+;        [⊢ Y ≫ Y- ⇐ τexplicit/inst] (... ...) ; Turnstile+ doesnt like this nested ellipsis
        #:with Ys- (for/list ([y (in-stx-list #'Ys)]
                              [t (in-stx-list #'τexplicits/inst)])
                     (expand/df (add-expected-type y t)))

@@ -1,7 +1,7 @@
-#lang turnstile/lang
+#lang turnstile+/quicklang
 (require
- turnstile/more-utils
- (for-syntax turnstile/more-utils)
+ turnstile+/more-utils
+ (for-syntax turnstile+/more-utils)
  "coc.rkt")
 
 ;;;; CoC saccharata (after zea saccharata)

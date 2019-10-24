@@ -6,7 +6,7 @@
 (provide check-ntac-fail check-ntac-trace ntac/trace ntac/trace/raw :: check-equal?)
 
 (require rackunit
-         (only-in rackunit/turnstile check-type)
+         (only-in rackunit/turnstile+ check-type)
          syntax/parse/define
          (for-syntax racket/base
                      racket/port
