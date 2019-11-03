@@ -229,6 +229,7 @@
     (or (empty? ty-pats)
         (and (or (for/or ([pat patterns])
                    (typecase-match pat (first ty-pats)))
+                 ; TODO: raise exception instead of returning bool?
                  (begin (printf "Missing case for ~a:\n~a\n" patvar (first ty-pats)) #f))
              (patvar-is-total? patvar patterns (rest ty-pats)))))
 
