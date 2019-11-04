@@ -157,9 +157,7 @@
                                                                  (append (payload-body old-res) (payload-body p))
                                                                  (for/list ([old-temp (payload-temp-indices old-res)]
                                                                             [new-temp (payload-temp-indices p)])
-                                                                   (if (false? old-temp)
-                                                                       new-temp
-                                                                       old-temp))
+                                                                   (or old-temp new-temp))
                                                                  (append (payload-pats old-res) (payload-pats p))
                                                                  (min (payload-min-idx p) (payload-min-idx old-res)))))
                               (hash-set! pat-hash key p))))
