@@ -82,7 +82,10 @@
   (define current-proof null)
   (define (reset-current-proof!)
     (set! current-proof null))
-  (define (current-proof-add! stx)
+  (define (current-proof-pop!)
+    (unless (null? current-proof)
+      (set! current-proof (cdr current-proof))))
+  (define (current-proof-push! stx)
     (set! current-proof (cons stx current-proof)))
 (define-tactical interactive
   [:id
@@ -97,10 +100,11 @@
                           [(_ . cmd)
                            (esc #'cmd)]))])
         (read-eval-print-loop))))
-  (current-proof-add! cmd-stx)
+  (current-proof-push! cmd-stx)
   (define next-ptz
-    (with-handlers ([exn:fail:ntac:goal?
+    (with-handlers ([exn:fail?
                      (lambda (e)
+                       (current-proof-pop!)
                        (displayln (exn->string e))
                        curr-ptz)])
       (eval-proof-step curr-ptz cmd-stx)))
