@@ -1,5 +1,7 @@
 #lang s-exp "../main.rkt"
 
+(provide (for-syntax (all-defined-out)))
+
 (require (for-syntax racket/bool
                      racket/list
                      racket/pretty
@@ -24,12 +26,7 @@
   (struct nested (patvar matches) #:transparent)
   (struct nested-match (pat nested-or-body) #:transparent)
   (struct nested-body (body) #:transparent)
-
-  ;; TODO: for any identifier that's not a type constructor (e.g. s, cons)
-  ;; we want to generate fresh temporaries so that we don't introduce
-  ;; weird binding issues when we rewrite
-  (define (fresh-temporaries pats-list body) #'void)
-
+  
   ;; given an input of form:
   ;; ((n m)
   ;;  ([z z => A]
@@ -50,7 +47,7 @@
   ;; temp-args is used for recursively building up temporaries from complicated patterns  
   (struct temp-args (pat-with-temps temp-indices counter) #:transparent)
   ;; payload represents the data to be aggregated on a key, based on the temp-args
-  (struct payload (pat remaining-pat body temp-indices pats) #:transparent)
+  (struct payload (pat remaining-pat body temp-indices pats min-idx) #:transparent)
 
   ;; returns a nested object
   ;; create prefix tree by keying on the datum of the first pattern of the match case
@@ -81,7 +78,8 @@
                       ; and the resulting body
                       (for ([pat (map first pats-list)]
                             [sub-pat-list (map rest pats-list)]
-                            [body bodies])
+                            [body bodies]
+                            [idx (in-naturals)])
                         (let* ([pat-datum (syntax->datum pat)]
                                ; in general, we can group by the constructor pattern and the number of arguments
                                ; by representing arguments using a literal * - e.g. (s x) -> (s *)
@@ -104,6 +102,11 @@
                                ; we also produce a list the length of the number of arguments for the constructor
                                ; denoting which indices use temporaries (a reference to the temporary) and which
                                ; do not (false).
+                               ; TODO #1: probably need to generate temporaries for everything, and rewrite the usages
+                               ; within the bodies correspondingly
+                               ; TODO #2: we probably need to lookup whether or not a pattern variable is a constructor
+                               ; or not, if it is then we should generate a new match case for it. e.g. (s z) has a very
+                               ; different meaning from (s x)!
                                [t (if (not (false? constructor-args))
                                       (foldl (lambda (v rsf)
                                                ; is this a nested constructor?
@@ -134,7 +137,8 @@
                                            (list sub-pat-list)
                                            (list body)
                                            (temp-args-temp-indices t)
-                                           (list pat))])
+                                           (list pat)
+                                           idx)])
                           ; now we insert the payload into the hash
                           (if (hash-has-key? pat-hash key)
                               (let* ([old-res (hash-ref pat-hash key)]
@@ -149,21 +153,23 @@
                                 ; key exists, so we merge the result in; temporary indices should be OR'd on
                                 ; so that we can generate the correct branching
                                 (hash-set! pat-hash key (payload new-name
-                                                                 (append (payload-remaining-pat p) (payload-remaining-pat old-res))
-                                                                 (append (payload-body p) (payload-body old-res))
+                                                                 (append (payload-remaining-pat old-res) (payload-remaining-pat p))
+                                                                 (append (payload-body old-res) (payload-body p))
                                                                  (for/list ([old-temp (payload-temp-indices old-res)]
                                                                             [new-temp (payload-temp-indices p)])
                                                                    (if (false? old-temp)
                                                                        new-temp
                                                                        old-temp))
-                                                                 (append (payload-pats p) (payload-pats old-res)))))
+                                                                 (append (payload-pats old-res) (payload-pats p))
+                                                                 (min (payload-min-idx p) (payload-min-idx old-res)))))
                               (hash-set! pat-hash key p))))
                       (hash->list pat-hash))])
               ; iterate over key-value pairs of the map, for each value generate a new pattern match branch each with its
               ; own remaining set of branches and bodies to explore
-              (for/list ([unique-entry unique-entries])
-                (let ([unique-val (cdr unique-entry)]
-                      [unique-key (car unique-entry)])
+              ; might be worth it to do extra work to keep things sorted
+              (for/list ([ordered-entry (sort unique-entries < #:key (lambda (e) (payload-min-idx (cdr e))))])
+                (let ([unique-val (cdr ordered-entry)]
+                      [unique-key (car ordered-entry)])
                   (create-nested-pattern-helper-match (append (filter (compose not false?) (payload-temp-indices unique-val)) (rest patvars))
                                                       (payload-pat unique-val)
                                                       ; at this point we know where all the temporaries are, so we can reference
@@ -197,145 +203,53 @@
     (if (nested-body? (nested-match-nested-or-body match))
         rsf
         (fold-nested proc rsf (nested-match-nested-or-body match))))
+  
+  ;; equality check
+  (define (nested-equal? n1 n2 #:raise-exn? [raise-exn? #t])
+    (let ([res (and (equal? (syntax->datum (nested-patvar n1))
+                            (syntax->datum (nested-patvar n2)))
+                    (= (length (nested-matches n1))
+                       (length (nested-matches n2)))
+                    (for/and ([m1 (nested-matches n1)]
+                              [m2 (nested-matches n2)])
+                      (nested-match-equal? m1 m2 #:raise-exn? raise-exn?)))])
+      (begin (and raise-exn? (not res)
+                  (raise (exn (format "Failed at:\nn1:\n~a\nn2:\n~a\n" n1 n2)
+                              (current-continuation-marks))))
+             res)))
 
-  ;; matches tokens only; wildcards for input consume an entire token while
-  ;; for the matching token we need to ensure that it doesn't match composite
-  ;; terms - TODO: is this what we want? also, using * instead of _ since actual
-  ;; input may contain _
-  (define (token-match tok-input tok-to-match)
-    (or (or
-         (equal? tok-input '_)
-         (and (equal? tok-to-match '_)
-              (not (list? tok-input))))
-        (equal? tok-input tok-to-match)))
+  (define (nested-match-equal? m1 m2 #:raise-exn? [raise-exn? #t])
+    (let ([res (and (equal? (syntax->datum (nested-match-pat m1))
+                            (syntax->datum (nested-match-pat m2)))
+                    (or (and (nested-body? (nested-match-nested-or-body m1))
+                             (nested-body? (nested-match-nested-or-body m2))
+                             (equal? (syntax->datum (nested-body-body (nested-match-nested-or-body m1)))
+                                     (syntax->datum (nested-body-body (nested-match-nested-or-body m2)))))
+                        (and (nested? (nested-match-nested-or-body m1))
+                             (nested? (nested-match-nested-or-body m2))
+                             (nested-equal? (nested-match-nested-or-body m1) (nested-match-nested-or-body m2) #:raise-exn? raise-exn?))))])
+      (begin (and raise-exn? (not res)
+                  (raise (exn (format "Failed at:\nm1:\n~a\nm2:\n~a\n" m1 m2) (current-continuation-marks))))
+             res)))
 
-  ;; recursively checks the first element of a pattern, e.g. (s x) and (s _) match.
-  ;; both patterns must be either pattern variables or constructors of the same length.
-  ;; allow pattern to be wildcard, in which case we trivially return true
-  (define (typecase-match pat ty-pat)
-    (or (and (not (list? pat))
-             (equal? pat '_))
-        (and (equal? (list? ty-pat) (list? pat))
-             (if (not (list? ty-pat))
-                 (token-match pat ty-pat)
-                 (and (= (length ty-pat) (length pat))
-                      (or (empty? ty-pat)
-                          (and (token-match (first pat) (first ty-pat))
-                               (typecase-match (rest pat) (rest ty-pat)))))))))
-
-  ;; given a list of patterns associated with a pattern variable and a list of expected
-  ;; type cases, returns true if all type cases can be matched
-  (define (patvar-is-total? patvar patterns ty-pats)
-    (or (empty? ty-pats)
-        (and (or (for/or ([pat patterns])
-                   (typecase-match pat (first ty-pats)))
-                 ; TODO: raise exception instead of returning bool?
-                 (begin (printf "Missing case for ~a:\n~a\n" patvar (first ty-pats)) #f))
-             (patvar-is-total? patvar patterns (rest ty-pats)))))
-
-  ;; retrieves the case patterns associated with a pattern variable's type
-  ;; TODO: actually pull the information over, not just offer the Nat stubs
-  (define (pats-for-typeof patvar)
-    (syntax->datum #'(z (s _))))
-    
-  ;; a pattern match is total if every layer of the nested representation is total
-  (define (total? in-pat)
-    (fold-nested (lambda (n init)
-                   (and init ; let's just go for performance over exhaustive warnings
-                        (patvar-is-total? (syntax->datum (nested-patvar n))
-                                          (map (compose syntax->datum nested-match-pat) (nested-matches n))
-                                          (pats-for-typeof (nested-patvar n)))))
-                 #t
-                 (create-nested-pattern in-pat))))
-
-;; TODO: delete these temporary test functions
-;; TODO2: most likely move the totality checking into a separate file that imports this
-;; ----------------------------------------------
-(define-syntax (print-nested stx)
-  (syntax-parse stx
-    [(_ pat) (begin (printf "INPUT:\n") (pretty-print (syntax->datum #'pat))
-                    (printf "NESTED:\n") (pretty-print (create-nested-pattern #'pat))
-                    #'void)]))
-
-(define-syntax (test stx)
-  (syntax-parse stx
-    [(_ in-pat) (begin (printf "TOTALITY CHECK:\n~a\n" (syntax->datum #'in-pat))
-                       (printf "RESULT:\n~a\n" (total? (attribute in-pat)))
-                       #'void)]))
-
-;; ----------------------------------------------
-
-;; NESTED TREE TESTS
-
-(print-nested
- ((n m) ([z z => A] [z (s x) => B])))
-
-(print-nested
- ((n m)
-  ([z _ => z]
-   [(s n-1) z => (s n-1)]
-   [(s n-1) (s m-1) => (bad-minus n-1 (s m-1))])))
-
-(print-nested
- ((n m o)
-  ([z _ (s o-1) => z]
-   [(s n-1) z (s o-1) => (s n-1)]
-   [(s n-1) (s m-1) z => (bad-minus n-1 (s m-1))])))
-
-(print-nested
- ((a b)
-  ([(nil _) (nil _) => true]
-   [(nil _) (cons _ _ _) => false]
-   [(cons _ _ _) (nil _) => false]
-   [(cons _ a rsta) (cons _ b rstb) => (and (f a b) (andmap2 A B f rsta rstb))])))
-
-;; ADDITIONAL NESTING
-
-(print-nested
- ((e1 e2)
-  ([z z => A]
-   [(s (s e2)) (s m) => B])))
-
-(print-nested
- ((e1 e2)
-  ([z z => A]
-   [(s (s e2)) z => B]
-   [(s (s e2)) (s m) => C])))
-
-(print-nested
- ((e1 e2)
-  ([z z => A]
-   [(s a b c d) (s c d) => B]
-   [(s (s a) x (s d) (s b)) (s c d) => C]
-   [(s (s a) x (s d) (s e f)) (s c d) => D]
-   [(s (s (s a)) x (s d) (s c)) (s c d) => E]))) ; bogus example
-
-;; TOTALITY TESTS
-
-;; TOTAL
-(test
- ((n m)
-  ([z z => A]
-   [z (s x) => B]
-   [(s x) z => C]
-   [(s x) (s x) => D])))
-
-(test
- ((n m)
-  ([z _ => A]
-   [(s x) z => C]
-   [(s x) (s x) => D])))
-
-;; NOT TOTAL
-(test
- ((n m)
-  ([z z => A]
-   [(s x) z => C]
-   [(s x) (s x) => D])))
-
-(test
- ((n m)
-  ([z z => A]
-   [z (s x) => B]
-   [(s x) z => C]
-   [(s (s n)) (s x) => D])))
+  ;; for any identifier that's not a type constructor (e.g. s, cons)
+  ;; we want to generate fresh temporaries so that we don't introduce
+  ;; weird binding issues when we rewrite
+  ;;
+  ;; TODO: actually test if the substitution works
+  (define (subst-bodies bodies old new)
+    (for/list ([body bodies])
+      (subst-body body old new)))
+  
+  (define (subst-body body old new)
+    (syntax-parse body
+      [x:id (if (equal? (syntax->datum old) (syntax->datum #'x)) new #'x)]
+      [(x:id rest ...)
+       (cons (if (equal? (syntax->datum old) (syntax->datum #'x)) new #'x)
+             (subst-body #'(rest ...) old new))]
+      [((x:id irest ...) orest ...)
+       (cons (if (equal? (syntax->datum old) (syntax->datum #'x)) new #'x)
+             (if (zero? (length (attribute irest)))
+                 (subst-body #'(orest ...) old new)
+                 (subst-body #'((irest ...) orest ...) old new)))]
+      [() empty])))
