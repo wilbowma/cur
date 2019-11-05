@@ -15,7 +15,7 @@
    (only-in (only-meta-in 0 cur/curnel/coc-saccharata) ∀ forall ->)
    (only-meta-in 0 cur/stdlib/equality)
    (only-in cur/ntac/base ntac ntac-proc)
-   (except-in cur/ntac/hint ntac ntac-proc) @;{ TODO: fixme }
+   (except-in cur/ntac/auto ntac ntac-proc)
    cur/ntac/standard
    cur/ntac/rewrite))
 
