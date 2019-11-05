@@ -3,7 +3,7 @@
 @(require
   "../defs.rkt"
   (for-label (only-meta-in 0 cur/stdlib/sigma))
-  (for-label (except-in cur/stdlib/sugar :))
+  (for-label cur/stdlib/sugar)
   (for-label (only-meta-in 0 cur/stdlib/equality))
   (for-label (only-meta-in 0 cur/stdlib/nat))
   scribble/eval)
