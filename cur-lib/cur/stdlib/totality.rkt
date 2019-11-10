@@ -2,7 +2,8 @@
 
 (provide (for-syntax (all-defined-out)))
 (require "pattern-tree.rkt"
-         (for-syntax racket/list))
+         (for-syntax racket/bool
+                     racket/list))
 
 (begin-for-syntax
   ;; matches tokens only; wildcards for input consume an entire token while
@@ -50,9 +51,11 @@
   ;; like check the constructors which map to types and if they differ, well,
   ;; I suppose we just give the big red wall of text?
   (define (pats-for-typeof patvar)
-    (cond [(equal? (syntax->datum (typeof patvar)) '(#%plain-app Bool)) (syntax->list #'(true false))]
-          [(equal? (syntax->datum (typeof patvar)) '(#%plain-app Nat)) (syntax->list #'(z (s _)))]
-          [else empty])) ; trivially pass for other types
+    (let ([patvar-type (typeof patvar)])
+      (cond [(false? patvar-type) empty]
+            [(equal? (syntax->datum patvar-type) '(#%plain-app Bool)) (syntax->list #'(true false))]
+            [(equal? (syntax->datum patvar-type) '(#%plain-app Nat)) (syntax->list #'(z (s _)))]
+            [else empty]))) ; trivially pass for other types
     
   ;; a pattern match is total if every layer of the nested representation is total
   (define (total? in-pat)

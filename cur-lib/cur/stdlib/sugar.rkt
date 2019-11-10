@@ -201,7 +201,7 @@
      ; do totality checking
      #:with original-pats #'([pat ... => body] ...)
      #:with match-temps (stx-map
-                         (λ (t) (assign-type (generate-temporary) t #:wrap? #f))
+                         (λ (t) (assign-type (generate-temporary) t #:wrap? #f)) ; this actually won't work with types such as (List A) since type expansion occurs immediately
                          #'(ty-to-match ...))
      #:do[(total? (list (attribute match-temps) (attribute original-pats)))]
  ;    #:do[(printf "fn: ~a ----------------\n" (stx->datum #'name))]

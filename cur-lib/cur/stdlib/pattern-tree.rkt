@@ -41,6 +41,8 @@
        #:fail-unless (for/and ([pat (attribute pat)])
                        (= (length pat) (length (attribute patvars))))
        "expected pattern cases to have same length as number of matching pattern variables"
+       #:fail-unless (not (zero? (length (attribute patvars))))
+       "expected at least one pattern variable"
        (create-nested-pattern-helper-nested (attribute patvars) (attribute pat) (attribute bodies))]))
 
   ;; helper structs for generating the nested pattern tree
@@ -117,7 +119,7 @@
                                                                                         (temp-args-counter rsf)))]
                                                           [sub (if (not (false? existing-temp))
                                                                    existing-temp
-                                                                   (generate-temporary 'temp))])
+                                                                   (generate-temporary 'temp))]) ; TODO: append typing info to temp
                                                      (temp-args (append (temp-args-pat-with-temps rsf) (list sub))
                                                                 (append (temp-args-temp-indices rsf) (list sub))
                                                                 (add1 (temp-args-counter rsf))))
