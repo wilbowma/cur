@@ -14,7 +14,8 @@
                      syntax/stx racket/pretty
                      macrotypes/stx-utils
                      cur/curnel/stxutils
-                     turnstile+/type-constraints))
+                     turnstile+/type-constraints)
+         "totality.rkt")
 
 (define-typed-syntax let
   [(_ ((~or (~describe "unannotated" [x:id ex])
@@ -197,6 +198,12 @@
      #:fail-unless (or (zero? (stx-length #'(x ...))) ; TODO: remove this restriction?
                        (zero? (stx-length #'(y ...))))
      "cannot have both pre and post pattern matching args"
+     ; do totality checking
+     #:with original-pats #'([pat ... => body] ...)
+     #:with match-temps (stx-map
+                         (λ (t) (assign-type (generate-temporary) t #:wrap? #f))
+                         #'(ty-to-match ...))
+     #:do[(total? (list (attribute match-temps) (attribute original-pats)))]
  ;    #:do[(printf "fn: ~a ----------------\n" (stx->datum #'name))]
      #:with (([xpat xpatτ] ...) ...)
      (stx-map

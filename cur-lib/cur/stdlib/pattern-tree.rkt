@@ -191,16 +191,16 @@
   ;; generic fold over the nested data structure; procs occur on nested (associated matches can
   ;; be trivially retrieved by the `matches` property, see usage below in definition of total?)
   ;; -- apply proc to leaves first, and work upwards --
-  (define (fold-nested proc init n)
-    (proc n (foldl (lambda (m i) (fold-nested-match proc m i))
-                   init
-                   (nested-matches n))))
+  (define (fold-nested proc init n #:context [context empty])
+    (proc n context (foldl (lambda (m i) (fold-nested-match proc m i #:context (append context (list n))))
+                           init
+                           (nested-matches n))))
 
   ;; mutual ref case for matches
-  (define (fold-nested-match proc match rsf)
+  (define (fold-nested-match proc match rsf #:context [context empty])
     (if (nested-body? (nested-match-nested-or-body match))
         rsf
-        (fold-nested proc rsf (nested-match-nested-or-body match))))
+        (fold-nested proc rsf (nested-match-nested-or-body match) #:context context)))
   
   ;; equality check
   (define (nested-equal? n1 n2 #:raise-exn? [raise-exn? #t])
@@ -251,3 +251,4 @@
                  (subst-body #'(orest ...) old new)
                  (subst-body #'((irest ...) orest ...) old new)))]
       [() empty])))
+

@@ -1,6 +1,6 @@
 #lang s-exp "../main.rkt"
 
-(provide (for-syntax total?))
+(provide (for-syntax (all-defined-out)))
 (require "pattern-tree.rkt"
          (for-syntax racket/list))
 
@@ -32,17 +32,16 @@
 
   ;; given a list of patterns associated with a pattern variable and a list of expected
   ;; type cases, returns true if all type cases can be matched
-  (define (patvar-is-total? patvar patterns ty-pats #:raise-exn? [raise-exn? #t])
-    (let ([patvar-datum (syntax->datum patvar)])
-      (or (empty? ty-pats)
-          (and (or (for/or ([pat patterns])
-                     (typecase-match (syntax->datum pat)
-                                     (syntax->datum (first ty-pats))))
-                   (and raise-exn?
-                       (raise (exn (format "missing case for ~a:\nmissing: ~a\nactual cases: ~a"
-                                           patvar (first ty-pats) patterns)
-                                   (current-continuation-marks)))))
-               (patvar-is-total? patvar patterns (rest ty-pats) #:raise-exn? raise-exn?)))))
+  (define (patvar-total-check patvar patterns ty-pats #:warnings [warnings empty])
+    (cond [(empty? ty-pats) warnings]
+          [else (let* ([patvar-datum (syntax->datum patvar)]
+                       [matched? (for/or ([pat patterns])
+                                   (typecase-match (syntax->datum pat)
+                                                   (syntax->datum (first ty-pats))))]
+                       [new-warnings (if matched?
+                                         warnings
+                                         (cons (first ty-pats) warnings))])
+                  (patvar-total-check patvar patterns (rest ty-pats) #:warnings new-warnings))]))
 
   ;; retrieves the case patterns associated with a pattern variable's type
   ;; TODO: actually pull the information over, not just offer the Nat stubs
@@ -51,14 +50,27 @@
   ;; like check the constructors which map to types and if they differ, well,
   ;; I suppose we just give the big red wall of text?
   (define (pats-for-typeof patvar)
-    (syntax->list #'(z (s _))))
+    (cond [(equal? (syntax->datum (typeof patvar)) '(#%plain-app Bool)) (syntax->list #'(true false))]
+          [(equal? (syntax->datum (typeof patvar)) '(#%plain-app Nat)) (syntax->list #'(z (s _)))]
+          [else empty])) ; trivially pass for other types
     
   ;; a pattern match is total if every layer of the nested representation is total
   (define (total? in-pat)
-    (fold-nested (lambda (n init)
-                   (and init ; let's just go for performance over exhaustive warnings
-                        (patvar-is-total? (nested-patvar n)
-                                          (map nested-match-pat (nested-matches n))
-                                          (pats-for-typeof (nested-patvar n)))))
-                 #t
-                 (create-nested-pattern in-pat))))
+    (let ([warnings (fold-nested (lambda (n context init)
+                                   (let* ([patterns (map nested-match-pat (nested-matches n))]
+                                          [warnings (patvar-total-check (nested-patvar n)
+                                                                        patterns
+                                                                        (pats-for-typeof (nested-patvar n)))]
+                                          [result (string-append "failed totality check\n"
+                                                                 (format "match path: ~a\n" (append (map nested-patvar context) (list (nested-patvar n))))
+                                                                 (foldr (lambda (w i) (string-append (format "missing: ~a\n" w) i)) "" warnings)
+                                                                 (format "provided cases: ~a" patterns))])
+                                     (if (not (empty? warnings))
+                                         (cons (cons patterns result) init)
+                                         init)))
+                                 empty
+                                 (create-nested-pattern in-pat))])
+      (or (empty? warnings)
+          (raise (exn:fail:syntax (foldr (lambda (w i) (string-append w i)) "" (map cdr warnings))
+                                  (current-continuation-marks)
+                                  (foldr append empty (map car warnings))))))))
