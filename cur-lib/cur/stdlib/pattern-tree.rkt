@@ -194,7 +194,7 @@
   ;; be trivially retrieved by the `matches` property, see usage below in definition of total?)
   ;; -- apply proc to leaves first, and work upwards --
   (define (fold-nested proc init n #:context [context empty])
-    (proc n context (foldl (lambda (m i) (fold-nested-match proc m i #:context (append context (list n))))
+    (proc n context (foldl (lambda (m i) (fold-nested-match proc m i #:context context))
                            init
                            (nested-matches n))))
 
@@ -202,7 +202,7 @@
   (define (fold-nested-match proc match rsf #:context [context empty])
     (if (nested-body? (nested-match-nested-or-body match))
         rsf
-        (fold-nested proc rsf (nested-match-nested-or-body match) #:context context)))
+        (fold-nested proc rsf (nested-match-nested-or-body match) #:context (append context (list match)))))
   
   ;; equality check
   (define (nested-equal? n1 n2 #:raise-exn? [raise-exn? #t])

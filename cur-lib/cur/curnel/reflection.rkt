@@ -40,7 +40,8 @@
  cur-reflect-id
  cur-pretty-print
  ;;cur-step
- cur-equal?)
+ cur-equal?
+ turnstile-infer)
 (define debug-reflect? #f)
 (define debug-datatypes? #f)
 (define debug-scopes? #f)

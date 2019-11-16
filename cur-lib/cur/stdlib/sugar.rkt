@@ -11,6 +11,7 @@
 
 (require (prefix-in r: racket/base)
          (for-syntax (for-syntax syntax/parse)
+                     racket/syntax
                      syntax/stx racket/pretty
                      macrotypes/stx-utils
                      cur/curnel/stxutils
@@ -200,10 +201,13 @@
      "cannot have both pre and post pattern matching args"
      ; do totality checking
      #:with original-pats #'([pat ... => body] ...)
-     #:with match-temps (stx-map
-                         (λ (t) (assign-type (generate-temporary) t #:wrap? #f)) ; this actually won't work with types such as (List A) since type expansion occurs immediately
-                         #'(ty-to-match ...))
-     #:do[(total? (list (attribute match-temps) (attribute original-pats)))]
+     #:with (temporaries ...) (for/list ([ty (attribute ty-to-match)])
+                                (format-id ty "~a" (generate-temporary) #:source ty))
+     #:do[(total? (list (attribute temporaries) (attribute original-pats))
+                  #:env (reverse (append
+                                  (map cons (attribute x) (attribute ty_in1))
+                                  (map cons (attribute temporaries) (attribute ty-to-match))
+                                  (map cons (attribute y) (attribute ty_in2)))))]
  ;    #:do[(printf "fn: ~a ----------------\n" (stx->datum #'name))]
      #:with (([xpat xpatτ] ...) ...)
      (stx-map

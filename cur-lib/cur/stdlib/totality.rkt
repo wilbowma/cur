@@ -3,7 +3,8 @@
 (provide (for-syntax (all-defined-out)))
 (require "pattern-tree.rkt"
          (for-syntax racket/bool
-                     racket/list))
+                     racket/list
+                     cur/curnel/reflection))
 
 (begin-for-syntax
   ;; matches tokens only; wildcards for input consume an entire token while
@@ -50,24 +51,23 @@
   ;; information from analysis of the patvar's cases? we could do something
   ;; like check the constructors which map to types and if they differ, well,
   ;; I suppose we just give the big red wall of text?
-  (define (pats-for-typeof patvar)
-    (let ([patvar-type (typeof patvar)])
+  (define (pats-for-typeof env patvar)
+    (let ([patvar-type (turnstile-infer patvar #:local-env env)])
       (cond [(false? patvar-type) empty]
             [(equal? (syntax->datum patvar-type) '(#%plain-app Bool)) (syntax->list #'(true false))]
             [(equal? (syntax->datum patvar-type) '(#%plain-app Nat)) (syntax->list #'(z (s _)))]
             [else empty]))) ; trivially pass for other types
     
   ;; a pattern match is total if every layer of the nested representation is total
-  (define (total? in-pat)
+  (define (total? in-pat #:env [env '()])
     (let ([warnings (fold-nested (lambda (n context init)
-                                   (let* ([patterns (map nested-match-pat (nested-matches n))]
+                                   (let* ([patterns (cons (nested-patvar n) (map nested-match-pat (nested-matches n)))]
                                           [warnings (patvar-total-check (nested-patvar n)
                                                                         patterns
-                                                                        (pats-for-typeof (nested-patvar n)))]
+                                                                        (pats-for-typeof env (nested-patvar n)))]
                                           [result (string-append "failed totality check\n"
-                                                                 (format "match path: ~a\n" (append (map nested-patvar context) (list (nested-patvar n))))
-                                                                 (foldr (lambda (w i) (string-append (format "missing: ~a\n" w) i)) "" warnings)
-                                                                 (format "provided cases: ~a" patterns))])
+                                                                 (format "match path: ~a\n" (append (map nested-match-pat context) (list (nested-patvar n))))
+                                                                 (foldr (lambda (w i) (string-append (format "missing: ~a\n" w) i)) "" warnings))])
                                      (if (not (empty? warnings))
                                          (cons (cons patterns result) init)
                                          init)))
