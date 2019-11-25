@@ -99,8 +99,8 @@
                                             [head-pat (C-group-head-pats group)])
                                    (append (generate-remaining-pat-for-tmp head-pat tmp-map-with-ids) remaining-pats-single))]
                        [match-pat (generate-match-pat group tmp-map-with-ids)]
-                       [is-wildcard? (begin (printf "a\n") (and (not (list? (syntax->list match-pat)))
-                                          (not (is-constructor? match-pat (first pat-vars) #:env new-env))))])
+                       [is-wildcard? (and (not (list? (syntax->list match-pat)))
+                                          (not (is-constructor? match-pat (first pat-vars) #:env new-env)))])
                   (create-nested-pattern-helper-match
                    (append (filter (compose not false?) tmp-map-with-ids) (rest pat-vars))
                    match-pat
