@@ -12,6 +12,7 @@
 (require (prefix-in r: racket/base)
          (for-syntax (for-syntax syntax/parse)
                      racket/syntax
+                     racket/list
                      syntax/stx racket/pretty
                      macrotypes/stx-utils
                      cur/curnel/stxutils
