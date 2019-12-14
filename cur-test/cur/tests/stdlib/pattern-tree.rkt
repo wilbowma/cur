@@ -9,70 +9,236 @@
 ;; NESTED TREE TESTS
 
 (begin-for-syntax
-  
-  (check-true
-   (nested-equal? (create-nested-pattern #'((n m)
-                                            ([z z => A]
-                                             [z (s x) => B]))
-                                         #:env (list
-                                                (cons #'n #'Nat)
-                                                (cons #'m #'Nat)))
-                  (nested #'n
-                          (list
-                           (nested-match #'z
-                                         (nested #'m
-                                                 (list
-                                                  (nested-match #'z
-                                                                (nested-body #'A)
-                                                                #f)
-                                                  (nested-match #'(s x)
-                                                                (nested-body #'B)
-                                                                #f)))
-                                         #f)))))
 
+  ; simple
+  (check-true
+   (pt-equal? (create-pattern-tree
+                   #'((n m)
+                      ([z z => A]
+                       [z (s x) => B]))
+                   #:env (list
+                          (cons #'n #'Nat)
+                          (cons #'m #'Nat)))
+                  (pt-decl
+                   #'n
+                   (list
+                    (pt-match
+                     #'z
+                     (pt-decl
+                      #'m
+                      (list
+                       (pt-match
+                        #'z
+                        (pt-body #'A))
+                       (pt-match
+                        #'(s x1)
+                        (pt-body #'B)))))))))
+  
   ; body identifiers rebound
   (check-true
-   (nested-equal? (create-nested-pattern #'((n)
-                                            ([n => n]))
-                                         #:env (list
-                                                (cons #'n #'Nat)))
-                  (nested #'n
-                          (list
-                           (nested-match #'n1
-                                         (nested-body #'n1)
-                                         #t)))))
+   (pt-equal? (create-pattern-tree
+                   #'((n)
+                      ([n => n]))
+                   #:env (list
+                          (cons #'n #'Nat)))
+                  (pt-decl
+                   #'n
+                   (list
+                    (pt-match
+                     #'n
+                     (pt-body #'n))))))
 
+  ; body identifiers rebound for arguments
   (check-true
-   (nested-equal? (create-nested-pattern #'((n m)
-                                            ([z _ => z]
-                                             [(s n-1) z => (s n-1)]
-                                             [(s n-1) (s m-1) => (bad-minus n-1 (s m-1))]))
-                                         #:env (list
-                                                (cons #'n #'Nat)
-                                                (cons #'m #'Nat)))
-                  (nested #'n
-                          (list
-                           (nested-match #'z
-                                         (nested #'m
-                                                 (list
-                                                  (nested-match #'_2
-                                                                (nested-body #'z)
-                                                                #t)))
-                                         #f)
-                           (nested-match #'(s n-1)
-                                         (nested #'m
-                                                 (list
-                                                  (nested-match #'z
-                                                                (nested-body #'(s n-1))
-                                                                #f)
-                                                  (nested-match #'(s m-1)
-                                                                (nested-body #'(bad-minus n-1 (s m-1)))
-                                                                #f)))
-                                         #f)))))
+   (pt-equal? (create-pattern-tree
+                   #'((n m)
+                      ([(s y) z => y]
+                       [(s w) (s x) => x]))
+                   #:env (list
+                          (cons #'n #'Nat)
+                          (cons #'m #'Nat)))
+                  (pt-decl
+                   #'n
+                   (list
+                    (pt-match
+                     #'(s y2)
+                     (pt-decl
+                      #'m
+                      (list
+                       (pt-match
+                        #'z
+                        (pt-body #'y2))
+                       (pt-match
+                        #'(s x3)
+                        (pt-body #'x3)))))))))
 
+  ; body identifiers rebound for arguments; in the case of shadowing
+  ; we choose to simplify it by naively performing substitution without
+  ; checking subsequent patterns for the pattern variable
+  ; potential TODO item?
   (check-true
-   (nested-equal?
-    (create-nested-pattern #'((n m o)
+   (pt-equal? (create-pattern-tree
+                   #'((n m)
+                      ([(s y) z => y]
+                       [(s x) (s x) => x]))
+                   #:env (list
+                          (cons #'n #'Nat)
+                          (cons #'m #'Nat)))
+                  (pt-decl
+                   #'n
+                   (list
+                    (pt-match
+                     #'(s y4)
+                     (pt-decl
+                      #'m
+                      (list
+                       (pt-match
+                        #'z
+                        (pt-body #'y4))
+                       (pt-match
+                        #'(s x5)
+                        (pt-body #'y4)))))))))
+
+
+  ; pattern variable single
+  (check-true
+   (pt-equal? (create-pattern-tree
+                   #'((n m)
+                      ([a z => a]))
+                   #:env (list
+                          (cons #'n #'Nat)
+                          (cons #'m #'Nat)))
+                  (pt-decl
+                   #'n
+                   (list
+                    (pt-match
+                     #'a
+                     (pt-decl
+                      #'m
+                      (list
+                       (pt-match
+                        #'z
+                        (pt-body #'n)))))))))
+  
+  ; merge pattern variable trivial
+  (check-true
+   (pt-equal? (create-pattern-tree
+                   #'((n m)
+                      ([a z => a]
+                       [z (s x) => x]
+                       [(s x) (s y) => C]))
+                   #:env (list
+                          (cons #'n #'Nat)
+                          (cons #'m #'Nat)))
+                  (pt-decl
+                   #'n
+                   (list
+                    (pt-match
+                     #'z
+                     (pt-decl
+                      #'m
+                      (list
+                       (pt-match
+                        #'(s x6)
+                        (pt-body #'x6))
+                       (pt-match
+                        #'z
+                        (pt-body #'n)))))
+                    (pt-match
+                     #'(s x7)
+                     (pt-decl
+                      #'m
+                      (list
+                       (pt-match
+                        #'(s y8)
+                        (pt-body #'C))
+                       (pt-match
+                        #'z
+                        (pt-body #'n)))))
+                    (pt-match ; note: always keep the pattern variable case!
+                     #'a
+                     (pt-decl
+                      #'m
+                      (list
+                       (pt-match
+                        #'z
+                        (pt-body #'n)))))))))
+
+  ; merge pattern variable overwrite by order
+  (check-true
+   (pt-equal? (create-pattern-tree
+               #'((n m)
+                  ([(s x) z => A]
+                   [a z => a]
+                   [z z => C]))
+               #:env (list
+                      (cons #'n #'Nat)
+                      (cons #'m #'Nat)))
+              (pt-decl
+               #'n
+               (list
+                (pt-match
+                 #'(s x9)
+                 (pt-decl
+                  #'m
+                  (list
+                   (pt-match
+                    #'z
+                    (pt-body #'A)))))
+                (pt-match
+                 #'z
+                 (pt-decl
+                  #'m
+                  (list
+                   (pt-match
+                    #'z
+                    (pt-body #'C))))) ; this body was provided first
+                (pt-match
+                 #'a
+                 (pt-decl
+                  #'m
+                  (list
+                   (pt-match
+                    #'z
+                    (pt-body #'n)))))))))
+
+  ; slightly more complicated / realistic example
+  (check-true
+   (pt-equal? (create-pattern-tree
+               #'((n m)
+                  ([z _ => z]
+                   [(s n-1) z => (s n-1)]
+                   [(s n-1) (s m-1) => (bad-minus n-1 (s m-1))]))
+               #:env (list
+                      (cons #'n #'Nat)
+                      (cons #'m #'Nat)))
+              (pt-decl
+               #'n
+               (list
+                (pt-match
+                 #'z
+                 (pt-decl
+                  #'m
+                  (list
+                   (pt-match
+                    #'_
+                    (pt-body #'z)))))
+                (pt-match
+                 #'(s n-110)
+                 (pt-decl
+                  #'m
+                  (list
+                   (pt-match
+                    #'z
+                    (pt-body #'(s n-110)))
+                   (pt-match
+                    #'(s m-111)
+                    (pt-body #'(bad-minus n-110 (s m-111)))))))))))
+
+  ; three match variable example
+  (check-true
+   (pt-equal?
+    (create-pattern-tree #'((n m o)
                               ([z _ (s o-1) => z]
                                [(s n-1) z (s o-1) => (s n-1)]
                                [(s n-1) (s m-1) z => (bad-minus n-1 (s m-1))]))
@@ -80,41 +246,48 @@
                                   (cons #'n #'Nat)
                                   (cons #'m #'Nat)
                                   (cons #'o #'Nat)))
-    (nested #'n
-            (list
-             (nested-match #'z
-                           (nested #'m
-                                   (list
-                                    (nested-match #'_3
-                                                  (nested #'o
-                                                          (list
-                                                           (nested-match #'(s o-1)
-                                                                         (nested-body #'z)
-                                                                         #f)))
-                                                  #t)))
-                           #f)
-             (nested-match #'(s n-1)
-                           (nested #'m
-                                   (list
-                                    (nested-match #'z
-                                                  (nested #'o
-                                                          (list
-                                                           (nested-match #'(s o-1)
-                                                                         (nested-body #'(s n-1))
-                                                                         #f)))
-                                                  #f)
-                                    (nested-match #'(s m-1)
-                                                  (nested #'o
-                                                          (list
-                                                           (nested-match #'z
-                                                                         (nested-body #'(bad-minus n-1 (s m-1)))
-                                                                         #f)))
-                                                  #f)))
-                           #f)))))
+    (pt-decl
+     #'n
+     (list
+      (pt-match
+       #'z
+       (pt-decl
+        #'m
+        (list
+         (pt-match
+          #'_
+          (pt-decl
+           #'o
+           (list
+            (pt-match
+             #'(s o-112)
+             (pt-body #'z))))))))
+      (pt-match
+       #'(s n-113)
+       (pt-decl
+        #'m
+        (list
+         (pt-match
+          #'z
+          (pt-decl
+           #'o
+           (list
+            (pt-match
+             #'(s o-114)
+             (pt-body #'(s n-113))))))
+         (pt-match
+          #'(s m-115)
+          (pt-decl
+           #'o
+           (list
+            (pt-match
+             #'z
+             (pt-body #'(bad-minus n-113 (s m-115))))))))))))))
 
+  ; lists
   (check-true
-   (nested-equal?
-    (create-nested-pattern #'((a b)
+   (pt-equal?
+    (create-pattern-tree #'((a b)
                               ([(nil _) (nil _) => true]
                                [(nil _) (cons _ _ _) => false]
                                [(cons _ _ _) (nil _) => false]
@@ -123,88 +296,106 @@
                            (list
                             (cons #'a #'(List Nat))
                             (cons #'b #'(List Nat))))
-    (nested #'a
-            (list
-             (nested-match #'(nil _)
-                           (nested #'b
-                                   (list
-                                    (nested-match #'(nil _)
-                                                  (nested-body #'true)
-                                                  #f)
-                                    (nested-match #'(cons _ _ _)
-                                                  (nested-body #'false)
-                                                  #f)))
-                           #f)
-             (nested-match #'(cons _ a rsta) ; note pattern name is chosen to be the most specific one
-                           (nested #'b
-                                   (list
-                                    (nested-match #'(nil _)
-                                                  (nested-body #'false)
-                                                  #f)
-                                    (nested-match #'(cons _ b rstb)
-                                                  (nested-body #'(and (f a b) (andmap2 A B f rsta rstb)))
-                                                  #f)))
-                           #f)))))
+    (pt-decl
+     #'a
+     (list
+      (pt-match
+       #'(nil _16)
+       (pt-decl
+        #'b
+        (list
+         (pt-match
+          #'(nil _17)
+          (pt-body #'true))
+         (pt-match
+          #'(cons _18 _19 _20)
+          (pt-body #'false)))))
+      (pt-match
+       #'(cons _21 _22 _23)
+       (pt-decl
+        #'b
+        (list
+         (pt-match
+          #'(nil _24)
+          (pt-body #'false))
+         (pt-match
+          #'(cons _25 b26 rstb27)
+          (pt-body #'(and (f _22 b26) (andmap2 A B f _23 rstb27)))))))))))
 
-  ;; CONSTRUCTOR AND PATTERN VARIABLES
+  ; booleans
   (check-true
-   (nested-equal? (create-nested-pattern #'((a b)
-                                            ([true false => A]
-                                             [x true => B]))
-                                         #:env
-                                         (list (cons #'b #'Bool)
-                                               (cons #'a #'Bool)))
-                  (nested #'a
-                          (list
-                           (nested-match #'true
-                                         (nested #'b
-                                                 (list
-                                                  (nested-match #'false
-                                                                (nested-body #'A)
-                                                                #f)))
-                                         #f)
-                           (nested-match #'x4
-                                         (nested #'b
-                                                 (list
-                                                  (nested-match #'true
-                                                                (nested-body #'B)
-                                                                #f)))
-                                         #t)))))
+   (pt-equal? (create-pattern-tree #'((a b)
+                                      ([true false => A]
+                                       [x true => B]))
+                                   #:env
+                                   (list (cons #'b #'Bool)
+                                         (cons #'a #'Bool)))
+              (pt-decl
+               #'a
+               (list
+                (pt-match
+                 #'true
+                 (pt-decl
+                  #'b
+                  (list
+                   (pt-match
+                    #'false
+                    (pt-body #'A))
+                   (pt-match
+                    #'true
+                    (pt-body #'B)))))
+                (pt-match
+                 #'x
+                 (pt-decl
+                  #'b
+                  (list
+                   (pt-match
+                    #'true
+                    (pt-body #'B)))))))))
 
   ;; ADDITIONAL NESTING
   (check-true
-   (nested-equal?
-    (create-nested-pattern #'((e1 e2)
-                              ([z z => A]
-                               [(s (s e2)) (s m) => B]))
-                           #:env
-                           (list
-                            (cons #'e1 #'Nat)
-                            (cons #'e2 #'Nat)))
-    (nested #'e1
-            (list
-             (nested-match #'z
-                           (nested #'e2
-                                   (list
-                                    (nested-match #'z
-                                                  (nested-body #'A)
-                                                  #f)))
-                           #f)
-             (nested-match #'(s temp5)
-                           (nested #'temp5
-                                   (list
-                                    (nested-match #'(s e2)
-                                                  (nested #'e2
-                                                          (list
-                                                           (nested-match #'(s m)
-                                                                         (nested-body #'B)
-                                                                         #f)))
-                                                  #f)))
-                           #f)))))
-    
+   (pt-equal?
+    (create-pattern-tree #'((a b)
+                            ([z z => A]
+                             [(s (s (s b))) (s m) => b]))
+                         #:env
+                         (list
+                          (cons #'a #'Nat)
+                          (cons #'b #'Nat)))
+    (pt-decl
+     #'a
+     (list
+      (pt-match
+       #'z
+       (pt-decl
+        #'b
+        (list
+         (pt-match
+          #'z
+          (pt-body #'A)))))
+      (pt-match
+       #'(s temp28) ; note: for use in binding, we need to resolve temp bindings before positional input variables
+       (pt-decl     ; this means that we should effectively process temps by storing them on a stack, and processing in reverse
+        #'temp28
+        (list
+         (pt-match
+          #'(s temp29)
+          (pt-decl
+           #'temp29
+           (list
+            (pt-match
+             #'(s b30)
+             (pt-decl
+              #'b
+              (list
+               (pt-match
+                #'(s m31)
+                (pt-body #'b30))))))))))))))) ; note that we use the temp b not the match variable
+     
   (check-true
-   (nested-equal?
-    (create-nested-pattern
+   (pt-equal?
+    (create-pattern-tree
      #'((e1 e2)
         ([z z => A]
          [(s (s e2)) z => B]
@@ -213,66 +404,69 @@
      (list
       (cons #'e1 #'Nat)
       (cons #'e2 #'Nat)))
-    (nested #'e1
-            (list
-             (nested-match #'z
-                           (nested #'e2
-                                   (list
-                                    (nested-match #'z
-                                                  (nested-body #'A)
-                                                  #f)))
-                           #f)
-             (nested-match #'(s temp6)
-                           (nested #'temp6
-                                   (list
-                                    (nested-match #'(s e2)
-                                                  (nested #'e2
-                                                          (list
-                                                           (nested-match #'z
-                                                                         (nested-body #'B)
-                                                                         #f)
-                                                           (nested-match #'(s m)
-                                                                         (nested-body #'C)
-                                                                         #f)))
-                                                  #f)))
-                           #f)))))
+    (pt-decl
+     #'e1
+     (list
+      (pt-match
+       #'z
+       (pt-decl
+        #'e2
+        (list
+         (pt-match
+          #'z
+          (pt-body #'A)))))
+      (pt-match
+       #'(s temp32)
+       (pt-decl
+        #'temp32
+        (list
+         (pt-match
+          #'(s e233)
+          (pt-decl
+           #'e2
+           (list
+            (pt-match
+             #'z
+             (pt-body #'B))
+            (pt-match
+             #'(s m34)
+             (pt-body #'C))))))))))))
 
   ;; WITH AND WITHOUT TYPE CONTEXT
   ; effectively, z = _ = n in this scenario
   (check-true
-   (nested-equal?
-    (create-nested-pattern
+   (pt-equal?
+    (create-pattern-tree
      #'((n m)
         ([z z => z]
          [n _ => n]
          [(s n-1) (s m-1) => (minus n-1 m-1)])))
-    (nested
+    (pt-decl
      #'n
      (list
-      (nested-match
-       #'z7
-       (nested
+      (pt-match
+       #'(s n-135)
+       (pt-decl
         #'m
         (list
-         (nested-match
-          #'z8
-          (nested-body #'z7) ; note: bound to first occurrence
-          #t)))
-       #t)
-      (nested-match
-       #'(s n-1)
-       (nested
+         (pt-match
+          #'(s m-136)
+          (pt-body #'(minus n-135 m-136)))
+         (pt-match
+          #'z
+          (pt-body #'n)))))
+      (pt-match
+       #'z
+       (pt-decl
         #'m
         (list
-         (nested-match
-          #'(s m-1)
-          (nested-body #'(minus n-1 m-1))
-          #f)))
-       #f)))))
+         (pt-match
+          #'z
+          (pt-body #'n)))))))))
   
   (check-true
-   (nested-equal?
-    (create-nested-pattern
+   (pt-equal?
+    (create-pattern-tree
      #'((n m)
         ([z z => z]
          [n _ => n]
@@ -280,117 +474,183 @@
      #:env
      (list (cons #'m #'Nat)
            (cons #'n #'Nat)))
-    (nested
+    (pt-decl
      #'n
      (list
-      (nested-match
+      (pt-match
        #'z
-       (nested
+       (pt-decl
         #'m
         (list
-         (nested-match
+         (pt-match
           #'z
-          (nested-body #'z)
-          #f)))
-       #f)
-      (nested-match
-       #'n9
-       (nested
+          (pt-body #'z))
+         (pt-match
+          #'_
+          (pt-body #'n)))))
+      (pt-match
+       #'(s n-137)
+       (pt-decl
         #'m
         (list
-         (nested-match
-          #'_10
-          (nested-body #'n9)
-          #t)))
-       #t)
-      (nested-match
-       #'(s n-1)
-       (nested
+         (pt-match
+          #'(s m-138)
+          (pt-body #'(minus n-137 m-138)))
+         (pt-match
+          #'_
+          (pt-body #'n)))))
+      (pt-match
+       #'n
+       (pt-decl
         #'m
         (list
-         (nested-match
-          #'(s m-1)
-          (nested-body #'(minus n-1 m-1))
-          #f)))
-       #f)))))
+         (pt-match
+          #'_
+          (pt-body #'n)))))))))
 
+  ; complicated (bogus) nested example; note that we don't actually
+  ; need to do semantic analysis when recompiling the pattern
   (check-true
-   (nested-equal?
-    (create-nested-pattern #'((e1 e2)
-                              ([z z => z]
-                               [(s a b c d) (s c d) => c]
-                               [(s (s a) x (s d) (s b)) (s c d) => x]
-                               [(s (s a) x (s d) (s e f)) (s c d) => d]
-                               [(s (s (s a)) x (s d) (s c)) (s c d) => (s a)]))
-                           #:env (list
-                                  (cons #'e2 #'Nat)
-                                  (cons #'e1 #'Nat)))
-    (nested #'e1
-            (list
-             (nested-match #'z
-                           (nested #'e2
-                                   (list
-                                    (nested-match #'z
-                                                  (nested-body #'z)
-                                                  #f)))
-                           #f)
-             (nested-match #'(s temp11 b temp12 temp13)
-                           (nested #'temp11
-                                   (list
-                                    (nested-match #'a14
-                                                  (nested #'temp12
-                                                          (list
-                                                           (nested-match #'c15
-                                                                         (nested #'temp13
-                                                                                 (list
-                                                                                  (nested-match #'d16
-                                                                                                (nested #'e2
-                                                                                                        (list
-                                                                                                         (nested-match #'(s c d)
-                                                                                                                       (nested-body #'c15)
-                                                                                                                       #f)))
-                                                                                                #t)))
-                                                                         #t)))
-                                                  #t)
-                                    (nested-match #'(s temp17)
-                                                  (nested #'temp17
-                                                          (list
-                                                           (nested-match #'a18
-                                                                         (nested #'temp12
-                                                                                 (list
-                                                                                  (nested-match #'(s d)
-                                                                                                (nested #'temp13
-                                                                                                        (list
-                                                                                                         (nested-match #'(s b)
-                                                                                                                       (nested #'e2
-                                                                                                                               (list
-                                                                                                                                (nested-match #'(s c d)
-                                                                                                                                              (nested-body #'x)
-                                                                                                                                              #f)))
-                                                                                                                       #f)
-                                                                                                         (nested-match #'(s e f)
-                                                                                                                       (nested #'e2
-                                                                                                                               (list
-                                                                                                                                (nested-match #'(s c d)
-                                                                                                                                              (nested-body #'d)
-                                                                                                                                              #f)))
-                                                                                                                       #f)))
-                                                                                                #f)))
-                                                                         #t)
-                                                           (nested-match #'(s a)
-                                                                         (nested #'temp12
-                                                                                 (list
-                                                                                  (nested-match #'(s d)
-                                                                                                (nested #'temp13
-                                                                                                        (list
-                                                                                                         (nested-match #'(s c)
-                                                                                                                       (nested #'e2
-                                                                                                                               (list
-                                                                                                                                (nested-match #'(s c d)
-                                                                                                                                              (nested-body #'(s a))
-                                                                                                                                              #f)))
-                                                                                                                       #f)))
-                                                                                                #t)))
-                                                                         #f)))
-                                                  #f)))
-                           #f))))))
+   (pt-equal?
+    (create-pattern-tree #'((e1 e2)
+                            ([z z => z]
+                             [(s a b c d) (s c d) => c]
+                             [(s (s a) x (s d) (s b)) (s c d) => b]
+                             [(s (s a) x (s d) (s e f)) (s c d) => d]
+                             [(s (s (s a)) x (s d) (s c)) (s c d) => (s a)]))
+                         #:env (list
+                                (cons #'e2 #'Nat)
+                                (cons #'e1 #'Nat)))
+    (pt-decl
+     #'e1
+     (list
+      (pt-match
+       #'z
+       (pt-decl
+        #'e2
+        (list
+         (pt-match
+          #'z
+          (pt-body #'z)))))
+      (pt-match
+       #'(s temp39 b42 temp40 temp41) ; note priority of temporary generation over pattern variables!
+       (pt-decl
+        #'temp39
+        (list
+         (pt-match
+          #'(s temp43)
+          (pt-decl
+           #'temp43
+           (list
+            (pt-match
+             #'(s a45) ; note: to accomodate for nested patterns, we need to explore the last case first
+             (pt-decl  ; since it is the longest "non pattern variable"
+              #'temp40
+              (list
+               (pt-match
+                #'(s d46)
+                (pt-decl
+                 #'temp41
+                 (list
+                  (pt-match
+                   #'(s c47)
+                   (pt-decl
+                    #'e2
+                    (list
+                     (pt-match
+                      #'(s c48 d49)
+                      (pt-body #'(s a45))))))
+                  (pt-match
+                   #'(s e50 f51)
+                   (pt-decl
+                    #'e2
+                    (list
+                     (pt-match
+                      #'(s c52 d53)
+                      (pt-body #'d46))))) ; propagated from inner pattern variable in (s a)
+                  (pt-match
+                   #'d
+                   (pt-decl
+                    #'e2
+                    (list
+                    (pt-match
+                     #'(s c54 d55)
+                     (pt-body #'temp40)))))))) ; propagated from outer pattern variable in a
+               (pt-match
+                #'temp44
+                (pt-decl
+                 #'temp41
+                 (list
+                  (pt-match
+                   #'d
+                   (pt-decl
+                    #'e2
+                    (list
+                     (pt-match
+                      #'(s c56 d57)
+                      (pt-body #'temp40))))))))))) ; propagated from outer pattern variable in a
+            (pt-match
+             #'a
+             (pt-decl
+              #'temp40
+              (list
+               (pt-match
+                #'(s d58)
+                (pt-decl
+                 #'temp41
+                 (list
+                  (pt-match
+                   #'(s b59)
+                   (pt-decl
+                    #'e2
+                    (list
+                     (pt-match
+                      #'(s c60 d61)
+                      (pt-body #'b59)))))
+                  (pt-match
+                   #'(s e62 f63)
+                   (pt-decl
+                    #'e2
+                    (list
+                     (pt-match
+                      #'(s c64 d65)
+                      (pt-body #'d58)))))
+                  (pt-match
+                   #'d
+                   (pt-decl
+                    #'e2
+                    (list
+                     (pt-match
+                      #'(s c66 d67)
+                      (pt-body #'temp40)))))))) ; propagated from outer pattern variable a
+               (pt-match
+                #'temp44
+                (pt-decl
+                 #'temp41
+                 (list
+                  (pt-match
+                   #'d
+                   (pt-decl
+                    #'e2
+                    (list
+                     (pt-match
+                      #'(s c68 d69)
+                      (pt-body #'temp40)))))))))))))) ; propagated from outer pattern variable a
+         (pt-match
+          #'a
+          (pt-decl
+           #'temp40
+           (list
+            (pt-match
+             #'c
+             (pt-decl
+              #'temp41
+              (list
+               (pt-match
+                #'d
+                (pt-decl
+                 #'e2
+                 (list
+                  (pt-match
+                   #'(s c70 d71)
+                   (pt-body #'temp40)))))))))))))))))))

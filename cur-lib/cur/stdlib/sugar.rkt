@@ -196,15 +196,24 @@
       (~and ty-to-match (~not [_ (~datum :) _]) (~not (~datum ->))) ...
       [y (~datum :) ty_in2] ...
       (~datum ->) ty_out
-      [pat ... (~datum =>) body] ...) ≫
+      [pat ... (~datum =>) body] ...
+      (~optional (~seq #:type-aliases ([ty-in-aliases (~datum =) ty-out-aliases (~optional ty-out-implicit-counts:exact-nonnegative-integer #:defaults ([ty-out-implicit-counts #'0]))] ...))
+                 #:defaults ([(ty-in-aliases 1) '()]
+                             [(ty-out-aliases 1) '()]
+                             [(ty-out-implicit-counts 1) '()]))) ≫
      #:fail-unless (or (zero? (stx-length #'(x ...))) ; TODO: remove this restriction?
                        (zero? (stx-length #'(y ...))))
      "cannot have both pre and post pattern matching args"
      ; do totality checking
      #:with original-pats #'([pat ... => body] ...)
-     #:with (temporaries ...) (for/list ([ty (attribute ty-to-match)])
-                                (format-id ty "~a" (generate-temporary) #:source ty))
+     #:with (temporaries ...) (for/list ([ty (attribute ty-to-match)]
+                                         [idx (in-naturals)])
+                                (format-id ty "~a" (generate-temporary (string->symbol (format "match-~a-" (add1 idx)))) #:source ty))
      #:do[(total? (list (attribute temporaries) (attribute original-pats))
+                  #:aliases (map list
+                                 (attribute ty-in-aliases)
+                                 (attribute ty-out-aliases)
+                                 (map syntax->datum (attribute ty-out-implicit-counts)))
                   #:env (reverse (append
                                   (map cons (attribute x) (attribute ty_in1))
                                   (map cons (attribute temporaries) (attribute ty-to-match))
