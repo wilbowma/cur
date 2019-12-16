@@ -130,7 +130,7 @@
            [sorted-entries (sort merged-entries < #:key (lambda (e) (C-group-sort-order (cdr e))))]
            ; if a pattern variable is used, then the match cases for it need to be distributed among
            ; all other potential match paths
-           [entries (elim-pattern-vars sorted-entries current-match-var env)]
+           [entries (elim-pattern-vars sorted-entries)]
            ; now, finalize the current match variable; we can consider this as declaring the match variable as
            ; a new identifier, and subsequently providing bindings for it using the corresponding matches)
            ; additional bookkeeping property to know if the current match variable was generated or passed in
@@ -338,7 +338,7 @@
   
   ;; Given a set of entries, look for the presence of pattern variables and propagate them into
   ;; the sub-matrix of each adjacent entry in the same pattern column
-  (define (elim-pattern-vars entries match-var env)
+  (define (elim-pattern-vars entries)
     ; assumption: pattern variables are merged properly prior to this step, so we should only
     ; be able to find at most one wildcard entry
     (let* ([pattern-var-entry (for/or ([entry entries])

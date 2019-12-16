@@ -353,7 +353,7 @@
                     #'true
                     (pt-body #'B)))))))))
 
-  ;; ADDITIONAL NESTING
+  ;; ADDITIONAL NESTING 
   (check-true
    (pt-equal?
     (create-pattern-tree #'((a b)
@@ -577,7 +577,7 @@
                      #'(s c54 d55)
                      (pt-body #'temp40)))))))) ; propagated from outer pattern variable in a
                (pt-match
-                #'temp44
+                #'c
                 (pt-decl
                  #'temp41
                  (list
@@ -624,7 +624,7 @@
                       #'(s c66 d67)
                       (pt-body #'temp40)))))))) ; propagated from outer pattern variable a
                (pt-match
-                #'temp44
+                #'c
                 (pt-decl
                  #'temp41
                  (list
@@ -653,4 +653,24 @@
                  (list
                   (pt-match
                    #'(s c70 d71)
-                   (pt-body #'temp40)))))))))))))))))))
+                   (pt-body #'temp40))))))))))))))))))
+
+  (check-true
+   (pt-equal?
+    (create-pattern-tree #'((a)
+                            ([x => A]
+                             [(y (y b)) => b])))
+    (pt-decl
+     #'a
+     (list
+      (pt-match
+       #'(y temp72)
+       (pt-decl
+        #'temp72
+        (list
+         (pt-match
+          #'(y b74)
+          (pt-body #'b74)))))
+      (pt-match
+       #'x
+       (pt-body #'A)))))))
