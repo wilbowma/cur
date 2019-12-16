@@ -8,8 +8,7 @@
 
 ;; NESTED TREE TESTS
 
-(begin-for-syntax
-
+(begin-for-syntax  
   ; simple
   (check-true
    (pt-equal? (create-pattern-tree
@@ -654,7 +653,7 @@
                   (pt-match
                    #'(s c70 d71)
                    (pt-body #'temp40))))))))))))))))))
-
+  
   (check-true
    (pt-equal?
     (create-pattern-tree #'((a)
@@ -670,7 +669,10 @@
         (list
          (pt-match
           #'(y b74)
-          (pt-body #'b74)))))
+          (pt-body #'b74))
+         (pt-match
+          #'temp73
+          (pt-body #'A)))))
       (pt-match
        #'x
        (pt-body #'A)))))))

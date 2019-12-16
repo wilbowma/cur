@@ -64,7 +64,7 @@
   (struct pt-body (value) #:transparent)
 
   ;; C-group; represents match data for a constructor and the associated pattern sub-matrix
-  (struct C-group (head-patterns pattern-sub-matrix bodies temporaries-map is-pattern-variable? sort-order) #:transparent)
+  (struct C-group (head-patterns [pattern-sub-matrix #:mutable] bodies temporaries-map is-pattern-variable? sort-order) #:transparent)
 
   ;; For an input of form
   ;; ((n m)
@@ -130,7 +130,10 @@
            [sorted-entries (sort merged-entries < #:key (lambda (e) (C-group-sort-order (cdr e))))]
            ; if a pattern variable is used, then the match cases for it need to be distributed among
            ; all other potential match paths
-           [entries (elim-pattern-vars sorted-entries)]
+           [pattern-var-entry (for/or ([entry sorted-entries])
+                                (and (C-group-is-pattern-variable? (cdr entry)) entry))]
+           [remaining-entries (filter (lambda (e) (not (equal? e pattern-var-entry))) sorted-entries)]
+           [entries (append remaining-entries (if pattern-var-entry (list pattern-var-entry) empty))]
            ; now, finalize the current match variable; we can consider this as declaring the match variable as
            ; a new identifier, and subsequently providing bindings for it using the corresponding matches)
            ; additional bookkeeping property to know if the current match variable was generated or passed in
@@ -144,24 +147,31 @@
                                  ; and this would correspond to a map of (#f #t #t) which we convert to (#f temp1 temp2)
                                  [tmp-map-with-ids (map (lambda (t) (and t (syntax-property (generate-temporary 'temp) 'is-temp? #t)))
                                                         (C-group-temporaries-map group))]
-                                 ; to ensure that we don't erroneously shadow any bindings, we need to generate temporaries for
-                                 ; inner arguments too; (s x) -> (s x1)
-                                 [fresh-result (generate-fresh-arguments (C-group-head-patterns group) (C-group-bodies group) tmp-map-with-ids current-match-var env)]
-                                 [fresh-head-patterns (car fresh-result)]
-                                 [fresh-bodies (cdr fresh-result)]
-                                 ; for the match pattern, just fetch anything that's not a pattern variable
-                                 [match-pat (first fresh-head-patterns)]
                                  ; for each of the remaining patterns, we may need to add temporary matches to them.
                                  ; following the example above: temp1 matches against (s a) and temp2 matches against (s b)
                                  [pattern-sub-matrix (for/list ([pattern-row (C-group-pattern-sub-matrix group)]
                                                                 [head-pattern (C-group-head-patterns group)])
                                                        (append (generate-tmp-patterns head-pattern tmp-map-with-ids)
                                                                pattern-row))]
+                                 ; if a pattern variable is used, then the match cases for it need to be distributed among
+                                 ; all other potential match paths
+                                 [merged-group (begin
+                                                 (set-C-group-pattern-sub-matrix! group pattern-sub-matrix)
+                                                 (if (and pattern-var-entry (not (equal? pattern-var-entry entry)))
+                                                     (merge-c-groups group (cdr pattern-var-entry) #:allow-merge-pattern-variable? #t)
+                                                     group))]
+                                 ; to ensure that we don't erroneously shadow any bindings, we need to generate temporaries for
+                                 ; inner arguments too; (s x) -> (s x1)
+                                 [fresh-result (generate-fresh-arguments (C-group-head-patterns merged-group) (C-group-bodies merged-group) tmp-map-with-ids current-match-var env)]
+                                 [fresh-head-patterns (car fresh-result)]
+                                 [fresh-bodies (cdr fresh-result)]
+                                 ; for the match pattern, just fetch anything that's not a pattern variable
+                                 [match-pat (first fresh-head-patterns)]
                                  ; after creating our new temporaries, we should also associate them with types
                                  ; based on proper inference
                                  [extended-env (extend-env-with-tmps
                                                 env
-                                                (first (C-group-head-patterns group))
+                                                (first (C-group-head-patterns merged-group))
                                                 tmp-map-with-ids
                                                 current-match-var)]
                                  ; hack: attach the temporary type based on the value we've assigned to it in the environment
@@ -171,8 +181,8 @@
                             (create-pattern-tree-match-helper
                              new-match-vars
                              ; it may make our lives easier to keep track of the property on the match pattern itself
-                             (syntax-property match-pat 'is-pattern-variable? (C-group-is-pattern-variable? group))
-                             pattern-sub-matrix
+                             (syntax-property match-pat 'is-pattern-variable? (C-group-is-pattern-variable? merged-group))
+                             (C-group-pattern-sub-matrix merged-group)
                              fresh-bodies
                              extended-env))))])
       pt))
@@ -335,20 +345,6 @@
                new-map
                group-is-pattern-variable?
                (min (C-group-sort-order old-data) (C-group-sort-order new-data)))))
-  
-  ;; Given a set of entries, look for the presence of pattern variables and propagate them into
-  ;; the sub-matrix of each adjacent entry in the same pattern column
-  (define (elim-pattern-vars entries)
-    ; assumption: pattern variables are merged properly prior to this step, so we should only
-    ; be able to find at most one wildcard entry
-    (let* ([pattern-var-entry (for/or ([entry entries])
-                                (and (C-group-is-pattern-variable? (cdr entry)) entry))]
-           [remaining-entries (filter (lambda (e) (not (equal? e pattern-var-entry))) entries)])
-      (if (and pattern-var-entry (not (empty? remaining-entries)))
-          (append (for/list ([entry remaining-entries])
-                    (cons (car entry) (merge-c-groups (cdr entry) (cdr pattern-var-entry) #:allow-merge-pattern-variable? #t)))
-                  (list pattern-var-entry))
-          entries)))
 
   ;; Returns a list of new patterns to be generated given the temporaries map.
   ;; Example:
