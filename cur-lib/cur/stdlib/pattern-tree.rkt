@@ -133,6 +133,7 @@
            [pattern-var-entry (for/or ([entry sorted-entries])
                                 (and (C-group-is-pattern-variable? (cdr entry)) entry))]
            [remaining-entries (filter (lambda (e) (not (equal? e pattern-var-entry))) sorted-entries)]
+           ; always put pattern variable branches at the end; this will make pattern matching easier
            [entries (append remaining-entries (if pattern-var-entry (list pattern-var-entry) empty))]
            ; now, finalize the current match variable; we can consider this as declaring the match variable as
            ; a new identifier, and subsequently providing bindings for it using the corresponding matches)
@@ -153,8 +154,7 @@
                                                                 [head-pattern (C-group-head-patterns group)])
                                                        (append (generate-tmp-patterns head-pattern tmp-map-with-ids)
                                                                pattern-row))]
-                                 ; if a pattern variable is used, then the match cases for it need to be distributed among
-                                 ; all other potential match paths
+                                 ; artificially inject a pattern variable case into the current entry
                                  [merged-group (begin
                                                  (set-C-group-pattern-sub-matrix! group pattern-sub-matrix)
                                                  (if (and pattern-var-entry (not (equal? pattern-var-entry entry)))
