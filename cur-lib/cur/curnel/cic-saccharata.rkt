@@ -132,7 +132,7 @@
 ; and additionally associates constructor forms
 (define-syntax define-type*
   (syntax-parser
-    [(_ name (~datum :) [A+i:id (~datum :) τ] ... (~datum ->) τ-out (C-pat ...) (C-env ...) . rst)
+    [(_ name (~datum :) [A+i:id (~datum :) τ] ... (~datum ->) τ-out (C-pat ...) (C-env ...) (ty-params ...) . rst)
      #:with name/internal (fresh #'name)
      #:with name/internal-expander (mk-~ #'name/internal)
      #:with name-expander (mk-~ #'name)
@@ -145,9 +145,11 @@
                  (λ [A+i : τ] ...
                    #,(syntax-property
                       (syntax-property
-                       (syntax/loc stx (name/internal A+i ...))
-                       'constructors #'(C-pat ...) #t)
-                      'constructors-env #'(C-env ...) #t))))
+                        (syntax-property
+                          (syntax/loc stx (name/internal A+i ...))
+                          'constructors #'(C-pat ...) #t)
+                        'constructors-env #'(C-env ...) #t)
+                      'type-parameters #'(ty-params ...) #t))))
               stx)))
          (begin-for-syntax
            (define-syntax name-expander
@@ -313,6 +315,7 @@
       (define-type* TY : [A : τA] ... [i : τi] ... -> τ
         (C-pat ...)
         (([i+x τin] ...) ...)
+        (A_ ...)
         #:extra elim-TY
         ([A τA] ...)
         ([i τi] ...)

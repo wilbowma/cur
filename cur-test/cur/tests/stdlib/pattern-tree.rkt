@@ -675,4 +675,59 @@
           (pt-body #'A)))))
       (pt-match
        #'x
-       (pt-body #'A)))))))
+       (pt-body #'A))))))
+
+  ;; TODO
+  #;(check-true
+   (pt-equal?
+    (create-pattern-tree
+      #'((n m)
+         ([(nil T) z => A]
+          [(cons T z (cons T (s (s x)) (cons T z (nil T)))) z => (cons T z x)]))
+      #:env (list
+             (cons #'n #'(List Nat))
+             (cons #'m #'Nat)))
+   (pt-decl
+    #'n
+    (list
+     (pt-match
+      #'(nil T75)
+      (pt-decl
+       #'m
+       (list
+        (pt-match
+         #'z
+         (pt-body #'A)))))
+     (pt-match
+      #'(cons T77 z temp76) ; important: should be z and not a temporary zNN
+      (pt-decl
+       #'temp76
+       (list
+        (pt-match
+         #'(cons T81 temp79 temp80)
+         (pt-decl
+          #'temp79
+          (list
+           (pt-match
+            #'(s temp82)
+            (pt-decl
+             #'temp82
+             (list
+              (pt-match
+               #'(s x83)
+               (pt-decl
+                #'temp80
+                (list
+                 (pt-match
+                  #'(cons T85 z temp84)
+                  (pt-decl
+                   #'temp84
+                   (list
+                    (pt-match
+                     #'(nil T87)
+                     (pt-decl
+                      #'m
+                      (list
+                       (pt-match
+                        #'z
+                        (pt-body #'(cons T77 z x83))))))))))))))))))))))))))
