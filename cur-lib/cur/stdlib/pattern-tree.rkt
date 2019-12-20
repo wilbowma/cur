@@ -252,6 +252,36 @@
     (and (not (list? (syntax->list head-pat)))
          (not (is-constructor? head-pat match-var #:env env))))
 
+  ;; Check if an argument is a pattern variable, e.g. (c a1 a2) and whether a1 is a pattern variable
+  (define (is-arg-pattern-variable? constructor-id match-var args idx env)
+    (let ([arg (list-ref args idx)])
+      (and (not (list? (syntax->list arg)))
+           (let* ([metadata (get-constructor constructor-id match-var #:env env)]
+                  [arg-binding-types (and metadata (map (compose second syntax->list) (second metadata)))]
+                  [type-parameters (and metadata (third metadata))]
+                  [match-var-type-for-env (and metadata (syntax->list (fourth metadata)))]
+                  [match-var-type-values (and match-var-type-for-env
+                                              (> (length match-var-type-for-env) 2)
+                                              (rest (rest match-var-type-for-env)))]
+                  [match-var-type-bindings (and match-var-type-values (map cons type-parameters match-var-type-values))]
+                  [new-arg-binding-types (and match-var-type-bindings
+                                              (append match-var-type-values
+                                                      (for/list ([ty arg-binding-types])
+                                                        (subst-bindings ty match-var-type-bindings #:equality? (lambda (a b) (equal? (syntax->datum a)
+                                                                                                                                     (syntax->datum b)))))))]
+                  ; conveniently, the Type type doesn't have any constructors, so we can use it as the default
+                  [expected-ty (or (and new-arg-binding-types (> (length new-arg-binding-types) idx) (list-ref new-arg-binding-types idx))
+                                   #'Type)]
+                  [dummy-var #'foo])
+             ; case: the argument is a pattern variable if it's in the slot of a generic type
+             ; argument but doesn't correspond to the environment
+             (or (and type-parameters
+                      (< idx (length type-parameters))
+                      (not (equal? (syntax->datum arg)
+                                   (syntax->datum expected-ty))))
+                 ; case: the argument is a pattern variable if it's not a constructor
+                 (not (is-constructor? arg dummy-var #:env (cons (cons dummy-var expected-ty) env))))))))
+
   ;; Given a pattern of form
   ;; (C1 (C2 (C3 a1) a2) a3)
   ;; produces a flat map
@@ -274,10 +304,12 @@
           ; trivial case: no arguments, so return head pattern and body as is
           (cons head-patterns bodies)
           ; otherwise, we need to replace all pattern variables
-          (let* ([fresh-arg-map (cons (first tmp-map-with-ids)
-                                      (for/list ([arg (rest head-pattern-list-template)]
-                                                 [t (rest tmp-map-with-ids)])
-                                        (or t (and (is-pattern-variable? arg match-var env)
+          (let* ([arg-list (rest head-pattern-list-template)]
+                 [fresh-arg-map (cons (first tmp-map-with-ids)
+                                      (for/list ([arg arg-list]
+                                                 [t (rest tmp-map-with-ids)]
+                                                 [idx (in-naturals)])
+                                        (or t (and (is-arg-pattern-variable? (first head-pattern-list-template) match-var arg-list idx env)
                                                    (syntax-property (generate-temporary arg) 'is-pattern-variable? #t)))))]
                  ; update the patterns
                  [new-head-patterns (for/list ([head-pattern-list head-pattern-lists]
@@ -377,40 +409,28 @@
       (if (false? head-pattern-as-list)
           env
           (let* ([constructor-id (first head-pattern-as-list)]
-                 [ty (or (for/or ([e env])
-                           (and (free-identifier=? match-var (car e))
-                                (cdr e)))
-                         (get-typeof match-var #:env env))]
-                 [constructors-metadata (get-constructor constructor-id match-var #:env env)]
-                 [constructor-env (and constructors-metadata (syntax->list (second constructors-metadata)))]
-                 [constructor-env-types (and constructor-env (map (compose second syntax->list) constructor-env))]
-                 [ty-params (if constructors-metadata
-                                (third constructors-metadata)
-                                empty)]
-                 ; map (List Nat) -> (List A) s.t. A = Nat
-                 [ty-args (if (empty? ty-params)
-                              empty
-                              ; (app List Nat) -> (Nat)
-                              (rest (syntax->list ty)))]
-                 ; TODO: type parameters aren't quite working for nested scenarios yet
-                 [ty-param-env (filter (compose not false?)
-                                       (for/list ([param ty-params]
-                                                  [ty-arg ty-args])
-                                         (and (not (free-identifier=? param ty-arg)) (cons param ty-arg))))]
-                 [missing-len (or (and constructor-env-types (max 0 (- (length constructor-env-types) (length tmp-map-with-ids)))) 0)]
-                 [augmented-contructor-env-types (append (build-list missing-len (lambda (n) #f)) constructor-env-types)])
+                 [metadata (get-constructor constructor-id match-var #:env env)]
+                 [arg-binding-types (and metadata (map (compose second syntax->list) (second metadata)))]
+                 [type-parameters (and metadata (third metadata))]
+                 [match-var-type-for-env (and metadata (syntax->list (fourth metadata)))]
+                 [match-var-type-values (and match-var-type-for-env
+                                             (> (length match-var-type-for-env) 2)
+                                             (rest (rest match-var-type-for-env)))]
+                 [match-var-type-bindings (and match-var-type-values (map cons type-parameters match-var-type-values))]
+                 [new-arg-binding-types (and arg-binding-types
+                                             (append (or match-var-type-values empty)
+                                                     (for/list ([ty arg-binding-types])
+                                                       (if match-var-type-bindings
+                                                           (subst-bindings ty match-var-type-bindings
+                                                                           #:equality? (lambda (a b) (equal? (syntax->datum a)
+                                                                                                         (syntax->datum b))))
+                                                           ty))))])
             (append (reverse
                      (filter
                       (compose not false?)
-                      (for/list ([ctype (or augmented-contructor-env-types '())]
+                      (for/list ([ctype (or new-arg-binding-types '())]
                                  [tmp-id (if (empty? tmp-map-with-ids) empty (rest tmp-map-with-ids))])
                         (and tmp-id (cons tmp-id ctype)))))
-                    ; if we want to be super technical, we should search previous environment for uses
-                    ; of the type parameter, e.g. if A in (List A) is already defined, we need to restore the
-                    ; original binding - but I'm omitting this for now
-                    ; another thing: we probably want to be assigning types similar to the idea of temporaries to avoid
-                    ; terrible environment shadowing - (List A1) (List A2) and so forth.
-                    ty-param-env
                     env)))))
   
   ;; In practice, it doesn't matter if we label a variable as a non-constructor
@@ -419,46 +439,54 @@
   ;; non-constructor given that structurally, `s` does not match the only other
   ;; zero-arg constructor `z`. We can defer semantic errors until later phases!
   (define (is-constructor? stx match-var #:env [env '()])
-    (let* ([constructor-metadata (get-constructors-for-match-var match-var #:env env)]
-           [constructors (and constructor-metadata (first constructor-metadata))])
+    (let* ([metadata (get-constructors-metadata match-var #:env env)]
+           [constructors (and metadata (first metadata))])
       (and (list? constructors)
            (> (length constructors) 0)
            (for/or ([c constructors])
              (and (not (syntax->list c))
                   (free-identifier=? c stx))))))
 
-  ;; Given a syntax object, try to get a constructor belonging to the type of a
-  ;; match variable.
+  ;; Given a syntax object, try to get the corresponding constructor
   (define (get-constructor stx match-var #:env [env '()])
-    (let* ([constructors-metadata (get-constructors-for-match-var match-var #:env env)]
-           [constructors (and constructors-metadata (first constructors-metadata))]
-           [constructors-env (and constructors-metadata (second constructors-metadata))]
-           [constructors-type-params (and constructors-metadata (third constructors-metadata))])
+    (let* ([metadata (get-constructors-metadata match-var #:env env)]
+           [constructors (and metadata (first metadata))]
+           [constructor-arg-bindings (and metadata (second metadata))]
+           [constructor-ty-params (and metadata (third metadata))]
+           [type-for-constructor (and metadata (fourth metadata))])
       (and (list? constructors)
            (> (length constructors) 0)
            (for/or ([c constructors]
-                    [c-env constructors-env])
-             ; try to find a matching constructor via free-identifier=?
-             (if (not (syntax->list c))
-                 (and (free-identifier=? c stx) c)
-                 (and (free-identifier=? (first (syntax->list c)) stx) (list c c-env constructors-type-params)))))))
+                    [binding constructor-arg-bindings])
+             ; we don't actually have the constructor yet, so we can just structurally check equality with equal?
+             (and (or (equal? (syntax->datum c) (syntax->datum stx))
+                      (and (syntax->list c) (equal? (syntax->datum (first (syntax->list c))) (syntax->datum stx))))
+                  (list c (syntax->list binding) constructor-ty-params type-for-constructor))))))
 
   ;; Returns the type of a variable in the current environment context
   ;; or false otherwise
   (define (get-typeof match-var #:env [env '()])
-    (with-handlers ([exn:fail? (lambda (e) #f)])
+    ; note: if the environment is empty then it'll probably error out; assumption then
+    ; is that this was done on purpose so we don't print the error and if you're seeing
+    ; unbound id errors otherwise, it's likely that the constructors are not being called
+    ; properly, e.g. (s a b c) will leave b and c as undefined
+    (with-handlers ([exn:fail? (lambda (e) (begin (and (not (empty? env))
+                                                       (printf "Failed to determine type of ~a\nERROR: ~a\n" match-var e))
+                                                  #f))])
       (turnstile-infer match-var #:local-env env)))
   
-  ;; Given a match variable (no nesting) with an optional environment, returns
+  ;; Given a match variable with an optional environment, returns
   ;; the set of constructors for the corresponding type and associated metadata
-  (define (get-constructors-for-match-var match-var #:env [env '()])
+  (define (get-constructors-metadata match-var #:env [env '()])
     (let* ([match-var-type (or (syntax-property match-var ':)
                                (get-typeof match-var #:env env))])
       ; IMPORTANT: if we don't have the 'constructors property attached, it's likely that
       ; the module for the type definition wasn't imported
-      (and match-var-type (list (syntax->list (syntax-property match-var-type 'constructors))
-                                (syntax->list (syntax-property match-var-type 'constructors-env))
-                                (syntax->list (syntax-property match-var-type 'type-parameters))))))
+      (and match-var-type (syntax-property match-var-type 'constructors) (syntax-property match-var-type 'constructors-env)
+           (list (syntax-property match-var-type 'constructors)
+                 (syntax-property match-var-type 'constructors-env)
+                 (syntax-property match-var-type 'type-parameters)
+                 match-var-type))))
 
   ;; Returns a match object
   (define (create-pattern-tree-match-helper match-vars match-pattern pattern-sub-matrix bodies env)
@@ -540,7 +568,7 @@
                     [temp-bindings (third r)]
                     [new-stx-args (fourth r)])
                (if (pt-body? (pt-match-decl-or-body m))
-                   (subst-bindings (pt-match-decl-or-body m) (merge-temp-bindings bindings new-bindings))
+                   (subst-bindings (pt-body-value (pt-match-decl-or-body m)) (merge-temp-bindings bindings new-bindings))
                    (match (append new-stx-args (rest stx-args)) (pt-match-decl-or-body m) #:bindings new-bindings #:temp-bindings temp-bindings)))))))
 
   (define (merge-temp-bindings bindings temp-bindings)
@@ -550,17 +578,17 @@
             temp-bindings
             (append bindings temp-bindings (list (first bindings))))))
   
-  (define (subst-bindings body bindings)
+  (define (subst-bindings body bindings #:equality? [equality? (lambda (a b)
+                                                                 (and (identifier? a)
+                                                                      (identifier? b)
+                                                                      (bound-identifier=? a b)))])
     ; perform substitutions from innermost to outermost scopes
     (foldr (lambda (binding rsf)
              (subst (cdr binding)
                     (car binding)
                     rsf
-                    (lambda (a b)
-                      (and (identifier? a)
-                           (identifier? b)
-                           (bound-identifier=? a b)))))
-           (pt-body-value body) bindings))
+                    equality?))
+           body bindings))
   
   (define (pattern-match stx m match-var)
     (and

@@ -17,7 +17,7 @@
            [warnings (fold-pt
                       (lambda (d context init)
                         (let* ([patterns (map pt-match-pattern (pt-decl-matches d))]
-                               [constructors-res (get-constructors-for-match-var (pt-decl-match-var d) #:env env)]
+                               [constructors-res (get-constructors-metadata (pt-decl-match-var d) #:env env)]
                                [constructors (if constructors-res
                                                  (car constructors-res)
                                                  empty)]

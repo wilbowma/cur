@@ -512,73 +512,70 @@
   (check-true
    (pt-equal?
     (create-pattern-tree #'((e1 e2)
-                            ([z z => z]
+                            ([(z a) (z b) => a]
                              [(s a b c d) (s c d) => c]
                              [(s (s a) x (s d) (s b)) (s c d) => b]
                              [(s (s a) x (s d) (s e f)) (s c d) => d]
-                             [(s (s (s a)) x (s d) (s c)) (s c d) => (s a)]))
-                         #:env (list
-                                (cons #'e2 #'Nat)
-                                (cons #'e1 #'Nat)))
+                             [(s (s (s a)) x (s d) (s c)) (s c d) => (s a)])))
     (pt-decl
      #'e1
      (list
       (pt-match
-       #'z
+       #'(z a39)
        (pt-decl
         #'e2
         (list
          (pt-match
-          #'z
-          (pt-body #'z)))))
+          #'(z b40)
+          (pt-body #'a39)))))
       (pt-match
-       #'(s temp39 b42 temp40 temp41) ; note priority of temporary generation over pattern variables!
+       #'(s temp41 b44 temp42 temp43) ; note priority of temporary generation over pattern variables!
        (pt-decl
-        #'temp39
+        #'temp41
         (list
          (pt-match
-          #'(s temp43)
+          #'(s temp45)
           (pt-decl
-           #'temp43
+           #'temp45
            (list
             (pt-match
-             #'(s a45) ; note: to accomodate for nested patterns, we need to explore the last case first
+             #'(s a47) ; note: to accomodate for nested patterns, we need to explore the last case first
              (pt-decl  ; since it is the longest "non pattern variable"
-              #'temp40
+              #'temp42
               (list
                (pt-match
-                #'(s d46)
+                #'(s d48)
                 (pt-decl
-                 #'temp41
+                 #'temp43
                  (list
                   (pt-match
-                   #'(s c47)
+                   #'(s c49)
                    (pt-decl
                     #'e2
                     (list
                      (pt-match
-                      #'(s c48 d49)
-                      (pt-body #'(s a45))))))
+                      #'(s c50 d51)
+                      (pt-body #'(s a47))))))
                   (pt-match
-                   #'(s e50 f51)
+                   #'(s e52 f53)
                    (pt-decl
                     #'e2
                     (list
                      (pt-match
-                      #'(s c52 d53)
-                      (pt-body #'d46))))) ; propagated from inner pattern variable in (s a)
+                      #'(s c54 d55)
+                      (pt-body #'d48))))) ; propagated from inner pattern variable in (s a)
                   (pt-match
                    #'d
                    (pt-decl
                     #'e2
                     (list
                     (pt-match
-                     #'(s c54 d55)
-                     (pt-body #'temp40)))))))) ; propagated from outer pattern variable in a
+                     #'(s c56 d57)
+                     (pt-body #'temp42)))))))) ; propagated from outer pattern variable in a
                (pt-match
                 #'c
                 (pt-decl
-                 #'temp41
+                 #'temp43
                  (list
                   (pt-match
                    #'d
@@ -586,47 +583,34 @@
                     #'e2
                     (list
                      (pt-match
-                      #'(s c56 d57)
-                      (pt-body #'temp40))))))))))) ; propagated from outer pattern variable in a
+                      #'(s c58 d59)
+                      (pt-body #'temp42))))))))))) ; propagated from outer pattern variable in a
             (pt-match
              #'a
              (pt-decl
-              #'temp40
+              #'temp42
               (list
                (pt-match
-                #'(s d58)
+                #'(s d60)
                 (pt-decl
-                 #'temp41
+                 #'temp43
                  (list
                   (pt-match
-                   #'(s b59)
+                   #'(s b61)
                    (pt-decl
                     #'e2
                     (list
                      (pt-match
-                      #'(s c60 d61)
-                      (pt-body #'b59)))))
+                      #'(s c62 d63)
+                      (pt-body #'b61)))))
                   (pt-match
-                   #'(s e62 f63)
-                   (pt-decl
-                    #'e2
-                    (list
-                     (pt-match
-                      #'(s c64 d65)
-                      (pt-body #'d58)))))
-                  (pt-match
-                   #'d
+                   #'(s e64 f65)
                    (pt-decl
                     #'e2
                     (list
                      (pt-match
                       #'(s c66 d67)
-                      (pt-body #'temp40)))))))) ; propagated from outer pattern variable a
-               (pt-match
-                #'c
-                (pt-decl
-                 #'temp41
-                 (list
+                      (pt-body #'d60)))))
                   (pt-match
                    #'d
                    (pt-decl
@@ -634,16 +618,29 @@
                     (list
                      (pt-match
                       #'(s c68 d69)
-                      (pt-body #'temp40)))))))))))))) ; propagated from outer pattern variable a
+                      (pt-body #'temp42)))))))) ; propagated from outer pattern variable a
+               (pt-match
+                #'c
+                (pt-decl
+                 #'temp43
+                 (list
+                  (pt-match
+                   #'d
+                   (pt-decl
+                    #'e2
+                    (list
+                     (pt-match
+                      #'(s c70 d71)
+                      (pt-body #'temp42)))))))))))))) ; propagated from outer pattern variable a
          (pt-match
           #'a
           (pt-decl
-           #'temp40
+           #'temp42
            (list
             (pt-match
              #'c
              (pt-decl
-              #'temp41
+              #'temp43
               (list
                (pt-match
                 #'d
@@ -651,8 +648,8 @@
                  #'e2
                  (list
                   (pt-match
-                   #'(s c70 d71)
-                   (pt-body #'temp40))))))))))))))))))
+                   #'(s c72 d73)
+                   (pt-body #'temp42))))))))))))))))))
   
   (check-true
    (pt-equal?
@@ -663,22 +660,22 @@
      #'a
      (list
       (pt-match
-       #'(y temp72)
+       #'(y temp74)
        (pt-decl
-        #'temp72
+        #'temp74
         (list
          (pt-match
-          #'(y b74)
-          (pt-body #'b74))
+          #'(y b76)
+          (pt-body #'b76))
          (pt-match
-          #'temp73
+          #'temp75
           (pt-body #'A)))))
       (pt-match
        #'x
        (pt-body #'A))))))
 
-  ;; TODO
-  #;(check-true
+  ; type inference within nested types
+  (check-true
    (pt-equal?
     (create-pattern-tree
       #'((n m)
@@ -691,7 +688,7 @@
     #'n
     (list
      (pt-match
-      #'(nil T75)
+      #'(nil T77)
       (pt-decl
        #'m
        (list
@@ -699,29 +696,29 @@
          #'z
          (pt-body #'A)))))
      (pt-match
-      #'(cons T77 z temp76) ; important: should be z and not a temporary zNN
+      #'(cons T79 z temp78) ; important: should be z and not a temporary zNN for nested cases too!
       (pt-decl
-       #'temp76
+       #'temp78
        (list
         (pt-match
-         #'(cons T81 temp79 temp80)
+         #'(cons T82 temp80 temp81)
          (pt-decl
-          #'temp79
+          #'temp80
           (list
            (pt-match
-            #'(s temp82)
+            #'(s temp83)
             (pt-decl
-             #'temp82
+             #'temp83
              (list
               (pt-match
-               #'(s x83)
+               #'(s x84)
                (pt-decl
-                #'temp80
+                #'temp81
                 (list
                  (pt-match
-                  #'(cons T85 z temp84)
+                  #'(cons T86 z temp85)
                   (pt-decl
-                   #'temp84
+                   #'temp85
                    (list
                     (pt-match
                      #'(nil T87)
@@ -730,4 +727,4 @@
                       (list
                        (pt-match
                         #'z
-                        (pt-body #'(cons T77 z x83))))))))))))))))))))))))))
+                        (pt-body #'(cons T79 z x84))))))))))))))))))))))))))

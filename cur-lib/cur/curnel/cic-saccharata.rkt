@@ -145,11 +145,11 @@
                  (λ [A+i : τ] ...
                    #,(syntax-property
                       (syntax-property
-                        (syntax-property
-                          (syntax/loc stx (name/internal A+i ...))
-                          'constructors #'(C-pat ...) #t)
-                        'constructors-env #'(C-env ...) #t)
-                      'type-parameters #'(ty-params ...) #t))))
+                       (syntax-property
+                        (syntax/loc stx (name/internal A+i ...))
+                        'constructors (syntax->list #'(C-pat ...)) #t)
+                       'constructors-env (syntax->list #'(C-env ...)) #t)
+                      'type-parameters (syntax->list #'(ty-params ...)) #t))))
               stx)))
          (begin-for-syntax
            (define-syntax name-expander
