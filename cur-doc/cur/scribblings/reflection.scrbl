@@ -34,7 +34,7 @@
    (for-label (only-meta-in 0 cur/stdlib/list)))
 
 @title{Reflection}
-@defmodule[cur]
+@;@defmodule[cur]
 To support the addition of new user-defined language features, @racketmodname[cur] provides access to
 various parts of the language implementation as Racket forms at @gtech{phase} 1.
 The reflection features are @emph{unstable} and may change without warning.

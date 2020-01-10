@@ -7,12 +7,13 @@
   (for-label
    (only-in racket
             identifier? syntax? boolean? syntax dict? listof exn:fail string? let any
+            parameter?
             [-> r:->])
    racket/syntax
    (only-meta-in 0 cur)
    (only-meta-in 0 cur/stdlib/nat)
    (only-meta-in 0 cur/stdlib/bool)
-   (only-in (only-meta-in 0 cur/curnel/coc-saccharata) ∀ forall ->)
+   #;(only-in (only-meta-in 0 cur/curnel/coc-saccharata) ∀ forall ->)
    (only-meta-in 0 cur/stdlib/equality)
    (only-in cur/ntac/base ntac ntac-proc)
    (except-in cur/ntac/auto ntac ntac-proc)
@@ -25,6 +26,7 @@
 @author[@author+email["William J. Bowman" "wjb@williamjbowman.com"]]
 @author[@author+email["Jay McCarthy" "jay@racket-lang.org"]]
 @author[@author+email["Stephen Chang" "stchang@ccs.neu.edu"]]
+@author{Paul Wang}
 
 As Coq has shown, tactics have proven useful for doing complex proofs.
 In Cur, tactics are not built-in or provided by the language.
@@ -62,7 +64,7 @@ These macros follow the naming convention @racket[by-_tactical].
 
 @(define curnel-eval
    (curnel-sandbox
-    "(require cur/ntac/hint cur/ntac/standard cur/ntac/rewrite cur/stdlib/sugar cur/stdlib/nat cur/stdlib/bool cur/stdlib/equality)")) @;{ TODO: fixme }
+    "(require cur/ntac/auto cur/ntac/standard cur/ntac/rewrite cur/stdlib/sugar cur/stdlib/nat cur/stdlib/bool cur/stdlib/equality)")) @;{ TODO: fixme }
 
 @subsection{Usage}
 
@@ -531,7 +533,7 @@ Handles @racket[exn:fail:ntac:goal] by printing the message and continuing the R
 @; auto ----------------------------------------
 
 @section{Auto-related Tactics}
-@defmodule[cur/ntac/hint]
+@defmodule[cur/ntac/auto]
 Ntac provides an automatic proof solving tactic that generates proof steps
 using pairs of tactic presets and identifiers from the current context and a
 user-defined hints database.
@@ -576,7 +578,7 @@ Print the local hints database.
 Short hand for @racket[(define name (ntac ty ps ...))].
 
 Optionally allows for specification of a hints database scoped to the theorem.
-               
+
 @examples[#:eval curnel-eval
 (define-theorem pred-example-1
   (∀ [p : Bool]
@@ -796,5 +798,3 @@ with @racket[to]. Adds @racket[ty] as a subgoal.
 Replaces instances of @racket[from] in the goal, which has type @racket[ty],
 with @racket[to].
 }
-
-
