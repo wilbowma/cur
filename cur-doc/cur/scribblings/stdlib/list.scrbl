@@ -5,7 +5,7 @@
   (for-label (only-meta-in 0 cur/stdlib/list))
   (for-label (only-meta-in 0 cur/stdlib/nat))
   (for-label (only-meta-in 0 cur/stdlib/maybe))
-  (for-label (except-in cur/stdlib/sugar :))
+  (for-label cur/stdlib/sugar)
   scribble/eval)
 
 @(define curnel-eval (curnel-sandbox "(require cur/stdlib/bool cur/stdlib/nat cur/stdlib/sugar cur/stdlib/list)"))

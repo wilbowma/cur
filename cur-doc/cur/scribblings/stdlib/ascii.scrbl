@@ -6,7 +6,7 @@
   (for-label (only-meta-in 0 cur/stdlib/list))
   (for-label (only-meta-in 0 cur/stdlib/ascii))
   (for-label (only-meta-in 0 cur/stdlib/bool))
-  (for-label (except-in cur/stdlib/sugar :))
+  (for-label cur/stdlib/sugar)
   (for-label (only-in racket syntax? or/c string? char? procedure?))
   (for-label cur/stdlib/racket-ascii)
   scribble/eval)

@@ -299,7 +299,7 @@
     (ntac-match goal
       [(~Π (a : P) body)
        ((intro #'a) ctxt pt)]
-      [a:id
+      [a
        (assumption ctxt pt)]))
 
   (define (by-obvious ptz)
