@@ -12,6 +12,7 @@
   [s : (-> Nat Nat)])
 
 (begin-for-syntax
+  (provide nat->unary nat-datum)
   (define (nat->unary n)
     (if (zero? n)
         #`z

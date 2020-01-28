@@ -240,7 +240,7 @@
 
    ; Replace recursive references to `TY-` by the surface `TY` in the types of
    ; constructors, and unexpand them in the context of `TY`.
-    #:with ((τin^ ... τout) ...) (stx-map
+   #:with ((τin^ ... τout) ...) (stx-map
                                  (λ (ts) (stx-map (unexpand/ctx #'TY) ts))
                                  (subst #'TY #'TY- #'((τin_ ... τout_) ...)))
 
