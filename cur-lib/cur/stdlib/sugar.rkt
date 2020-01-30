@@ -170,7 +170,10 @@
        (datum->syntax
         this-syntax
         (stx-map (unsubst-app name name-eval num-args) #'(x ...))
-        this-syntax this-syntax)])))
+        this-syntax this-syntax)]))
+
+  ;; exception for non-fatal attempt at marking a decreasing argument for recursion
+  (struct exn:fail:recur exn:fail ()))
 
 ;; usage:
 ;; (define/rec/match name : [x : ty_in1] ... ty-to-match ... [y : ty_in2] ... -> ty_out
@@ -186,17 +189,48 @@
 ;; - check coverage of pats
 ;; - check that body has type ty_out; currently, mismatch wont error
 ;;(require (for-syntax racket/pretty))
-(define-typed-syntax define/rec/match
+(define-syntax (define/rec/match stx)
+  (syntax-parse stx
+    [(_ name:id
+        (~datum :)
+        [x (~datum :) ty_in1] ...
+        (~and ty-to-match (~not [_ (~datum :) _]) (~not (~datum ->))) ...
+        [y (~datum :) ty_in2] ...
+        (~datum ->) ty_out
+        [pat ... (~datum =>) body] ...)
+     #:with (decls-x ...) (for/list ([x (attribute x)]
+                                     [t (attribute ty_in1)])
+                            #`(#,x : #,t))
+     #:with (decls-y ...) (for/list ([y (attribute y)]
+                                     [t (attribute ty_in2)])
+                            #`(#,y : #,t))
+     #:with (pat-bodies ...) (for/list ([pats (attribute pat)]
+                                        [body (attribute body)])
+                               #`(#,pats => #,body))
+     ; Explicitly mark different parameters as the decreasing argument for
+     ; termination checking. the last iteration is guaranteed to either be
+     ; successful or another exception that isn't exn:fail:recur.
+     (if (zero? (stx-length #'(ty-to-match ...)))
+         (local-expand #`(define/rec/match^ name : decls-x ... ty-to-match ... decls-y ... -> ty_out pat-bodies ...) 'top-level null)
+         (for/or ([i (build-list (stx-length #'(ty-to-match ...)) values)])
+           (with-handlers ([exn:fail:recur? (lambda (e) #f)])
+             (local-expand #`(define/rec/match^ name : #,i decls-x ... ty-to-match ... decls-y ... -> ty_out pat-bodies ...) 'top-level null))))]))
+
+;; Helper for define/rec/match with explicit decreasing arg
+(define-typed-syntax define/rec/match^
   [(_ name:id
       (~datum :)
+      (~optional decreasing-arg:exact-nonnegative-integer #:defaults ([decreasing-arg #'0]))
       [x (~datum :) ty_in1] ...
-      (~and ty-to-match (~not [_ (~datum :) _]) (~not (~datum ->))) ...
+      (~and ty-to-match (~not _:exact-nonnegative-integer) (~not [_ (~datum :) _]) (~not (~datum ->))) ...
       [y (~datum :) ty_in2] ...
       (~datum ->) ty_out
-      [pat ... (~datum =>) body] ...) ≫
+      [(pat ...) (~datum =>) body] ...) ≫
      #:fail-unless (or (zero? (stx-length #'(x ...))) ; TODO: remove this restriction?
                        (zero? (stx-length #'(y ...))))
      "cannot have both pre and post pattern matching args"
+     #:fail-unless (not (zero? (stx-length #'(ty-to-match ...))))
+     "must have at least one argument for pattern matching"
  ;    #:do[(printf "fn: ~a ----------------\n" (stx->datum #'name))]
      #:with (([xpat xpatτ] ...) ...)
      (stx-map
@@ -210,25 +244,32 @@
                                           #`(#,@#'((x ty_in1) ...)
                                              #,@x+τs))
                                         #'(([xpat xpatτ] ...) ...))
-     #:with (ty-to-match/ ...) (stx-map ; 'recur is for termination check
-                                (λ (t) (syntax-property t 'recur #t))
-                                #'(ty-to-match ...))
+     ;; mark the specified argument as decreasing - if it's the last one we also
+     ;; indicate it so that we can fail properly
+     #:with (ty-to-match/ ...) (for/list ([ty (attribute ty-to-match)]
+                                          [i (in-naturals)])
+                                 (if (= i (stx->datum (attribute decreasing-arg)))
+                                     (syntax-property (syntax-property ty 'decreasing #t) 'last-decreasing-check
+                                                      (= i (sub1 (length (attribute ty-to-match)))))
+                                     ty))
      [([x+pat ≫ x+pat- : x+patτ] ...)
       ([y ≫ y*- : ty_in2] ...
        ;; for now, assume recursive references are fns
        [name ≫ name- : (Π [x : ty_in1] ... [x0 : ty-to-match/] ... [y : ty_in2] ... ty_out)])
       ⊢ [body ≫ body- ⇐ ty_out]
       #:where typecheck-relation
-           (λ (t1 t2)
-             (and (old-typecheck-relation t1 t2)
-                  (or (not (syntax-property t2 'recur))
-                      (and (syntax-property t2 'recur)
-                           (let ([t1-recur-ok? (syntax-property t1 'recur)])
-                             (begin0 t1-recur-ok?
-                               (unless t1-recur-ok?
-                                 (fprintf (current-error-port)
-                                          "Failed termination check for arg of type ~a:\n"
-                                          (stx->datum (resugar-type t1))))))))))
+      (λ (t1 t2)
+        (and (old-typecheck-relation t1 t2)
+             (or (not (syntax-property t2 'decreasing))
+                 (and (syntax-property t2 'decreasing)
+                      (let ([t1-recur-ok? (syntax-property t1 'recur)])
+                        (begin0 t1-recur-ok?
+                                (unless t1-recur-ok?
+                                  (if (syntax-property t2 'last-decreasing-check)
+                                      (fprintf (current-error-port)
+                                               "Failed termination check for arg of type ~a:\n"
+                                               (stx->datum (resugar-type t1)))
+                                      (raise (exn:fail:recur "" (current-continuation-marks)))))))))))
       #:where check-relation (current-typecheck-relation)] ...
      #:do[(define arity (stx-length #'(x ... ty-to-match ... y ...)))]
      #:with ((x*- ...) ...) (stx-map

@@ -248,10 +248,9 @@
    #:with ((τin ...) ...) (for/list ([types (attribute τin^)])
                             (for/list ([A types])
                               (if (free-identifier=? (get-curried-operator A) #'TY)
-                                (syntax-property A 'recur #t)
+                                (syntax-property A 'recur #t #t)
                                 A)))
 
-   ; TODO: Can we use the 'recur property now?
    ; Figure out the recursive arguments.
    ; Each `xrec ...` is the subset of `x ...` that are recur arguments, i.e.,
    ; they are not fresh ids.
