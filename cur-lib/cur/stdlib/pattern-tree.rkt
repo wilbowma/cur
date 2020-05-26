@@ -131,6 +131,7 @@
   ;; before proceding as shown above.
   ;; Observe that the bindings for the new temporaries are reversed; this is
   ;; addressed in the matching function.
+  ;; NOTE: Imperative code, sensitive to order of expressions!
   (define (create-pattern-tree-decl-helper match-vars pattern-matrix bodies env)
     (let* (; create a hash to store results for the leading pattern column
            [C-hash (make-hash)]
@@ -144,10 +145,10 @@
                     [remaining-patterns (map rest pattern-matrix)]
                     [body bodies]
                     [idx (in-naturals)])
-                (process-pattern current-match-var
-                                 head-pattern
-                                 remaining-patterns
-                                 body idx C-hash env))
+                (process-pattern! current-match-var
+                                  head-pattern
+                                  remaining-patterns
+                                  body idx C-hash env))
                                   (hash->list C-hash))]
            ; for deterministic results, sort the entries by order of first occurrence in the input list;
            ; note that an entry is the tuple (unique-key, C-group)
@@ -213,10 +214,14 @@
 
   ;; For the current match variable and the head pattern for a particular pattern row, either creates a new
   ;; C-group entry within the constructor hash or merges the remaining patterns to form a new pattern sub-matrix.
-  (define (process-pattern match-var head-pattern remaining-patterns body idx C-hash env)
+  ;; NOTE: the caller does an explicit hash->list C-hash to create env, and then
+  ;; the callee does hash->list again. One is unnecessary.
+  (define (process-pattern! match-var head-pattern remaining-patterns body idx C-hash env)
     ; for each head pattern, first check to see if it matches existing patterns stored in the constructor hash;
     ; if not, create a new key using the head pattern
     ; note: we do this because key-equal? uses free-identifier=? which cannot be encoded with hashing
+    ;; NOTE: It looks like this for/or could be replaced with
+    ;; (member (car entry) (hash-keys C-hash) key-equal?))
     (let* ([key (or (for/or ([entry (hash->list C-hash)])
                       ; check if there is a key that equals the current one (based on the pattern and context)
                       (and (key-equal? head-pattern (car entry) match-var #:env env) (car entry)))
