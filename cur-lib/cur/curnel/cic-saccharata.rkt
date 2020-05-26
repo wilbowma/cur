@@ -129,9 +129,10 @@
 ;;; -----------------------------------------------------------
 
 ; define-type* wraps define-type to enable currying of constructor
+; and additionally associates constructor forms
 (define-syntax define-type*
   (syntax-parser
-    [(_ name (~datum :) [A+i:id (~datum :) τ] ... (~datum ->) τ-out . rst)
+    [(_ name (~datum :) [A+i:id (~datum :) τ] ... (~datum ->) τ-out (C-pat ...) (C-env ...) (ty-params ...) . rst)
      #:with name/internal (fresh #'name)
      #:with name/internal-expander (mk-~ #'name/internal)
      #:with name-expander (mk-~ #'name)
@@ -142,7 +143,13 @@
              ((make-variable-like-transformer
                (quasisyntax/loc stx
                  (λ [A+i : τ] ...
-                    #,(syntax/loc stx (name/internal A+i ...)))))
+                   #,(syntax-property
+                      (syntax-property
+                       (syntax-property
+                        (syntax/loc stx (name/internal A+i ...))
+                        'constructors (syntax->list #'(C-pat ...)) #t)
+                       'constructors-env (syntax->list #'(C-env ...)) #t)
+                      'type-parameters (syntax->list #'(ty-params ...)) #t))))
               stx)))
          (begin-for-syntax
            (define-syntax name-expander
@@ -313,6 +320,9 @@
    [≻ (begin-
       ;; Define the inductive type `TY`.
       (define-type* TY : [A : τA] ... [i : τi] ... -> τ
+        (C-pat ...)
+        (([i+x τin] ...) ...)
+        (A_ ...)
         #:extra elim-TY
         ([A τA] ...)
         ([i τi] ...)
