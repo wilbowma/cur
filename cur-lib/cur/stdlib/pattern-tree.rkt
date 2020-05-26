@@ -1,17 +1,23 @@
 #lang s-exp "../main.rkt"
 
-(provide (for-syntax (all-defined-out)))
+(provide
+ (for-syntax (all-defined-out)))
 
-(require (for-syntax racket/bool
-                     racket/list
-                     racket/pretty
-                     racket/string)
-         (only-in turnstile+/base
-                  subst))
+(require
+ (for-syntax
+  racket/bool
+  racket/list
+  racket/pretty
+  racket/string)
+ (only-in
+  turnstile+/base subst))
 
+;; This module defines the pattern tree structure for analyzing and translating
+;; Cur match expressions.
 ;; Conceptually, we can consider the data structure defined in this module
-;; as a prefix tree for Racket patterns. By representing pattern matches in
-;; this way, we can determine totality and produce eliminator-style programs.
+;; as a prefix tree for Cur patterns.
+;; By representing pattern matches in this way, we can determine totality and
+;; produce eliminator-style programs.
 
 ;; GRAMMAR (denoting conversion from INPUT to NESTED)
 ;; ---------------
@@ -24,47 +30,60 @@
 
 ;; MINI GLOSSARY (clarification of language used)
 ;; ---------------
-;; C-GROUP: a constructor group. Essentially, it is used as a means to aggregate data to
-;;   be displayed and the remaining match information for a specific constructor match case.
+;; C-GROUP: a constructor group.
+;; Essentially, it is used as a means to aggregate data to be displayed and
+;;  the remaining match information for a specific constructor match case.
 ;; C-HASH: a hash values are C-groups.
 ;; HEAD PATTERN: the first pattern in a pattern row.
-;; MATCH VARIABLE: positional arguments that are to be bound during the matching process.
-;;   The number of these correspond to the number of patterns in a pattern list. These can
-;;   also be generated dynamically to flatten complex patterns.
-;; MATCH PATTERN: the specific pattern that a match variable should be bound to. Note that
-;;   Unbound match patterns can occur when new temporaries are generated, and we treat
-;;   these as a special case in the matcher.
-;; PATTERN MATRIX: we interpret the input Racket match cases as a matrix:
-;;   e.g. ([a b => A] [c d => B]) can be viewed as a 2x2 matrix leading to 2 match bodies.
-;; PATTERN COLUMN: a list of patterns at the nth position in their match case, which also
-;;   corresponds to the nth match variable. To create the tree, we process pattern columns
-;;   from left to right.
-;; PATTERN ROW: a list of patterns, this corresponds to the lefthand side of a single input
-;;   match case row.
+;; MATCH VARIABLE: positional arguments that are to be bound during the matching
+;;   process.
+;;   The number of these correspond to the number of patterns in a pattern list.
+;;   These can also be generated dynamically to flatten complex patterns.
+;; MATCH PATTERN: the specific pattern that a match variable should be bound to.
+;;   Note that Unbound match patterns can occur when new temporaries are
+;;   generated, and we treat these as a special case in the matcher.
+;; PATTERN MATRIX: we interpret the input Cur match cases as a matrix:
+;;   e.g. ([a b => A] [c d => B]) can be viewed as a 2x2 matrix leading to 2
+;;   match bodies.
+;; PATTERN COLUMN: a list of patterns at the nth position in their match case,
+;;   which also corresponds to the nth match variable. To create the tree, we
+;;   process pattern columns from left to right.
+;; PATTERN ROW: a list of patterns, this corresponds to the lefthand side of a
+;;   single input match case row.
 ;; PATTERN SUB-MATRIX: a subset of the input pattern matrix.
-;;  e.g. ([a b => A] [c d => B]), after generating matches for the first match variable
-;;  we still need to process the remaining sub-matrix ([b => A] [d => B])
-;; PATTERN TREE: a new representation of Racket's match case as an aggregated decision tree.
-;; PATTERN VARIABLE: a variable representing any pattern. If these are provided within
-;;   match cases, then we eliminate the pattern variable and distribute the corresponding
-;;   match bodies to all other match cases at the same level.
-;;   It is important to be able to distinguish between pattern variables and constructors;
-;;   e.g. [z => A] and [a => A] mean different things; the former matches zero only while
-;;   the latter matches anything.
+;;   e.g. ([a b => A] [c d => B]), after generating matches for the first match
+;;   variable we still need to process the remaining sub-matrix
+;;   ([b => A] [d => B])
+;; PATTERN TREE: a new representation of Cur's match case as an aggregated
+;;   decision tree.
+;; PATTERN VARIABLE: a variable representing any pattern.
+;;   If these are provided within match cases, then we eliminate the pattern
+;;   variable and distribute the corresponding match bodies to all other match
+;;   cases at the same level.
+;;   It is important to be able to distinguish between pattern variables and
+;;   constructors; e.g. [z => A] and [a => A] mean different things; the former
+;;   matches zero only while the latter matches anything.
 ;; TEMPORARY: a newly generated identifier to reduce pattern complexity.
-;;   e.g. (s (s x)) can be re-written as (s temp1) where temp1 is a new match variable
-;;   with a match pattern (s x). Note: in our representation, we explicitly choose to
-;;   allow the reference to temp1 above to be unbound; this means that the matching
-;;   function must explicitly process temporaries first whenever they are used.
+;;   e.g. (s (s x)) can be re-written as (s temp1) where temp1 is a new match
+;;   variable with a match pattern (s x).
+;;   Note: in our representation, we explicitly choose to allow the reference
+;;   to temp1 above to be unbound; this means that the matching function must
+;;   explicitly process temporaries first whenever they are used.
 
+; TODO: Ideally, this wouldn't be defined for-syntax, but imported for-syntax at
+; its use.
 (begin-for-syntax
   ;; Pattern tree structures; see NESTED grammar above.
   (struct pt-decl (match-var matches) #:transparent)
   (struct pt-match (pattern decl-or-body) #:transparent)
   (struct pt-body (value) #:transparent)
 
-  ;; C-group; represents match data for a constructor and the associated pattern sub-matrix
-  (struct C-group (head-patterns [pattern-sub-matrix #:mutable] bodies temporaries-map is-pattern-variable? sort-order) #:transparent)
+  ;; C-group; represents match data for a constructor and the associated pattern
+  ;; sub-matrix
+  (struct C-group
+    (head-patterns [pattern-sub-matrix #:mutable] bodies temporaries-map
+                   is-pattern-variable? sort-order)
+    #:transparent)
 
   ;; For an input of form
   ;; ((n m)
@@ -80,16 +99,18 @@
     (syntax-parse stx
       [((match-vars:id ...) ((pattern-matrix ... (~datum =>) bodies) ...))
        #:fail-unless (for/and ([pattern-row (attribute pattern-matrix)])
-                       (= (length pattern-row)
-                          (length (attribute match-vars))))
+                       (= (length pattern-row) (length (attribute match-vars))))
        "expected all match cases to have same number of patterns as number of matching variables"
        #:fail-unless (not (zero? (length (attribute match-vars))))
        "expected at least one matching variable"
-       (create-pattern-tree-decl-helper (map (lambda (mv) (syntax-property mv 'is-pos-arg? #t)) ; hack: we can keep track of which
-                                             (attribute match-vars))                            ; match vars were not generated
-                                        (attribute pattern-matrix)
-                                        (attribute bodies)
-                                        env)]))
+       (create-pattern-tree-decl-helper
+        ; HACK: this map lets us can keep track of which match vars were not
+        ; generated
+        (map (lambda (mv) (syntax-property mv 'is-pos-arg? #t))
+             (attribute match-vars))
+        (attribute pattern-matrix)
+        (attribute bodies)
+        env)]))
 
   ;; Create a prefix tree by keying on the constructor type of the first pattern.
   ;; Conceptual step-by-step example:
@@ -108,22 +129,25 @@
   ;; Nested constructor patterns example: (x) ([(C1 (C2 a1)) => body])
   ;; We rewrite this as (x temp1) ([(C1 temp1) (C2 a1) => body])
   ;; before proceding as shown above.
-  ;; Observe that the bindings for the new temporaries are reversed; this is addressed
-  ;; in the matching function.
+  ;; Observe that the bindings for the new temporaries are reversed; this is
+  ;; addressed in the matching function.
   (define (create-pattern-tree-decl-helper match-vars pattern-matrix bodies env)
     (let* (; create a hash to store results for the leading pattern column
            [C-hash (make-hash)]
            [current-match-var (first match-vars)]
            ; for each match case, process the first pattern and store the
-           ; resulting C-group into a hash indexed by constructor or pattern variable
-           [merged-entries (begin (for ([head-pattern (map first pattern-matrix)]
-                                        [remaining-patterns (map rest pattern-matrix)]
-                                        [body bodies]
-                                        [idx (in-naturals)])
-                                    (process-pattern current-match-var
-                                                     head-pattern
-                                                     remaining-patterns
-                                                     body idx C-hash env))
+           ; resulting C-group into a hash indexed by constructor or pattern
+           ; variable
+           [merged-entries
+            (begin
+              (for ([head-pattern (map first pattern-matrix)]
+                    [remaining-patterns (map rest pattern-matrix)]
+                    [body bodies]
+                    [idx (in-naturals)])
+                (process-pattern current-match-var
+                                 head-pattern
+                                 remaining-patterns
+                                 body idx C-hash env))
                                   (hash->list C-hash))]
            ; for deterministic results, sort the entries by order of first occurrence in the input list;
            ; note that an entry is the tuple (unique-key, C-group)
