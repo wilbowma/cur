@@ -129,10 +129,12 @@
 ;;; -----------------------------------------------------------
 
 ; define-type* wraps define-type to enable currying of constructor
-; and additionally associates constructor forms
+; and record additional information about constructors for static checking.
 (define-syntax define-type*
   (syntax-parser
-    [(_ name (~datum :) [A+i:id (~datum :) τ] ... (~datum ->) τ-out (C-pat ...) (C-env ...) (ty-params ...) . rst)
+    [(_ name (~datum :) [A+i:id (~datum :) τ] ... (~datum ->) τ-out
+        ; Constructor info
+        (C-pat ...) (C-env ...) (ty-params ...) . rst)
      #:with name/internal (fresh #'name)
      #:with name/internal-expander (mk-~ #'name/internal)
      #:with name-expander (mk-~ #'name)
@@ -143,6 +145,7 @@
              ((make-variable-like-transformer
                (quasisyntax/loc stx
                  (λ [A+i : τ] ...
+                    ; Additional info for totality checking.
                    #,(syntax-property
                       (syntax-property
                        (syntax-property
