@@ -90,7 +90,7 @@
                                         (attribute pattern-matrix)
                                         (attribute bodies)
                                         env)]))
-  
+
   ;; Create a prefix tree by keying on the constructor type of the first pattern.
   ;; Conceptual step-by-step example:
   ;; 1. (x y z) ([a b c => body1]
@@ -432,7 +432,7 @@
                                  [tmp-id (if (empty? tmp-map-with-ids) empty (rest tmp-map-with-ids))])
                         (and tmp-id (cons tmp-id ctype)))))
                     env)))))
-  
+
   ;; In practice, it doesn't matter if we label a variable as a non-constructor
   ;; when it is, in fact, bound as a constructor elsewhere. For instance, if we
   ;; see the variable `s` for a pattern match on Nat, we simply say that it's a
@@ -473,8 +473,8 @@
     (with-handlers ([exn:fail? (lambda (e) (begin (and (not (empty? env))
                                                        (printf "Failed to determine type of ~a\nERROR: ~a\n" match-var e))
                                                   #f))])
-      (turnstile-infer match-var #:local-env env)))
-  
+      (curnel-type-infer match-var #:local-env env)))
+
   ;; Given a match variable with an optional environment, returns
   ;; the set of constructors for the corresponding type and associated metadata
   (define (get-constructors-metadata match-var #:env [env '()])
@@ -494,7 +494,7 @@
               (if (empty? (first pattern-sub-matrix))
                   (pt-body (first bodies))
                   (create-pattern-tree-decl-helper match-vars pattern-sub-matrix bodies env))))
-  
+
   ;; Generic fold over the pattern tree data structure; procs occur on decls (associated matches can
   ;; be trivially retrieved by the `matches` property, see usage below in definition of total?)
   ;; Bottom-up traversal.
@@ -508,7 +508,7 @@
     (if (pt-body? (pt-match-decl-or-body match))
         rsf
         (fold-pt proc rsf (pt-match-decl-or-body match) #:context (cons match context))))
-  
+
   ;; Equality check
   (define (pt-equal? n1 n2 #:raise-exn? [raise-exn? #t])
     (let ([res (and (equal? (syntax->datum (pt-decl-match-var n1))
@@ -577,7 +577,7 @@
         (if (empty? bindings)
             temp-bindings
             (append bindings temp-bindings (list (first bindings))))))
-  
+
   (define (subst-bindings body bindings #:equality? [equality? (lambda (a b)
                                                                  (and (identifier? a)
                                                                       (identifier? b)
@@ -589,7 +589,7 @@
                     rsf
                     equality?))
            body bindings))
-  
+
   (define (pattern-match stx m match-var)
     (and
      (not (false? stx))
