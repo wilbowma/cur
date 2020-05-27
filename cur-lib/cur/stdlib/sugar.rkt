@@ -192,6 +192,9 @@
 ;; - check coverage of pats
 ;; - check that body has type ty_out; currently, mismatch wont error
 ;;(require (for-syntax racket/pretty))
+
+;; TODO: Since define/rec/match and define/rec/match^ match the same syntax,
+;; should abstract the syntax-parser.
 (define-syntax (define/rec/match stx)
   (syntax-parse stx
     [(_ name:id
@@ -201,6 +204,7 @@
         [y (~datum :) ty_in2] ...
         (~datum ->) ty_out
         [pat ... (~datum =>) body] ...)
+     ; TODO: Unnecessary loops over the parsed attributes...
      #:with (decls-x ...) (for/list ([x (attribute x)]
                                      [t (attribute ty_in1)])
                             #`(#,x : #,t))
@@ -213,19 +217,32 @@
      ; Explicitly mark different parameters as the decreasing argument for
      ; termination checking. the last iteration is guaranteed to either be
      ; successful or another exception that isn't exn:fail:recur.
+     ;; TODO: Should probably define a phase-1 function instead of
+     ;; local-expanding define/rec/match^.
      (if (zero? (stx-length #'(ty-to-match ...)))
-         (local-expand #`(define/rec/match^ name : decls-x ... ty-to-match ... decls-y ... -> ty_out pat-bodies ...) 'top-level null)
+         (local-expand
+          #`(define/rec/match^ name : decls-x ... ty-to-match ...
+              decls-y ... -> ty_out pat-bodies ...)
+          'top-level null)
          (for/or ([i (build-list (stx-length #'(ty-to-match ...)) values)])
            (with-handlers ([exn:fail:recur? (lambda (e) #f)])
-             (local-expand #`(define/rec/match^ name : #,i decls-x ... ty-to-match ... decls-y ... -> ty_out pat-bodies ...) 'top-level null))))]))
+             (local-expand
+              #`(define/rec/match^ name : #,i decls-x ...
+                  ty-to-match ... decls-y ... -> ty_out pat-bodies
+                  ...)
+              'top-level null))))]))
 
 ;; Helper for define/rec/match with explicit decreasing arg
 (define-typed-syntax define/rec/match^
   [(_ name:id
       (~datum :)
-      (~optional decreasing-arg:exact-nonnegative-integer #:defaults ([decreasing-arg #'0]))
+      (~optional decreasing-arg:exact-nonnegative-integer #:defaults
+                 ;; TODO: Why is this a syntax-object, while others are not?
+                 ([decreasing-arg #'0]))
       [x (~datum :) ty_in1] ...
-      (~and ty-to-match (~not _:exact-nonnegative-integer) (~not [_ (~datum :) _]) (~not (~datum ->))) ...
+      (~and ty-to-match
+            (~not _:exact-nonnegative-integer)
+            (~not [_ (~datum :) _]) (~not (~datum ->))) ...
       [y (~datum :) ty_in2] ...
       (~datum ->) ty_out
       [pat ... (~datum =>) body] ...

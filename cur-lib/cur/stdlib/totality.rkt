@@ -9,7 +9,6 @@
                      cur/curnel/reflection))
 
 (begin-for-syntax
-    
   ;; A pattern match is total if and only if each match variable in the tree contains a match case for each
   ;; of the corresponding type constructors
   (define (total? in-pat #:aliases [aliases '()] #:env [env '()])
@@ -66,7 +65,7 @@
     (if (zero? n)
         l
         (drop-n (rest l) (sub1 n))))
-  
+
   ;; Given a list of patterns associated with a pattern variable and a list of expected
   ;; type cases, returns true if all type cases can be matched
   (define (match-var-total-check match-var patterns ty-pats #:warnings [warnings empty] #:env [env '()])
