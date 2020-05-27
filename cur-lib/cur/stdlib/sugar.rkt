@@ -246,7 +246,7 @@
       (~and ty-to-match (~not _:exact-nonnegative-integer) (~not [_ (~datum :) _]) (~not (~datum ->))) ...
       [y (~datum :) ty_in2] ...
       (~datum ->) ty_out
-      [pat ... (~datum =>) body] ...) ≫
+      [(pat ...) (~datum =>) body] ...) ≫
      #:fail-unless (or (zero? (stx-length #'(x ...))) ; TODO: remove this restriction?
                        (zero? (stx-length #'(y ...))))
      "cannot have both pre and post pattern matching args"
