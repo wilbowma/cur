@@ -152,7 +152,7 @@
                                   head-pattern
                                   remaining-patterns
                                   body idx C-hash env))
-                                  (hash->list C-hash))]
+              (hash->list C-hash))]
            ; for deterministic results, sort the entries by order of first occurrence in the input list;
            ; note that an entry is the tuple (unique-key, C-group)
            [sorted-entries (sort merged-entries < #:key (lambda (e) (C-group-sort-order (cdr e))))]
@@ -513,7 +513,7 @@
   (define (get-constructors-metadata match-var #:env [env '()])
     (let* ([match-var-type (or (syntax-property match-var ':)
                                (get-typeof match-var #:env env))])
-      ; IMPORTANT: if we don't have the 'constructors property attached, it's likely that
+      ; NOTE: if we don't have the 'constructors property attached, it's likely that
       ; the module for the type definition wasn't imported
       (and match-var-type (syntax-property match-var-type 'constructors) (syntax-property match-var-type 'constructors-env)
            (list (syntax-property match-var-type 'constructors)
