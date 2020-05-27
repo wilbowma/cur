@@ -193,7 +193,7 @@
 ;; - check that body has type ty_out; currently, mismatch wont error
 ;;(require (for-syntax racket/pretty))
 
-;; TODO: Since define/rec/match and define/rec/match^ match the same syntax,
+;; TODO PR103: Since define/rec/match and define/rec/match^ match the same syntax,
 ;; should abstract the syntax-parser.
 (define-syntax (define/rec/match stx)
   (syntax-parse stx
@@ -209,13 +209,13 @@
                ([ty-in-aliases (~datum =) ty-out-aliases
                                (~optional
                                 ty-out-implicit-counts:exact-nonnegative-integer
-                                ;; TODO: Why is this a syntax-object, while others
+                                ;; TODO PR103: Why is this a syntax-object, while others
                                 ;; are not?
                                 #:defaults ([ty-out-implicit-counts #'0]))] ...))
          #:defaults ([(ty-in-aliases 1) '()]
                      [(ty-out-aliases 1) '()]
                      [(ty-out-implicit-counts 1) '()])))
-     ; TODO: Unnecessary loops over the parsed attributes...
+     ; TODO PR103: Unnecessary loops over the parsed attributes...
      #:with (decls-x ...) (for/list ([x (attribute x)]
                                      [t (attribute ty_in1)])
                             #`(#,x : #,t))
@@ -243,13 +243,17 @@
      ; Explicitly mark different parameters as the decreasing argument for
      ; termination checking. the last iteration is guaranteed to either be
      ; successful or another exception that isn't exn:fail:recur.
-     ;; TODO: Should probably define a phase-1 function instead of
+     ;; TODO PR103: Should probably define a phase-1 function instead of
      ;; local-expanding define/rec/match^.
      (if (zero? (stx-length #'(ty-to-match ...)))
          (local-expand
           #`(define/rec/match^ name : decls-x ... ty-to-match ...
               decls-y ... -> ty_out pat-bodies ...)
           'top-level null)
+         ;; TODO PR103: What happens if all fail? Surely the function wouldn't be
+         ;; defined... might get a weird error about #f not being a syntax
+         ;; object, but looks like define/rec/match^ raises a type error so that
+         ;; should never happen
          (for/or ([i (build-list (stx-length #'(ty-to-match ...)) values)])
            (with-handlers ([exn:fail:recur? (lambda (e) #f)])
              (local-expand
@@ -263,7 +267,7 @@
   [(_ name:id
       (~datum :)
       (~optional decreasing-arg:exact-nonnegative-integer #:defaults
-                 ;; TODO: Why is this a syntax-object, while others are not?
+                 ;; TODO PR103: Why is this a syntax-object, while others are not?
                  ([decreasing-arg #'0]))
       [x (~datum :) ty_in1] ...
       (~and ty-to-match
@@ -310,6 +314,18 @@
                         (begin0 t1-recur-ok?
                                 (unless t1-recur-ok?
                                   (if (syntax-property t2 'last-decreasing-check)
+                                      ;; TODO PR103: This error is confusing. Seems to
+                                      ;; print the error message, rather than
+                                      ;; raising one, and results in a weird
+                                      ;; error being raised:
+                                      ;;   (define/rec/match sub1 : Nat -> Nat
+                                      ;;     [z => z]
+                                      ;;     [(s x) => (sub1 (add1 x))])
+                                      ;;   Failed termination check for arg of type Nat:
+                                      ;;   ; stdin::360-375: #%app: type mismatch: expected Nat, given Nat
+                                      ;;   ;   expression: (add1 x)
+                                      ;;   ;   at: (add1 x)
+                                      ;;   ;   in: (#%app sub1 (add1 x))
                                       (fprintf (current-error-port)
                                                "Failed termination check for arg of type ~a:\n"
                                                (stx->datum (resugar-type t1)))
