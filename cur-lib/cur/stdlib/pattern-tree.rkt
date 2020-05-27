@@ -70,8 +70,11 @@
 ;;   to temp1 above to be unbound; this means that the matching function must
 ;;   explicitly process temporaries first whenever they are used.
 
-; TODO: Ideally, this wouldn't be defined for-syntax, but imported for-syntax at
+; TODO PR103: Ideally, this wouldn't be defined for-syntax, but imported for-syntax at
 ; its use.
+; However, it might assume it's running the macro-expander to have access to
+; type information.
+; If so, it should remain in a begin-for-syntax.
 (begin-for-syntax
   ;; Pattern tree structures; see NESTED grammar above.
   (struct pt-decl (match-var matches) #:transparent)
@@ -104,7 +107,7 @@
        #:fail-unless (not (zero? (length (attribute match-vars))))
        "expected at least one matching variable"
        (create-pattern-tree-decl-helper
-        ; HACK: this map lets us can keep track of which match vars were not
+        ; HACK PR103: this map lets us can keep track of which match vars were not
         ; generated
         (map (lambda (mv) (syntax-property mv 'is-pos-arg? #t))
              (attribute match-vars))
@@ -214,13 +217,13 @@
 
   ;; For the current match variable and the head pattern for a particular pattern row, either creates a new
   ;; C-group entry within the constructor hash or merges the remaining patterns to form a new pattern sub-matrix.
-  ;; NOTE: the caller does an explicit hash->list C-hash to create env, and then
+  ;; NOTE PR103: the caller does an explicit hash->list C-hash to create env, and then
   ;; the callee does hash->list again. One is unnecessary.
   (define (process-pattern! match-var head-pattern remaining-patterns body idx C-hash env)
     ; for each head pattern, first check to see if it matches existing patterns stored in the constructor hash;
     ; if not, create a new key using the head pattern
     ; note: we do this because key-equal? uses free-identifier=? which cannot be encoded with hashing
-    ;; NOTE: It looks like this for/or could be replaced with
+    ;; NOTE PR103: It looks like this for/or could be replaced with
     ;; (member (car entry) (hash-keys C-hash) key-equal?))
     (let* ([key (or (for/or ([entry (hash->list C-hash)])
                       ; check if there is a key that equals the current one (based on the pattern and context)
