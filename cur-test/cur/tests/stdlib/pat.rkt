@@ -46,12 +46,12 @@
 (typecheck-fail/toplvl
   (define/rec/match bang!1 : [n : Nat] -> (== 0 1)
     [=> (bang!1 n)])
- #:with-msg "must have at least one argument for pattern matching")
+ #:with-msg "expected at least one matching variable")
 
 (typecheck-fail/toplvl
   (define/rec/match bang!2 : -> (== 0 1)
     [=> (bang!2)])
- #:with-msg "must have at least one argument for pattern matching")
+ #:with-msg "expected at least one matching variable")
 
 (typecheck-fail/toplvl
 (define/rec/match bad-rec-pat? : Nat -> Bool

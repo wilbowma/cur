@@ -121,7 +121,8 @@
                         (abs xp T (subst-tmp x s t1)))]
   [tru => tru]
   [fls => fls]
-  [(test t1 t2 t3) => (test (subst-tmp x s t1) (subst-tmp x s t2) (subst-tmp x s t3))])
+  [(test t1 t2 t3) => (test (subst-tmp x s t1) (subst-tmp x s t2) (subst-tmp x s t3))]
+  [(app t1 t2) => (app t1 t2)])
 
 (define subst subst-tmp)
 

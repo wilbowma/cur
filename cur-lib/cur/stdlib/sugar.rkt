@@ -228,7 +228,6 @@
                                    (map cons (attribute x) (attribute ty_in1))
                                    (map cons (attribute temporaries) (attribute ty-to-match))
                                    (map cons (attribute y) (attribute ty_in2)))))]
-
      ; Explicitly mark different parameters as the decreasing argument for
      ; termination checking. the last iteration is guaranteed to either be
      ; successful or another exception that isn't exn:fail:recur.
