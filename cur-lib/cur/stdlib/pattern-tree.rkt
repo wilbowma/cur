@@ -153,8 +153,9 @@
                                   remaining-patterns
                                   body idx C-hash env))
               (hash->list C-hash))]
-           ; for deterministic results, sort the entries by order of first occurrence in the input list;
-           ; note that an entry is the tuple (unique-key, C-group)
+           ; for deterministic results, sort the entries by order of first
+           ; occurrence in the input list; note that an entry is the tuple
+           ; (unique-key, C-group)
            [sorted-entries (sort merged-entries < #:key (lambda (e) (C-group-sort-order (cdr e))))]
            ; if a pattern variable is used, then the match cases for it need to be distributed among
            ; all other potential match paths
@@ -271,8 +272,10 @@
     (let ([k1-list (syntax->list k1)]
           [k2-list (syntax->list k2)])
       ; if one key is a list and the other isn't, then don't bother checking further
+      ;; TODO PR103: Why would this ever fail? You just did syntax->list.
       (and (equal? (list? k1-list)
                    (list? k2-list))
+           ;; TODO PR103: Why would this ever fail? You just did syntax->list.
            (if (list? k1-list)
                (and (= (length k1-list) (length k2-list))
                     (free-identifier=? (first k1-list) (first k2-list)))
@@ -302,6 +305,9 @@
                                                       (for/list ([ty arg-binding-types])
                                                         (subst-bindings ty match-var-type-bindings #:equality? (lambda (a b) (equal? (syntax->datum a)
                                                                                                                                      (syntax->datum b)))))))]
+                  ;; TODO PR103: This is probably wrong now since I changed the
+                  ;; behavior to fail when matching on a type without
+                  ;; constructors.
                   ; conveniently, the Type type doesn't have any constructors, so we can use it as the default
                   [expected-ty (or (and new-arg-binding-types (> (length new-arg-binding-types) idx) (list-ref new-arg-binding-types idx))
                                    #'Type)]
