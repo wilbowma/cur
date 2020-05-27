@@ -217,19 +217,20 @@
 
   ;; For the current match variable and the head pattern for a particular pattern row, either creates a new
   ;; C-group entry within the constructor hash or merges the remaining patterns to form a new pattern sub-matrix.
-  ;; NOTE PR103: the caller does an explicit hash->list C-hash to create env, and then
+  ;; NOTE PR103: the caller does an explicit hash->list C-hash, and then
   ;; the callee does hash->list again. One is unnecessary.
   (define (process-pattern! match-var head-pattern remaining-patterns body idx C-hash env)
     ; for each head pattern, first check to see if it matches existing patterns stored in the constructor hash;
     ; if not, create a new key using the head pattern
     ; note: we do this because key-equal? uses free-identifier=? which cannot be encoded with hashing
-    ;; NOTE PR103: It looks like this for/or could be replaced with
-    ;; (member (car entry) (hash-keys C-hash) key-equal?))
-    (let* ([key (or (for/or ([entry (hash->list C-hash)])
-                      ; check if there is a key that equals the current one (based on the pattern and context)
-                      (and (key-equal? head-pattern (car entry) match-var #:env env) (car entry)))
-                    ; otherwise, just use the pattern itself as the key
-                    head-pattern)]
+    (let* ([key (or
+                 ; check if there is a key that equals the current one.
+                 ; otherwise, just use the pattern itself as the key
+                 (findf
+                  (lambda (k)
+                    (key-equal? head-pattern k match-var #:env env))
+                  (hash-keys C-hash))
+                 head-pattern)]
            ; from the current pattern, generate a map for locations containing new temporaries
            ; e.g. (s (s a) (s b)) -> (s temp1 temp2) = (#f #t #t)
            [tmp-map (generate-tmp-map head-pattern)]
