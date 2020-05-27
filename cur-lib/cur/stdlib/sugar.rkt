@@ -203,7 +203,18 @@
         (~and ty-to-match (~not [_ (~datum :) _]) (~not (~datum ->))) ...
         [y (~datum :) ty_in2] ...
         (~datum ->) ty_out
-        [pat ... (~datum =>) body] ...)
+        [pat ... (~datum =>) body] ...
+        (~optional
+         (~seq #:type-aliases
+               ([ty-in-aliases (~datum =) ty-out-aliases
+                               (~optional
+                                ty-out-implicit-counts:exact-nonnegative-integer
+                                ;; TODO: Why is this a syntax-object, while others
+                                ;; are not?
+                                #:defaults ([ty-out-implicit-counts #'0]))] ...))
+         #:defaults ([(ty-in-aliases 1) '()]
+                     [(ty-out-aliases 1) '()]
+                     [(ty-out-implicit-counts 1) '()])))
      ; TODO: Unnecessary loops over the parsed attributes...
      #:with (decls-x ...) (for/list ([x (attribute x)]
                                      [t (attribute ty_in1)])
@@ -214,6 +225,21 @@
      #:with (pat-bodies ...) (for/list ([pats (attribute pat)]
                                         [body (attribute body)])
                                #`(#,pats => #,body))
+     ; do totality checking
+     #:with original-pats #'([pat ... => body] ...)
+     #:with (temporaries ...) (for/list ([ty (attribute ty-to-match)]
+                                         [idx (in-naturals)])
+                                (format-id ty "~a" (generate-temporary (string->symbol (format "match-~a-" (add1 idx)))) #:source ty))
+     #:do [(total? (list (attribute temporaries) (attribute original-pats))
+                   #:aliases (map list
+                                  (attribute ty-in-aliases)
+                                  (attribute ty-out-aliases)
+                                  (map syntax->datum (attribute ty-out-implicit-counts)))
+                   #:env (reverse (append
+                                   (map cons (attribute x) (attribute ty_in1))
+                                   (map cons (attribute temporaries) (attribute ty-to-match))
+                                   (map cons (attribute y) (attribute ty_in2)))))]
+
      ; Explicitly mark different parameters as the decreasing argument for
      ; termination checking. the last iteration is guaranteed to either be
      ; successful or another exception that isn't exn:fail:recur.
@@ -245,28 +271,10 @@
             (~not [_ (~datum :) _]) (~not (~datum ->))) ...
       [y (~datum :) ty_in2] ...
       (~datum ->) ty_out
-      [pat ... (~datum =>) body] ...
-      (~optional (~seq #:type-aliases ([ty-in-aliases (~datum =) ty-out-aliases (~optional ty-out-implicit-counts:exact-nonnegative-integer #:defaults ([ty-out-implicit-counts #'0]))] ...))
-                 #:defaults ([(ty-in-aliases 1) '()]
-                             [(ty-out-aliases 1) '()]
-                             [(ty-out-implicit-counts 1) '()]))) ≫
+      [(pat ...) (~datum =>) body] ...) ≫
      #:fail-unless (or (zero? (stx-length #'(x ...))) ; TODO: remove this restriction?
                        (zero? (stx-length #'(y ...))))
      "cannot have both pre and post pattern matching args"
-     ; do totality checking
-     #:with original-pats #'([pat ... => body] ...)
-     #:with (temporaries ...) (for/list ([ty (attribute ty-to-match)]
-                                         [idx (in-naturals)])
-                                (format-id ty "~a" (generate-temporary (string->symbol (format "match-~a-" (add1 idx)))) #:source ty))
-     #:do[(total? (list (attribute temporaries) (attribute original-pats))
-                  #:aliases (map list
-                                 (attribute ty-in-aliases)
-                                 (attribute ty-out-aliases)
-                                 (map syntax->datum (attribute ty-out-implicit-counts)))
-                  #:env (reverse (append
-                                  (map cons (attribute x) (attribute ty_in1))
-                                  (map cons (attribute temporaries) (attribute ty-to-match))
-                                  (map cons (attribute y) (attribute ty_in2)))))]
  ;    #:do[(printf "fn: ~a ----------------\n" (stx->datum #'name))]
      #:with (([xpat xpatτ] ...) ...)
      (stx-map
