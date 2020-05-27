@@ -198,11 +198,12 @@
   (syntax-parse stx
     [(_ name:id
         (~datum :)
-        [x (~datum :) ty_in1] ...
+        (~and decls-x [x (~datum :) ty_in1]) ...
         (~and ty-to-match (~not [_ (~datum :) _]) (~not (~datum ->))) ...
-        [y (~datum :) ty_in2] ...
+        (~and decls-y [y (~datum :) ty_in2]) ...
         (~datum ->) ty_out
-        [pat ... (~datum =>) body] ...
+        (~and clauses
+              [pat ... (~datum =>) body]) ...
         (~optional
          (~seq #:type-aliases
                ([ty-in-aliases (~datum =) ty-out-aliases
@@ -214,22 +215,11 @@
          #:defaults ([(ty-in-aliases 1) '()]
                      [(ty-out-aliases 1) '()]
                      [(ty-out-implicit-counts 1) '()])))
-     ; TODO PR103: Unnecessary loops over the parsed attributes...
-     #:with (decls-x ...) (for/list ([x (attribute x)]
-                                     [t (attribute ty_in1)])
-                            #`(#,x : #,t))
-     #:with (decls-y ...) (for/list ([y (attribute y)]
-                                     [t (attribute ty_in2)])
-                            #`(#,y : #,t))
-     #:with (pat-bodies ...) (for/list ([pats (attribute pat)]
-                                        [body (attribute body)])
-                               #`(#,pats => #,body))
      ; do totality checking
-     #:with original-pats #'([pat ... => body] ...)
      #:with (temporaries ...) (for/list ([ty (attribute ty-to-match)]
                                          [idx (in-naturals)])
                                 (format-id ty "~a" (generate-temporary (string->symbol (format "match-~a-" (add1 idx)))) #:source ty))
-     #:do [(total? (list (attribute temporaries) (attribute original-pats))
+     #:do [(total? (list (attribute temporaries) (attribute clauses))
                    #:aliases (map list
                                   (attribute ty-in-aliases)
                                   (attribute ty-out-aliases)
@@ -247,7 +237,7 @@
      (if (zero? (stx-length #'(ty-to-match ...)))
          (local-expand
           #`(define/rec/match^ name : decls-x ... ty-to-match ...
-              decls-y ... -> ty_out pat-bodies ...)
+              decls-y ... -> ty_out clauses ...)
           'top-level null)
          ;; TODO PR103: What happens if all fail? Surely the function wouldn't be
          ;; defined... might get a weird error about #f not being a syntax
@@ -257,7 +247,7 @@
            (with-handlers ([exn:fail:recur? (lambda (e) #f)])
              (local-expand
               #`(define/rec/match^ name : #,i decls-x ...
-                  ty-to-match ... decls-y ... -> ty_out pat-bodies
+                  ty-to-match ... decls-y ... -> ty_out clauses
                   ...)
               'top-level null))))]))
 
@@ -274,7 +264,7 @@
             (~not [_ (~datum :) _]) (~not (~datum ->))) ...
       [y (~datum :) ty_in2] ...
       (~datum ->) ty_out
-      [(pat ...) (~datum =>) body] ...) ≫
+      [pat ... (~datum =>) body] ...) ≫
      #:fail-unless (or (zero? (stx-length #'(x ...))) ; TODO: remove this restriction?
                        (zero? (stx-length #'(y ...))))
      "cannot have both pre and post pattern matching args"
