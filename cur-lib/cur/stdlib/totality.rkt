@@ -8,6 +8,7 @@
                      racket/pretty
                      cur/curnel/reflection))
 
+;; TODO PR103: Lower to relative phase 1 and change import
 (begin-for-syntax
   ;; A pattern match is total if and only if each match variable in the tree contains a match case for each
   ;; of the corresponding type constructors
@@ -19,7 +20,9 @@
                                [constructors-res (get-constructors-metadata (pt-decl-match-var d) #:env env)]
                                [constructors (if constructors-res
                                                  (car constructors-res)
-                                                 empty)]
+                                                 ;; TODO PR103: Better error
+                                                 (error "Expected pattern match on a term with constructors, but found no constructor for" (pt-decl-match-var d)
+                                                        env))]
                                ; handle implicit constructors
                                [updated-constructors (map (lambda (c)
                                                             (let* ([c-list (syntax->list c)]
