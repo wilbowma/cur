@@ -187,11 +187,10 @@
 ;; - but other tys are named
 ;; - in each clause, there must be one pat per ty-to-match,
 ;;   where the pats are stx-parse pats
-;; TODO:
-;; - check smaller arg for rec calls
-;; - check coverage of pats
+
+;; TODO PR103:
 ;; - check that body has type ty_out; currently, mismatch wont error
-;;(require (for-syntax racket/pretty))
+;; (this may have been added in PR103)
 
 ;; TODO PR103: Since define/rec/match and define/rec/match^ match the same syntax,
 ;; should abstract the syntax-parser.
