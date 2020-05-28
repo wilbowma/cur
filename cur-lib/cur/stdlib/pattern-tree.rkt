@@ -667,7 +667,7 @@
   ;; the set of constructors for the corresponding type and associated metadata
   (define (get-constructors-metadata match-var #:env [env '()])
     ;; TODO PR103: Should never use syntax-property ': directly.
-    (let* ([match-var-type (or #;(syntax-property match-var ':)
+    (let* ([match-var-type (or (syntax-property match-var ':)
                                (get-typeof match-var #:env env))])
       ; NOTE: if we don't have the 'constructors property attached, it's likely that
       ; the module for the type definition wasn't imported
