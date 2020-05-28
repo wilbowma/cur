@@ -617,7 +617,11 @@
                                        empty)])
                 (list m new-bindings new-stx-args))))))
 
-;; TODO PR103: These look like they should be in the reflection lib...
+  ;; TODO PR103: These look like they should be in the reflection lib...
+  ;; actually, as they're specific to cic, they should be in cic-saccharata...
+  ;; but they rely on reflections, and I don't want cic to dependent on
+  ;; reflections... hmm.
+
   ;; In practice, it doesn't matter if we label a variable as a non-constructor
   ;; when it is, in fact, bound as a constructor elsewhere. For instance, if we
   ;; see the variable `s` for a pattern match on Nat, we simply say that it's a
@@ -655,6 +659,8 @@
 
   ;; Returns the type of a variable in the current environment context
   ;; or false otherwise
+  ;; TODO PR103: Should be able to remove this, since it was just a wrapper that
+  ;; hid errors, and we ought not hide those errors.
   (define (get-typeof match-var #:env [env '()])
     ; note: if the environment is empty then it'll probably error out; assumption then
     ; is that this was done on purpose so we don't print the error and if you're seeing
@@ -667,8 +673,13 @@
 
   ;; Given a match variable with an optional environment, returns
   ;; the set of constructors for the corresponding type and associated metadata
+  ;; TODO PR103: This should probably be replaced by some of Stephen's
+  ;; type-methods magic to attaching metadata.
   (define (get-constructors-metadata match-var #:env [env '()])
     ;; TODO PR103: Should never use syntax-property ': directly.
+    ;; Looks like we need to due to temporaries, which are bound, and get-typeof
+    ;; might expand them. Seems like a problem, though, since they
+    ;; ought to be in the environment, so expanding them should be fine.
     (let* ([match-var-type (or (syntax-property match-var ':)
                                (get-typeof match-var #:env env))])
       ; NOTE: if we don't have the 'constructors property attached, it's likely that
