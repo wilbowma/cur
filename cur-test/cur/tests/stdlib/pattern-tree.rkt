@@ -8,7 +8,7 @@
 
 ;; NESTED TREE TESTS
 
-(begin-for-syntax  
+(begin-for-syntax
   ; simple
   (check-true
    (pt-equal? (create-pattern-tree
@@ -32,7 +32,7 @@
                        (pt-match
                         #'(s x1)
                         (pt-body #'B)))))))))
-  
+
   ; body identifiers rebound
   (check-true
    (pt-equal? (create-pattern-tree
@@ -118,7 +118,7 @@
                        (pt-match
                         #'z
                         (pt-body #'n)))))))))
-  
+
   ; merge pattern variable trivial
   (check-true
    (pt-equal? (create-pattern-tree
@@ -352,7 +352,7 @@
                     #'true
                     (pt-body #'B)))))))))
 
-  ;; ADDITIONAL NESTING 
+  ;; ADDITIONAL NESTING
   (check-true
    (pt-equal?
     (create-pattern-tree #'((a b)
@@ -391,7 +391,7 @@
                (pt-match
                 #'(s m31)
                 (pt-body #'b30))))))))))))))) ; note that we use the temp b not the match variable
-     
+
   (check-true
    (pt-equal?
     (create-pattern-tree
@@ -462,7 +462,7 @@
          (pt-match
           #'z
           (pt-body #'n)))))))))
-  
+
   (check-true
    (pt-equal?
     (create-pattern-tree
