@@ -9,13 +9,13 @@
 
 ;; part 2 of 3 of Software Foundations Poly.v chapter
 
-(data bool : 0 Type
-      (true : bool)
-      (false : bool))
+(define-datatype bool : Type
+  (true : bool)
+  (false : bool))
 
-(data nat : 0 Type
-      (O : nat) ; letter capital "O"
-      (S : (-> nat nat)))
+(define-datatype nat : Type
+  (O : nat) ; letter capital "O"
+  (S : (-> nat nat)))
 
 (define/rec/match beq-nat : nat nat -> bool
   [O O => true]
