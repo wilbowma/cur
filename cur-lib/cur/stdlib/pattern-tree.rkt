@@ -180,6 +180,7 @@
                                    (lambda (t)
                                      (and t
                                           (syntax-property
+                                           ; TODO PR103: Can we use fresh here instead?
                                            (generate-temporary 'temp)
                                            'is-temp? #t)))
                                    (C-group-temporaries-map group))]
@@ -415,6 +416,7 @@
                                               (not (empty? new-sub-matrix))
                                               (> (length (first old-sub-matrix))
                                                  (length (first new-sub-matrix))))
+                                         ; TODO PR103: Can we use fresh here instead?
                                          (let ([tmp (generate-temporary (first (first old-sub-matrix)))])
                                            (map (lambda (matrix-row) (cons tmp matrix-row)) new-sub-matrix))
                                          new-sub-matrix)]
