@@ -115,7 +115,9 @@
         (attribute bodies)
         env)]))
 
-  ;; Create a prefix tree by keying on the constructor type of the first pattern.
+  ;; Create a prefix tree by keying on the constructor type of the first
+  ;; pattern.
+  ;;
   ;; Conceptual step-by-step example:
   ;; 1. (x y z) ([a b c => body1]
   ;;             [d e f => body2])
@@ -135,10 +137,15 @@
   ;; Observe that the bindings for the new temporaries are reversed; this is
   ;; addressed in the matching function.
   ;; NOTE: Imperative code, sensitive to order of expressions!
+  (require racket/dict)
   (define (create-pattern-tree-decl-helper match-vars pattern-matrix bodies env)
     (let* (; create a hash to store results for the leading pattern column
-           [C-hash (make-hash)]
+           ; TODO PR103: Is this hash purely an optimization? Looks like an
+           ; expensive hash, and might be cheaper to recompute sub-patterns...
            [current-match-var (first match-vars)]
+           [C-hash (make-custom-hash
+                    (lambda (k1 k2)
+                      (key-equal? k1 k2 current-match-var #:env env)))]
            ; for each match case, process the first pattern and store the
            ; resulting C-group into a hash indexed by constructor or pattern
            ; variable
@@ -152,13 +159,17 @@
                                   head-pattern
                                   remaining-patterns
                                   body idx C-hash env))
-              (hash->list C-hash))]
+              (dict->list C-hash))]
+
            ; for deterministic results, sort the entries by order of first
            ; occurrence in the input list; note that an entry is the tuple
            ; (unique-key, C-group)
-           [sorted-entries (sort merged-entries < #:key (lambda (e) (C-group-sort-order (cdr e))))]
-           ; if a pattern variable is used, then the match cases for it need to be distributed among
-           ; all other potential match paths
+           [sorted-entries
+            (sort merged-entries <
+                  #:key (lambda (e) (C-group-sort-order (cdr e))))]
+
+           ; if a pattern variable is used, then the match cases for it need to
+           ; be distributed among all other potential match paths
            [pattern-var-entry (for/or ([entry sorted-entries])
                                 (and (C-group-is-pattern-variable? (cdr entry)) entry))]
            [remaining-entries (filter (lambda (e) (not (equal? e pattern-var-entry))) sorted-entries)]
@@ -227,24 +238,19 @@
                              extended-env))))])
       pt))
 
-  ;; For the current match variable and the head pattern for a particular pattern row, either creates a new
-  ;; C-group entry within the constructor hash or merges the remaining patterns to form a new pattern sub-matrix.
-  ;; NOTE PR103: the caller does an explicit hash->list C-hash, and then
-  ;; the callee does hash->list again. One is unnecessary.
-  (define (process-pattern! match-var head-pattern remaining-patterns body idx C-hash env)
-    ; for each head pattern, first check to see if it matches existing patterns stored in the constructor hash;
-    ; if not, create a new key using the head pattern
-    ; note: we do this because key-equal? uses free-identifier=? which cannot be encoded with hashing
-    (let* ([key (or
-                 ; check if there is a key that equals the current one.
-                 ; otherwise, just use the pattern itself as the key
-                 (findf
-                  (lambda (k)
-                    (key-equal? head-pattern k match-var #:env env))
-                  (hash-keys C-hash))
-                 head-pattern)]
-           ; from the current pattern, generate a map for locations containing new temporaries
-           ; e.g. (s (s a) (s b)) -> (s temp1 temp2) = (#f #t #t)
+  ;; For the current match variable and the head pattern for a particular
+  ;; pattern row, either creates a new C-group entry within the constructor
+  ;; hash or merges the remaining patterns to form a new pattern sub-matrix.
+  (define (process-pattern! match-var head-pattern remaining-patterns body idx
+                            C-hash env)
+    ; for each head pattern, first check to see if it matches existing patterns
+    ; stored in the constructor hash; if not, create a new key using the head
+    ; pattern note: we do this because key-equal? uses free-identifier=? which
+    ; cannot be encoded with hashing
+
+    (let* (; from the current pattern, generate a map for locations containing
+           ; new temporaries e.g.:
+           ;   (s (s a) (s b)) -> (s temp1 temp2) = (#f #t #t)
            [tmp-map (generate-tmp-map head-pattern)]
            [pat-is-pattern-variable? (is-pattern-variable? head-pattern match-var env)]
            [new-body (if pat-is-pattern-variable?
@@ -260,11 +266,13 @@
                               pat-is-pattern-variable?
                               idx)])
       ; if the key already exists, we can merge data onto the same key
-      ; e.g. we have two match cases that begin with constructor z, we can join the remaining match cases
-      (if (hash-has-key? C-hash key)
-          (let* ([old-data (hash-ref C-hash key)])
-            (hash-set! C-hash key (merge-c-groups old-data new-data)))
-          (hash-set! C-hash key new-data))))
+      ; e.g. we have two match cases that begin with constructor z, we can join
+      ; the remaining match cases
+      (dict-update!
+       C-hash head-pattern
+       (lambda (old-data)
+         (merge-c-groups old-data new-data))
+       new-data)))
 
   ;; Equality check between patterns to be used as keys. First check if both
   ;; of the two patterns are pattern variables, in which case we can trivially
