@@ -241,10 +241,9 @@
   ;; pattern row, either creates a new C-group entry within the constructor
   ;; hash or merges the remaining patterns to form a new pattern sub-matrix.
   (define (process-pattern match-var head-pattern remaining-patterns body idx
-                            C-hash env)
-    ; for each head pattern, first check to see if it matches existing patterns
-    ; stored in the constructor hash; if not, create a new key using the head
-    ; pattern note: we do this because key-equal? uses free-identifier=? which
+                           C-hash env)
+    ; TODO PR103: Not sure if this comment is relevant to the custom hash.
+    ; we (manually loop over the hash) because key-equal? uses free-identifier=? which
     ; cannot be encoded with hashing
 
     (let* (; from the current pattern, generate a map for locations containing
@@ -253,10 +252,12 @@
            [tmp-map (generate-tmp-map head-pattern)]
            [pat-is-pattern-variable? (is-pattern-variable? head-pattern match-var env)]
            [new-body (if pat-is-pattern-variable?
-                         (subst match-var head-pattern body (lambda (a b)
-                                                              (and (identifier? a)
-                                                                   (identifier? b)
-                                                                   (bound-identifier=? a b))))
+                         (subst match-var head-pattern body
+                                (lambda (a b)
+                                  (and
+                                   (identifier? a)
+                                   (identifier? b)
+                                   (bound-identifier=? a b))))
                          body)]
            [new-data (C-group (list head-pattern)
                               (list remaining-patterns)
@@ -264,9 +265,6 @@
                               tmp-map
                               pat-is-pattern-variable?
                               idx)])
-      ; if the key already exists, we can merge data onto the same key
-      ; e.g. we have two match cases that begin with constructor z, we can join
-      ; the remaining match cases
       (dict-update
        C-hash head-pattern
        (lambda (old-data)
