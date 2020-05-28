@@ -459,27 +459,27 @@
     (let ([head-pattern-as-list (syntax->list head-pattern)])
       (if (false? head-pattern-as-list)
           env
-          (let* ([constructor-id (observe (first head-pattern-as-list))]
-                 [metadata (observe (get-constructor constructor-id match-var #:env env))]
+          (let* ([constructor-id (first head-pattern-as-list)]
+                 [metadata (get-constructor constructor-id match-var #:env env)]
                  ;; TODO PR103: All these ands could be short-circuited. If
                  ;; get-constructor fails, we could just return env.
                  ;; However, if it fails, it looks like something else has gone
                  ;; wrong.
-                 [arg-binding-types (observe (and metadata (map (compose second syntax->list) (second metadata))))]
-                 [type-parameters (observe (and metadata (third metadata)))]
+                 [arg-binding-types (and metadata (map (compose second syntax->list) (second metadata)))]
+                 [type-parameters (and metadata (third metadata))]
                  [match-var-type-for-env (and metadata (syntax->list (fourth metadata)))]
                  [match-var-type-values (and match-var-type-for-env
                                              (> (length match-var-type-for-env) 2)
                                              (rest (rest match-var-type-for-env)))]
                  [match-var-type-bindings (and match-var-type-values (map cons type-parameters match-var-type-values))]
-                 [new-arg-binding-types (observe (and arg-binding-types
+                 [new-arg-binding-types (and arg-binding-types
                                              (append (or match-var-type-values empty)
                                                      (for/list ([ty arg-binding-types])
                                                        (if match-var-type-bindings
                                                            (subst-bindings ty match-var-type-bindings
                                                                            #:equality? (lambda (a b) (equal? (syntax->datum a)
-                                                                                                         (syntax->datum b))))
-                                                           ty)))))])
+                                                                                                             (syntax->datum b))))
+                                                           ty))))])
             (append (reverse
                      (filter
                       (compose not false?)

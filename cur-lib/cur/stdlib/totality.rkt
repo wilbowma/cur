@@ -24,19 +24,21 @@
                                                  (error "Expected pattern match on a term with constructors, but found no constructor for" (pt-decl-match-var d)
                                                         env))]
                                ; handle implicit constructors
-                               [updated-constructors (map (lambda (c)
-                                                            (let* ([c-list (syntax->list c)]
-                                                                   [alias-match (if c-list
-                                                                                    (for/or ([a aliases])
-                                                                                      (and (free-identifier=? (first c-list) (second a)) a))
-                                                                                    (for/or ([a aliases])
-                                                                                      (and (free-identifier=? c (second a)))))])
-                                                              (if alias-match
-                                                                  (if c-list
-                                                                      #`#,(cons (first alias-match) (drop-n (rest (syntax->list c)) (third alias-match)))
-                                                                      (first alias-match))
-                                                                  c)))
-                                                          constructors)]
+                               [updated-constructors
+                                (map (lambda (c)
+                                       (let* ([c-list (syntax->list c)]
+                                              [alias-match
+                                               (if c-list
+                                                   (for/or ([a aliases])
+                                                     (and (free-identifier=? (first c-list) (second a)) a))
+                                                   (for/or ([a aliases])
+                                                     (and (free-identifier=? c (second a)))))])
+                                         (if alias-match
+                                             (if c-list
+                                                 #`#,(cons (first alias-match) (drop-n (rest (syntax->list c)) (third alias-match)))
+                                                 (first alias-match))
+                                             c)))
+                                     constructors)]
                                ; if the current match pattern is marked as a pattern variable, then
                                ; we actually don't need to worry about failures at this level; subsequent
                                ; nested ones we do
