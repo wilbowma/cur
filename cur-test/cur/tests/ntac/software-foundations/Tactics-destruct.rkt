@@ -122,8 +122,12 @@
 (define/rec/match split_ : [X : Type] [Y : Type] (list (prod X Y))
   -> (prod (list X) (list Y))
   [nil => (pair (nil* X) (nil* Y))]
-  [(:: (pair m n) xs) => (pair (:: m (fst (split_ X Y xs)))
-                               (:: n (snd (split_ X Y xs))))])
+  ;; NOTE: totality can't handle cons* alias.
+  [(cons* _ (pair m n) xs)
+   => (pair (:: m (fst (split_ X Y xs)))
+            (:: n (snd (split_ X Y xs))))]
+  #:type-aliases ([pair = pair* 2]
+                  [nil = nil* 1]))
 
 (define-implicit split = split_ 2)
 
