@@ -291,19 +291,20 @@
           [k2-list (syntax->list k2)])
       ; if one key is a list and the other isn't, then don't bother checking further
       ;; TODO PR103: Why would this ever fail? You just did syntax->list.
+      ;; Because syntax->list might return #f
       (and (equal? (list? k1-list)
                    (list? k2-list))
            ;; TODO PR103: Why would this ever fail? You just did syntax->list.
+           ;; Because syntax->list might return #f
            (if (list? k1-list)
                (and (= (length k1-list) (length k2-list))
                     (free-identifier=? (first k1-list) (first k2-list)))
                (free-identifier=? k1 k2)))))
 
   ;; Returns true if a pattern is a pattern variable.
-  ;; Assumption: if a variable doesn't have any arguments and is not a known constructor
-  ;; for the type then it must be a wildcard variable
+  ;; Pattern variables are any identifiers that are not constructors.
   (define (is-pattern-variable? head-pat match-var env)
-    (and (not (list? (syntax->list head-pat)))
+    (and (identifier? head-pat)
          (not (is-constructor? head-pat match-var #:env env))))
 
   ;; Check if an argument is a pattern variable, e.g. (c a1 a2) and whether a1 is a pattern variable
