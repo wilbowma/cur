@@ -136,30 +136,29 @@
   ;; before proceding as shown above.
   ;; Observe that the bindings for the new temporaries are reversed; this is
   ;; addressed in the matching function.
-  ;; NOTE: Imperative code, sensitive to order of expressions!
   (require racket/dict)
   (define (create-pattern-tree-decl-helper match-vars pattern-matrix bodies env)
     (let* (; create a hash to store results for the leading pattern column
            ; TODO PR103: Is this hash purely an optimization? Looks like an
            ; expensive hash, and might be cheaper to recompute sub-patterns...
            [current-match-var (first match-vars)]
-           [C-hash (make-custom-hash
-                    (lambda (k1 k2)
-                      (key-equal? k1 k2 current-match-var #:env env)))]
            ; for each match case, process the first pattern and store the
            ; resulting C-group into a hash indexed by constructor or pattern
            ; variable
            [merged-entries
-            (begin
-              (for ([head-pattern (map first pattern-matrix)]
-                    [remaining-patterns (map rest pattern-matrix)]
-                    [body bodies]
-                    [idx (in-naturals)])
-                (process-pattern! current-match-var
-                                  head-pattern
-                                  remaining-patterns
-                                  body idx C-hash env))
-              (dict->list C-hash))]
+            (dict->list
+             (for/fold ([C-hash (make-immutable-custom-hash
+                                 (lambda (k1 k2)
+                                   (key-equal? k1 k2 current-match-var
+                                               #:env env)))])
+                       ([head-pattern (map first pattern-matrix)]
+                        [remaining-patterns (map rest pattern-matrix)]
+                        [body bodies]
+                        [idx (in-naturals)])
+               (process-pattern current-match-var
+                                head-pattern
+                                remaining-patterns
+                                body idx C-hash env)))]
 
            ; for deterministic results, sort the entries by order of first
            ; occurrence in the input list; note that an entry is the tuple
@@ -241,7 +240,7 @@
   ;; For the current match variable and the head pattern for a particular
   ;; pattern row, either creates a new C-group entry within the constructor
   ;; hash or merges the remaining patterns to form a new pattern sub-matrix.
-  (define (process-pattern! match-var head-pattern remaining-patterns body idx
+  (define (process-pattern match-var head-pattern remaining-patterns body idx
                             C-hash env)
     ; for each head pattern, first check to see if it matches existing patterns
     ; stored in the constructor hash; if not, create a new key using the head
@@ -268,7 +267,7 @@
       ; if the key already exists, we can merge data onto the same key
       ; e.g. we have two match cases that begin with constructor z, we can join
       ; the remaining match cases
-      (dict-update!
+      (dict-update
        C-hash head-pattern
        (lambda (old-data)
          (merge-c-groups old-data new-data))
