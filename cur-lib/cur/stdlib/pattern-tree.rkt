@@ -300,12 +300,13 @@
                (free-identifier=? k1 k2)))))
 
   ;; Returns true if a pattern is a pattern variable.
-  ;; Pattern variables are any identifiers that are not constructors.
+  ;; A pattern variable is any identifier that are not a constructor.
   (define (is-pattern-variable? head-pat match-var env)
     (and (identifier? head-pat)
          (not (is-constructor? head-pat match-var #:env env))))
 
-  ;; Check if an argument is a pattern variable, e.g. (c a1 a2) and whether a1 is a pattern variable
+  ;; Check if an argument is a pattern variable, e.g. (c a1 a2) and whether a1
+  ;; is a pattern variable
   (define (is-arg-pattern-variable? constructor-id match-var args idx env)
     (let ([arg (list-ref args idx)])
       (and (not (list? (syntax->list arg)))
@@ -325,6 +326,7 @@
                   ;; TODO PR103: This is probably wrong now since I changed the
                   ;; behavior to fail when matching on a type without
                   ;; constructors.
+                  ;; Doesn't seem to be so that much be some other default case.
                   ; conveniently, the Type type doesn't have any constructors, so we can use it as the default
                   [expected-ty (or (and new-arg-binding-types (> (length new-arg-binding-types) idx) (list-ref new-arg-binding-types idx))
                                    #'Type)]
