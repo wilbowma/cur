@@ -639,14 +639,10 @@
     (let* ([metadata (get-constructors-metadata match-var #:env env)]
            [constructors (and metadata (first metadata))])
       (and (list? constructors)
-           ;; TODO PR103: This length check should be unnecessary, since for/or
-           ;; should do the right thing on empty lists.
            ;; TODO: Should be a better way to decide whether something is a
            ;; constructor... syntax-property?
-           (> (length constructors) 0)
            (for/or ([c constructors])
-             (and (not (syntax->list c))
-                  (free-identifier=? c stx))))))
+             (and (identifier? c) (free-identifier=? c stx))))))
 
   ;; Given a syntax object, try to get the corresponding constructor
   (define (get-constructor stx match-var #:env [env '()])
