@@ -236,6 +236,12 @@
             : (prod (list nat) (list nat)) -> (pair [lst 1 3 5] [lst 2 4]))
 (check-type (partition (λ [x : nat] false) [lst 5 9 0])
             : (prod (list nat) (list nat)) -> (pair (nil* nat) [lst 5 9 0]))
+
+;; TODO: This test causes an error... sometimes, depending on how this
+;; file is executed. In racket-mode, it errors.
+;; If the rest of the file is commented out, then run in racket-mode, then the
+;; theorem is typed into the REPL, it works.
+;; If compiled and run from raco test, it works.
 (define-theorem partition-test2
   (== (partition (λ [x : nat] false) [lst 5 9 0])
       (pair (nil* nat) [lst 5 9 0]))
