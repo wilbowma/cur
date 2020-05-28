@@ -278,11 +278,11 @@
   ;; mark the two as equal. Next, check if they're both the same constructors.
   (define (key-equal? k1 k2 match-var #:env [env '()])
     (or
-     ; case: both keys structurally match
-     (structural-match? k1 k2)
      ; case: both keys represent pattern variables
      (and (is-pattern-variable? k1 match-var env)
-          (is-pattern-variable? k2 match-var env))))
+          (is-pattern-variable? k2 match-var env))
+     ; case: both keys structurally match
+     (structural-match? k1 k2)))
 
   ;; Returns true if either nullary constructor-like; if arguments are present, only
   ;; checks to see that the number of arguments are the same and that the head symbol matches
