@@ -630,6 +630,8 @@
   ;; but they rely on reflections, and I don't want cic to dependent on
   ;; reflections... hmm.
 
+  ;; TODO PR103: A lot of these are in the error monad. Should be a better way.
+
   ;; In practice, it doesn't matter if we label a variable as a non-constructor
   ;; when it is, in fact, bound as a constructor elsewhere. For instance, if we
   ;; see the variable `s` for a pattern match on Nat, we simply say that it's a
