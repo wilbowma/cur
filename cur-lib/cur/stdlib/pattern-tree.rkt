@@ -175,8 +175,14 @@
                                  ; having processed the first pattern of each case, we now know how many temporaries we need
                                  ; to generate in a nested scenario: for example, (s (s a) (s b)) -> (s temp1 temp2)
                                  ; and this would correspond to a map of (#f #t #t) which we convert to (#f temp1 temp2)
-                                 [tmp-map-with-ids (map (lambda (t) (and t (syntax-property (generate-temporary 'temp) 'is-temp? #t)))
-                                                        (C-group-temporaries-map group))]
+                                 [tmp-map-with-ids
+                                  (map
+                                   (lambda (t)
+                                     (and t
+                                          (syntax-property
+                                           (generate-temporary 'temp)
+                                           'is-temp? #t)))
+                                   (C-group-temporaries-map group))]
                                  ; for each of the remaining patterns, we may need to add temporary matches to them.
                                  ; following the example above: temp1 matches against (s a) and temp2 matches against (s b)
                                  [pattern-sub-matrix (for/list ([pattern-row (C-group-pattern-sub-matrix group)]
@@ -204,6 +210,10 @@
                                  ; for the match pattern, just fetch anything that's not a pattern variable
                                  [match-pat (first fresh-head-patterns)]
                                  ; hack: attach the temporary type based on the value we've assigned to it in the environment
+                                 ; TODO PR103: This can't possibly work... we're
+                                 ; trying to add a type to t by using t's type?
+                                 ; No, because the extended-env might contain
+                                 ; types for them computed from the pattern.
                                  [tmp-map-with-ids-typed (map (lambda (t) (and t (syntax-property t ': (get-typeof t #:env extended-env))))
                                                               tmp-map-with-ids)]
                                  [new-match-vars (append (filter (compose not false?) tmp-map-with-ids-typed) (rest match-vars))])
@@ -329,6 +339,8 @@
   (define (generate-tmp-map pattern)
     (let ([pattern-as-list (syntax->list pattern)])
       (if (false? pattern-as-list)
+          ;; TODO PR103: Odd that in this case we return a list, which suggest
+          ;; the input was a valid pattern, but it wasn't?
           (list #f)
           (map (compose list? syntax->datum) pattern-as-list))))
 
@@ -447,85 +459,36 @@
     (let ([head-pattern-as-list (syntax->list head-pattern)])
       (if (false? head-pattern-as-list)
           env
-          (let* ([constructor-id (first head-pattern-as-list)]
-                 [metadata (get-constructor constructor-id match-var #:env env)]
-                 [arg-binding-types (and metadata (map (compose second syntax->list) (second metadata)))]
-                 [type-parameters (and metadata (third metadata))]
+          (let* ([constructor-id (observe (first head-pattern-as-list))]
+                 [metadata (observe (get-constructor constructor-id match-var #:env env))]
+                 ;; TODO PR103: All these ands could be short-circuited. If
+                 ;; get-constructor fails, we could just return env.
+                 ;; However, if it fails, it looks like something else has gone
+                 ;; wrong.
+                 [arg-binding-types (observe (and metadata (map (compose second syntax->list) (second metadata))))]
+                 [type-parameters (observe (and metadata (third metadata)))]
                  [match-var-type-for-env (and metadata (syntax->list (fourth metadata)))]
                  [match-var-type-values (and match-var-type-for-env
                                              (> (length match-var-type-for-env) 2)
                                              (rest (rest match-var-type-for-env)))]
                  [match-var-type-bindings (and match-var-type-values (map cons type-parameters match-var-type-values))]
-                 [new-arg-binding-types (and arg-binding-types
+                 [new-arg-binding-types (observe (and arg-binding-types
                                              (append (or match-var-type-values empty)
                                                      (for/list ([ty arg-binding-types])
                                                        (if match-var-type-bindings
                                                            (subst-bindings ty match-var-type-bindings
                                                                            #:equality? (lambda (a b) (equal? (syntax->datum a)
                                                                                                          (syntax->datum b))))
-                                                           ty))))])
+                                                           ty)))))])
             (append (reverse
                      (filter
                       (compose not false?)
                       (for/list ([ctype (or new-arg-binding-types '())]
-                                 [tmp-id (if (empty? tmp-map-with-ids) empty (rest tmp-map-with-ids))])
+                                 [tmp-id (if (empty? tmp-map-with-ids)
+                                             empty
+                                             (rest tmp-map-with-ids))])
                         (and tmp-id (cons tmp-id ctype)))))
                     env)))))
-
-  ;; In practice, it doesn't matter if we label a variable as a non-constructor
-  ;; when it is, in fact, bound as a constructor elsewhere. For instance, if we
-  ;; see the variable `s` for a pattern match on Nat, we simply say that it's a
-  ;; non-constructor given that structurally, `s` does not match the only other
-  ;; zero-arg constructor `z`. We can defer semantic errors until later phases!
-  (define (is-constructor? stx match-var #:env [env '()])
-    (let* ([metadata (get-constructors-metadata match-var #:env env)]
-           [constructors (and metadata (first metadata))])
-      (and (list? constructors)
-           (> (length constructors) 0)
-           (for/or ([c constructors])
-             (and (not (syntax->list c))
-                  (free-identifier=? c stx))))))
-
-  ;; Given a syntax object, try to get the corresponding constructor
-  (define (get-constructor stx match-var #:env [env '()])
-    (let* ([metadata (get-constructors-metadata match-var #:env env)]
-           [constructors (and metadata (first metadata))]
-           [constructor-arg-bindings (and metadata (second metadata))]
-           [constructor-ty-params (and metadata (third metadata))]
-           [type-for-constructor (and metadata (fourth metadata))])
-      (and (list? constructors)
-           (> (length constructors) 0)
-           (for/or ([c constructors]
-                    [binding constructor-arg-bindings])
-             ; we don't actually have the constructor yet, so we can just structurally check equality with equal?
-             (and (or (equal? (syntax->datum c) (syntax->datum stx))
-                      (and (syntax->list c) (equal? (syntax->datum (first (syntax->list c))) (syntax->datum stx))))
-                  (list c (syntax->list binding) constructor-ty-params type-for-constructor))))))
-
-  ;; Returns the type of a variable in the current environment context
-  ;; or false otherwise
-  (define (get-typeof match-var #:env [env '()])
-    ; note: if the environment is empty then it'll probably error out; assumption then
-    ; is that this was done on purpose so we don't print the error and if you're seeing
-    ; unbound id errors otherwise, it's likely that the constructors are not being called
-    ; properly, e.g. (s a b c) will leave b and c as undefined
-    (with-handlers ([exn:fail? (lambda (e) (begin (and (not (empty? env))
-                                                       (printf "Failed to determine type of ~a\nERROR: ~a\n" match-var e))
-                                                  #f))])
-      (curnel-type-infer match-var #:local-env env)))
-
-  ;; Given a match variable with an optional environment, returns
-  ;; the set of constructors for the corresponding type and associated metadata
-  (define (get-constructors-metadata match-var #:env [env '()])
-    (let* ([match-var-type (or (syntax-property match-var ':)
-                               (get-typeof match-var #:env env))])
-      ; NOTE: if we don't have the 'constructors property attached, it's likely that
-      ; the module for the type definition wasn't imported
-      (and match-var-type (syntax-property match-var-type 'constructors) (syntax-property match-var-type 'constructors-env)
-           (list (syntax-property match-var-type 'constructors)
-                 (syntax-property match-var-type 'constructors-env)
-                 (syntax-property match-var-type 'type-parameters)
-                 match-var-type))))
 
   ;; Returns a match object
   (define (create-pattern-tree-match-helper match-vars match-pattern pattern-sub-matrix bodies env)
@@ -650,4 +613,66 @@
                                                                      (map cons (rest pattern-list) (rest stx-list)))])
                                          (cdr temp-pair))
                                        empty)])
-                (list m new-bindings new-stx-args)))))))
+                (list m new-bindings new-stx-args))))))
+
+;; TODO PR103: These look like they should be in the reflection lib...
+  ;; In practice, it doesn't matter if we label a variable as a non-constructor
+  ;; when it is, in fact, bound as a constructor elsewhere. For instance, if we
+  ;; see the variable `s` for a pattern match on Nat, we simply say that it's a
+  ;; non-constructor given that structurally, `s` does not match the only other
+  ;; zero-arg constructor `z`. We can defer semantic errors until later phases!
+  (define (is-constructor? stx match-var #:env [env '()])
+    (let* ([metadata (get-constructors-metadata match-var #:env env)]
+           [constructors (and metadata (first metadata))])
+      (and (list? constructors)
+           ;; TODO PR103: This length check should be unnecessary, since for/or
+           ;; should do the right thing on empty lists.
+           ;; TODO: Should be a better way to decide whether something is a
+           ;; constructor... syntax-property?
+           (> (length constructors) 0)
+           (for/or ([c constructors])
+             (and (not (syntax->list c))
+                  (free-identifier=? c stx))))))
+
+  ;; Given a syntax object, try to get the corresponding constructor
+  (define (get-constructor stx match-var #:env [env '()])
+    (let* ([metadata (get-constructors-metadata match-var #:env env)]
+           [constructors (and metadata (first metadata))]
+           [constructor-arg-bindings (and metadata (second metadata))]
+           [constructor-ty-params (and metadata (third metadata))]
+           [type-for-constructor (and metadata (fourth metadata))])
+      (and (list? constructors)
+           ;; TODO PR103: length check should be unnecessary.
+           (> (length constructors) 0)
+           (for/or ([c constructors]
+                    [binding constructor-arg-bindings])
+             ; we don't actually have the constructor yet, so we can just structurally check equality with equal?
+             (and (or (equal? (syntax->datum c) (syntax->datum stx))
+                      (and (syntax->list c) (equal? (syntax->datum (first (syntax->list c))) (syntax->datum stx))))
+                  (list c (syntax->list binding) constructor-ty-params type-for-constructor))))))
+
+  ;; Returns the type of a variable in the current environment context
+  ;; or false otherwise
+  (define (get-typeof match-var #:env [env '()])
+    ; note: if the environment is empty then it'll probably error out; assumption then
+    ; is that this was done on purpose so we don't print the error and if you're seeing
+    ; unbound id errors otherwise, it's likely that the constructors are not being called
+    ; properly, e.g. (s a b c) will leave b and c as undefined
+    (with-handlers (#;[exn:fail? (lambda (e) (begin (and (not (empty? env))
+                                                       (printf "Failed to determine type of ~a\nERROR: ~a\n" match-var e))
+                                                  #f))])
+      (curnel-type-infer match-var #:local-env env)))
+
+  ;; Given a match variable with an optional environment, returns
+  ;; the set of constructors for the corresponding type and associated metadata
+  (define (get-constructors-metadata match-var #:env [env '()])
+    ;; TODO PR103: Should never use syntax-property ': directly.
+    (let* ([match-var-type (or #;(syntax-property match-var ':)
+                               (get-typeof match-var #:env env))])
+      ; NOTE: if we don't have the 'constructors property attached, it's likely that
+      ; the module for the type definition wasn't imported
+      (and match-var-type (syntax-property match-var-type 'constructors) (syntax-property match-var-type 'constructors-env)
+           (list (syntax-property match-var-type 'constructors)
+                 (syntax-property match-var-type 'constructors-env)
+                 (syntax-property match-var-type 'type-parameters)
+                 match-var-type)))))
