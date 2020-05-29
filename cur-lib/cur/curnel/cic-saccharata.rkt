@@ -145,14 +145,7 @@
              ((make-variable-like-transformer
                (quasisyntax/loc stx
                  (λ [A+i : τ] ...
-                    ; Additional info for totality checking.
-                   #,(syntax-property
-                      (syntax-property
-                       (syntax-property
-                        (syntax/loc stx (name/internal A+i ...))
-                        'constructors (syntax->list #'(C-pat ...)) #t)
-                       'constructors-env (syntax->list #'(C-env ...)) #t)
-                      'type-parameters (syntax->list #'(ty-params ...)) #t))))
+                    #,(syntax/loc stx (name/internal A+i ...)))))
               stx)))
          (begin-for-syntax
            (define-syntax name-expander
@@ -323,6 +316,7 @@
    [≻ (begin-
       ;; Define the inductive type `TY`.
       (define-type* TY : [A : τA] ... [i : τi] ... -> τ
+        ;; TODO PR103: These next three arguments seem to be unused.
         (C-pat ...)
         (([i+x τin] ...) ...)
         (A_ ...)

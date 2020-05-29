@@ -653,6 +653,8 @@
            [constructor-arg-bindings (and metadata (second metadata))]
            [constructor-ty-params (and metadata (third metadata))]
            [type-for-constructor (and metadata (fourth metadata))])
+      ;; TODO PR103: list? check should be unnecessary; if constructors is
+      ;; non-false, then it should be a list.
       (and (list? constructors)
            ;; TODO PR103: length check should be unnecessary.
            (> (length constructors) 0)
@@ -660,8 +662,9 @@
                     [binding constructor-arg-bindings])
              ; we don't actually have the constructor yet, so we can just structurally check equality with equal?
              (and (or (equal? (syntax->datum c) (syntax->datum stx))
+                      ;; TODO PR103: Need to distinguish constructors from constructor patterns.
                       (and (syntax->list c) (equal? (syntax->datum (first (syntax->list c))) (syntax->datum stx))))
-                  (list c (syntax->list binding) constructor-ty-params type-for-constructor))))))
+                  (list c binding constructor-ty-params type-for-constructor))))))
 
   ;; Returns the type of a variable in the current environment context
   ;; or false otherwise
@@ -679,8 +682,6 @@
 
   ;; Given a match variable with an optional environment, returns
   ;; the set of constructors for the corresponding type and associated metadata
-  ;; TODO PR103: This should probably be replaced by some of Stephen's
-  ;; type-methods magic to attaching metadata.
   (define (get-constructors-metadata match-var #:env [env '()])
     ;; TODO PR103: Should never use syntax-property ': directly.
     ;; Looks like we need to due to temporaries, which are bound, and get-typeof
@@ -688,10 +689,22 @@
     ;; ought to be in the environment, so expanding them should be fine.
     (let* ([match-var-type (or (syntax-property match-var ':)
                                (get-typeof match-var #:env env))])
-      ; NOTE: if we don't have the 'constructors property attached, it's likely that
-      ; the module for the type definition wasn't imported
-      (and match-var-type (syntax-property match-var-type 'constructors) (syntax-property match-var-type 'constructors-env)
-           (list (syntax-property match-var-type 'constructors)
-                 (syntax-property match-var-type 'constructors-env)
-                 (syntax-property match-var-type 'type-parameters)
-                 match-var-type)))))
+      ;; TODO: Probably should expose a reflection abstraction that works with I
+      ;; or with match-var-type, to avoid users doing this parsing.
+      (syntax-parse match-var-type
+        [((~literal #%plain-app) I:id t ...)
+         #:when (is-inductive? #'I)
+         (let* ([cs (get-constructor-patterns (attribute I))]
+                [c-env (get-constructor-arg-types (attribute I))]
+                [params (get-params (attribute I))])
+           ; NOTE: if we don't have the 'constructors property attached, it's likely that
+           ; the module for the type definition wasn't imported
+           (and match-var-type
+                cs
+                c-env
+                params
+                (list cs
+                      c-env
+                      params
+                      match-var-type)))]
+        [_ #f]))))
