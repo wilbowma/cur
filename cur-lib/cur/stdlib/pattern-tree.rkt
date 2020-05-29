@@ -643,8 +643,10 @@
       (and (list? constructors)
            ;; TODO: Should be a better way to decide whether something is a
            ;; constructor... syntax-property?
+           #;(member stx constructors free-identifier=?)
            (for/or ([c constructors])
-             (and (identifier? c) (free-identifier=? c stx))))))
+             (and (identifier? c) (free-identifier=? c stx)))
+           #t)))
 
   ;; Given a syntax object, try to get the corresponding constructor
   (define (get-constructor stx match-var #:env [env '()])
