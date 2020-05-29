@@ -102,7 +102,8 @@
   #:do[(define exinfo (get-match-info #'τin))]
 ;  #:do[(printf "exinfo: ~a\n" (stx->datum exinfo))]
   #:fail-unless exinfo (format "could not infer extra info from type ~a" (stx->datum #'τ))
-  #:with (elim-Name ([orig-param:id _] ...) _ ei ...) exinfo
+  ; tag x elim-name x params x indices x constructor patterns x constructors
+  #:with (tag elim-Name ([orig-param:id _] ...) _ _ ei ...) exinfo
   ;; use params and indices from τin, not exinfo (bc that's what elim does)
   #:with params (stx-take
                  (stx-drop #'τin 2) ; drop #%app and cons-name
