@@ -66,6 +66,7 @@
                                   (foldr append empty (map car warnings)))))))
 
   ;; Drop the first n arguments for implicit types
+  ;; TODO PR103: Should be replaced by drop.
   (define (drop-n l n)
     (if (zero? n)
         l
