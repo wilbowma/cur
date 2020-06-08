@@ -40,14 +40,16 @@
 
 (define-implicit length = length_ 1)
 
+;; TODO: Fragile test due to use of generated name.
 (define-theorem eq-remove-S
   (∀ [n : nat] [m : nat]
      (-> (== n m)
          (== (S n) (S m))))
   by-intros
-  (by-rewrite H47)
+  (by-rewrite H39)
   reflexivity)
 
+;; TODO: Fragile test due to use of generated name.
 (define-theorem length-app-sym/abbrv
 ;(ntac/trace
   (∀ [X : Type] [l1 : (list X)] [l2 : (list X)] [x : X] [n : nat]
@@ -56,19 +58,20 @@
   (by-intros Y l1)
   (by-induction l1) ; adds IH53
   ; induction 1: nil -----
-  by-intros ; adds l2 x n H54
-  (by-rewrite H54)
+  by-intros ; adds l2 x n H46
+  (by-rewrite H46)
   reflexivity
   ; induction 2: cons -----
   by-intros ; adds l2 x n H55
   (by-apply eq-remove-S)
   (by-destruct n)
   ;; destruct 2a: z -----
-  (by-inversion H55)
+  (by-inversion H47)
   ;; destruct 2b: (s n-1) -----
-  (by-apply IH53)
-  (by-inversion H55) ; adds Heq63
-  (by-rewrite Heq63)
+  (by-apply IH45)
+  (by-inversion H47) ; adds Heq55
+  interactive
+  (by-rewrite Heq55)
   reflexivity)
 
 (check-type length-app-sym/abbrv
