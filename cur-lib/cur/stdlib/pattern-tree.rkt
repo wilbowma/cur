@@ -190,7 +190,10 @@
                                           (syntax-property
                                            ; Create a temp with the same
                                            ; location as the original pattern
-                                           (fresh (datum->syntax t 'tmp))
+                                           ; NOTE: Don't use fresh here or
+                                           ; pattern transformations will be a
+                                           ; bit odd.
+                                           (generate-temporary (datum->syntax t 'tmp))
                                            'is-temp? #t)))
                                    (C-group-temporaries-map group))]
                                  ; for each of the remaining patterns, we may need to add temporary matches to them.

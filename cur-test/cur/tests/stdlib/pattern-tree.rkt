@@ -30,7 +30,7 @@
                         #'z
                         (pt-body #'A))
                        (pt-match
-                        #'(s x1)
+                        #'(s x)
                         (pt-body #'B)))))))))
 
   ; body identifiers rebound
@@ -60,16 +60,16 @@
                    #'n
                    (list
                     (pt-match
-                     #'(s y2)
+                     #'(s y)
                      (pt-decl
                       #'m
                       (list
                        (pt-match
                         #'z
-                        (pt-body #'y2))
+                        (pt-body #'y))
                        (pt-match
-                        #'(s x3)
-                        (pt-body #'x3)))))))))
+                        #'(s x)
+                        (pt-body #'x)))))))))
 
   ; body identifiers rebound for arguments; in the case of shadowing
   ; we choose to simplify it by naively performing substitution without
@@ -87,16 +87,16 @@
                    #'n
                    (list
                     (pt-match
-                     #'(s y4)
+                     #'(s y)
                      (pt-decl
                       #'m
                       (list
                        (pt-match
                         #'z
-                        (pt-body #'y4))
+                        (pt-body #'y))
                        (pt-match
-                        #'(s x5)
-                        (pt-body #'y4)))))))))
+                        #'(s x)
+                        (pt-body #'y)))))))))
 
 
   ; pattern variable single
@@ -138,18 +138,18 @@
                       #'m
                       (list
                        (pt-match
-                        #'(s x6)
-                        (pt-body #'x6))
+                        #'(s x)
+                        (pt-body #'x))
                        (pt-match
                         #'z
                         (pt-body #'n)))))
                     (pt-match
-                     #'(s x7)
+                     #'(s x)
                      (pt-decl
                       #'m
                       (list
                        (pt-match
-                        #'(s y8)
+                        #'(s y)
                         (pt-body #'C))
                        (pt-match
                         #'z
@@ -177,7 +177,7 @@
                #'n
                (list
                 (pt-match
-                 #'(s x9)
+                 #'(s x)
                  (pt-decl
                   #'m
                   (list
@@ -223,16 +223,16 @@
                     #'_
                     (pt-body #'z)))))
                 (pt-match
-                 #'(s n-110)
+                 #'(s n-1)
                  (pt-decl
                   #'m
                   (list
                    (pt-match
                     #'z
-                    (pt-body #'(s n-110)))
+                    (pt-body #'(s n-1)))
                    (pt-match
-                    #'(s m-111)
-                    (pt-body #'(bad-minus n-110 (s m-111)))))))))))
+                    #'(s m-1)
+                    (pt-body #'(bad-minus n-1 (s m-1)))))))))))
 
   ; three match variable example
   (check-true
@@ -259,10 +259,10 @@
            #'o
            (list
             (pt-match
-             #'(s o-112)
+             #'(s o-1)
              (pt-body #'z))))))))
       (pt-match
-       #'(s n-113)
+       #'(s n-1)
        (pt-decl
         #'m
         (list
@@ -272,16 +272,16 @@
            #'o
            (list
             (pt-match
-             #'(s o-114)
-             (pt-body #'(s n-113))))))
+             #'(s o-1)
+             (pt-body #'(s n-1))))))
          (pt-match
-          #'(s m-115)
+          #'(s m-1)
           (pt-decl
            #'o
            (list
             (pt-match
              #'z
-             (pt-body #'(bad-minus n-113 (s m-115))))))))))))))
+             (pt-body #'(bad-minus n-1 (s m-1))))))))))))))
 
   ; lists
   (check-true
@@ -299,27 +299,27 @@
      #'a
      (list
       (pt-match
-       #'(nil _16)
+       #'(nil _)
        (pt-decl
         #'b
         (list
          (pt-match
-          #'(nil _17)
+          #'(nil _)
           (pt-body #'true))
          (pt-match
-          #'(cons _18 _19 _20)
+          #'(cons _ _ _)
           (pt-body #'false)))))
       (pt-match
-       #'(cons _21 _22 _23)
+       #'(cons _ _ _)
        (pt-decl
         #'b
         (list
          (pt-match
-          #'(nil _24)
+          #'(nil _)
           (pt-body #'false))
          (pt-match
-          #'(cons _25 b26 rstb27)
-          (pt-body #'(and (f _22 b26) (andmap2 A B f _23 rstb27)))))))))))
+          #'(cons _ b rstb)
+          (pt-body #'(and (f _ b) (andmap2 A B f _ rstb)))))))))))
 
   ; booleans
   (check-true
@@ -374,23 +374,23 @@
           #'z
           (pt-body #'A)))))
       (pt-match
-       #'(s temp28) ; note: for use in binding, we need to resolve temp bindings before positional input variables
-       (pt-decl     ; this means that we should effectively process temps by storing them on a stack, and processing in reverse
-        #'temp28
+       #'(s tmp) ; note: for use in binding, we need to resolve temp bindings before positional input variables
+       (pt-decl  ; this means that we should effectively process temps by storing them on a stack, and processing in reverse
+        #'tmp
         (list
          (pt-match
-          #'(s temp29)
+          #'(s tmp)
           (pt-decl
-           #'temp29
+           #'tmp
            (list
             (pt-match
-             #'(s b30)
+             #'(s b)
              (pt-decl
               #'b
               (list
                (pt-match
-                #'(s m31)
-                (pt-body #'b30))))))))))))))) ; note that we use the temp b not the match variable
+                #'(s m)
+                (pt-body #'b))))))))))))))) ; note that we use the temp b not the match variable
 
   (check-true
    (pt-equal?
@@ -428,14 +428,13 @@
              #'z
              (pt-body #'B))
             (pt-match
-             #'(s m34)
+             #'(s m)
              (pt-body #'C))))))))))))
 
   ;; WITH AND WITHOUT TYPE CONTEXT
   ; effectively, z = _ = n in this scenario
   ; TODO PR103: Don't think this should pass as n is unbound.
   ; NOTE: Work around issue with tests relying on generated names.
-  (begin (generate-temporary) (generate-temporary) (void))
   #;(check-true
    (pt-equal?
     (create-pattern-tree
@@ -491,13 +490,13 @@
           #'_
           (pt-body #'n)))))
       (pt-match
-       #'(s n-137)
+       #'(s n-1)
        (pt-decl
         #'m
         (list
          (pt-match
-          #'(s m-138)
-          (pt-body #'(minus n-137 m-138)))
+          #'(s m-1)
+          (pt-body #'(minus n-1 m-1)))
          (pt-match
           #'_
           (pt-body #'n)))))
@@ -698,7 +697,7 @@
     #'n
     (list
      (pt-match
-      #'(nil T77)
+      #'(nil T)
       (pt-decl
        #'m
        (list
