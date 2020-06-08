@@ -70,7 +70,7 @@
 ;;   to temp1 above to be unbound; this means that the matching function must
 ;;   explicitly process temporaries first whenever they are used.
 
-; TODO PR103: Ideally, this wouldn't be defined for-syntax, but imported for-syntax at
+; TODO: Ideally, this wouldn't be defined for-syntax, but imported for-syntax at
 ; its use.
 ; However, it might assume it's running the macro-expander to have access to
 ; type information.
@@ -139,8 +139,6 @@
   (require racket/dict)
   (define (create-pattern-tree-decl-helper match-vars pattern-matrix bodies env)
     (let* (; create a hash to store results for the leading pattern column
-           ; TODO PR103: Is this hash purely an optimization? Looks like an
-           ; expensive hash, and might be cheaper to recompute sub-patterns...
            [current-match-var (first match-vars)]
            ; for each match case, process the first pattern and store the
            ; resulting C-group into a hash indexed by constructor or pattern
@@ -221,10 +219,6 @@
                                  ; for the match pattern, just fetch anything that's not a pattern variable
                                  [match-pat (first fresh-head-patterns)]
                                  ; hack: attach the temporary type based on the value we've assigned to it in the environment
-                                 ; TODO PR103: This can't possibly work... we're
-                                 ; trying to add a type to t by using t's type?
-                                 ; No, because the extended-env might contain
-                                 ; types for them computed from the pattern.
                                  [tmp-map-with-ids-typed (map (lambda (t) (and t (syntax-property t ': (get-typeof t #:env extended-env))))
                                                               tmp-map-with-ids)]
                                  [new-match-vars (append (filter (compose not false?) tmp-map-with-ids-typed) (rest match-vars))])
@@ -242,10 +236,6 @@
   ;; hash or merges the remaining patterns to form a new pattern sub-matrix.
   (define (process-pattern match-var head-pattern remaining-patterns body idx
                            C-hash env)
-    ; TODO PR103: Not sure if this comment is relevant to the custom hash.
-    ; we (manually loop over the hash) because key-equal? uses free-identifier=? which
-    ; cannot be encoded with hashing
-
     (let* (; from the current pattern, generate a map for locations containing
            ; new temporaries e.g.:
            ;   (s (s a) (s b)) -> (s temp1 temp2) = (#f #t #t)
@@ -288,12 +278,8 @@
     (let ([k1-list (syntax->list k1)]
           [k2-list (syntax->list k2)])
       ; if one key is a list and the other isn't, then don't bother checking further
-      ;; TODO PR103: Why would this ever fail? You just did syntax->list.
-      ;; Because syntax->list might return #f
       (and (equal? (list? k1-list)
                    (list? k2-list))
-           ;; TODO PR103: Why would this ever fail? You just did syntax->list.
-           ;; Because syntax->list might return #f
            (if (list? k1-list)
                (and (= (length k1-list) (length k2-list))
                     (free-identifier=? (first k1-list) (first k2-list)))
@@ -323,10 +309,6 @@
                                                       (for/list ([ty arg-binding-types])
                                                         (subst-bindings ty match-var-type-bindings #:equality? (lambda (a b) (equal? (syntax->datum a)
                                                                                                                                      (syntax->datum b)))))))]
-                  ;; TODO PR103: This is probably wrong now since I changed the
-                  ;; behavior to fail when matching on a type without
-                  ;; constructors.
-                  ;; Doesn't seem to be so that much be some other default case.
                   ; conveniently, the Type type doesn't have any constructors, so we can use it as the default
                   [expected-ty (or (and new-arg-binding-types (> (length new-arg-binding-types) idx) (list-ref new-arg-binding-types idx))
                                    #'Type)]
@@ -348,8 +330,6 @@
   (define (generate-tmp-map pattern)
     (let ([pattern-as-list (syntax->list pattern)])
       (if (false? pattern-as-list)
-          ;; TODO PR103: Odd that in this case we return a list, which suggest
-          ;; the input was a valid pattern, but it wasn't?
           (list #f)
           (map (compose list? syntax->datum) pattern-as-list))))
 
@@ -471,7 +451,7 @@
           env
           (let* ([constructor-id (first head-pattern-as-list)]
                  [metadata (get-constructor constructor-id match-var #:env env)]
-                 ;; TODO PR103: All these ands could be short-circuited. If
+                 ;; TODO: All these ands could be short-circuited. If
                  ;; get-constructor fails, we could just return env.
                  ;; However, if it fails, it looks like something else has gone
                  ;; wrong.
@@ -630,7 +610,7 @@
   ;; but they rely on reflections, and I don't want cic to dependent on
   ;; reflections... hmm.
 
-  ;; TODO PR103: A lot of these are in the error monad. Should be a better way.
+  ;; TODO: A lot of these are in the error monad. Should be a better way.
 
   ;; In practice, it doesn't matter if we label a variable as a non-constructor
   ;; when it is, in fact, bound as a constructor elsewhere. For instance, if we
