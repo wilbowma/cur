@@ -41,7 +41,7 @@
                (printf "\n(subgoal 1 of ~a)\n\n" hole-count)
                (printf "\n"))))
        (for ([(k v) (nttz-context tz)])
-         (let ([v-datum (stx->datum (cur-pretty-print v))])
+         (let ([v-datum (stx->datum (resugar-type v))])
            (if (> (string-length (~a v-datum)) 80)
                (printf "~a :\n ~a"
                 (stx->datum k)
@@ -49,7 +49,7 @@
                  (with-output-to-string (λ () (pretty-print v-datum))) 1))
              (printf "~a : ~a\n" (stx->datum k) v-datum))))
        (printf "--------------------------------\n")
-       (let ([goal-datum (stx->datum (cur-pretty-print goal))])
+       (let ([goal-datum (stx->datum (resugar-type goal))])
          (if (> (string-length (~a goal-datum)) 80)
              (printf "~a\n" ; drop the leading '
                      (substring (with-output-to-string (λ () (pretty-print goal-datum))) 1))
@@ -64,11 +64,11 @@
     (match (nttz-focus tz)
       [(ntt-hole _ goal)
        (for ([(k v) (nttz-context tz)])
-         (printf "~a : ~a\n" (syntax->datum k) (syntax->datum (cur-pretty-print v))))
+         (printf "~a : ~a\n" (syntax->datum k) (syntax->datum (resugar-type v))))
        (for ([(k v) (nttz-context tz)])
          (printf "~a : ~a\n" (syntax->datum k) (syntax->datum v)))
        (printf "--------------------------------\n")
-       (printf "~a\n" (syntax->datum (cur-pretty-print goal)))
+       (printf "~a\n" (syntax->datum (resugar-type goal)))
        (pretty-print (syntax->datum goal))
        (printf "\n\n")]
       [(ntt-done _ _ _)
