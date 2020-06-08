@@ -70,7 +70,6 @@
   ;; destruct 2b: (s n-1) -----
   (by-apply IH45)
   (by-inversion H47) ; adds Heq55
-  interactive
   (by-rewrite Heq55)
   reflexivity)
 
