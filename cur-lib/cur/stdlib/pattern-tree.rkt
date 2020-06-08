@@ -10,7 +10,7 @@
   racket/pretty
   racket/string)
  (only-in
-  turnstile+/base subst))
+  turnstile+/base subst fresh))
 
 ;; This module defines the pattern tree structure for analyzing and translating
 ;; Cur match expressions.
@@ -188,8 +188,9 @@
                                    (lambda (t)
                                      (and t
                                           (syntax-property
-                                           ; TODO PR103: Can we use fresh here instead?
-                                           (generate-temporary 'temp)
+                                           ; Create a temp with the same
+                                           ; location as the original pattern
+                                           (fresh (datum->syntax t 'tmp))
                                            'is-temp? #t)))
                                    (C-group-temporaries-map group))]
                                  ; for each of the remaining patterns, we may need to add temporary matches to them.
@@ -238,7 +239,7 @@
                            C-hash env)
     (let* (; from the current pattern, generate a map for locations containing
            ; new temporaries e.g.:
-           ;   (s (s a) (s b)) -> (s temp1 temp2) = (#f #t #t)
+           ;   (s (s a) (s b)) -> (s temp1 temp2) = (#f ,srcloc1 ,srcloc2)
            [tmp-map (generate-tmp-map head-pattern)]
            [pat-is-pattern-variable? (is-pattern-variable? head-pattern match-var env)]
            [new-body (if pat-is-pattern-variable?
@@ -325,13 +326,14 @@
   ;; Given a pattern of form
   ;; (C1 (C2 (C3 a1) a2) a3)
   ;; produces a flat map
-  ;; (#f #t #f)
-  ;; which denotes the position in which new temporaries should be generated
+  ;; (#f _ #f)
+  ;; non-false indicate which new temporaries should be generated, and are
+  ;; syntax objects with source location to use for the generated temporary.
   (define (generate-tmp-map pattern)
     (let ([pattern-as-list (syntax->list pattern)])
       (if (false? pattern-as-list)
           (list #f)
-          (map (compose list? syntax->datum) pattern-as-list))))
+          (map (lambda (x) (and (not (identifier? x)) x)) pattern-as-list))))
 
   ;; Given a head pattern, find all the inner variables and create new temporaries.
   ;; If a temporary has already been generated, then just use that instead.
@@ -350,7 +352,7 @@
                                                  [t (rest tmp-map-with-ids)]
                                                  [idx (in-naturals)])
                                         (or t (and (is-arg-pattern-variable? (first head-pattern-list-template) match-var arg-list idx env)
-                                                   (syntax-property (generate-temporary arg) 'is-pattern-variable? #t)))))]
+                                                   (syntax-property (fresh arg) 'is-pattern-variable? #t)))))]
                  ; update the patterns
                  [new-head-patterns (for/list ([head-pattern-list head-pattern-lists]
                                                [idx (in-naturals)])
@@ -404,8 +406,7 @@
                                               (not (empty? new-sub-matrix))
                                               (> (length (first old-sub-matrix))
                                                  (length (first new-sub-matrix))))
-                                         ; TODO PR103: Can we use fresh here instead?
-                                         (let ([tmp (generate-temporary (first (first old-sub-matrix)))])
+                                         (let ([tmp (fresh (first (first old-sub-matrix)))])
                                            (map (lambda (matrix-row) (cons tmp matrix-row)) new-sub-matrix))
                                          new-sub-matrix)]
            ; sanity check: if one of these are pattern variables, the other should be too!
