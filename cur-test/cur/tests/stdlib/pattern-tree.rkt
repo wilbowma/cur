@@ -286,15 +286,18 @@
   ; lists
   (check-true
    (pt-equal?
-    (create-pattern-tree #'((a b)
-                              ([(nil _) (nil _) => true]
-                               [(nil _) (cons _ _ _) => false]
-                               [(cons _ _ _) (nil _) => false]
-                               [(cons _ a rsta) (cons _ b rstb) => (and (f a b) (andmap2 A B f rsta rstb))]))
-                           #:env
-                           (list
-                            (cons #'a #'(List Nat))
-                            (cons #'b #'(List Nat))))
+    (create-pattern-tree
+     #'((a b)
+        ([(nil _) (nil _) => true]
+         [(nil _) (cons _ _ _) => false]
+         [(cons _ _ _) (nil _) => false]
+         [(cons _ a rsta) (cons _ b rstb)
+          =>
+          (and (f a b) (andmap2 A B f rsta rstb))]))
+     #:env
+     (list
+      (cons #'a #'(List Nat))
+      (cons #'b #'(List Nat))))
     (pt-decl
      #'a
      (list
@@ -374,14 +377,18 @@
           #'z
           (pt-body #'A)))))
       (pt-match
-       #'(s tmp) ; note: for use in binding, we need to resolve temp bindings before positional input variables
-       (pt-decl  ; this means that we should effectively process temps by storing them on a stack, and processing in reverse
-        #'tmp
+       ; note: for use in binding, we need to resolve temp bindings before
+       ; positional input variables
+       #'(s tmp1)
+       ; this means that we should effectively process temps by storing them on
+       ; a stack, and processing in reverse
+       (pt-decl
+        #'tmp1
         (list
          (pt-match
-          #'(s tmp)
+          #'(s tmp2)
           (pt-decl
-           #'tmp
+           #'tmp2
            (list
             (pt-match
              #'(s b)
@@ -390,7 +397,8 @@
               (list
                (pt-match
                 #'(s m)
-                (pt-body #'b))))))))))))))) ; note that we use the temp b not the match variable
+                ; note that we use the temp b not the match variable
+                (pt-body #'b)))))))))))))))
 
   (check-true
    (pt-equal?
@@ -415,12 +423,12 @@
           #'z
           (pt-body #'A)))))
       (pt-match
-       #'(s temp32)
+       #'(s tmp3)
        (pt-decl
-        #'temp32
+        #'tmp3
         (list
          (pt-match
-          #'(s e233)
+          #'(s e2)
           (pt-decl
            #'e2
            (list
@@ -434,7 +442,6 @@
   ;; WITH AND WITHOUT TYPE CONTEXT
   ; effectively, z = _ = n in this scenario
   ; TODO PR103: Don't think this should pass as n is unbound.
-  ; NOTE: Work around issue with tests relying on generated names.
   #;(check-true
    (pt-equal?
     (create-pattern-tree
@@ -512,11 +519,6 @@
   ; complicated (bogus) nested example; note that we don't actually
   ; need to do semantic analysis when recompiling the pattern
   ; TODO PR103: Invalid test since e1 and e2 unbound.
-  ; NOTE: Work around issue with tests relying on generated names.
-  (begin
-    (for ([i (in-range 0 38)])
-      (generate-temporary))
-    (void))
   #;(check-true
    (pt-equal?
     (create-pattern-tree #'((e1 e2)
@@ -537,7 +539,8 @@
           #'(z b40)
           (pt-body #'a39)))))
       (pt-match
-       #'(s temp41 b44 temp42 temp43) ; note priority of temporary generation over pattern variables!
+       ; note priority of temporary generation over pattern variables!
+       #'(s temp41 b44 temp42 temp43)
        (pt-decl
         #'temp41
         (list
@@ -547,7 +550,9 @@
            #'temp45
            (list
             (pt-match
-             #'(s a47) ; note: to accomodate for nested patterns, we need to explore the last case first
+             ; note: to accomodate for nested patterns, we need to explore the
+             ; last case first
+             #'(s a47)
              (pt-decl  ; since it is the longest "non pattern variable"
               #'temp42
               (list
@@ -571,7 +576,8 @@
                     (list
                      (pt-match
                       #'(s c54 d55)
-                      (pt-body #'d48))))) ; propagated from inner pattern variable in (s a)
+                      ; propagated from inner pattern variable in (s a)
+                      (pt-body #'d48)))))
                   (pt-match
                    #'d
                    (pt-decl
@@ -579,7 +585,8 @@
                     (list
                     (pt-match
                      #'(s c56 d57)
-                     (pt-body #'temp42)))))))) ; propagated from outer pattern variable in a
+                     ; propagated from outer pattern variable in a
+                     (pt-body #'temp42))))))))
                (pt-match
                 #'c
                 (pt-decl
@@ -592,7 +599,8 @@
                     (list
                      (pt-match
                       #'(s c58 d59)
-                      (pt-body #'temp42))))))))))) ; propagated from outer pattern variable in a
+                      ; propagated from outer pattern variable in a
+                      (pt-body #'temp42)))))))))))
             (pt-match
              #'a
              (pt-decl
@@ -626,7 +634,8 @@
                     (list
                      (pt-match
                       #'(s c68 d69)
-                      (pt-body #'temp42)))))))) ; propagated from outer pattern variable a
+                      ; propagated from outer pattern variable a
+                      (pt-body #'temp42))))))))
                (pt-match
                 #'c
                 (pt-decl
@@ -639,7 +648,8 @@
                     (list
                      (pt-match
                       #'(s c70 d71)
-                      (pt-body #'temp42)))))))))))))) ; propagated from outer pattern variable a
+                      ; propagated from outer pattern variable a
+                      (pt-body #'temp42))))))))))))))
          (pt-match
           #'a
           (pt-decl
@@ -705,35 +715,35 @@
          #'z
          (pt-body #'A)))))
      (pt-match
-      #'(cons T79 z temp78) ; important: should be z and not a temporary zNN for nested cases too!
+      #'(cons T z tmp4)
       (pt-decl
-       #'temp78
+       #'tmp4
        (list
         (pt-match
-         #'(cons T82 temp80 temp81)
+         #'(cons T tmp5 tmp6)
          (pt-decl
-          #'temp80
+          #'tmp5
           (list
            (pt-match
-            #'(s temp83)
+            #'(s tmp7)
             (pt-decl
-             #'temp83
+             #'tmp7
              (list
               (pt-match
-               #'(s x84)
+               #'(s x)
                (pt-decl
-                #'temp81
+                #'tmp6
                 (list
                  (pt-match
-                  #'(cons T86 z temp85)
+                  #'(cons T z tmp8)
                   (pt-decl
-                   #'temp85
+                   #'tmp8
                    (list
                     (pt-match
-                     #'(nil T87)
+                     #'(nil T)
                      (pt-decl
                       #'m
                       (list
                        (pt-match
                         #'z
-                        (pt-body #'(cons T79 z x84))))))))))))))))))))))))))
+                        (pt-body #'(cons T z x))))))))))))))))))))))))))
