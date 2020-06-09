@@ -21,8 +21,11 @@
                                [constructors (if constructors-res
                                                  (car constructors-res)
                                                  ;; TODO PR103: Better error
-                                                 (error "Expected pattern match on a term with constructors, but found no constructor for" (pt-decl-match-var d)
-                                                        env))]
+                                                 (error
+                                                  'total?
+                                                  (format "Expected pattern match on an inductively defined type, but ~a is not inductive"
+                                                          (pt-decl-match-var d))
+                                                  (pt-decl-match-var d)))]
                                ; handle implicit constructors
                                [updated-constructors
                                 (map (lambda (c)
