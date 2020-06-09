@@ -223,7 +223,7 @@
                                  ; for the match pattern, just fetch anything that's not a pattern variable
                                  [match-pat (first fresh-head-patterns)]
                                  ; hack: attach the temporary type based on the value we've assigned to it in the environment
-                                 ; TODO PR103: Shouldn't this be unnecessary?
+                                 ; TODO: Shouldn't this be unnecessary?
                                  [tmp-map-with-ids-typed (map (lambda (t) (and t
                                                                                (syntax-property
                                                                                 t
@@ -615,7 +615,7 @@
                                        empty)])
                 (list m new-bindings new-stx-args))))))
 
-  ;; TODO PR103: These look like they should be in the reflection lib...
+  ;; TODO: These look like they should be in the reflection lib...
   ;; actually, as they're specific to cic, they should be in cic-saccharata...
   ;; but they rely on reflections, and I don't want cic to dependent on
   ;; reflections... hmm.
@@ -656,7 +656,7 @@
   ;; Given a match variable with an optional environment, returns
   ;; the set of constructors for the corresponding type and associated metadata
   (define (get-constructors-metadata match-var #:env [env '()])
-    ;; TODO PR103: Should never use syntax-property ': directly.
+    ;; TODO: Should never use syntax-property ': directly.
     ;; Looks like we need to due to temporaries, which are bound.
     ;; Seems like a problem, though, since they
     ;; ought to be in the environment, so expanding them should be fine.
