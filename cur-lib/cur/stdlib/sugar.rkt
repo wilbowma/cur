@@ -189,9 +189,8 @@
 ;; - in each clause, there must be one pat per ty-to-match,
 ;;   where the pats are stx-parse pats
 
-;; TODO PR103:
 ;; - check that body has type ty_out; currently, mismatch wont error
-;; (this may have been added in PR103)
+;; TODO: (this may have been added in PR103)
 
 (define-syntax (define/rec/match stx)
   (syntax-parse stx
