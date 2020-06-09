@@ -193,8 +193,6 @@
 ;; - check that body has type ty_out; currently, mismatch wont error
 ;; (this may have been added in PR103)
 
-;; TODO PR103: Since define/rec/match and define/rec/match^ match the same syntax,
-;; should abstract the syntax-parser.
 (define-syntax (define/rec/match stx)
   (syntax-parse stx
     [(_ name:id
@@ -260,7 +258,6 @@
   [(_ name:id
       (~datum :)
       (~optional decreasing-arg:exact-nonnegative-integer #:defaults
-                 ;; TODO PR103: Why is this a syntax-object, while others are not?
                  ([decreasing-arg #'0]))
       [x (~datum :) ty_in1] ...
       (~and ty-to-match
