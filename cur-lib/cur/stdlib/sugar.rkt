@@ -343,7 +343,7 @@
             [⊢ (name-eval x- ... x0- ... y- ...) ⇒ ty_out]]
            ; non-full application cases: η expand
            [:id ≫ --- [≻ (name)]]
-           [(_ arg (... ...)) ≫ 
+           [(_ arg (... ...)) ≫
             ----
             [≻ ((λ [x : ty_in1] ... [x0 : ty-to-match] ... [y : ty_in2] ...
                   (name x ... x0 ... y ...))
@@ -388,7 +388,7 @@
                 (pattern-expander
                  (syntax-parser
                    [(_ . rst) #'(name Ximplicit ... . rst)])))))
-        
+
       (define-syntax name*
         (datacons
         (λ (stx)
@@ -472,7 +472,7 @@
   ------------
   [≻ out-def]])
 
-      
+
 
 (provide
 ;;   Type
