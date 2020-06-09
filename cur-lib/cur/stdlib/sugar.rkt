@@ -243,13 +243,17 @@
          ;; defined... might get a weird error about #f not being a syntax
          ;; object, but looks like define/rec/match^ raises a type error so that
          ;; should never happen
-         (for/or ([i (build-list (stx-length #'(ty-to-match ...)) values)])
-           (with-handlers ([exn:fail:recur? (lambda (e) #f)])
-             (local-expand
-              #`(define/rec/match^ name : #,i decls-x ...
-                  ty-to-match ... decls-y ... -> ty_out clauses
-                  ...)
-              'top-level null))))]))
+         (or
+          (for/or ([i (build-list (stx-length #'(ty-to-match ...)) values)])
+            (with-handlers ([exn:fail:recur? (lambda (e) #f)])
+              (local-expand
+               #`(define/rec/match^ name : #,i decls-x ...
+                   ty-to-match ... decls-y ... -> ty_out clauses
+                   ...)
+               'top-level null)))
+          (error 'define/rec/match
+                 (format "Failed termination check ~a."
+                         (stx->datum #'name)))))]))
 
 ;; Helper for define/rec/match with explicit decreasing arg
 (define-typed-syntax define/rec/match^
@@ -286,8 +290,7 @@
      #:with (ty-to-match/ ...) (for/list ([ty (attribute ty-to-match)]
                                           [i (in-naturals)])
                                  (if (= i (stx->datum (attribute decreasing-arg)))
-                                     (syntax-property (syntax-property ty 'decreasing #t) 'last-decreasing-check
-                                                      (= i (sub1 (length (attribute ty-to-match)))))
+                                     (syntax-property ty 'decreasing #t)
                                      ty))
      [([x+pat ≫ x+pat- : x+patτ] ...)
       ([y ≫ y*- : ty_in2] ...
@@ -302,23 +305,7 @@
                       (let ([t1-recur-ok? (syntax-property t1 'recur)])
                         (begin0 t1-recur-ok?
                                 (unless t1-recur-ok?
-                                  (if (syntax-property t2 'last-decreasing-check)
-                                      ;; TODO PR103: This error is confusing. Seems to
-                                      ;; print the error message, rather than
-                                      ;; raising one, and results in a weird
-                                      ;; error being raised:
-                                      ;;   (define/rec/match sub1 : Nat -> Nat
-                                      ;;     [z => z]
-                                      ;;     [(s x) => (sub1 (add1 x))])
-                                      ;;   Failed termination check for arg of type Nat:
-                                      ;;   ; stdin::360-375: #%app: type mismatch: expected Nat, given Nat
-                                      ;;   ;   expression: (add1 x)
-                                      ;;   ;   at: (add1 x)
-                                      ;;   ;   in: (#%app sub1 (add1 x))
-                                      (fprintf (current-error-port)
-                                               "Failed termination check for arg of type ~a:\n"
-                                               (stx->datum (resugar-type t1)))
-                                      (raise (exn:fail:recur "" (current-continuation-marks)))))))))))
+                                  (raise (exn:fail:recur "" (current-continuation-marks))))))))))
       #:where check-relation (current-typecheck-relation)] ...
      #:do[(define arity (stx-length #'(x ... ty-to-match ... y ...)))]
      #:with ((x*- ...) ...) (stx-map
