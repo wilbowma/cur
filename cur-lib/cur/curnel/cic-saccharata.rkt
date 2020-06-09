@@ -419,7 +419,7 @@
     (and (has-type-info? I)
          (get-match-info I)
          (not (stx-null? (get-match-info I)))
-         (eq? 'is-inductive (eval-syntax (stx-car (get-match-info I))))))
+         (eq? 'is-inductive (syntax->datum (stx-car (get-match-info I))))))
 
   ; Get the number of parameters for inductive I.
   (define (get-param-count I)
