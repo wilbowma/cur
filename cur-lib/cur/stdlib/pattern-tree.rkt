@@ -223,7 +223,13 @@
                                  ; for the match pattern, just fetch anything that's not a pattern variable
                                  [match-pat (first fresh-head-patterns)]
                                  ; hack: attach the temporary type based on the value we've assigned to it in the environment
-                                 [tmp-map-with-ids-typed (map (lambda (t) (and t (syntax-property t ': (get-typeof t #:env extended-env))))
+                                 ; TODO PR103: Shouldn't this be unnecessary?
+                                 [tmp-map-with-ids-typed (map (lambda (t) (and t
+                                                                               (syntax-property
+                                                                                t
+                                                                                ':
+                                                                                (curnel-type-infer
+                                                                                 t #:env extended-env))))
                                                               tmp-map-with-ids)]
                                  [new-match-vars (append (filter (compose not false?) tmp-map-with-ids-typed) (rest match-vars))])
                             (create-pattern-tree-match-helper
@@ -652,29 +658,15 @@
                       (and (syntax->list c) (equal? (syntax->datum (first (syntax->list c))) (syntax->datum stx))))
                   (list c binding constructor-ty-params type-for-constructor))))))
 
-  ;; Returns the type of a variable in the current environment context
-  ;; or false otherwise
-  ;; TODO PR103: Should be able to remove this, since it was just a wrapper that
-  ;; hid errors, and we ought not hide those errors.
-  (define (get-typeof match-var #:env [env '()])
-    ; note: if the environment is empty then it'll probably error out; assumption then
-    ; is that this was done on purpose so we don't print the error and if you're seeing
-    ; unbound id errors otherwise, it's likely that the constructors are not being called
-    ; properly, e.g. (s a b c) will leave b and c as undefined
-    (with-handlers (#;[exn:fail? (lambda (e) (begin (and (not (empty? env))
-                                                       (printf "Failed to determine type of ~a\nERROR: ~a\n" match-var e))
-                                                  #f))])
-      (curnel-type-infer match-var #:local-env env)))
-
   ;; Given a match variable with an optional environment, returns
   ;; the set of constructors for the corresponding type and associated metadata
   (define (get-constructors-metadata match-var #:env [env '()])
     ;; TODO PR103: Should never use syntax-property ': directly.
-    ;; Looks like we need to due to temporaries, which are bound, and get-typeof
-    ;; might expand them. Seems like a problem, though, since they
+    ;; Looks like we need to due to temporaries, which are bound.
+    ;; Seems like a problem, though, since they
     ;; ought to be in the environment, so expanding them should be fine.
     (let* ([match-var-type (or (syntax-property match-var ':)
-                               (get-typeof match-var #:env env))])
+                               (curnel-type-infer match-var #:env env))])
       ;; TODO: Probably should expose a reflection abstraction that works with I
       ;; or with match-var-type, to avoid users doing this parsing.
       (syntax-parse match-var-type
