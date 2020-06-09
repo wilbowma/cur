@@ -11,13 +11,13 @@
 ;; Using destruct on Compound Expressions
 
 ;; copied from Poly-pairs.rkt
-(data bool : 0 Type
-      (true : bool)
-      (false : bool))
+(define-datatype bool : Type
+  (true : bool)
+  (false : bool))
 
-(data nat : 0 Type
-      (O : nat) ; letter capital "O"
-      (S : (-> nat nat)))
+(define-datatype nat : Type
+  (O : nat) ; letter capital "O"
+  (S : (-> nat nat)))
 
 (define/rec/match plus : nat [m : nat] -> nat
   [O => m]
@@ -98,9 +98,12 @@
 (define-implicit pair = pair* 2)
 
 (define/rec/match fst* : [X : Type] [Y : Type] (prod X Y) -> X
-  [(pair x _) => x])
+  [(pair x _) => x]
+  #:type-aliases ([pair = pair* 2]))
+
 (define/rec/match snd* : [X : Type] [Y : Type] (prod X Y) -> Y
-  [(pair _ y) => y])
+  [(pair _ y) => y]
+  #:type-aliases ([pair = pair* 2]))
 
 (define-implicit fst = fst* 2)
 (define-implicit snd = snd* 2)
@@ -119,8 +122,12 @@
 (define/rec/match split_ : [X : Type] [Y : Type] (list (prod X Y))
   -> (prod (list X) (list Y))
   [nil => (pair (nil* X) (nil* Y))]
-  [(:: (pair m n) xs) => (pair (:: m (fst (split_ X Y xs)))
-                               (:: n (snd (split_ X Y xs))))])
+  ;; NOTE: totality can't handle cons* alias.
+  [(cons* _ (pair m n) xs)
+   => (pair (:: m (fst (split_ X Y xs)))
+            (:: n (snd (split_ X Y xs))))]
+  #:type-aliases ([pair = pair* 2]
+                  [nil = nil* 1]))
 
 (define-implicit split = split_ 2)
 

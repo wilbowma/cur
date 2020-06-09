@@ -40,7 +40,12 @@
  cur-reflect-id
  cur-pretty-print
  ;;cur-step
- cur-equal?)
+ cur-equal?
+ ; curnel-type-infer returns a fully expanded internal type, not a resugared
+ ; surface type.
+ ; The reflection library should move toward this and pattern expanders to avoid
+ ; expansion/reexpansion.
+ (rename-out [turnstile-infer curnel-type-infer]))
 (define debug-reflect? #f)
 (define debug-datatypes? #f)
 (define debug-scopes? #f)
@@ -164,7 +169,7 @@
     (syntax->list rec-args)))
 
 
-(define (cur-reflect syn) 
+(define (cur-reflect syn)
   (syntax-parse syn
     #:literals (quote #%expression void #%plain-lambda #%plain-app list )
     #:datum-literals (:)
@@ -301,4 +306,3 @@
     [(e ...)
      #`#,(stx-map cur-pretty-print #'(e ...))]
     [e #'e]))
-

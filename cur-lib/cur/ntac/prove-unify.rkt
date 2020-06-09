@@ -75,7 +75,7 @@
           [{({~literal #%plain-app} CL:id L* ...)
             ({~literal #%plain-app} CR:id R* ...)}
            #:when (has-type-info? TY)
-           #:with (_ ([A _] ...) _ . Cinfos) (get-match-info TY)
+           #:with (_ _ ([A _] ...) _ _ . Cinfos) (get-match-info TY)
            #:with (_ ([_ τ_] ... _) _)
                   (findf (λ (ci) (stx-datum-equal? (stx-car ci) #'CL))
                          (stx->list #'Cinfos))

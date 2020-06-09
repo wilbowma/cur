@@ -339,7 +339,7 @@
     (define name (if (identifier? e) e (generate-temporary)))
 
     (define/syntax-parse ; get define-datatype info (types are unexpanded)
-      (_ ([A _] ...) #;params ([i _] ...) #;indices Cinfo ...)
+      (_ _ ([A _] ...) #;params ([i _] ...) #;indices _ Cinfo ...)
       (get-match-info e-ty))
 
     (define num-params (stx-length #'(A ...)))
@@ -463,7 +463,7 @@
     (define name-ty (ctx-lookup ctxt name))
 
     (define/syntax-parse ; get define-datatype info (types are unexpanded)
-      (_ ([A _] ...) #;params ([i _] ...) #;indices Cinfo ...)
+      (_ _ ([A _] ...) #;params ([i _] ...) _ #;indices Cinfo ...)
       (get-match-info name-ty))
 
     (define num-params (stx-length #'(A ...)))
