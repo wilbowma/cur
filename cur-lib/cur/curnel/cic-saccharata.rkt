@@ -133,8 +133,7 @@
 (define-syntax define-type*
   (syntax-parser
     [(_ name (~datum :) [A+i:id (~datum :) τ] ... (~datum ->) τ-out
-        ; Constructor info
-        (C-pat ...) (C-env ...) (ty-params ...) . rst)
+        . rst)
      #:with name/internal (fresh #'name)
      #:with name/internal-expander (mk-~ #'name/internal)
      #:with name-expander (mk-~ #'name)
@@ -316,10 +315,6 @@
    [≻ (begin-
       ;; Define the inductive type `TY`.
       (define-type* TY : [A : τA] ... [i : τi] ... -> τ
-        ;; TODO PR103: These next three arguments seem to be unused.
-        (C-pat ...)
-        (([i+x τin] ...) ...)
-        (A_ ...)
         #:extra 'is-inductive
         elim-TY
         ([A τA] ...)
