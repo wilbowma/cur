@@ -243,7 +243,7 @@
                    ...)
                'top-level null)))
           (error 'define/rec/match
-                 (format "Failed termination check ~a."
+                 (format "Definition ~a failed termination check."
                          (stx->datum #'name)))))]))
 
 ;; Helper for define/rec/match with explicit decreasing arg
