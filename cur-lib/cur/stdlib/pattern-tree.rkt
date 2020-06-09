@@ -229,7 +229,7 @@
                                                                                 t
                                                                                 ':
                                                                                 (curnel-type-infer
-                                                                                 t #:env extended-env))))
+                                                                                 t #:local-env extended-env))))
                                                               tmp-map-with-ids)]
                                  [new-match-vars (append (filter (compose not false?) tmp-map-with-ids-typed) (rest match-vars))])
                             (create-pattern-tree-match-helper
@@ -666,7 +666,7 @@
     ;; Seems like a problem, though, since they
     ;; ought to be in the environment, so expanding them should be fine.
     (let* ([match-var-type (or (syntax-property match-var ':)
-                               (curnel-type-infer match-var #:env env))])
+                               (curnel-type-infer match-var #:local-env env))])
       ;; TODO: Probably should expose a reflection abstraction that works with I
       ;; or with match-var-type, to avoid users doing this parsing.
       (syntax-parse match-var-type
