@@ -315,7 +315,7 @@
    [≻ (begin-
       ;; Define the inductive type `TY`.
       (define-type* TY : [A : τA] ... [i : τi] ... -> τ
-        #:extra 'is-inductive
+        #:extra #,'is-inductive
         elim-TY
         ([A τA] ...)
         ([i τi] ...)
