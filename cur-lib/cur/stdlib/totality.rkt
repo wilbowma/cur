@@ -35,7 +35,7 @@
                                                      (and (free-identifier=? c (second a)))))])
                                          (if alias-match
                                              (if c-list
-                                                 #`#,(cons (first alias-match) (drop-n (rest (syntax->list c)) (third alias-match)))
+                                                 #`#,(cons (first alias-match) (drop (rest (syntax->list c)) (third alias-match)))
                                                  (first alias-match))
                                              c)))
                                      constructors)]
@@ -64,13 +64,6 @@
                                                  (pretty-format pt))
                                   (current-continuation-marks)
                                   (foldr append empty (map car warnings)))))))
-
-  ;; Drop the first n arguments for implicit types
-  ;; TODO PR103: Should be replaced by drop.
-  (define (drop-n l n)
-    (if (zero? n)
-        l
-        (drop-n (rest l) (sub1 n))))
 
   ;; Given a list of patterns associated with a pattern variable and a list of expected
   ;; type cases, returns true if all type cases can be matched
