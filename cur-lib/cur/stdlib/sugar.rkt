@@ -11,10 +11,13 @@
 
 (require (prefix-in r: racket/base)
          (for-syntax (for-syntax syntax/parse)
+                     racket/syntax
+                     racket/list
                      syntax/stx racket/pretty
                      macrotypes/stx-utils
                      cur/curnel/stxutils
-                     turnstile+/type-constraints))
+                     turnstile+/type-constraints)
+         "totality.rkt")
 
 (define-typed-syntax let
   [(_ ((~or (~describe "unannotated" [x:id ex])
@@ -99,7 +102,8 @@
   #:do[(define exinfo (get-match-info #'τin))]
 ;  #:do[(printf "exinfo: ~a\n" (stx->datum exinfo))]
   #:fail-unless exinfo (format "could not infer extra info from type ~a" (stx->datum #'τ))
-  #:with (elim-Name ([orig-param:id _] ...) _ ei ...) exinfo
+  ; tag x elim-name x params x indices x constructor patterns x constructors
+  #:with (tag elim-Name ([orig-param:id _] ...) _ _ ei ...) exinfo
   ;; use params and indices from τin, not exinfo (bc that's what elim does)
   #:with params (stx-take
                  (stx-drop #'τin 2) ; drop #%app and cons-name
@@ -184,53 +188,80 @@
 ;; - but other tys are named
 ;; - in each clause, there must be one pat per ty-to-match,
 ;;   where the pats are stx-parse pats
-;; TODO:
-;; - check smaller arg for rec calls
-;; - check coverage of pats
+
 ;; - check that body has type ty_out; currently, mismatch wont error
-;;(require (for-syntax racket/pretty))
+;; TODO: (this may have been added in PR103)
+
 (define-syntax (define/rec/match stx)
   (syntax-parse stx
     [(_ name:id
         (~datum :)
-        [x (~datum :) ty_in1] ...
+        (~and decls-x [x (~datum :) ty_in1]) ...
         (~and ty-to-match (~not [_ (~datum :) _]) (~not (~datum ->))) ...
-        [y (~datum :) ty_in2] ...
+        (~and decls-y [y (~datum :) ty_in2]) ...
         (~datum ->) ty_out
-        [pat ... (~datum =>) body] ...)
-     #:with (decls-x ...) (for/list ([x (attribute x)]
-                                     [t (attribute ty_in1)])
-                            #`(#,x : #,t))
-     #:with (decls-y ...) (for/list ([y (attribute y)]
-                                     [t (attribute ty_in2)])
-                            #`(#,y : #,t))
-     #:with (pat-bodies ...) (for/list ([pats (attribute pat)]
-                                        [body (attribute body)])
-                               #`(#,pats => #,body))
+        (~and clauses
+              [pat ... (~datum =>) body]) ...
+        (~optional
+         (~seq #:type-aliases
+               ([ty-in-aliases (~datum =) ty-out-aliases
+                               (~optional
+                                ty-out-implicit-counts:exact-nonnegative-integer
+                                #:defaults ([ty-out-implicit-counts #'0]))] ...))
+         #:defaults ([(ty-in-aliases 1) '()]
+                     [(ty-out-aliases 1) '()]
+                     [(ty-out-implicit-counts 1) '()])))
+     ; do totality checking
+     #:with (temporaries ...) (for/list ([ty (attribute ty-to-match)]
+                                         [idx (in-naturals)])
+                                (format-id ty "~a" (generate-temporary (string->symbol (format "match-~a-" (add1 idx)))) #:source ty))
+     #:do [(total? (list (attribute temporaries) (attribute clauses))
+                   #:aliases (map list
+                                  (attribute ty-in-aliases)
+                                  (attribute ty-out-aliases)
+                                  (map syntax->datum (attribute ty-out-implicit-counts)))
+                   #:env (reverse (append
+                                   (map cons (attribute x) (attribute ty_in1))
+                                   (map cons (attribute temporaries) (attribute ty-to-match))
+                                   (map cons (attribute y) (attribute ty_in2)))))]
      ; Explicitly mark different parameters as the decreasing argument for
      ; termination checking. the last iteration is guaranteed to either be
      ; successful or another exception that isn't exn:fail:recur.
+     ;; TODO: Should probably define a phase-1 function instead of
+     ;; local-expanding define/rec/match^.
      (if (zero? (stx-length #'(ty-to-match ...)))
-         (local-expand #`(define/rec/match^ name : decls-x ... ty-to-match ... decls-y ... -> ty_out pat-bodies ...) 'top-level null)
-         (for/or ([i (build-list (stx-length #'(ty-to-match ...)) values)])
-           (with-handlers ([exn:fail:recur? (lambda (e) #f)])
-             (local-expand #`(define/rec/match^ name : #,i decls-x ... ty-to-match ... decls-y ... -> ty_out pat-bodies ...) 'top-level null))))]))
+         (local-expand
+          #`(define/rec/match^ name : decls-x ... ty-to-match ...
+              decls-y ... -> ty_out clauses ...)
+          'top-level null)
+         (or
+          (for/or ([i (build-list (stx-length #'(ty-to-match ...)) values)])
+            (with-handlers ([exn:fail:recur? (lambda (e) #f)])
+              (local-expand
+               #`(define/rec/match^ name : #,i decls-x ...
+                   ty-to-match ... decls-y ... -> ty_out clauses
+                   ...)
+               'top-level null)))
+          (error 'define/rec/match
+                 (format "Definition ~a failed termination check."
+                         (stx->datum #'name)))))]))
 
 ;; Helper for define/rec/match with explicit decreasing arg
 (define-typed-syntax define/rec/match^
   [(_ name:id
       (~datum :)
-      (~optional decreasing-arg:exact-nonnegative-integer #:defaults ([decreasing-arg #'0]))
+      (~optional decreasing-arg:exact-nonnegative-integer #:defaults
+                 ([decreasing-arg #'0]))
       [x (~datum :) ty_in1] ...
-      (~and ty-to-match (~not _:exact-nonnegative-integer) (~not [_ (~datum :) _]) (~not (~datum ->))) ...
+      (~and ty-to-match
+            (~not _:exact-nonnegative-integer)
+            (~not [_ (~datum :) _]) (~not (~datum ->))) ...
       [y (~datum :) ty_in2] ...
       (~datum ->) ty_out
-      [(pat ...) (~datum =>) body] ...) ≫
+      [pat ... (~datum =>) body] ...) ≫
      #:fail-unless (or (zero? (stx-length #'(x ...))) ; TODO: remove this restriction?
                        (zero? (stx-length #'(y ...))))
      "cannot have both pre and post pattern matching args"
-     #:fail-unless (not (zero? (stx-length #'(ty-to-match ...))))
-     "must have at least one argument for pattern matching"
  ;    #:do[(printf "fn: ~a ----------------\n" (stx->datum #'name))]
      #:with (([xpat xpatτ] ...) ...)
      (stx-map
@@ -249,8 +280,7 @@
      #:with (ty-to-match/ ...) (for/list ([ty (attribute ty-to-match)]
                                           [i (in-naturals)])
                                  (if (= i (stx->datum (attribute decreasing-arg)))
-                                     (syntax-property (syntax-property ty 'decreasing #t) 'last-decreasing-check
-                                                      (= i (sub1 (length (attribute ty-to-match)))))
+                                     (syntax-property ty 'decreasing #t)
                                      ty))
      [([x+pat ≫ x+pat- : x+patτ] ...)
       ([y ≫ y*- : ty_in2] ...
@@ -265,11 +295,7 @@
                       (let ([t1-recur-ok? (syntax-property t1 'recur)])
                         (begin0 t1-recur-ok?
                                 (unless t1-recur-ok?
-                                  (if (syntax-property t2 'last-decreasing-check)
-                                      (fprintf (current-error-port)
-                                               "Failed termination check for arg of type ~a:\n"
-                                               (stx->datum (resugar-type t1)))
-                                      (raise (exn:fail:recur "" (current-continuation-marks)))))))))))
+                                  (raise (exn:fail:recur "" (current-continuation-marks))))))))))
       #:where check-relation (current-typecheck-relation)] ...
      #:do[(define arity (stx-length #'(x ... ty-to-match ... y ...)))]
      #:with ((x*- ...) ...) (stx-map
@@ -317,7 +343,7 @@
             [⊢ (name-eval x- ... x0- ... y- ...) ⇒ ty_out]]
            ; non-full application cases: η expand
            [:id ≫ --- [≻ (name)]]
-           [(_ arg (... ...)) ≫ 
+           [(_ arg (... ...)) ≫
             ----
             [≻ ((λ [x : ty_in1] ... [x0 : ty-to-match] ... [y : ty_in2] ...
                   (name x ... x0 ... y ...))
@@ -362,7 +388,7 @@
                 (pattern-expander
                  (syntax-parser
                    [(_ . rst) #'(name Ximplicit ... . rst)])))))
-        
+
       (define-syntax name*
         (datacons
         (λ (stx)
@@ -446,7 +472,7 @@
   ------------
   [≻ out-def]])
 
-      
+
 
 (provide
 ;;   Type

@@ -28,7 +28,7 @@
  (define/rec/match bad-plus : Nat [n : Nat] -> Nat
    [z => n]
    [(s x) => (bad-plus (s x) n)])
- #:with-msg "type mismatch.*s x")
+ #:with-msg "failed termination check")
 
 (define/rec/match bad-minus : Nat Nat -> Nat
    [z _ => z]
@@ -41,24 +41,24 @@
 (typecheck-fail/toplvl
   (define/rec/match bang! : Nat -> (== 0 1)
     [n => (bang! n)])
- #:with-msg "type mismatch.*n")
+  #:with-msg "failed termination check")
 
 (typecheck-fail/toplvl
   (define/rec/match bang!1 : [n : Nat] -> (== 0 1)
     [=> (bang!1 n)])
- #:with-msg "must have at least one argument for pattern matching")
+ #:with-msg "expected at least one matching variable")
 
 (typecheck-fail/toplvl
   (define/rec/match bang!2 : -> (== 0 1)
     [=> (bang!2)])
- #:with-msg "must have at least one argument for pattern matching")
+ #:with-msg "expected at least one matching variable")
 
 (typecheck-fail/toplvl
 (define/rec/match bad-rec-pat? : Nat -> Bool
   [z => true]
   [(s z) => false]
   [(s (s x)) => (bad-rec-pat? (s x))])
- #:with-msg "type mismatch.*s x")
+ #:with-msg "failed termination check")
 
 (define/rec/match multi-pat : Nat Nat Nat -> Nat
   [_ _ z => 0]
@@ -87,4 +87,4 @@
 (typecheck-fail/toplvl
  (define/rec/match f : V -> False
    [(cnsv h) => (f (h V (cnsv h)))])
- #:with-msg "type mismatch.*h V")
+ #:with-msg "failed termination check")

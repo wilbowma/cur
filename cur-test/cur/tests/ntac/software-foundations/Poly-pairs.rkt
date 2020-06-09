@@ -9,13 +9,13 @@
 
 ;; part 2 of 3 of Software Foundations Poly.v chapter
 
-(data bool : 0 Type
-      (true : bool)
-      (false : bool))
+(define-datatype bool : Type
+  (true : bool)
+  (false : bool))
 
-(data nat : 0 Type
-      (O : nat) ; letter capital "O"
-      (S : (-> nat nat)))
+(define-datatype nat : Type
+  (O : nat) ; letter capital "O"
+  (S : (-> nat nat)))
 
 (define/rec/match beq-nat : nat nat -> bool
   [O O => true]
@@ -69,9 +69,12 @@
 (define-implicit pair = pair* 2)
 
 (define/rec/match fst* : [X : Type] [Y : Type] (prod X Y) -> X
-  [(pair x _) => x])
+  [(pair x _) => x]
+  #:type-aliases ([pair = pair* 2]))
+
 (define/rec/match snd* : [X : Type] [Y : Type] (prod X Y) -> Y
-  [(pair _ y) => y])
+  [(pair _ y) => y]
+  #:type-aliases ([pair = pair* 2]))
 
 (define-implicit fst = fst* 2)
 (define-implicit snd = snd* 2)
@@ -96,9 +99,12 @@
 (define/rec/match split_ : [X : Type] [Y : Type] (list (prod X Y))
   -> (prod (list X) (list Y))
   [nil => (pair (nil* X) (nil* Y))]
-  [(:: (pair m n) xs)
+  ;; NOTE: totality can't handle cons* alias.
+  [(cons* _ (pair m n) xs)
    => (pair (:: m (fst (split_ X Y xs)))
-            (:: n (snd (split_ X Y xs))))])
+            (:: n (snd (split_ X Y xs))))]
+  #:type-aliases ([pair = pair* 2]
+                  [nil = nil* 1]))
 
 (check-type split_
   : (Π [X : Type] [Y : Type] (-> (list (prod X Y))
@@ -230,6 +236,12 @@
             : (prod (list nat) (list nat)) -> (pair [lst 1 3 5] [lst 2 4]))
 (check-type (partition (λ [x : nat] false) [lst 5 9 0])
             : (prod (list nat) (list nat)) -> (pair (nil* nat) [lst 5 9 0]))
+
+;; TODO: This test causes an error... sometimes, depending on how this
+;; file is executed. In racket-mode, it errors.
+;; If the rest of the file is commented out, then run in racket-mode, then the
+;; theorem is typed into the REPL, it works.
+;; If compiled and run from raco test, it works.
 (define-theorem partition-test2
   (== (partition (λ [x : nat] false) [lst 5 9 0])
       (pair (nil* nat) [lst 5 9 0]))
