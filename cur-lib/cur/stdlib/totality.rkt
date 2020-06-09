@@ -20,7 +20,6 @@
                                [constructors-res (get-constructors-metadata (pt-decl-match-var d) #:env env)]
                                [constructors (if constructors-res
                                                  (car constructors-res)
-                                                 ;; TODO PR103: Better error
                                                  (error
                                                   'total?
                                                   (format "Expected pattern match on an inductively defined type, but ~a is not inductive"
