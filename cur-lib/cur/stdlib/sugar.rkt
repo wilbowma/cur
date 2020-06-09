@@ -229,18 +229,20 @@
      ; successful or another exception that isn't exn:fail:recur.
      ;; TODO: Should probably define a phase-1 function instead of
      ;; local-expanding define/rec/match^.
-     (if (zero? (stx-length #'(ty-to-match ...)))
+     (if (stx-null? #'(ty-to-match ...))
          (local-expand
-          #`(define/rec/match^ name : decls-x ... ty-to-match ...
-              decls-y ... -> ty_out clauses ...)
+          (quasisyntax/loc this-syntax
+            (define/rec/match^ name : decls-x ... ty-to-match ...
+              decls-y ... -> ty_out clauses ...))
           'top-level null)
          (or
-          (for/or ([i (build-list (stx-length #'(ty-to-match ...)) values)])
+          (for/or ([i (in-range 0 (stx-length #'(ty-to-match ...)))])
             (with-handlers ([exn:fail:recur? (lambda (e) #f)])
               (local-expand
-               #`(define/rec/match^ name : #,i decls-x ...
+               (quasisyntax/loc this-syntax
+                 (define/rec/match^ name : #,i decls-x ...
                    ty-to-match ... decls-y ... -> ty_out clauses
-                   ...)
+                   ...))
                'top-level null)))
           (error 'define/rec/match
                  (format "Definition ~a failed termination check."
