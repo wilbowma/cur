@@ -649,7 +649,7 @@
                [binding constructor-arg-bindings])
         ; we don't actually have the constructor yet, so we can just structurally check equality with equal?
         (and (or (equal? (syntax->datum c) (syntax->datum stx))
-                 ;; TODO PR103: Need to distinguish constructors from constructor patterns.
+                 ;; TODO: Need to distinguish constructors from constructor patterns.
                  (and (syntax->list c) (equal? (syntax->datum (first (syntax->list c))) (syntax->datum stx))))
              (list c binding constructor-ty-params type-for-constructor)))))
 

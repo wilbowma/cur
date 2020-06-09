@@ -441,7 +441,8 @@
 
   ;; WITH AND WITHOUT TYPE CONTEXT
   ; effectively, z = _ = n in this scenario
-  ; TODO PR103: Don't think this should pass as n is unbound.
+  ; TODO: This could be made to pass if we want to abstract the pattern language
+  ; from Cur and allow unbound variables.
   #;(check-true
    (pt-equal?
     (create-pattern-tree
@@ -518,7 +519,8 @@
 
   ; complicated (bogus) nested example; note that we don't actually
   ; need to do semantic analysis when recompiling the pattern
-  ; TODO PR103: Invalid test since e1 and e2 unbound.
+  ; TODO: This could be made to pass if we want to abstract the pattern language
+  ; from Cur and allow unbound variables.
   #;(check-true
    (pt-equal?
     (create-pattern-tree #'((e1 e2)
@@ -669,7 +671,8 @@
                    #'(s c72 d73)
                    (pt-body #'temp42))))))))))))))))))
 
-  ; TODO PR103: Invalid test since a unbound.
+  ; TODO: This could be made to pass if we want to abstract the pattern language
+  ; from Cur and allow unbound variables.
   #;(check-true
    (pt-equal?
     (create-pattern-tree #'((a)
