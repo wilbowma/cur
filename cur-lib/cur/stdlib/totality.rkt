@@ -22,8 +22,7 @@
                                                  (car constructors-res)
                                                  (error
                                                   'total?
-                                                  (format "Expected pattern match on an inductively defined type, but ~a is not inductive"
-                                                          (pt-decl-match-var d))
+                                                  "Expected pattern match on an inductively defined type, but ~a is not inductive"
                                                   (pt-decl-match-var d)))]
                                ; handle implicit constructors
                                [updated-constructors
