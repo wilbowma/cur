@@ -645,18 +645,13 @@
            [constructor-arg-bindings (and metadata (second metadata))]
            [constructor-ty-params (and metadata (third metadata))]
            [type-for-constructor (and metadata (fourth metadata))])
-      ;; TODO PR103: list? check should be unnecessary; if constructors is
-      ;; non-false, then it should be a list.
-      (and (list? constructors)
-           ;; TODO PR103: length check should be unnecessary.
-           (> (length constructors) 0)
-           (for/or ([c constructors]
-                    [binding constructor-arg-bindings])
-             ; we don't actually have the constructor yet, so we can just structurally check equality with equal?
-             (and (or (equal? (syntax->datum c) (syntax->datum stx))
-                      ;; TODO PR103: Need to distinguish constructors from constructor patterns.
-                      (and (syntax->list c) (equal? (syntax->datum (first (syntax->list c))) (syntax->datum stx))))
-                  (list c binding constructor-ty-params type-for-constructor))))))
+      (for/or ([c constructors]
+               [binding constructor-arg-bindings])
+        ; we don't actually have the constructor yet, so we can just structurally check equality with equal?
+        (and (or (equal? (syntax->datum c) (syntax->datum stx))
+                 ;; TODO PR103: Need to distinguish constructors from constructor patterns.
+                 (and (syntax->list c) (equal? (syntax->datum (first (syntax->list c))) (syntax->datum stx))))
+             (list c binding constructor-ty-params type-for-constructor)))))
 
   ;; Given a match variable with an optional environment, returns
   ;; the set of constructors for the corresponding type and associated metadata
