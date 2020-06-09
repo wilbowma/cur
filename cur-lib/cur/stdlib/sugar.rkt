@@ -208,8 +208,6 @@
                ([ty-in-aliases (~datum =) ty-out-aliases
                                (~optional
                                 ty-out-implicit-counts:exact-nonnegative-integer
-                                ;; TODO PR103: Why is this a syntax-object, while others
-                                ;; are not?
                                 #:defaults ([ty-out-implicit-counts #'0]))] ...))
          #:defaults ([(ty-in-aliases 1) '()]
                      [(ty-out-aliases 1) '()]
@@ -230,17 +228,13 @@
      ; Explicitly mark different parameters as the decreasing argument for
      ; termination checking. the last iteration is guaranteed to either be
      ; successful or another exception that isn't exn:fail:recur.
-     ;; TODO PR103: Should probably define a phase-1 function instead of
+     ;; TODO: Should probably define a phase-1 function instead of
      ;; local-expanding define/rec/match^.
      (if (zero? (stx-length #'(ty-to-match ...)))
          (local-expand
           #`(define/rec/match^ name : decls-x ... ty-to-match ...
               decls-y ... -> ty_out clauses ...)
           'top-level null)
-         ;; TODO PR103: What happens if all fail? Surely the function wouldn't be
-         ;; defined... might get a weird error about #f not being a syntax
-         ;; object, but looks like define/rec/match^ raises a type error so that
-         ;; should never happen
          (or
           (for/or ([i (build-list (stx-length #'(ty-to-match ...)) values)])
             (with-handlers ([exn:fail:recur? (lambda (e) #f)])
