@@ -36,8 +36,6 @@
     (define/syntax-parse (~var e (cur-expr/ctx ctx)) (cdr p))
     (cons (cons (car p) (attribute e.reified)) ctx)))
 
-;; TODO: We already have an implementation of an environment, in "environment.rkt"
-;; Unfortunately, the interfaces are somewhat different...
 (define current-env (make-parameter '()))
 
 (define (call-with-env env t)
@@ -87,13 +85,13 @@
 ;; Given an identifiers representing an inductive type, return a sequence of the constructor names
 ;; (as identifiers) for the inductive type.
 (define (cur-constructors-for syn)
-  (constant-info-constructor-ls (syntax-local-eval (make-type-name syn))))
+  (constant-info-constructor-ls (syntax-local-eval syn)))
 
 ;; Given an identifier representing an inductive type, return the number of parameters in that
 ;; inductive, as a natural starting from the first argument to the inductive type.
 ;; TODO: Does this work on constructors too? If not, it should.
 (define (cur-data-parameters syn)
-  (constant-info-param-count (syntax-local-eval (make-type-name syn))))
+  (constant-info-param-count (syntax-local-eval syn)))
 
 ;; Given an a target (a constructor applied to parameters), and a motive for eliminating
 ;; it, return the type of the method required for this.
@@ -106,7 +104,7 @@
 
 ;; Given a constructor, return the number of arguments it takes.
 (define (cur-constructor-telescope-length syn)
-  (let ([info (syntax-local-eval (make-type-name syn))])
+  (let ([info (syntax-local-eval syn)])
     ;; TODO PERF: Maybe store this
     (+ (constant-info-param-count info) (length (constant-info-index-name-ls info)))))
 
@@ -115,7 +113,7 @@
 ;; constructor-telescope-length is 1, and it's recursive-index-ls is '(0)
 ;; `cons : (Π (A : (Type 0)) (Π (a : A) (Π (a : (List A)) (List A))))` = '(2)
 (define (cur-constructor-recursive-index-ls syn)
-  (constant-info-recursive-index-ls (syntax-local-eval (make-type-name syn))))
+  (constant-info-recursive-index-ls (syntax-local-eval syn)))
 
 ;; Takes a Cur term syn and an arbitrary number of identifiers ls. The cur term is
 ;; expanded until expansion reaches a Curnel form, or one of the

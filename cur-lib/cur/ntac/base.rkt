@@ -4,8 +4,6 @@
 (require
  "../stdlib/sugar.rkt"
  "../curnel/racket-impl/runtime.rkt"
- (for-syntax
-  "../curnel/racket-impl/runtime-utils.rkt")
  (only-in racket [define r:define]))
 
 (provide
@@ -187,15 +185,14 @@
   (syntax-parse stx
     [(_ x:id ty ps ...)
      #:with y (generate-temporary #'x)
-     #:with delta-y (make-delta-name #'y)
-     #:with delta-x (make-delta-name #'x)
-     #:with thm-x (make-type-name #'x)
+     #:with delta-y (format-id #'y "delta:~a" #'y #:source #'y)
+     #:with delta-x (format-id #'x "delta:~a" #'x #:source #'x)
      (quasisyntax/loc stx
        (begin (define y (ntac ty ps ...))
               (r:define x y)
               (define-for-syntax delta-x delta-y)
-              (define-for-syntax thm-x
-                (theorem-info (identifier-info-type #,(make-type-name #'y))
+              (define-for-syntax x
+                (theorem-info (identifier-info-type y)
                               delta-y
                               #'x #'ty))
               (:: x ty)))]))

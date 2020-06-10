@@ -56,7 +56,7 @@
   (define-syntax (by-rewrite/thm syn)
     (syntax-case syn ()
       [(_ thm . es)
-       #`(let ([thm-info (syntax-local-eval (make-type-name #'thm))])
+       #`(let ([thm-info (syntax-local-eval #'thm)])
            (fill (rewrite #'thm
                           #:thm-name (theorem-info-name thm-info)
                           #:thm (theorem-info-orig thm-info)
@@ -65,7 +65,7 @@
   (define-syntax (by-rewrite/thm/normalized syn)
     (syntax-case syn ()
       [(_ thm . es)
-       #`(let ([thm-info (syntax-local-eval (make-type-name #'thm))])
+       #`(let ([thm-info (syntax-local-eval #'thm)])
            (fill (rewrite #'thm
                           #:thm-name (theorem-info-name thm-info)
                           #:thm (cur-reflect (identifier-info-type thm-info))
@@ -74,7 +74,7 @@
   (define-syntax (by-rewriteL/thm syn)
     (syntax-case syn ()
       [(_ thm . es)
-       #`(let ([thm-info (syntax-local-eval (make-type-name #'thm))])
+       #`(let ([thm-info (syntax-local-eval #'thm)])
            (fill (rewrite #'thm
                           #:thm-name (theorem-info-name thm-info)
                           #:thm (theorem-info-orig thm-info)
@@ -84,7 +84,7 @@
   (define-syntax (by-rewriteL/thm/normalized syn)
     (syntax-case syn ()
       [(_ thm . es)
-       #`(let ([thm-info (syntax-local-eval (make-type-name #'thm))])
+       #`(let ([thm-info (syntax-local-eval #'thm)])
            (fill (rewrite #'thm
                           #:thm-name (theorem-info-name thm-info)
                           #:thm (cur-reflect (identifier-info-type thm-info))

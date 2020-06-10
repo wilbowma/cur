@@ -6,7 +6,6 @@
  (for-syntax
   racket/base
   chk
-  cur/curnel/racket-impl/environment
   cur/curnel/racket-impl/equiv
   cur/curnel/racket-impl/runtime-utils))
 (begin-for-syntax

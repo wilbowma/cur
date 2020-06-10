@@ -18,7 +18,7 @@
 
 (define Nat ((curry constant:Nat)))
 
-(define-for-syntax type:Nat
+(define-for-syntax Nat
   (constant-info
    ;; TODO PERF: When not a dependent type, can we avoid making it a function?
    #`(#%plain-app cur-Type '0)
@@ -40,7 +40,7 @@
   #:property prop:recursive-index-ls null)
 
 (define z ((curry constant:z)))
-(define-for-syntax type:z
+(define-for-syntax z
   (constant-info
    #`Nat
    #f
@@ -57,7 +57,7 @@
   #:property prop:recursive-index-ls (list 0))
 
 (define s ((curry constant:s)))
-(define-for-syntax type:s
+(define-for-syntax s
   (constant-info
    #`(#%plain-app cur-Π Nat (#%plain-lambda (x) Nat))
    #f
@@ -76,7 +76,7 @@
 
 (define-for-syntax delta:two #'(#%plain-app cur-apply s (#%plain-app cur-apply s z)))
 (define two (define-from-delta delta:two))
-(define-for-syntax type:two
+(define-for-syntax two
   (identifier-info #`Nat delta:two))
 
 ;; TODO PERF: Could we remove λ procedure indirect for certain defines? The type is given
@@ -102,7 +102,7 @@
 
 
 (define plus (define-from-delta delta:plus))
-(define-for-syntax type:plus
+(define-for-syntax plus
   (identifier-info
    #`(#%plain-app cur-Π Nat (#%plain-lambda (x) (#%plain-app cur-Π Nat
                                                                            (#%plain-lambda (y)

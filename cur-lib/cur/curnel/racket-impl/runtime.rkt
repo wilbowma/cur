@@ -90,9 +90,7 @@ guarantee that it will run, and if it runs Cur does not guarnatee safety.
    (struct-out constant-info)
    (struct-out identifier-info))
 
-  (struct identifier-info (type delta-def)
-    #:property prop:procedure (lambda rest
-                                (error 'identifier-info "Cannot apply Cur identifier in ~a. Probably caused by applying a Cur identifier in Racket at phase 1." rest)))
+  (struct identifier-info (type delta-def))
   ;; TODO PERF: Could use vectors instead of lists; since we store the count anyway... or maybe we won't
   ;; need to by storing param and index decls separately.
   (struct constant-info identifier-info

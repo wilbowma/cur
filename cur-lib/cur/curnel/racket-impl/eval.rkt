@@ -5,7 +5,6 @@
  syntax/parse
  "runtime-utils.rkt"
  "stxutils.rkt"
- "environment.rkt"
  (for-template
   "runtime.rkt"))
 
@@ -35,7 +34,7 @@
       [e:cur-runtime-elim
        #:when (cur-runtime-constant? (cur-eval #'e.target))
        #:with target:cur-runtime-constant (cur-eval #'e.target)
-       #:do [(define info (syntax-local-eval (make-type-name #'target.name)))]
+       #:do [(define info (syntax-local-eval #'target.name))]
        #:do [(define recursive-index-ls (constant-info-recursive-index-ls info))]
        ;; TODO PERF: use unsafe version of list operators and such for internal matters
        ;; TODO PERF: list-ref; could we make it a vector?
