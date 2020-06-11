@@ -4,10 +4,7 @@ env:
   global:
     - RACKET_DIR=~/racket
   matrix:
-    - RACKET_VERSION="7.0"
-    - RACKET_VERSION="7.1"
-    - RACKET_VERSION="7.2"
-    - RACKET_VERSION="7.3"
+    - RACKET_VERSION="7.6"
     - RACKET_VERSION="HEAD"
 matrix:
   allow_failures:
@@ -17,8 +14,8 @@ before_install:
   - git clone https://github.com/greghendershott/travis-racket.git ../travis-racket
   - cat ../travis-racket/install-racket.sh | bash
   - export PATH="${RACKET_DIR}/bin:${PATH}"
-  # install Turnstile, use `cur` branch`
-  - git clone -b generic-type-methods https://github.com/stchang/macrotypes.git
+  # install Turnstile, use `master` branch
+  - git clone https://github.com/stchang/macrotypes.git
   - raco pkg install --auto macrotypes/macrotypes-lib/
   - raco pkg install --auto macrotypes/turnstile-lib/
   - raco pkg install --auto macrotypes/rackunit-macrotypes-lib/
