@@ -5,6 +5,7 @@ env:
     - RACKET_DIR=~/racket
   matrix:
     - RACKET_VERSION="7.6"
+    - RACKET_VERSION="7.7"
     - RACKET_VERSION="HEAD"
 matrix:
   allow_failures:
