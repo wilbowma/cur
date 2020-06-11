@@ -30,7 +30,7 @@ Getting started
 ===============
 
 ## Easy mode:
-You'll need Racket v7.6
+You'll need Racket at least v7.6
 
 Then, install cur via `raco pkg install cur`.
 Come ask questions in IRC, `#cur` on Freenode.
