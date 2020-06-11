@@ -32,10 +32,6 @@ Getting started
 ## Easy mode:
 You'll need Racket v7.6
 
-First, you need to install Turnstile's experimental branch:
-- raco pkg install https://github.com/stchang/macrotypes.git?path=macrotypes-lib#cur
-- raco pkg install https://github.com/stchang/macrotypes.git?path=turnstile-lib#cur
-
 Then, install cur via `raco pkg install cur`.
 Come ask questions in IRC, `#cur` on Freenode.
 
