@@ -1,7 +1,6 @@
 #lang cur
 
 (require
- rackunit
  cur/stdlib/nat
  cur/stdlib/bool
  cur/stdlib/equality
@@ -9,13 +8,15 @@
  cur/ntac/base
  cur/ntac/standard
  cur/ntac/rewrite
- (prefix-in ML: cur/ntac/ML-rewrite))
+ (prefix-in ML: cur/ntac/ML-rewrite)
+ rackunit/turnstile+
+ "rackunit-ntac.rkt") 
 
 ;; examples from SF Ch 2: Induction.v
 ;; - like Induction.rkt but does not import defs from Basics.rkt
 
 ;; plus-n-0
-(::
+(check-type
  (λ [n : Nat]
    (new-elim
     n
@@ -30,17 +31,15 @@
               (ML-= Nat (s n) (s m))))
          (λ [n : Nat]
            (ML-refl Nat (s n))))))))
- (∀ [n : Nat] (ML-= Nat n (plus n 0))))
+ : (∀ [n : Nat] (ML-= Nat n (plus n 0))))
 
 (define-theorem plus-n-0/ML
   (∀ [n : Nat] (ML-= Nat n (plus n z)))
   (by-intro n)
-  simpl ;; this step doesnt do anything except get everything in expanded form
   (by-induction n #:as [() (n-1 IH)])
   ;; subgoal 1
   ML:reflexivity
   ;; subgoal 2
-  simpl
   (ML:by-rewriteL IH)
   ML:reflexivity)
 
@@ -49,105 +48,43 @@
   (ML-= Nat (s z) (s z))
   ML:reflexivity)
 
-(:: 1=1 (ML-= Nat (s z) (s z)))
-(:: (1=1) (ML-= Nat (s z) (s z)))
-(:: ((1=1)) (ML-= Nat (s z) (s z)))
+(check-type 1=1 : (ML-= Nat (s z) (s z)))
+(check-type (1=1) : (ML-= Nat (s z) (s z)))
+(check-type ((1=1)) : (ML-= Nat (s z) (s z)))
 
-;; (define minus
-;;   (λ [n : Nat] [m : Nat]
-;;      (new-elim
-;;       n
-;;       (λ [n : Nat] Nat)
-;;       0
-;;       (λ [n-1 : Nat] [ih1 : Nat]
-;;          (new-elim
-;;           m
-;;           (λ [n : Nat] Nat)
-;;           n
-;;           (λ [m-1 : Nat] [ih2 : Nat]
-;;              (new-elim
-;;               ih2
-;;               (λ [n : Nat] Nat)
-;;               0
-;;               (λ [n* : Nat] [ih : Nat]
-;;                  n*))))))))
+(define/rec/match minus : Nat Nat -> Nat
+  [z _ => z]
+;  [z (s _) => z]
+  [n z => n]
+  [(s n-1) (s m-1) => (minus n-1 m-1)])
 
-;; (check-equal? (minus 1 1) 0)
-;; (check-equal? (minus 2 1) 1)
-;; (check-equal? (minus 3 1) 2)
-;; (check-equal? (minus 4 1) 3)
-;; (check-equal? (minus 5 1) 4)
-;; (check-equal? (minus 2 2) 0)
-;; (check-equal? (minus 3 2) 1)
-;; (check-equal? (minus 4 2) 2)
-;; (check-equal? (minus 5 2) 3)
-;; (check-equal? (minus 3 3) 0)
-;; (check-equal? (minus 4 3) 1)
-;; (check-equal? (minus 5 3) 2)
-
-(define minus2
-  (λ [n : Nat] [m : Nat]
-     (new-elim
-      m
-      (λ [n : Nat] Nat)
-      n
-      (λ [m-1 : Nat] [ih : Nat]
-         (new-elim
-          ih
-          (λ [n : Nat] Nat)
-          0
-          (λ [x : Nat] [ih : Nat]
-             x))))))
-
-(check-equal? (minus2 1 1) 0)
-(check-equal? (minus2 2 1) 1)
-(check-equal? (minus2 3 1) 2)
-(check-equal? (minus2 4 1) 3)
-(check-equal? (minus2 5 1) 4)
-(check-equal? (minus2 2 2) 0)
-(check-equal? (minus2 3 2) 1)
-(check-equal? (minus2 4 2) 2)
-(check-equal? (minus2 5 2) 3)
-(check-equal? (minus2 3 3) 0)
-(check-equal? (minus2 4 3) 1)
-(check-equal? (minus2 5 3) 2)
-
-;; doesnt work, can't use recur outside of match
-#;(: minus/recur (-> Nat Nat Nat))
-#;(define (minus/recur n m)
-  (new-elim
-   n
-   (λ [n : Nat] Nat)
-   0
-   (λ [n-1 : Nat] [ih1 : Nat]
-      (new-elim
-       m
-       (λ [n : Nat] Nat)
-       n
-       (λ [m-1 : Nat] [ih2 : Nat]
-          ((recur minus/recur) n-1 m-1))))))
+(check-type (minus z z) : Nat -> 0)
+(check-type (minus 1 1) : Nat -> 0)
+(check-type (minus 2 1) : Nat -> 1)
+(check-type (minus 3 1) : Nat -> 2)
+(check-type (minus 4 1) : Nat -> 3)
+(check-type (minus 5 1) : Nat -> 4)
+(check-type (minus 2 2) : Nat -> 0)
+(check-type (minus 3 2) : Nat -> 1)
+(check-type (minus 4 2) : Nat -> 2)
+(check-type (minus 5 2) : Nat -> 3)
+(check-type (minus 3 3) : Nat -> 0)
+(check-type (minus 4 3) : Nat -> 1)
+(check-type (minus 5 3) : Nat -> 2)
 
 ;; requires simul double-recursion
-#;(define-theorem minus-diag
-  (∀ [n : Nat] (ML-= Nat (minus2 n n) 0))
+(define-theorem minus-diag
+  (∀ [n : Nat] (ML-= Nat (minus n n) 0))
   (by-intro n)
-;  simpl
-  display-focus
   (by-induction n #:as [() (n-1 IH)])
-  display-focus
   ;; subgoal 1
-  simpl
   ML:reflexivity
-  display-focus
   ;; subgoal 2
-  simpl ; cur doesnt simpl (n+1 - n+1 = 0) to (n - n = 0)
-  display-focus
   (ML:by-rewrite IH)
-  display-focus
   ML:reflexivity)
 
 ;; mult_0_r manually
-(::
+(check-type
  (λ [n : Nat]
    (new-elim
     n
@@ -162,10 +99,10 @@
               (ML-= Nat a b)))
          (λ [a : Nat]
            (ML-refl Nat a)))))))
- (∀ [n : Nat] (ML-= Nat (mult n 0) 0)))
+ : (∀ [n : Nat] (ML-= Nat (mult n 0) 0)))
 
 ; mult_0_r, expanded
-(::
+(check-type
  (λ [n : Nat]
    (new-elim
     n
@@ -178,21 +115,20 @@
           (λ [a : Nat] [b : Nat]
              (λ [H : (ML-= Nat a b)]
                (Π [n-1 : Nat]
-                  (((ML-= Nat) a) b))))
+                  (ML-= Nat a b))))
           (λ [a : Nat]
             (λ [n-1 : Nat]
               (ML-refl Nat a))))
          n-1)))))
- (∀ [n : Nat] (ML-= Nat (mult n 0) 0)))
+ : (∀ [n : Nat] (ML-= Nat (mult n 0) 0)))
 
 (define-theorem mult_0_r
   (∀ [n : Nat] (ML-= Nat (mult n 0) 0))
   (by-intro n)
-  simpl
   (by-induction n #:as [() (n-1 IH)])
-  simpl
+  ;; subgoal 1 ----
   ML:reflexivity
-  simpl
+  ;; subgoal 2 ----
   (ML:by-rewrite IH)
   ML:reflexivity)
 
@@ -201,19 +137,16 @@
      (ML-= Nat (s (plus n m)) (plus n (s m))))
   (by-intro n)
   (by-intro m)
-  simpl
   (by-induction n #:as [() (n-1 IH)])
   ;; subgoal 1
-  simpl
   ML:reflexivity
   ;; subgoal 1
-  simpl
   (ML:by-rewrite IH)
   ML:reflexivity)
 
 ;; plus-comm, manually, without propagation
-;; (doesnt work)
-#;(::
+;; (plus-comm not possible at all with ML-=?)
+#;(check-type
  (λ [n : Nat] [m : Nat]
     (new-elim
      n
@@ -257,7 +190,7 @@
 
 ;; plus-comm, manually, with propagation
 ;; (doesnt work with ML-=)
-#;(::
+#;(check-type
  (λ [n : Nat] [m : Nat]
     ((new-elim
       n
@@ -310,53 +243,40 @@
  (∀ [n : Nat] [m : Nat]
     (ML-= Nat (plus n m) (plus m n))))
 
-;; doesnt work with ML-= (see above)
+;; plus-comm not possibl with ML-=??? (see above)
 ;; - must use PM-= (see below)
 #;(define-theorem plus-comm
   (∀ [n : Nat] [m : Nat]
      (ML-= Nat (plus n m) (plus m n)))
   (by-intro n)
   (by-intro m)
-  simpl
   (by-induction n #:as [() (n-1 IH)])
   ; subgoal 1
-  simpl
-  (ML:by-rewriteL/thm/normalized plus-n-0/ML m)
+  (ML:by-rewriteL plus-n-0/ML m)
   ML:reflexivity
   ; subgoal 2
-  display-focus
-  simpl
-  display-focus
-  (ML:by-rewriteL/thm/normalized plus-n-Sm/ML m n-1)
-  display-focus
+  (ML:by-rewriteL plus-n-Sm/ML m n-1)
   (ML:by-rewrite IH)
-  display-focus
   ML:reflexivity)
 
 ;; same as above, but using PM equality
 (define-theorem plus-n-0
   (∀ [n : Nat] (== Nat n (plus n z)))
   (by-intro n)
-  simpl ;; this step doesnt do anything except get everything in expanded form
   (by-induction n #:as [() (n-1 IH)])
   ;; subgoal 1
   reflexivity
   ;; subgoal 2
-  simpl
   (by-rewriteL IH)
   reflexivity)
 (define-theorem plus-n-Sm
   (∀ [n : Nat] [m : Nat]
      (== Nat (s (plus n m)) (plus n (s m))))
-  (by-intro n)
-  (by-intro m)
-  simpl
+  (by-intros n m)
   (by-induction n #:as [() (n-1 IH)])
   ;; subgoal 1
-  simpl
   reflexivity
   ;; subgoal 2
-  simpl
   (by-rewrite IH)
   reflexivity)
 
@@ -365,120 +285,107 @@
      (== Nat (plus n m) (plus m n)))
   (by-intro n)
   (by-intro m)
-  simpl
   (by-induction n #:as [() (n-1 IH)])
   ; subgoal 1
-  simpl
-  (by-rewriteL/thm/normalized plus-n-0 m)
+  (by-rewriteL plus-n-0 m)
   reflexivity
   ; subgoal 2
-  simpl
-  (by-rewriteL/thm/normalized plus-n-Sm m n-1)
+  (by-rewriteL plus-n-Sm m n-1)
   (by-rewrite IH)
   reflexivity)
 
-#;(define (double [n : Nat])
-    (match n
-      [z z]
-      [(s n-1) (s (s (double n-1)))]))
-(define double
-  (λ [n : Nat]
-    (new-elim
-     n
-     (λ [n : Nat] Nat)
-     z
-     (λ [n-1 : Nat] [ih : Nat] (s (s ih))))))
+(define/rec/match double : Nat -> Nat
+  [z => z]
+  [(s n-1) => (s (s (double n-1)))])
 
-(check-equal? (double 0) 0)
-(check-equal? (double 1) 2)
-(check-equal? (double 1) 2)
-(check-equal? (double 5) 10)
-(check-equal? (double 10) 20)
+(check-type (double 0) : Nat -> 0)
+(check-type (double 1) : Nat -> 2)
+(check-type (double 1) : Nat -> 2)
+(check-type (double 5) : Nat -> 10)
+(check-type (double 10) : Nat -> 20)
 
-;; TODO: Not sure why this script fails
-#;(define-theorem double-plus
+(define-theorem double-plus
   (∀ [n : Nat] (== Nat (double n) (plus n n)))
   (by-intro n)
-  simpl
   (by-induction n #:as [() (n-1 IH)])
   ; subgoal 1
   reflexivity
   ; subgoal 2
-  display-focus
-  simpl
-  display-focus
-  (by-rewriteL/thm/normalized plus-n-Sm 1 n-1)
-  display-focus
+  (by-rewriteL plus-n-Sm n-1 n-1)
   (by-rewrite IH)
-  display-focus
-  reflexivity
-  display-focus)
+  reflexivity)
 
 ;; copied from Basics.rkt
-(define negb
-  (λ [b : Bool]
-    (new-elim b (λ [b : Bool] Bool) false true)))
+(define/rec/match negb : Bool -> Bool
+  [true => false]
+  [false => true])
 
-(define evenb
-  (λ [n : Nat]
-    (new-elim
-     n
-     (λ [n : Nat] Bool)
-     true
-     (λ [n-1 : Nat] [ih : Bool]
-        (negb ih)
-        #;(new-elim
-         n-1
-         (λ [n : Nat] Bool)
-         false
-         (λ [n-2 : Nat]
-           [ih2 : Bool]
-           (negb ih2)))))))
-(check-equal? (evenb 0) true)
-(check-equal? (evenb 1) false)
-(check-equal? (evenb 2) true)
-(check-equal? (evenb 10) true)
-(check-equal? (evenb 11) false)
+(define/rec/match evenb : Nat -> Bool
+  [z => true]
+  [(s n-1) => (negb (evenb n-1))])
+
+(check-type (evenb 1) : Bool -> false)
+(check-type (evenb 2) : Bool -> true)
+(check-type (evenb 10) : Bool -> true)
+(check-type (evenb 11) : Bool -> false)
+
+
+(define-theorem evenb_S
+ (∀ [n : Nat]
+    (== Bool (evenb (s n)) (negb (evenb n))))
+ (by-intro n)
+ (by-induction n #:as [() (n-1 IH)])
+ ; goal 1
+ reflexivity
+ ; goal 2
+ (by-rewrite IH)
+; (by-rewrite negb-invol (evenb n-1)) ; evenb doesnt need this, see evenb2 below
+ reflexivity)
 
 (define-theorem negb-invol
   (forall [b : Bool] (== Bool (negb (negb b)) b))
   (by-intro b)
-  (by-destruct/elim b)
-  simpl
+  (by-destruct b)
+  ; -----------
   reflexivity
   ; -----------
-  simpl
   reflexivity)
 
-;; need functional recursion
-#;(define-theorem evenb_S
-  (∀ [n : Nat]
-     (== Bool (evenb (s n)) (negb (evenb n))))
-  (by-intro n)
-  (by-induction n #:as [() (n-1 IH)])
-  ; goal 1
-  reflexivity
-  ; goal 2
-  display-focus
-  (by-rewrite IH)
-  display-focus
-  (by-rewrite/thm negb-invol (evenb n-1))
-  display-focus
-  simpl
-  display-focus
-  reflexivity)
+;; TODO: support nested patterns
+;; or just use explicit match
+(define/rec/match evenb2 : Nat -> Bool
+  [z => true]
+  [(s z) => false]
+  [(s (s n-2)) => (evenb2 n-2)])
 
-;; requires assert
+(check-type (evenb2 1) : Bool -> false)
+(check-type (evenb2 2) : Bool -> true)
+(check-type (evenb2 10) : Bool -> true)
+(check-type (evenb2 11) : Bool -> false)
+
+(define-theorem evenb2_S
+ (∀ [n : Nat]
+    (== Bool (evenb2 (s n)) (negb (evenb2 n))))
+ (by-intro n)
+ (by-induction n #:as [() (n-1 IH)])
+ ; goal 1
+ reflexivity
+ ; goal 2
+ (by-rewrite IH)
+ (by-rewrite negb-invol (evenb2 n-1))
+ reflexivity)
+
+;; prove using assert
 (define-theorem mult-0-plus*
-  (∀ [n : Nat] [m : Nat]
-     (ML-= Nat (mult (plus 0 n) m) (mult n m)))
-  (by-intros n m)
-  (by-assert H (ML-= Nat (plus 0 n) n))
-  ; proving H
-  ML:reflexivity
-  ; proving rest
-  (ML:by-rewrite H)
-  ML:reflexivity)
+ (∀ [n : Nat] [m : Nat]
+    (ML-= Nat (mult (plus 0 n) m) (mult n m)))
+ (by-intros n m)
+ (by-assert H (ML-= Nat (plus 0 n) n))
+ ; proving H
+ ML:reflexivity
+ ; proving rest
+ (ML:by-rewrite H)
+ ML:reflexivity)
 
 ;; plus-rearrange
 (define-theorem plus-rearrange
@@ -488,7 +395,7 @@
   (by-intros n m p q)
   (by-assert H (== Nat (plus n m) (plus m n)))
   ; proof of H
-  (by-rewrite/thm plus_comm n m)
+  (by-rewrite plus_comm n m)
   reflexivity
   ; proof of rest
   (by-rewrite H)
@@ -499,11 +406,10 @@
   (∀ [n : Nat] [m : Nat] [p : Nat]
      (== Nat (plus n (plus m p)) (plus (plus n m) p)))
   (by-intros n m p)
-  simpl
   (by-induction n #:as [() (n-1 IH)])
   ; goal 1, n = 0
   reflexivity
-  simpl
+  ; goal 2, n = (s n-1)
   (by-rewrite IH)
   reflexivity)
 
@@ -512,18 +418,18 @@
      (== Nat (plus n (plus m p))
                (plus m (plus n p))))
   (by-intros n m p)
-  (by-rewrite/thm plus-assoc n m p)
+  (by-rewrite plus-assoc n m p)
   (by-assert H (== Nat (plus n m) (plus m n)))
   ; proof of H
-  (by-rewrite/thm plus_comm n m)
+  (by-rewrite plus_comm n m)
   reflexivity
   ; proof of rest
   (by-rewrite H)
-  (by-rewriteL/thm plus-assoc m n p)
+  (by-rewriteL plus-assoc m n p)
   reflexivity)
 
 ;; plus-swap2 subterm1, just H proof
-(::
+(check-type
  (λ [n : Nat] [m : Nat] [p : Nat]
     ((λ (H : (== Nat (plus m n) (plus n m)))
        H)
@@ -533,11 +439,11 @@
         (λ (g123215 : (== Nat (plus n m) g123214))
           (== Nat g123214 (plus n m))))
       (refl Nat (plus n m)))))
- (∀ [n : Nat] [m : Nat] [p : Nat]
-   (== Nat (plus m n) (plus n m))))
+ :  (∀ [n : Nat] [m : Nat] [p : Nat]
+       (== Nat (plus m n) (plus n m))))
 
 ;; plus-swap2 subterm2, use of H
-(::
+(check-type
  (λ [n : Nat] [m : Nat] [p : Nat]
     (λ (H : (== Nat (plus m n) (plus n m)))
       (new-elim
@@ -551,9 +457,9 @@
           (λ (g122604 : (== Nat (plus m (plus n p)) g122603))
             (== Nat g122603 (plus m (plus n p)))))
         (refl Nat (plus m (plus n p)))))))
- (∀ [n : Nat] [m : Nat] [p : Nat]
-    (-> (== Nat (plus m n) (plus n m))
-        (== Nat (plus (plus n m) p) (plus m (plus n p))))))
+ :  (∀ [n : Nat] [m : Nat] [p : Nat]
+       (-> (== Nat (plus m n) (plus n m))
+           (== Nat (plus (plus n m) p) (plus m (plus n p))))))
 
 ;; use replace instead of assert
 (define-theorem plus-swap2
@@ -561,10 +467,10 @@
      (== Nat (plus n (plus m p))
                (plus m (plus n p))))
   (by-intros n m p)
-  (by-rewrite/thm plus-assoc n m p)
+  (by-rewrite plus-assoc n m p)
   (by-replace Nat (plus n m) (plus m n)) ; H
-  (by-rewriteL/thm plus-assoc m n p)
+  (by-rewriteL plus-assoc m n p)
   reflexivity
   ; proof of H
-  (by-rewrite/thm plus_comm m n)
+  (by-rewrite plus_comm m n)
   reflexivity)

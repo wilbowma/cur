@@ -1,7 +1,7 @@
 #lang cur
 
 (require
- rackunit
+ "../rackunit-ntac.rkt"
  cur/stdlib/equality
  cur/stdlib/sugar
  cur/ntac/base
@@ -239,24 +239,15 @@
 (ntac (ML-= bool (oddb 3) true) reflexivity)
 (ntac (ML-= bool (oddb 5) true) reflexivity)
 
-(define plus
-  (λ [n : nat] [m : nat]
-     (new-elim n
-               (λ [n : nat] nat)
-               m
-               (λ [n* : nat] [ih : nat]
-                  (S ih)))))
+(define/rec/match plus : nat [m : nat] -> nat
+  [O => m]
+  [(S n-1) => (S (plus n-1 m))])
 
 (check-equal? (plus 2 3) 5)
 
-(define mult
-  (λ [n : nat]
-    (λ [m : nat]
-      (new-elim n
-                (λ [x : nat] nat)
-                O
-                (λ [n* : nat] [ih : nat]
-                   (plus m ih))))))
+(define/rec/match mult : nat [m : nat] -> nat
+  [O => O]
+  [(S n-1) => (plus m (mult n-1 m))])
 
 (check-equal? (mult 1 1) 1)
 (check-equal? (mult 2 1) 2)
@@ -306,11 +297,9 @@
               (λ [n* : nat] [ih : nat]
                  (mult (S n*) ih)))))
 
-(: factorial (-> nat nat))
-(define (factorial n)
-  (match n
-    [O 1]
-    [(S n*) (mult (S n*) (factorial n*))]))
+(define/rec/match factorial : nat -> nat
+  [O => 1]
+  [(S n*) => (mult (S n*) (factorial n*))])
 
 (check-equal? (mult (S (S O)) (S O)) (S (S O)))
 
@@ -347,44 +336,11 @@
 
 (check-equal? (+ 0 1 1) 2)
 
-;; from stdlib
-;; pattern for defining double recursive fns
-#;(define (nat-equal? (n : Nat))
-  (match n
-    [z zero?]
-    [(s n-1)
-     (lambda (m : Nat)
-       (match m #:in Nat
-         [z false]
-         [(s m-1)
-          (nat-equal? n-1 m-1)]))]))
-
-(define (beq-nat [n : nat])
-  ;; this version not working
-  #;(new-elim n
-            (λ [n1 : nat] bool)
-            (new-elim m
-                      (λ [m1 : nat] bool)
-                      true
-                      (λ [m* : nat] [ih : bool]
-                         false))
-            (λ [n* : nat] [ih : bool]
-               (new-elim m
-                         (λ [m2 : nat] bool)
-                         false
-                         (λ [m* : nat] [ih : bool]
-                            (beq-nat n* m*)))))
-  (match n #:in nat
-   [O
-    (λ [m : nat]
-      (match m #:in nat #:return bool
-       [O true]
-       [(S m*) false]))]
-   [(S n*)
-     (λ [m : nat]
-       (match m #:in nat #:return bool
-        [O false]
-        [(S m*) (beq-nat n* m*)]))]))
+(define/rec/match beq-nat : nat nat -> bool
+  [O O => true]
+  [O (S _) => false]
+  [(S _) O => false]
+  [(S n*) (S m*) => (beq-nat n* m*)])
 
 (check-equal? (beq-nat 0 0) true)
 (check-equal? (beq-nat 0 1) false)
@@ -393,15 +349,11 @@
 (check-equal? (beq-nat 1 2) false)
 (check-equal? (beq-nat 2 1) false)
 
-(define (leb [n : nat])
-  (match n #:in nat #:return (-> nat bool)
-    [O
-     (λ [m : nat] true)]
-    [(S n*)
-     (λ [m : nat]
-       (match m #:in nat #:return bool
-         [O false]
-         [(S m*) ((leb n*) m*)]))]))
+(define/rec/match leb : nat nat -> bool
+  [O O => true]
+  [O (S _) => true]
+  [(S _) O => false]
+  [(S n*) (S m*) => (leb n* m*)])
 
 (check-equal? ((leb 2) 2) true)
 (:: ((leb 2) 2) bool)
@@ -485,16 +437,16 @@
 (define-theorem mult-0-plus
   (∀ [n : nat] [m : nat]
      (ML-= nat (mult (plus 0 n) m) (mult n m)))
+  (by-intro n)
   by-intro
-  by-intro
-  (by-rewrite/thm plus-0-n n)
+  (by-rewrite plus-0-n n)
   reflexivity)
 
 ;; uses plus-0-n*
 (define-theorem mult-0-plus*
   (∀ [n : nat] [m : nat]
      (ML-= nat (mult (plus 0 n) m) (mult n m)))
+  (by-intro n)
   by-intro
-  by-intro
-  (by-rewrite/thm plus-0-n* n)
+  (by-rewrite plus-0-n* n)
   reflexivity)

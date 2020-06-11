@@ -7,25 +7,25 @@
    (for-label
      (only-in
        (only-meta-in 1 cur)
-          with-env
-          call-with-env
+          ;with-env
+          ;call-with-env
           cur->datum
-          deprecated-cur-expand
+          ;deprecated-cur-expand
           cur-expand
           cur-type-infer
           cur-type-check?
           cur-constructors-for
           cur-data-parameters
-          cur-method-type
+          ;cur-method-type
           cur-constructor-recursive-index-ls
           cur-constructor-telescope-length
           cur-normalize
           cur-rename
           cur-reflect-id
-          cur-step
+          ;cur-step
           cur-equal?))
    (for-label
-     (only-meta-in 0 cur))
+     (except-in (only-meta-in 0 cur) ->))
    (for-label
      (only-in racket local-expand syntax? listof -> cons/c any identifier? or/c
               symbol? natural-number/c thunk boolean?))
@@ -34,7 +34,7 @@
    (for-label (only-meta-in 0 cur/stdlib/list)))
 
 @title{Reflection}
-@defmodule[cur]
+@;@defmodule[cur]
 To support the addition of new user-defined language features, @racketmodname[cur] provides access to
 various parts of the language implementation as Racket forms at @gtech{phase} 1.
 The reflection features are @emph{unstable} and may change without warning.
@@ -58,39 +58,39 @@ reduce before type checking, or type check before expansion.
 
 @history[#:changed "0.20" @elem{Removed @racket[declare-data!], @racket[call-local-data-scope], @racket[local-data-scope]---we can't implement these in the new Curnel, and they were hacks to begin with.}]
 
-@defproc[(call-with-env [env (listof (cons/c syntax? syntax?))] [thunk (-> any)])
-         any]{
-Calls @racket[thunk] with the lexical environment extended by @racket[env].
-@racket[env] should be in reverse dependency order; the 0th element of
+@;@defproc[(call-with-env [env (listof (cons/c syntax? syntax?))] [thunk (-> any)])
+@;         any]{
+@;Calls @racket[thunk] with the lexical environment extended by @racket[env].
+@;@racket[env] should be in reverse dependency order; the 0th element of
+@;
+@;@racket[env] may depend on the 1st, the 1st may depend on the 2nd, etc.
+@;
+@;@deprecated[#:what "function" @local-env-message]
+@;}
 
-@racket[env] may depend on the 1st, the 1st may depend on the 2nd, etc.
+@;@defform[(with-env env e)]{
+@;Syntax that expands to @racket[(call-with-env env (thunk e))].
+@;
+@;@deprecated[#:what "function" @local-env-message]
+@;}
 
-@deprecated[#:what "function" @local-env-message]
-}
-
-@defform[(with-env env e)]{
-Syntax that expands to @racket[(call-with-env env (thunk e))].
-
-@deprecated[#:what "function" @local-env-message]
-}
-
-@defproc[(cur-expand [syn syntax?] [#:local-env env (listof (cons/c syntax? syntax?)) '()] [id identifier?] ...)
-         syntax?]{
-Expands the Cur term @racket[syn] until the expansion reaches a either @tech{Curnel form} or one of
-the identifiers @racket[id]. See also @racket[local-expand].
-
-If @racket[#:local-env] is specified, expands under an extended lexical environment via @racket[with-env].
-
-@todo{Figure out how to get evaluator to pretend to be at phase 1 so these examples work properly.}
-
-@examples[
-(eval:alts (define-syntax-rule (computed-type _) Type) (void))
-(eval:alts (cur-expand #'(λ (x : (computed-type bla)) x))
-           (eval:result @racket[#'(λ (x : Type) x)] "" ""))
-]
-
-@deprecated[#:what "#:local-env keyword argument" @local-env-message]
-}
+@;@defproc[(cur-expand [syn syntax?] [#:local-env env (listof (cons/c syntax? syntax?)) '()] [id identifier?] ...)
+@;         syntax?]{
+@;Expands the Cur term @racket[syn] until the expansion reaches a either @tech{Curnel form} or one of
+@;the identifiers @racket[id]. See also @racket[local-expand].
+@;
+@;If @racket[#:local-env] is specified, expands under an extended lexical environment via @racket[with-env].
+@;
+@;@todo{Figure out how to get evaluator to pretend to be at phase 1 so these examples work properly.}
+@;
+@;@examples[
+@;(eval:alts (define-syntax-rule (computed-type _) Type) (void))
+@;(eval:alts (cur-expand #'(λ (x : (computed-type bla)) x))
+@;           (eval:result @racket[#'(λ (x : Type) x)] "" ""))
+@;]
+@;
+@;@deprecated[#:what "#:local-env keyword argument" @local-env-message]
+@;}
 
 @defproc[(cur-type-infer [syn syntax?] [#:local-env env (listof (cons/c syntax? syntax?)) '()])
          (or/c syntax? #f)]{
@@ -243,23 +243,23 @@ Return the number of invariant parameters for the inductively defined type @rack
 ]
 }
 
-@defproc[(cur-method-type [target syntax?] [motive syntax?])
-         syntax?]{
-Given an a @racket[target] (a constructor for some type @racket[D] applied to
-its invariant parameters) and a @racket[motive] for eliminating it, return the
-type of the method required for this constructor when eliminating @racket[D].
-
-@examples[
-(eval:alts (cur-method-type #'s #'(lambda (x : Nat) Nat))
-           (eval:result @racket[#'Nat] "" ""))
-(eval:alts (cur-method-type #'s #'(lambda (x : Nat) Nat))
-           (eval:result @racket[#'(Π (x : Nat) (Π (ih : Nat) Nat))] "" ""))
-(eval:alts (cur-method-type #'(nil Nat) #'(lambda (x : (List Nat)) Nat))
-           (eval:result @racket[#'Nat] "" ""))
-(eval:alts (cur-method-type #'(cons Nat) #'(lambda (x : (List Nat)) Nat))
-           (eval:result @racket[#'(Π (a : Nat) (Π (rest : (List Nat)) (Π (ih : Nat) Nat)))] "" ""))
-]
-}
+@;@defproc[(cur-method-type [target syntax?] [motive syntax?])
+@;         syntax?]{
+@;Given an a @racket[target] (a constructor for some type @racket[D] applied to
+@;its invariant parameters) and a @racket[motive] for eliminating it, return the
+@;type of the method required for this constructor when eliminating @racket[D].
+@;
+@;@examples[
+@;(eval:alts (cur-method-type #'s #'(lambda (x : Nat) Nat))
+@;           (eval:result @racket[#'Nat] "" ""))
+@;(eval:alts (cur-method-type #'s #'(lambda (x : Nat) Nat))
+@;           (eval:result @racket[#'(Π (x : Nat) (Π (ih : Nat) Nat))] "" ""))
+@;(eval:alts (cur-method-type #'(nil Nat) #'(lambda (x : (List Nat)) Nat))
+@;           (eval:result @racket[#'Nat] "" ""))
+@;(eval:alts (cur-method-type #'(cons Nat) #'(lambda (x : (List Nat)) Nat))
+@;           (eval:result @racket[#'(Π (a : Nat) (Π (rest : (List Nat)) (Π (ih : Nat) Nat)))] "" ""))
+@;]
+@;}
 
 @defproc[(cur-constructor-telescope-length [c identifier?])
          natural-number/c]{

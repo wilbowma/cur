@@ -1,8 +1,8 @@
 #lang cur
 
 (require
- rackunit
- "Basics.rkt"
+ "../rackunit-ntac.rkt"
+ "Basics-ML.rkt"
  cur/stdlib/equality
  cur/stdlib/sugar
  cur/ntac/base
@@ -32,22 +32,17 @@
 (define-theorem plus-n-0
   (∀ [n : nat] (ML-= nat n (plus n 0)))
   (by-intro n)
-  simpl ;; this step doesnt do anything except get everything in expanded form
   (by-induction n #:as [() (n-1 IH)])
   ;; subgoal 1
   reflexivity
   ;; subgoal 2
-  simpl
   (by-rewriteL IH)
   reflexivity)
 
 (define-theorem mult_0_r
   (∀ [n : nat] (ML-= nat (mult n 0) 0))
   (by-intro n)
-  simpl
   (by-induction n #:as [() (n-1 IH)])
-  simpl
   reflexivity
-  simpl
   (by-rewrite IH)
   reflexivity)

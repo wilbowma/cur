@@ -1,14 +1,14 @@
 #lang cur
 
 (require
- rackunit
+ "../rackunit-ntac.rkt"
  cur/stdlib/equality
  cur/stdlib/sugar
  cur/ntac/base
  cur/ntac/standard
  cur/ntac/rewrite)
 
-(provide (all-defined-out))
+(provide (all-defined-out) (for-syntax (all-defined-out)))
 
 ;; examples from SF Ch 1: Basics, using Paulin-Mohring equality (the "standard" one)
 
@@ -45,17 +45,17 @@
       (true : bool)
       (false : bool))
 
-(define negb
-  (λ [b : bool]
-    (new-elim b (λ [b : bool] bool) false true)))
+(define/rec/match negb : bool -> bool
+  [true => false]
+  [false => true])
 
-(define andb
-  (λ [b1 : bool] [b2 : bool]
-     (new-elim b1 (λ [b : bool] bool) b2 false)))
+(define/rec/match andb : bool [b : bool] -> bool
+  [true => b]
+  [false => false])
 
-(define orb
-  (λ [b1 : bool] [b2 : bool]
-     (new-elim b1 (λ [b : bool] bool) true b2)))
+(define/rec/match orb : bool [b : bool] -> bool
+  [true => true]
+  [false => b])
 
 (define-theorem test-orb1
   (== bool (orb true false) true)
@@ -239,24 +239,15 @@
 (ntac (== bool (oddb 3) true) reflexivity)
 (ntac (== bool (oddb 5) true) reflexivity)
 
-(define plus
-  (λ [n : nat] [m : nat]
-     (new-elim n
-               (λ [n : nat] nat)
-               m
-               (λ [n* : nat] [ih : nat]
-                  (S ih)))))
+(define/rec/match plus : nat [m : nat] -> nat
+  [O => m]
+  [(S n-1) => (S (plus n-1 m))])
 
 (check-equal? (plus 2 3) 5)
 
-(define mult
-  (λ [n : nat]
-    (λ [m : nat]
-      (new-elim n
-                (λ [x : nat] nat)
-                O
-                (λ [n* : nat] [ih : nat]
-                   (plus m ih))))))
+(define/rec/match mult : nat [m : nat] -> nat
+  [O => O]
+  [(S n-1) => (plus m (mult n-1 m))])
 
 (check-equal? (mult 1 1) 1)
 (check-equal? (mult 2 1) 2)
@@ -269,20 +260,11 @@
   simpl
   reflexivity)
 
-(define minus
-  (λ [n : nat] [m : nat]
-     (new-elim n (λ [n : nat] nat)
-               O
-               (λ [m* : nat][ih : nat]
-                  (new-elim m
-                            (λ [n : nat] nat)
-                            n
-                            (λ [m* : nat] [ih* : nat]
-                               (new-elim ih*
-                                         (λ [n : nat] nat)
-                                         O
-                                         (λ [n* : nat] [ih : nat]
-                                            n*))))))))
+(define/rec/match minus : nat nat -> nat
+  [O _ => O]
+  [(S n-1) O => (S n-1)]
+  [(S n-1) (S m-1) => (minus n-1 m-1)])
+
 (check-equal? (minus 4 1) 3)
 (check-equal? (minus 0 0) 0)
 (check-equal? (minus 1 1) 0)
@@ -298,19 +280,10 @@
                1
                (λ [p : nat][ih : nat]
                   (mult base ih)))))
-#;(define factorial
-  (λ [n : nat]
-    (new-elim n
-              (λ [n : nat] nat)
-              (S O)
-              (λ [n* : nat] [ih : nat]
-                 (mult (S n*) ih)))))
 
-(: factorial (-> nat nat))
-(define (factorial n)
-  (match n
-    [O 1]
-    [(S n*) (mult (S n*) (factorial n*))]))
+(define/rec/match factorial : nat -> nat
+  [O => 1]
+  [(S n*) => (mult (S n*) (factorial n*))])
 
 (check-equal? (mult (S (S O)) (S O)) (S (S O)))
 
@@ -347,44 +320,11 @@
 
 (check-equal? (+ 0 1 1) 2)
 
-;; from stdlib
-;; pattern for defining double recursive fns
-#;(define (nat-equal? (n : Nat))
-  (match n
-    [z zero?]
-    [(s n-1)
-     (lambda (m : Nat)
-       (match m #:in Nat
-         [z false]
-         [(s m-1)
-          (nat-equal? n-1 m-1)]))]))
-
-(define (beq-nat [n : nat])
-  ;; this version not working
-  #;(new-elim n
-            (λ [n1 : nat] bool)
-            (new-elim m
-                      (λ [m1 : nat] bool)
-                      true
-                      (λ [m* : nat] [ih : bool]
-                         false))
-            (λ [n* : nat] [ih : bool]
-               (new-elim m
-                         (λ [m2 : nat] bool)
-                         false
-                         (λ [m* : nat] [ih : bool]
-                            (beq-nat n* m*)))))
-  (match n #:in nat
-   [O
-    (λ [m : nat]
-      (match m #:in nat #:return bool
-       [O true]
-       [(S m*) false]))]
-   [(S n*)
-     (λ [m : nat]
-       (match m #:in nat #:return bool
-        [O false]
-        [(S m*) (beq-nat n* m*)]))]))
+(define/rec/match beq-nat : nat nat -> bool
+  [O O => true]
+  [O (S _) => false]
+  [(S _) O => false]
+  [(S n*) (S m*) => (beq-nat n* m*)])
 
 (check-equal? (beq-nat 0 0) true)
 (check-equal? (beq-nat 0 1) false)
@@ -393,17 +333,16 @@
 (check-equal? (beq-nat 1 2) false)
 (check-equal? (beq-nat 2 1) false)
 
-(define (leb [n : nat])
-  (match n #:in nat #:return (-> nat bool)
-    [O
-     (λ [m : nat] true)]
-    [(S n*)
-     (λ [m : nat]
-       (match m #:in nat #:return bool
-         [O false]
-         [(S m*) ((leb n*) m*)]))]))
+;; wildcard in 1st case
+;; allows reduction when only 1st arg is known to be 0,
+;; see count_member_nonzero in List.rkt
+(define/rec/match leb : nat nat -> bool
+  [O _ => true]
+  [(S n*) O => false]
+  [(S n*) (S m*) => (leb n* m*)])
 
 (check-equal? ((leb 2) 2) true)
+(check-equal? (leb 2 2) true)
 (:: ((leb 2) 2) bool)
 (:: (refl bool true)
     (== bool (leb 2 2) true))
@@ -485,22 +424,18 @@
 (define-theorem mult-0-plus
   (∀ [n : nat] [m : nat]
      (== nat (mult (plus 0 n) m) (mult n m)))
+  (by-intro n)
   by-intro
-  by-intro
-;  display-focus
-  (by-rewrite/thm plus-0-n n)
-;  display-focus
+  (by-rewrite plus-0-n n)
   reflexivity)
 
 ;; uses plus-0-n*
 (define-theorem mult-0-plus*
   (∀ [n : nat] [m : nat]
      (== nat (mult (plus 0 n) m) (mult n m)))
+  (by-intro n)
   by-intro
-  by-intro
-;  display-focus
-  (by-rewrite/thm plus-0-n* n)
-;  display-focus
+  (by-rewrite plus-0-n* n)
   reflexivity)
 
 (define-theorem mult-S-1
@@ -526,11 +461,9 @@
 (define-theorem negb-invol
   (forall [b : bool] (== bool (negb (negb b)) b))
   (by-intro b)
-  (by-destruct/elim b)
-  simpl
+  (by-destruct b)
   reflexivity
   ; -----------
-  simpl
   reflexivity)
 
 ;; nested destructs
@@ -539,15 +472,15 @@
      (== bool (andb b c) (andb c b)))
   (by-intro b)
   (by-intro c)
-  (by-destruct/elim b)
+  (by-destruct b)
   ; subgoal 1 ------------
-  (by-destruct/elim c)
+  (by-destruct c)
   ;; subgoal 1a ---
   reflexivity
   ;; subgoal 1b ---
   reflexivity
   ; subgoal 2-----------
-  (by-destruct/elim c)
+  (by-destruct c)
   ;; subgoal 2a ---
   reflexivity
   ;; subgoal 2b ---
@@ -560,25 +493,25 @@
   (by-intro b)
   (by-intro c)
   (by-intro d)
-  (by-destruct/elim b)
+  (by-destruct b)
   ; subgoal 1 ----------------
-  (by-destruct/elim c)
+  (by-destruct c)
   ; subgoal 1a --------
-  (by-destruct/elim d)
+  (by-destruct d)
   reflexivity
   reflexivity
   ; subgoal 1b --------
-  (by-destruct/elim d)
+  (by-destruct d)
   reflexivity
   reflexivity
   ; subgoal 2 ----------------
-  (by-destruct/elim c)
+  (by-destruct c)
   ; subgoal 2a --------
-  (by-destruct/elim d)
+  (by-destruct d)
   reflexivity
   reflexivity
   ; subgoal 2b --------
-  (by-destruct/elim d)
+  (by-destruct d)
   reflexivity
   reflexivity)
 
@@ -586,7 +519,7 @@
 ;; uses intro+destruct version of intro tactic
 (define-theorem plus-1-neq-0*
   (∀ [n : nat] (== bool (beq-nat (plus 1 n) 0) false))
-  (by-intro n #:as [() (n-1)])
+  (by-intros n #:as [() (n-1)])
   reflexivity
   reflexivity)
 
@@ -596,20 +529,17 @@
          (== bool c true)))
   (by-intro b)
   (by-intro c)
-  (by-destruct/elim b)
+  (by-destruct b)
   ; subgoal 1 ----------------
-  simpl
   (by-intro H)
   (by-rewrite H)
   reflexivity
   ; subgoal 2 ----------------
-  (by-destruct/elim c)
+  (by-destruct c)
   ; subgoal 2a --------
-  simpl
   (by-intro H1)
   reflexivity
   ; subgoal 2b --------
-  simpl
   (by-intro H2)
   by-assumption
 )
@@ -617,11 +547,9 @@
 (define-theorem zero-nbeq-plus-1
   (∀ [n : nat]
      (== bool (beq-nat 0 (plus 1 n)) false))
-  (by-intro n #:as [() (n-1)])
-  simpl
+  (by-intros n #:as [() (n-1)])
   reflexivity
   ; --------
-  simpl
   reflexivity)
 
 (define-theorem identity-fn-applied-twice
@@ -645,7 +573,7 @@
   (by-intro b)
   (by-rewrite H b)
   (by-rewrite H (negb b))
-  (by-rewrite/thm negb-invol b)
+  (by-rewrite negb-invol b)
   reflexivity)
 
 (define-theorem andb-eq-orb
@@ -654,13 +582,11 @@
          (== bool b c)))
   (by-intro b)
   (by-intro c)
-  (by-destruct/elim b)
+  (by-destruct b)
   ; subgoal 1 --------
-  simpl
   (by-intro H)
   (by-rewrite H)
   reflexivity
   ; subgoal 2 --------
-  simpl
   by-intro
   by-assumption)

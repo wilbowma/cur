@@ -3,18 +3,21 @@
 
 (require
  "../stdlib/sugar.rkt"
- "../curnel/racket-impl/runtime.rkt"
- (for-syntax
-  "../curnel/racket-impl/runtime-utils.rkt")
- (only-in racket [define r:define]))
+ (only-in racket [define r:define])
+ (for-syntax "ctx.rkt"
+             macrotypes/stx-utils
+             racket/match racket/list racket/pretty))
 
 (provide
  define-theorem
- ntac)
+ define-theorem/for-export
+ ntac
+ ntac/debug)
 
 (begin-for-syntax
   (provide
    ntac-syntax
+   current-tracing?
 
    qed next
 
@@ -34,13 +37,16 @@
    (struct-out nttz)
    make-nttz nttz-up nttz-down-context nttz-down-apply nttz-done?
 
-   (struct-out theorem-info)
+   num-holes
+   num-holes/z
+   num-holes/z/local
+   to-top
 
-   ;; In case someone wants to redefine define-theorem
    new-proof-tree
    proof-tree->complete-term
    eval-proof-script
    eval-proof-step
+   eval-proof-steps
    ntac-proc)
 
   ;; NTac proof Tree
@@ -65,7 +71,7 @@
 
   (struct ntt-done ntt (subtree) #:transparent #:constructor-name _ntt-done)
   (define (make-ntt-done subtree)
-    (when (ntt-contains-hole? subtree)
+    (when (and (not (current-tracing?)) (ntt-contains-hole? subtree))
       (error 'ntt-done "Cannot construct done if hole present: ~v" subtree))
     (_ntt-done #f (ntt-goal subtree) subtree))
 
@@ -85,22 +91,34 @@
          (apply f (map (λ (c) (loop c)) cs))]
         [(ntt-done _ _ k)
          (loop k)])))
+  (define (num-holes/z ptz) (num-holes/z/local (to-top ptz)))
+  (define (num-holes/z/local ptz) (num-holes (nttz-focus ptz)))
+  (define (num-holes pt)
+    (match pt
+      [(ntt-hole _ _) 1]
+      [(ntt-exact _ _ _) 0]
+      [(ntt-context _ _ _ k) (num-holes k)]
+      [(ntt-apply _ _ cs f) (apply + (map num-holes cs))]
+      [(ntt-done _ _ k) (num-holes k)]))
 
   ;; NTac proof Tree Zipper
   ;; TODO: track number of holes/subgoals?
   (struct nttz (context focus prev) #:constructor-name _nttz)
-  ;; context : FreeIdHashof ID Type
+  ;; context : NtacCtx (see ctx.rkt)
   ;; focus   : ntt
   ;; prev    : ntt -> nttz
   ;; Produces a new zipper from the current focus
 
-  (require racket/dict)
-  (define (identifier-hash) (make-immutable-custom-hash free-identifier=?))
-  (define (make-nttz pt)
-    (_nttz (identifier-hash) pt
+  (define (make-nttz pt [ctxt (mk-empty-ctx)])
+    (_nttz ctxt pt
          (λ (last-pt)
            (make-nttz (make-ntt-done last-pt)))))
 
+  (define (to-top tz)
+    (if (nttz-done? tz)
+        tz
+        (parameterize ([current-tracing? #t]) ; TODO: hack to avoid ntt-done err; replace with new param
+          (to-top (nttz-up tz)))))
   (define (nttz-up nttz)
     ((nttz-prev nttz) (nttz-focus nttz)))
 
@@ -122,25 +140,36 @@
 
   (define (ntac-proc ty ps)
     (let ()
+      (define ctxt (mk-empty-ctx))
       (define init-pt
         (new-proof-tree (cur-expand ty)))
       (define final-pt
         (eval-proof-script
          init-pt
-         (syntax->list ps)
+         ps
+         ctxt
          ps))
       (define pf
         (proof-tree->complete-term
          final-pt
          ps))
+;      (pretty-print (syntax->datum pf))
       pf))
 
-  (define (eval-proof-script pt psteps [err-stx #f])
-    (define last-nttz
-      (for/fold ([nttz (make-nttz pt)])
-                ([pstep-stx (in-list psteps)])
+  (define (eval-proof-script pt psteps ctxt [err-stx #f])
+    (qed (eval-proof-steps (make-nttz pt ctxt) psteps) err-stx))
+
+  (define (eval-proof-steps ptz psteps)
+    (for/fold ([nttz ptz])
+              ([pstep-stx (in-stx-list psteps)])
+        (when (and (current-tracing?)
+                   (not (equal? 'display-focus (syntax-e pstep-stx))))
+          (printf "****************************************\n")
+          (printf "step #~a: running tactic: ~a\n"
+                  (current-tracing?)
+                  (syntax->datum pstep-stx))
+          (current-tracing? (add1 (current-tracing?))))
         (eval-proof-step nttz pstep-stx)))
-    (qed last-nttz err-stx))
 
   (define (eval-proof-step nttz pstep-stx)
     ;; XXX Error handling on eval
@@ -177,30 +206,37 @@
   (define (ntac-syntax syn)
     (datum->syntax anchor (syntax->datum syn)))
 
+  (define current-tracing? (make-parameter #f)) ; counts (roughly) # tactics evaled
+
   ;; `name` is the binder (thm name); `ty` is the surface stx of the thm
   ;; this is needed bc `name` is likely bound to a normalized
   ;; (and expanded) version of `ty`
-  (struct theorem-info identifier-info (name orig)))
+  ;  (struct theorem-info identifier-info (name orig))
+  )
 
 ;; Syntax
 (define-syntax (define-theorem stx)
   (syntax-parse stx
     [(_ x:id ty ps ...)
-     #:with y (generate-temporary #'x)
-     #:with delta-y (make-delta-name #'y)
-     #:with delta-x (make-delta-name #'x)
-     #:with thm-x (make-type-name #'x)
-     (quasisyntax/loc stx
-       (begin (define y (ntac ty ps ...))
-              (r:define x y)
-              (define-for-syntax delta-x delta-y)
-              (define-for-syntax thm-x
-                (theorem-info (identifier-info-type #,(make-type-name #'y))
-                              delta-y
-                              #'x #'ty))
-              (:: x ty)))]))
+     #:with e (local-expand (ntac-proc #'ty #'(ps ...)) 'expression null)
+     (quasisyntax/loc stx (define x e))]))
+
+(define-syntax (define-theorem/for-export stx)
+  (syntax-parse stx
+    [(_ x:id ty ps ...)
+     (quasisyntax/loc stx (define x (ntac ty ps ...)))]))
 
 ;; For inline ntac
-(define-syntax (ntac stx)
-  (syntax-case stx ()
+(define-syntax ntac
+  (syntax-parser
     [(_ ty . pf) (ntac-proc #'ty #'pf)]))
+
+;; For inline ntac
+(define-syntax ntac/debug
+  (syntax-parser
+    [(_ ty . pf)
+     (begin
+       (current-tracing? 1)
+       (begin0
+         (ntac-proc #'ty #'pf)
+         (current-tracing? #f)))]))

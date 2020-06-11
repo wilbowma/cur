@@ -1,4 +1,4 @@
-cur [![Build Status](https://travis-ci.org/wilbowma/cur.svg?branch=master)](https://travis-ci.org/wilbowma/cur)
+cur [![Build Status](https://travis-ci.org/stchang/cur.svg?branch=turnstile-core)](https://travis-ci.org/stchang/cur/)
 ===
 
 A language with static dependent-types and dynamic types, type
@@ -30,26 +30,30 @@ Getting started
 ===============
 
 ## Easy mode:
-You'll need Racket v7.0
-Install cur via `raco pkg install cur`. See the docs: `raco docs cur`. Come ask questions in IRC,
-`#cur` on Freenode.
+You'll need Racket v7.6
+
+First, you need to install Turnstile's experimental branch:
+- raco pkg install https://github.com/stchang/macrotypes.git?path=macrotypes-lib#cur
+- raco pkg install https://github.com/stchang/macrotypes.git?path=turnstile-lib#cur
+
+Then, install cur via `raco pkg install cur`.
+Come ask questions in IRC, `#cur` on Freenode.
+
+See the docs: `raco docs cur`. Unfortunately, they're very out of date and I'm
+working on updating them.
 
 ## Advanced mode:
-You can actually get away with v6.12, and maybe as far back as v6.6 according to
-Travis, but you'll have issues with locally built documentation.
 Cur is distributed as several packages.
-`cur-lib` provides the implementation and all standard libraries; this works
-fine in Racket v6.6--7.0.
-`cur-doc` provides the documentation; most of this works fine in pre v7.0, but
-some examples in the documentation do not run in the sandbox correctly except in
-v7.0.
-`cur-test` provides a test suite and examples; this works fine in Racket
-v6.6--v7.0.
+`cur-lib` provides the implementation and all standard libraries.
+`cur-doc` provides the documentation.
+`cur-test` provides a test suite and examples.
 
-You can install the individual packages from the Racket package server, or from local copies of the
-files:
+You can install the individual packages from the Racket package server, or from
+local copies of the files:
 
 ```sh
+> git clone https://github.com/wilbowma/cur
+> cd cur
 > pushd cur-lib; raco pkg install; popd
 ...
 > pushd cur-doc; raco pkg install; popd
@@ -66,21 +70,35 @@ files:
 ## Example code
 Try it out: open up DrRacket and put the following in the definition area:
 
+
 ```racket
 #lang cur
 (require
- cur/stdlib/bool
- cur/stdlib/nat
- cur/stdlib/sugar)
+ cur/stdlib/sugar
+ rackunit/turnstile+)
+
+;; Write typed code
+(define-datatype Nat : Type
+  (z : Nat)
+  (s : (forall (x : Nat) Nat)))
+
+(define/rec/match + : Nat (m : Nat) -> Nat
+  [z => m]
+  [(s x) => (s (+ x m))])
+
+(+ (s z) z)
 
 ;; Write dependently-typed code
-(if true
-    false
-    true)
 
-(: + (-> Nat Nat Nat))
-(define + plus)
-(+ z (s z))
+(define-datatype = [A : Type] [a : A] : (forall (b : A) Type)
+  (refl : (= A a a)))
+
+(refl Nat (s z))
+
+(check-type
+ (refl Nat (s z))
+ :
+ (= Nat (+ z (s z)) (s z)))
 
 ;; Write some macros and Racket meta-programs over dependently-typed code
 (begin-for-syntax
@@ -116,59 +134,34 @@ Nat-0
 Nat-5
 
 ;; Of course, you could just define #%datum to do the right thing:
-(require (only-in cur [#%datum old-datum]))
+(require (only-in cur [#%datum super.datum]))
 (define-syntax (#%datum syn)
   (syntax-parse syn
     [(_ . x:nat)
      (nat->unary (syntax->datum #'x))]
     [(_ . e)
-     #`(old-datum e)]))
+     #`(super.datum e)]))
 
 0
 5
-```
 
-Try entering the following in the interaction area:
-```racket
-(sub1 (s (s z)))
-```
+(refl Nat 1)
 
-Don't like parenthesis? Use Cur with sweet-expressions:
-```racket
-#lang sweet-exp cur
-require
- cur/stdlib/sugar
- cur/stdlib/bool
- cur/stdlib/nat
-
-if true
-   false
-   true
-
-define + plus
-
-{z + s(z)}
+(check-type
+ (refl Nat 1)
+ :
+ (= Nat (+ 0 1) 1))
 ```
 
 Going further
 =============
 
-See https://williamjbowman.com/papers#cur for a draft of a paper on Cur.
+See https://williamjbowman.com/papers#cur or
+https://williamjbowman.com/papers#depmacros for some papers on Cur's design and
+technologies.
 
-Open up `cur-tests/cur/tests/stlc.rkt` to see an example of the
-simply-typed lambda-calculus modeled in Cur, with a parser and syntax
-extension to enable deeply embedding.
-
-Open up `examples/proofs-for-free.rkt` to see an implementation of the
-translation defined in [Proofs for Free](http://staff.city.ac.uk/~ross/papers/proofs.html) as a meta-program.
-
-Open up `cur-lib/cur/ntac` to see one way to implement tactics in Cur.
+Open up `cur-tests/cur/tests/ntac/software-fondations` to see example from the
+Software Foundations text book redone in Cur.
 
 Open up anything in `cur-lib/cur/stdlib/` to see some standard dependent-type
 formalisms.
-
-Open up `cur-model/cur/curnel/model/core.rkt` to see a model of the core
-language, <600 lines of code.
-You can run some Cur code using this model, but the
-`cur-lib/cur/curnel/racket-impl/core.rkt` (the default Curnel) is much
-faster and supports more features.

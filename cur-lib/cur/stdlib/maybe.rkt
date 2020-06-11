@@ -1,13 +1,13 @@
 #lang s-exp "../main.rkt"
 (require "sugar.rkt")
-(provide Maybe none some some/i)
+(provide Maybe (rename-out [none/i none] [some/i some]))
 
-(data Maybe : 1 (forall (A : Type) Type)
-  (none : (forall (A : Type) (Maybe A)))
-  (some : (forall (A : Type) (a : A) (Maybe A))))
+(data Maybe : 1 (Π (A : Type) Type)
+  (none : (Π (A : Type) (Maybe A)))
+  (some : (Π (A : Type) (Π (a : A) (Maybe A)))))
 
-(define-syntax (some/i syn)
-  (syntax-case syn ()
-   [(_ a)
-    (let ([a-ty (cur-type-infer #'a)])
-      #`(some #,a-ty a))]))
+;; inferring version of some and none
+;; TODO: should define-datatype automatically define these?
+(define-implicit some/i = some 1)
+(define-implicit none/i = none 1)
+

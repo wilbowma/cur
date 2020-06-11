@@ -4,7 +4,8 @@
          cur/stdlib/nat
          cur/ntac/base
          cur/ntac/standard
-         cur/ntac/rewrite)
+         cur/ntac/rewrite
+         "rackunit-ntac.rkt")
 
 ;; these proofs require PM equality instead of ML equality
 
@@ -63,10 +64,26 @@
   (by-rewriteL H)
   reflexivity)
 
-(define-theorem mult-S-1
-  (∀ [n : Nat] [m : Nat]
-     (-> (== Nat m (s n))
-         (== Nat (mult m (plus 1 n)) (mult m m))))
-  (by-intros n m H)
-  (by-rewrite H)
-  reflexivity)
+;(define-theorem mult-S-1
+(check-ntac-trace
+ (∀ [n : Nat] [m : Nat]
+    (-> (== Nat m (s n))
+        (== Nat (mult m (plus 1 n)) (mult m m))))
+ (by-intros n m H)
+ (by-rewrite H)
+ reflexivity
+ ~>
+ --------------------------------
+ (Π (n : Nat) (m : Nat) (→ (== Nat m (s n)) (== Nat (mult m (s n)) (mult m m))))
+
+ n : Nat
+ m : Nat
+ H : (== Nat m (s n))
+ --------------------------------
+ (== Nat (mult m (s n)) (mult m m))
+
+ n : Nat
+ m : Nat
+ H : (== Nat m (s n))
+ --------------------------------
+ (== Nat (s (plus n (mult n (s n)))) (s (plus n (mult n (s n))))))

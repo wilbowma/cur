@@ -1,7 +1,7 @@
 #lang cur
 
 (require
- rackunit
+ "rackunit-ntac.rkt"
  cur/stdlib/nat
  cur/stdlib/bool
  (rename-in (except-in cur/stdlib/equality == refl)

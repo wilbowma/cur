@@ -2,23 +2,17 @@
 
 (require
  cur/stdlib/sugar
- rackunit)
+ rackunit/turnstile+)
 
 (data Nat : 0 Type
   (z : Nat)
   (s : (Π (x : Nat) Nat)))
 
-(plus . : . (-> Nat Nat Nat))
-(define (plus n m)
-  (match n
-    [z m]
-    [(s (x : Nat))
-     (s (recur x))]))
+;(plus . : . (-> Nat Nat Nat))
+(define/rec/match plus : Nat [m : Nat] -> Nat
+  [z => m]
+  [(s n-1) => (s (plus n-1 m))])
 
-(check-equal?
- (plus z z)
- z)
+(check-type (plus z z) : Nat -> z)
 
-(check-equal?
- (plus (s z) z)
- (s z))
+(check-type (plus (s z) z) : Nat -> (s z))

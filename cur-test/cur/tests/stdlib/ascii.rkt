@@ -6,28 +6,28 @@
  cur/stdlib/sugar
  cur/stdlib/bool
  cur/stdlib/nat
- rackunit)
+ rackunit/turnstile+)
 
-(check-equal?
- ""
- (nil Ascii))
+(check-type ascii : (-> Bool Bool Bool Bool Bool Bool Bool Ascii))
 
-(check-equal?
- "a"
- (cons
-  Ascii
-  (ascii true true false false false false true)
-  (nil Ascii)))
+(check-type "" : (List Ascii) -> (nil Ascii))
 
-(check-equal?
+(check-type "a" : (List Ascii)
+            -> (cons
+                Ascii
+                (ascii true true false false false false true)
+                (nil Ascii)))
+
+(check-type
  "aZ"
- (cons
-  Ascii
-  (ascii true true false false false false true)
-  (cons
-   Ascii
-   (ascii true false true true false true false)
-   (nil Ascii))))
+ : (List Ascii)
+ -> (cons
+     Ascii
+     (ascii true true false false false false true)
+     (cons
+      Ascii
+      (ascii true false true true false true false)
+      (nil Ascii))))
 
 (begin-for-syntax
   (require rackunit)
@@ -55,18 +55,24 @@
         (ascii true false true true false true false)
         (nil Ascii))))))
 
-(check-equal?
- "Hello, world!"
- (ascii-str-concat "Hello," " world!"))
+(check-type ascii-str-concat : (-> (List Ascii) (List Ascii) (List Ascii)))
+(check-type "Hello," : (List Ascii) -> "Hello,")
+(check-type (ascii-str-concat "Hello,") : (-> (List Ascii) (List Ascii)))
+(check-type (ascii-str-concat " world!" "Hello,")
+            : (List Ascii) -> "Hello, world!")
 
-(check-equal?
- 13
- (ascii-str-length "Hello, world!"))
+(check-type (ascii-str-length "Hello, world!") : Nat -> 13)
 
-(check-equal?
- 0
- (ascii-str-length empty-ascii-str))
+(check-type (ascii-str-length empty-ascii-str) : Nat -> 0)
 
-(check-equal?
- 0
- (ascii-str-length ""))
+(check-type (ascii-str-length "") : Nat -> 0)
+
+(check-type "" : String)
+(check-type (string-equal? "" "") : Bool -> true)
+(check-type (string-equal? "a" "a") : Bool -> true)
+(check-type (string-equal? "b" "b") : Bool -> true)
+(check-type (string-equal? "a" "b") : Bool -> false)
+(check-type (string-equal? "ab" "ab") : Bool -> true)
+(check-type (string-equal? "ab" "ac") : Bool -> false)
+(check-type (string-equal? "ab" "a") : Bool -> false)
+(check-type (string-equal? "ab" "abc") : Bool -> false)

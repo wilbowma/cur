@@ -1,18 +1,14 @@
 #lang cur
 
 (require
- rackunit
  cur/stdlib/sugar
  cur/stdlib/bool
- cur/stdlib/maybe)
+ cur/stdlib/maybe
+ rackunit/turnstile+)
 
-(check-equal?
- (some/i true)
- (some Bool true))
-(check-equal?
-   (match (some Bool true)
-     [none
-      false]
-     [(some (x : Bool))
-      (if x true false)])
-   true)
+(check-type (some true) : (Maybe Bool) -> (some Bool true))
+(check-type
+ (match (some Bool true) #:return Bool
+  [none false]
+  [(some (x : Bool)) (if x true false)])
+ : Bool -> true)
