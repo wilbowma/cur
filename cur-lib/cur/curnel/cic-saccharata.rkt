@@ -301,7 +301,7 @@
        ; (C-pat ...)
         (C ([i+x τin] ... τout) ((xrec irec ...) ...)) ...)
    ; Constructor pattern for each reduction rule for this eliminator.
-   #:with (C-pat ...) (datatype-info->constructor-patterns #'datatype-info #'TY) #;(stx-map
+   #:with (C-pat ...) (datatype-info-constructor-patterns #'datatype-info #'TY) #;(stx-map
                        (λ (C xs)
                          (if (and (zero? num-params) (stx-null? xs))
                              ; NOTE: must not be (C) pattern; unlike #%app,
@@ -396,8 +396,13 @@
 ; Strict positivity
 ; https://coq.inria.fr/doc/language/cic.html#positivity-condition
 (begin-for-syntax
-  (provide get-constructors get-constructor-arg-types get-params is-inductive?
+#;  (provide get-constructors get-constructor-arg-types get-params is-inductive?
            get-constructor-patterns)
+  (provide datatype-info-is-inductive?
+           datatype-info-constructors
+           datatype-info-constructor-patterns
+           datatype-info-constructor-arg-types
+           datatype-info-params)
   ; Differs from turnstile+ get-match-info: accepts type's internal id instead of entire type
   ; - returns the match-info, or #f
   (define (get-match-info I)
@@ -427,7 +432,7 @@
   ; Get the patterns expected in a reduction rule/pattern match
   ; This is the constructor applied to its parameters and other arguments.
   (define (get-constructor-patterns I)
-    (datatype-info->constructor-patterns (get-match-info I) I))
+    (datatype-info-constructor-patterns (get-match-info I) I))
    ;; #:with (C-pat ...) (stx-map
    ;;                     (λ (C xs)
    ;;                       (if (and (zero? num-params) (stx-null? xs))
@@ -447,7 +452,7 @@
    ;;      ([i τi] ...)
    ;;     ; (C-pat ...)
   ;;      (C ([i+x τin] ... τout) ((xrec irec ...) ...)) ...))
-  (define (datatype-info->constructor-patterns info ty)
+  (define (datatype-info-constructor-patterns info ty)
     (syntax-parse info
       ; tag x elim-name x params x indices x constructor patterns x constructors
       [(_ _
@@ -479,20 +484,23 @@
          (format "Expected valid match info for inductive type, but got ~a for type ~a" info ty))]))
 
   (define (get-constructor-arg-types I)
-    (syntax-parse (get-match-info I)
+    (datatype-info-constructor-arg-types (get-match-info I) I))
+  (define (datatype-info-constructor-arg-types info ty)
+    (syntax-parse info
       ; tag x elim-name x params x indices x constructor patterns x constructors
       [(_ _ _ _ (C (decls ... τout) _) ...)
        (attribute decls)]
       [_ (error
-          (format "Expected valid match info for inductive type, but got ~a for type ~a" (get-match-info I) I))]
-      ))
+          (format "Expected valid match info for inductive type, but got ~a for type ~a" info ty))]))
 
   (define (get-params I)
-    (syntax-parse (get-match-info I)
+    (datatype-info-params (get-match-info I) I))
+  (define (datatype-info-params info ty)
+    (syntax-parse info
       ; tag x elim-name x params x indices x constructor patterns x constructors
       [(_ _ ([A _] ...) . _) (attribute A)]
       [_ (error
-          (format "Expected valid match info for inductive type, but got ~a for type ~a" (get-match-info I) I))]))
+          (format "Expected valid match info for inductive type, but got ~a for type ~a" info ty))]))
 
   ; The type `T` satisfies the positivity condition for constant `X`.
   (define (positivity? T X [fail (lambda _ #f)])
