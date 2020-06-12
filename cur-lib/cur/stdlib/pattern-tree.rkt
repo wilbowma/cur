@@ -669,14 +669,10 @@
       (syntax-parse match-var-type
         [((~literal #%plain-app) I:id t ...)
          #:do[(define info (with-handlers ([exn? (λ _ #f)]) (get-datatype-def match-var-type)))]
-;;         #:when (is-inductive? #'I)
          #:when (datatype-info-is-inductive? info)
-         (let* ([cs (datatype-info-constructor-patterns info #'I)];(get-constructor-patterns (attribute I))]
-                [c-env (datatype-info-constructor-arg-types info #'I)];(get-constructor-arg-types (attribute I))]
-                [params (datatype-info-params info #'I)]);(get-params (attribute I))])
-         ;; (let* ([cs (get-constructor-patterns (attribute I))]
-         ;;        [c-env (get-constructor-arg-types (attribute I))]
-         ;;        [params (get-params (attribute I))])
+         (let* ([cs (datatype-info-constructor-patterns info #'I)]
+                [c-env (datatype-info-constructor-arg-types info #'I)]
+                [params (datatype-info-params info #'I)])
            ; NOTE: if we don't have the 'constructors property attached, it's likely that
            ; the module for the type definition wasn't imported
            (and match-var-type
