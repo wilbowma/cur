@@ -119,7 +119,7 @@
      #:do[(define exinfo (get-match-info #'TYC))] ; TYC is an application of TY
      ;; #:do[(printf "exinfo: ~a\n" (stx->datum exinfo))]
      #:fail-unless exinfo (format "could not infer extra info from type ~a" (stx->datum #'τ))
-     #:with (_ elim-Name ([A _] ...) _ _ [C ([x τin] ... τout) ((xrec _ ...) ...)] ...) exinfo
+     #:with (_ elim-Name ([A _] ...) _ [C ([x τin] ... τout) ((xrec _ ...) ...)] ...) exinfo
      #:with (C/sz ...) (stx-map (λ (t) (mk-sz t #'TY)) #'(C ...))
      #`(begin
          (begin-for-syntax ; pattern expander
