@@ -410,13 +410,17 @@
 
   ;; TODO There's better ways to do this... a syntax property, e.g.,
   (define (is-inductive? I)
-    (define mi (get-match-info I))
-    (and mi (not (stx-null? mi))
-         (eq? 'is-inductive (syntax->datum (stx-car mi)))))
+    (datatype-info-is-inductive? (get-match-info I)))
+  (define (datatype-info-is-inductive? info)
+    (and info (not (stx-null? info))
+         (eq? 'is-inductive (syntax->datum (stx-car info)))))
 
+    
   ; Get the number of parameters for inductive I.
   (define (get-param-count I)
-    (syntax-parse (get-match-info I)
+    (datatype-info-param-count (get-match-info I)))
+  (define (datatype-info-param-count info)
+    (syntax-parse info
       ; tag x elim-name x params x indices x constructor patterns x constructors
       [(_ _ (p ...) . _) (length (attribute p))]))
 
@@ -465,12 +469,14 @@
 
   ; Get the list of constructor identifiers for inductive I.
   (define (get-constructors I)
-    (syntax-parse (get-match-info I)
+    (datatype-info-constructors (get-match-info I) I))
+  (define (datatype-info-constructors info ty)
+    (syntax-parse info
       ; tag x elim-name x params x indices x constructor patterns x constructors
       [(_ _ _ _ (C _ _) ...)
        (attribute C)]
       [_ (error
-         (format "Expected valid match info for inductive type, but got ~a for type ~a" (get-match-info I) I))]))
+         (format "Expected valid match info for inductive type, but got ~a for type ~a" info ty))]))
 
   (define (get-constructor-arg-types I)
     (syntax-parse (get-match-info I)
@@ -525,11 +531,15 @@
          #:when (free-identifier=? #'Y X)
          (andmap (curry not-free-in? X) (attribute τ₁))]
         [(~#%app I:id t ...)
+         #:do[(define info (get-match-info #'I))]
          ; 1. I is inductive
-         #:when (is-inductive? #'I)
+;         #:when (is-inductive? #'I)
+         #:when (datatype-info-is-inductive? info)
          ; 2. I has m params
-         #:do [(define m (get-param-count #'I))]
-         #:with (C ...) (get-constructors #'I)
+;         #:do [(define m (get-param-count #'I))]
+         #:do [(define m (datatype-info-param-count info))]
+;         #:with (C ...) (get-constructors #'I)
+         #:with (C ...) (datatype-info-constructors info #'I)
          #:with ((p ...) ...) (map (lambda _ (take (attribute t) m)) (attribute C))
          #:with (A_c ...) (stx-map (compose typeof expand/df) #'((C p ...) ...))
          ; 3. each of I's constructors, instantiated with params from t ...,
