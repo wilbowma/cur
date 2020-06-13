@@ -15,7 +15,12 @@
  (for-syntax
   mk-cons+pat-transformer
   (rename-out [pattern->ctxt pat->ctxt])
-  (rename-out [get-is get-idxs/unexp])))
+  (rename-out [get-is get-idxs/unexp])
+  datatype-info-is-inductive?
+  datatype-info-constructors
+  datatype-info-constructor-patterns
+  datatype-info-constructor-arg-types
+  datatype-info-params))
 
 ;;; Define abbreviation for a typerule that is also usable in pattern position
 ;;; -----------------------------------------------------------
@@ -294,26 +299,19 @@
    #:with eval-TY (format-id #'TY "match-~a" #'TY)
    ; Types of methods
    #:with (τm ...) (generate-temporaries #'(m ...))
+   ;; This is the info about the datatype that must be passed to `match` and similar forms
+   #:with datatype-info #'(is-inductive
+                           elim-TY
+                           ([A τA] ...)
+                           ([i τi] ...)
+                           (C ([i+x τin] ... τout) ((xrec irec ...) ...)) ...)
    ; Constructor pattern for each reduction rule for this eliminator.
-   #:with (C-pat ...) (stx-map
-                       (λ (C xs)
-                         (if (and (zero? num-params) (stx-null? xs))
-                             ; NOTE: must not be (C) pattern; unlike #%app,
-                             ; (C) \neq C due to id macro behavior
-                             C
-                             #`(#,C A ... . #,xs)))
-                       #'(C ...)
-                       #'((i+x ...) ...))
-
+   #:with (C-pat ...) (datatype-info-constructor-patterns #'datatype-info #'TY)
    --------
    [≻ (begin-
       ;; Define the inductive type `TY`.
       (define-type* TY : [A : τA] ... [i : τi] ... -> τ
-        #:implements get-datatype-def #'(is-inductive elim-TY
-        ([A τA] ...)
-        ([i τi] ...)
-        (C-pat ...)
-        (C ([i+x τin] ... τout) ((xrec irec ...) ...)) ...))
+        #:implements get-datatype-def #'datatype-info)
 
       ;; Define the constructors.
       (define-data-constructor C [AxC : τAxC] ... : [i+x : τin] ... -> τout) ...
@@ -394,8 +392,6 @@
 ; Strict positivity
 ; https://coq.inria.fr/doc/language/cic.html#positivity-condition
 (begin-for-syntax
-  (provide get-constructors get-constructor-arg-types get-params is-inductive?
-           get-constructor-patterns)
   ; Differs from turnstile+ get-match-info: accepts type's internal id instead of entire type
   ; - returns the match-info, or #f
   (define (get-match-info I)
@@ -407,51 +403,64 @@
     (not (stx-contains-id? Y X)))
 
   ;; TODO There's better ways to do this... a syntax property, e.g.,
-  (define (is-inductive? I)
-    (define mi (get-match-info I))
-    (and mi (not (stx-null? mi))
-         (eq? 'is-inductive (syntax->datum (stx-car mi)))))
+  (define (datatype-info-is-inductive? info)
+    (and info (not (stx-null? info))
+         (eq? 'is-inductive (syntax->datum (stx-car info)))))
 
   ; Get the number of parameters for inductive I.
-  (define (get-param-count I)
-    (syntax-parse (get-match-info I)
+  (define (datatype-info-param-count info)
+    (syntax-parse info
       ; tag x elim-name x params x indices x constructor patterns x constructors
       [(_ _ (p ...) . _) (length (attribute p))]))
 
   ; Get the patterns expected in a reduction rule/pattern match
   ; This is the constructor applied to its parameters and other arguments.
-  (define (get-constructor-patterns I)
-    (syntax-parse (get-match-info I)
+  (define (datatype-info-constructor-patterns info ty)
+    (syntax-parse info
       ; tag x elim-name x params x indices x constructor patterns x constructors
-      [(_ _ _ _ (C-pat ...) . _)
+      [(_ _ ([A _] ...) _ (C ([i+x _] ... _) _) ...)
+       #:with (C-pat ...) (stx-map
+                           (λ (C xs)
+                             (if (and (stx-null? #'(A ...)) (stx-null? xs))
+                                 ; NOTE: must not be (C) pattern; unlike #%app,
+                                 ; (C) \neq C due to id macro behavior
+                                 C
+                                 #`(#,C A ... . #,xs)))
+                           #'(C ...)
+                           #'((i+x ...) ...))
        (attribute C-pat)]
       [_ (error
-          (format "Expected valid match info for inductive type, but got ~a for type ~a" (get-match-info I) I))]))
+          (format "Expected valid match info for inductive type, but got ~a for type ~a" info ty))]))
 
   ; Get the list of constructor identifiers for inductive I.
   (define (get-constructors I)
-    (syntax-parse (get-match-info I)
+    (datatype-info-constructors (get-match-info I) I))
+  (define (datatype-info-constructors info ty)
+    (syntax-parse info
       ; tag x elim-name x params x indices x constructor patterns x constructors
-      [(_ _ _ _ _ (C _ _) ...)
+      [(_ _ _ _ (C _ _) ...)
        (attribute C)]
       [_ (error
-         (format "Expected valid match info for inductive type, but got ~a for type ~a" (get-match-info I) I))]))
+         (format "Expected valid match info for inductive type, but got ~a for type ~a" info ty))]))
 
   (define (get-constructor-arg-types I)
-    (syntax-parse (get-match-info I)
+    (datatype-info-constructor-arg-types (get-match-info I) I))
+  (define (datatype-info-constructor-arg-types info ty)
+    (syntax-parse info
       ; tag x elim-name x params x indices x constructor patterns x constructors
-      [(_ _ _ _ _ (C (decls ... τout) _) ...)
+      [(_ _ _ _ (C (decls ... τout) _) ...)
        (attribute decls)]
       [_ (error
-          (format "Expected valid match info for inductive type, but got ~a for type ~a" (get-match-info I) I))]
-      ))
+          (format "Expected valid match info for inductive type, but got ~a for type ~a" info ty))]))
 
   (define (get-params I)
-    (syntax-parse (get-match-info I)
+    (datatype-info-params (get-match-info I) I))
+  (define (datatype-info-params info ty)
+    (syntax-parse info
       ; tag x elim-name x params x indices x constructor patterns x constructors
       [(_ _ ([A _] ...) . _) (attribute A)]
       [_ (error
-          (format "Expected valid match info for inductive type, but got ~a for type ~a" (get-match-info I) I))]))
+          (format "Expected valid match info for inductive type, but got ~a for type ~a" info ty))]))
 
   ; The type `T` satisfies the positivity condition for constant `X`.
   (define (positivity? T X [fail (lambda _ #f)])
@@ -490,11 +499,12 @@
          #:when (free-identifier=? #'Y X)
          (andmap (curry not-free-in? X) (attribute τ₁))]
         [(~#%app I:id t ...)
+         #:do[(define info (get-match-info #'I))]
          ; 1. I is inductive
-         #:when (is-inductive? #'I)
+         #:when (datatype-info-is-inductive? info)
          ; 2. I has m params
-         #:do [(define m (get-param-count #'I))]
-         #:with (C ...) (get-constructors #'I)
+         #:do [(define m (datatype-info-param-count info))]
+         #:with (C ...) (datatype-info-constructors info #'I)
          #:with ((p ...) ...) (map (lambda _ (take (attribute t) m)) (attribute C))
          #:with (A_c ...) (stx-map (compose typeof expand/df) #'((C p ...) ...))
          ; 3. each of I's constructors, instantiated with params from t ...,

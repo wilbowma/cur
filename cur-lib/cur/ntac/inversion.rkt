@@ -34,7 +34,6 @@
     (define/syntax-parse
       (_ elim-TY ([A τA] (... ...))
          ([i τi_] (... ...))
-         _
          Cinfo (... ...))
       (get-match-info name-ty))
 
