@@ -420,8 +420,13 @@
 
   ;; return just the stx obj parts of datatype-info
   (define (get-datatype-match-info ty)
-    (match (get-datatype-info ty)
-      [(datatype-info _ _ ps is Cs) (list* ps is Cs)]))
+    (define info (get-datatype-info ty))
+    (if info
+        (list* (datatype-info-params info)
+               (datatype-info-indices info)
+               (datatype-info-constructors info))
+        (error
+          (format "Type has no match info ~a" (resugar-type ty)))))
   
   ; Differs from turnstile+ get-match-info: accepts type's internal id instead of entire type
   ; - returns the match-info, or #f
@@ -443,10 +448,11 @@
   ; Get the patterns expected in a reduction rule/pattern match
   ; This is the constructor applied to its parameters and other arguments.
   (define (datatype-info-constructor-patterns info ty)
-    (match info
-      [(datatype-info _ _ As _ Cs) (compute-constructor-patterns As Cs)]
-      [_ (error
-          (format "Expected valid match info for inductive type, but got ~a for type ~a" info ty))]))
+    (if (datatype-info? info)
+        (compute-constructor-patterns (datatype-info-params info)
+                                      (datatype-info-constructors info))
+        (error
+         (format "Expected valid match info for inductive type, but got ~a for type ~a" info ty))))
 
   (define (compute-constructor-patterns As Cs)
     (syntax-parse (list As Cs)
@@ -463,25 +469,18 @@
                            #'((i+x ...) ...))
        (attribute C-pat)]))
 
-  ; Get the list of constructor identifiers for inductive I.
-  (define (get-constructors I)
-    (datatype-info-constructor-names (get-match-info I) I))
   (define (datatype-info-constructor-names info ty)
     (syntax-parse (datatype-info-constructors info)
       [((C . _) ...) (attribute C)]
       [_ (error
          (format "Expected valid match info for inductive type, but got ~a for type ~a" info ty))]))
 
-  (define (get-constructor-arg-types I)
-    (datatype-info-constructor-arg-types (get-match-info I) I))
   (define (datatype-info-constructor-arg-types info ty)
     (syntax-parse (datatype-info-constructors info)
       [((C (decls ... τout) _) ...) (attribute decls)]
       [_ (error
           (format "Expected valid match info for inductive type, but got ~a for type ~a" info ty))]))
 
-  (define (get-params I)
-    (datatype-info-params (get-match-info I) I))
   (define (datatype-info-param-names info ty)
     (syntax-parse (datatype-info-params info)
       [([A _] ...) (attribute A)]
