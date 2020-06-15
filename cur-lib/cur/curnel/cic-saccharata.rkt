@@ -421,12 +421,9 @@
   ;; return just the stx obj parts of datatype-info
   (define (get-datatype-match-info ty)
     (define info (get-datatype-info ty))
-    (if info
-        (list* (datatype-info-params info)
-               (datatype-info-indices info)
-               (datatype-info-constructors info))
-        (error
-          (format "Type has no match info ~a" (resugar-type ty)))))
+    (and info (list* (datatype-info-params info)
+                     (datatype-info-indices info)
+                     (datatype-info-constructors info))))
   
   ; Differs from turnstile+ get-match-info: accepts type's internal id instead of entire type
   ; - returns the match-info, or #f

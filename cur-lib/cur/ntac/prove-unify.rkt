@@ -74,7 +74,6 @@
         (syntax-parse {list L R}
           [{({~literal #%plain-app} CL:id L* ...)
             ({~literal #%plain-app} CR:id R* ...)}
-           #:when (has-type-info? TY)
            #:with (([A _] ...) _ . Cinfos) (get-datatype-match-info TY)
            #:with (_ ([_ τ_] ... _) _)
                   (findf (λ (ci) (stx-datum-equal? (stx-car ci) #'CL))
