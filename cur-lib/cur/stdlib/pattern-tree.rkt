@@ -668,7 +668,7 @@
       ;; or with match-var-type, to avoid users doing this parsing.
       (syntax-parse match-var-type
         [((~literal #%plain-app) I:id t ...)
-         #:do[(define info (with-handlers ([exn? (λ _ #f)]) (get-datatype-def match-var-type)))]
+         #:do[(define info (get-datatype-info match-var-type))]
          #:when (datatype-info-is-inductive? info)
          (let* ([cs (datatype-info-constructor-patterns info #'I)]
                 [c-env (datatype-info-constructor-arg-types info #'I)]

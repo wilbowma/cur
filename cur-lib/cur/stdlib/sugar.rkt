@@ -99,11 +99,12 @@
 (define-typed-syntax (match+ e #:as x #:with-indices i ... #:in τin_ #:return τout . clauses) ≫
   #:with τin (expand/df #'τin_)
 ;  #:do[(printf "match τin: ~a\n" (stx->datum #'τin))]
-  #:do[(define exinfo (get-match-info #'τin))]
+  #:do[(define exinfo (get-datatype-match-info #'τin))]
 ;  #:do[(printf "exinfo: ~a\n" (stx->datum exinfo))]
   #:fail-unless exinfo (format "could not infer extra info from type ~a" (stx->datum #'τ))
-  ; tag x elim-name x params x indices x constructor patterns x constructors
-  #:with (tag elim-Name ([orig-param:id _] ...) _ ei ...) exinfo
+  ; params x indices x constructors
+  #:with (([orig-param:id _] ...) _ ei ...) exinfo
+  #:with elim-Name (get-datatype-elim #'τin)
   ;; use params and indices from τin, not exinfo (bc that's what elim does)
   #:with params (stx-take
                  (stx-drop #'τin 2) ; drop #%app and cons-name
