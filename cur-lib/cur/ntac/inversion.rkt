@@ -32,10 +32,10 @@
     ;; xrec = recursive args to constructors
     ;; irec = indices to recursive args
     (define/syntax-parse
-      (_ elim-TY ([A τA] (... ...))
-         ([i τi_] (... ...))
-         Cinfo (... ...))
-      (get-match-info name-ty))
+      (([A τA] (... ...))
+       ([i τi_] (... ...))
+       Cinfo (... ...))
+      (get-datatype-match-info name-ty))
 
     (define num-params (stx-length #'(A (... ...))))
     (define num-idxs   (stx-length #'(i (... ...))))

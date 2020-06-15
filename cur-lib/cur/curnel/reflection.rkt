@@ -38,7 +38,6 @@
  cur-normalize
  cur-rename
  cur-reflect-id
- cur-pretty-print
  ;;cur-step
  cur-equal?
  ; curnel-type-infer returns a fully expanded internal type, not a resugared
@@ -277,32 +276,3 @@
 (transfer-props syn (substs env-ids xs-ls (first es-ls))))
   ))
 
-(define cur-pretty-print
-  (syntax-parser
-    [X:id #'X]
-    [ty #:when (has-type-info? #'ty) (resugar-type #'ty)]
-    [((~literal #%plain-app) ((~literal #%plain-app) e ...) . rst)
-     (cur-pretty-print #'(#%plain-app e ... . rst))]
-    [((~literal #%plain-app) e)
-     (cur-pretty-print #'e)]
-    [((~literal #%plain-app) e ...)
-     #`#,(stx-map cur-pretty-print #'(e ...))]
-    [((~literal typed-elim) e ...)
-     #`(new-elim . #,(stx-map cur-pretty-print #'(e ...)))]
-    [((~literal typed-λ) [x:id : t] e)
-     ;; truncate long x names to max 4 chars
-     #:do[(define x-str (symbol->string (syntax->datum #'x)))
-          (define x-len (string-length x-str))]
-     #:with y (format-id #'x "~a" (substring x-str 0 (min x-len 4)))
-     #`(λ [y : #,(cur-pretty-print #'t)]
-         #,(cur-pretty-print (subst #'y #'x #'e)))]
-    [((~literal typed-Π) [x:id : t] e)
-     ;; truncate long x names to max 4 chars
-     #:do[(define x-str (symbol->string (syntax->datum #'x)))
-          (define x-len (string-length x-str))]
-     #:with y (format-id #'x "~a" (substring x-str 0 (min x-len 4)))
-     #`(Π [y : #,(cur-pretty-print #'t)]
-          #,(cur-pretty-print (subst #'y #'x #'e)))]
-    [(e ...)
-     #`#,(stx-map cur-pretty-print #'(e ...))]
-    [e #'e]))

@@ -109,7 +109,7 @@
 
 (define-typed-syntax (new-elim target motive method ...) ≫
   [⊢ target ≫ target- ⇒ τ]
-  #:with (_ elim-Name . _) (get-match-info #'τ)
+  #:with elim-Name (get-datatype-elim #'τ)
   ---
   [≻ (elim-Name target- motive method ...)])
 
