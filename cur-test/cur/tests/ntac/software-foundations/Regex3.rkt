@@ -1,10 +1,10 @@
 #lang cur
 
 ;; example from @dmelcer9
-;; this version (Regex2):
+;; this version (Regex3):
 ;; - names all exp-match MStarApp constructor args,
-;; - only gives partial args to by-apply,
-;; - which must then produce subgoals for other args.
+;; - tries to infer all inst-args,
+;; - should only get partial infer, and add remaining antecedents as subgoals
 
 (require cur/tests/ntac/rackunit-ntac)
 

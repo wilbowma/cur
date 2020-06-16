@@ -1,8 +1,9 @@
 #lang cur
 
-;; example from @dmelcer9
-;; this version uses unnamed constructor args, eg MStarApp,
-;; to get by-apply to produce subgoals, without #:with args
+;; example from @dmelcer9 (Regex.rkt)
+;; - does not name some exp-match MStarApp constructor args (last 2),
+;; - so by-apply will not try to infer them, and will instead generate subgoals
+;; (this is the old behavior)
 
 (require cur/tests/ntac/rackunit-ntac)
 

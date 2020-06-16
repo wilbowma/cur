@@ -270,6 +270,7 @@
   (define ((apply-fn name #:with [inst-args_ #'()]
                           #:with-var [inst-var+args_ #'()]
                           #:in [tgt-name #f]) ctxt pt)
+    (define num-inst-args (stx-length inst-args_))
     (match-define (ntt-hole _ goal) pt)
     (define target
       (or (and tgt-name (ctx-lookup ctxt tgt-name))
@@ -296,10 +297,8 @@
                                X)
                            e)])
                      inst-var+args_))
-            (~parse inst-args*
-                    (if (= (stx-length #'(X ...)) (stx-length inst-args_))
-                        (stx-map (normalize/ctxt ctxt) inst-args_)
-                        ; else search
+            (~parse ((X* ...) extra-antes inst-args)
+                    (if (zero? num-inst-args) ; no inst-args given, try to infer
                         (let ([x+es (stx-append
                                      ;; add given constraints to unification result
                                      #'inst-var-args
@@ -318,25 +317,32 @@
                                              (unify #'(X ...))))
                                           #'(antecedent ...))
                                          null)]))])
-                          (map ; extract es
-                           (λ (x+es) (cadr (syntax-e (car x+es))))
-                           (filter ; filter out #f
-                            (λ (x) x)
-                            (map ; lookup in result of unification
-                             (λ (x) (member x x+es
-                                     (λ (x x+e) (free-identifier=? x (stx-car x+e)))))
-                             (syntax->list #'(X ...))))))))
-#;            (~fail #:unless (stx-length=? #'(X ...) #'inst-args)
-                   (raise-ntac-goal-exception
-                    "by-apply: could not infer instantiation of: ~a; try explicit #:with or #:with-var args?\n"
-                    (stx->datum name)))
-            (~parse ((X* ...) (antecedent* ...) inst-args)
-                    (if (stx-length=? #'(X ...) #'inst-args*)
-                        (list #'(X ...) #'(antecedent ...) #'inst-args*)
-                        (list (stx-take #'(X ...) (stx-length inst-args_))
-                              (stx-append (stx-drop #'(τX ...) (stx-length inst-args_))
-                                          #'(antecedent ...))
+                          ;; produce:
+                          ;; - X in (X ...) that has unify result (ie, that is in x+es)
+                          ;; - new-antes are Xτ ... for X without unify result (ie, not in x+es)
+                          ;; - inst args are the es in x+es, but in the order of (X ...)
+                          (let L ([X+τs (stx->list #'([X τX] ...))]
+                                  [Xs null] [new-antes null] [inst-args null])
+                            (if (null? X+τs)
+                                (list (reverse Xs) (reverse new-antes) (reverse inst-args))
+                                (let* ([X+τ (car X+τs)]
+                                       [maybe-unify-result
+                                        (member (stx-car X+τ) x+es
+                                                (λ (x x+e)
+                                                  (free-identifier=? x (stx-car x+e))))])
+                                  (if maybe-unify-result
+                                      (L (cdr X+τs)
+                                         (cons (stx-car X+τ) Xs)
+                                         new-antes
+                                         (cons (cadr (syntax-e (car maybe-unify-result))) inst-args))
+                                      (L (cdr X+τs)
+                                         Xs
+                                         (cons (stx-cadr X+τ) new-antes)
+                                         inst-args))))))
+                        (list (stx-take #'(X ...) num-inst-args) ; X to subst
+                              (stx-drop #'(τX ...) num-inst-args) ; extra antes (ie subgoals)
                               (stx-map (normalize/ctxt ctxt) inst-args_))))
+            (~parse (antecedent* ...) (stx-append #'extra-antes #'(antecedent ...)))
             (~parse new-thm
                     (normalize
                      (substs #'inst-args
