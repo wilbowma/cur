@@ -129,7 +129,7 @@
 (define-syntax (#%datum syn)
   (raise-syntax-error
    '#%datum
-   "No datum datum parser defined"
+   "No datum parser defined"
    syn))
 
 (provide #%datum)
