@@ -1,6 +1,6 @@
 #lang cur
 
-;; example from @dmelcer9 (Regex.rkt)
+;; example from @dmelcer9, this version (Regex.rkt):
 ;; - does not name some exp-match MStarApp constructor args (last 2),
 ;; - so by-apply will not try to infer them, and will instead generate subgoals
 ;; (this is the old behavior)
@@ -49,8 +49,8 @@
   [MStarApp (s1 : (List T))    
             (s2 : (List T))
             (re : (reg-exp T))
-            (exp-match T s1 re)
-            (exp-match T s2 (Star T re)) 
+            (exp-match T s1 re) ; <- old behavior: to produce subgoals,
+            (exp-match T s2 (Star T re)) ; <-      these must be unnamed
             : (exp-match T (list-append T s1 s2) (Star T re))])
 
 (define empty-is-empty

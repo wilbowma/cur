@@ -1,10 +1,10 @@
 #lang cur
 
-;; example from @dmelcer9
-;; this version (Regex2):
+;; example from @dmelcer9; this version (Regex2):
 ;; - names all exp-match MStarApp constructor args,
-;; - only gives partial args to by-apply,
-;; - which must then produce subgoals for other args.
+;; - tries 2 examples, both should still produce subgoals
+;;   - gives partial inst args to by-apply using #:with,
+;;   - no #:with, tries to infer inst args, but with only partial success
 
 (require cur/tests/ntac/rackunit-ntac)
 
@@ -50,14 +50,9 @@
   [MStarApp (s1 : (List T))    
             (s2 : (List T))
             (re : (reg-exp T))
-            (H1 : (exp-match T s1 re))
-            (H2 : (exp-match T s2 (Star T re)))
+            (H1 : (exp-match T s1 re)) ; <- these now named
+            (H2 : (exp-match T s2 (Star T re))) ; <-
             : (exp-match T (list-append T s1 s2) (Star T re))])
-
-(define empty-is-empty
-  (ntac (∀ (T : (Type 0)) (s : (List T))  (exp-match T s (EmptySet T)) False)
-        (by-intros T s match)
-        (by-inversion match)))
 
 ; https://coq.inria.fr/library/Coq.Lists.List.html#In
 (define/rec/match list-in : [A : Type] [a : A] (List A) -> Type
@@ -68,23 +63,7 @@
   [(nil X) => b]
   [(cons X h t) => (f h (fold X Y f b t))])
 
-(define MUnionInformal
-  (ntac (∀ (T : (Type 0))
-           (s : (List T))
-           (re1 : (reg-exp T))
-           (re2 : (reg-exp T))
-           (Or (exp-match T s re1) (exp-match T s re2))
-           (exp-match T s (Union T re1 re2)))
-        (by-intros T s re1 re2 lr)
-        (by-destruct lr #:as [(l) (r)])
-        ; Subgoal 1
-        (by-apply MUnionL)
-        by-assumption
-        ; Subgoal 2
-        (by-apply MUnionR)
-        by-assumption))
-
-(define MStarInformal
+(define MStarInformal-partial-inst-args
   (ntac (∀ (T : Type)
            (ss : (List (List T)))
            (re : (reg-exp T))
@@ -99,8 +78,9 @@
 
         ;; Subgoal 2:
         (by-apply MStarApp
-                  #:with T x
-                  (fold
+                  #:with
+                  T x   ; <- partial inst args
+                  (fold ; <-
                    (List T)
                    (List T)
                    (λ ls2 (λ temp29 (list-append T ls2 temp29)))
@@ -120,3 +100,33 @@
         by-right
         by-assumption
         ))
+
+(define MStarInformal-partial-infer
+  (ntac (∀ (T : Type)
+           (ss : (List (List T)))
+           (re : (reg-exp T))
+           (∀ (s : (List T)) (list-in (List T) s ss) (exp-match T s re))
+           (exp-match T (fold (List T) (List T) (list-append T) (nil T) ss) (Star T re)))
+        (by-intros T ss re H)
+        
+        (by-induction ss #:as [() (x xs IH)])
+        
+        ;; Subgoal 1
+        (by-apply MStar0)
+
+        ;; Subgoal 2:
+        (by-apply MStarApp) ; <- can only partial infer, so will produce extra subgoals
+
+        ;;; H1 of MStarApp
+        (by-apply H)
+        by-left
+        reflexivity
+        
+        ;;; H2 of MStarApp
+        (by-apply IH)
+        (by-intros s li)
+        (by-apply H)
+        by-right
+        by-assumption
+        ))
+
