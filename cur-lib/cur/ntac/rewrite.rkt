@@ -277,13 +277,13 @@
           goal))
     (ntac-match (or (ctx-lookup ctxt name) ; thm in ctx
                     (typeof (expand/df name))) ; prev proved tm
-     [(~and (~Π [X_ : τX_] ... consequent)
-            (~parse (([X τX] ...) ; only try to infer named args
-                     ([_ antecedent] ...))
+     [(~and (~Π [X__ : τX__] ... consequent)
+            (~parse (([X_ τX_] ...) ; only try to infer named args
+                     ([_ antecedent_] ...))
                     (call-with-values
                      (λ () ; antes are 1) == type, or 2) "tmp" tyvar
                        (splitf-at
-                        (stx->list #'([X_ τX_] ...))
+                        (stx->list #'([X__ τX__] ...))
                         (syntax-parser
                           [(_ (~== _ _ _)) #f] ; TODO: split on Prop instead?
                           [(X:id _) (not (syntax-property #'X 'tmp))])))
@@ -292,12 +292,16 @@
                     (stx-map ; convert binder X ... with correct scope
                      (syntax-parser
                        [(x:id e)
-                        #`(#,(for/first ([X (in-stx-list #'(X ...))]
+                        #`(#,(for/first ([X (in-stx-list #'(X_ ...))]
                                          #:when (equal? (stx-e X) (stx-e #'x)))
                                X)
                            e)])
                      inst-var+args_))
-            (~parse ((X* ...) extra-antes inst-args)
+            ;; - X ... are the vars for which we have inst args
+            ;; - inst-args are the inst args associated with each X ...
+            ;;   (X ... will be replaced with inst-args in consequent and antecedents)
+            ;; - extra-antes are the τX ... (from [X τX] ...) where we couldnt compute an inst arg
+            (~parse ((X ...) inst-args extra-antes)
                     (if (zero? num-inst-args) ; no inst-args given, try to infer
                         (let ([x+es (stx-append
                                      ;; add given constraints to unification result
@@ -308,23 +312,23 @@
                                          (find-in
                                           (normalize (substs #'(e ...) #'(x ...) #'consequent) ctxt)
                                           (normalize (substs #'(e ...) #'(x ...) target) ctxt)
-                                          (unify #'(X ...)))
+                                          (unify #'(X_ ...)))
                                          (stx-ormap
                                           (λ (a)
                                             (find-in
                                              (normalize (substs #'(e ...) #'(x ...) a) ctxt)
                                              (normalize (substs #'(e ...) #'(x ...) target) ctxt)
-                                             (unify #'(X ...))))
-                                          #'(antecedent ...))
+                                             (unify #'(X_ ...))))
+                                          #'(antecedent_ ...))
                                          null)]))])
-                          ;; produce:
+                          ;; compute:
                           ;; - X in (X ...) that has unify result (ie, that is in x+es)
-                          ;; - new-antes are Xτ ... for X without unify result (ie, not in x+es)
                           ;; - inst args are the es in x+es, but in the order of (X ...)
-                          (let L ([X+τs (stx->list #'([X τX] ...))]
-                                  [Xs null] [new-antes null] [inst-args null])
+                          ;; - new-antes are Xτ ... for X without unify result (ie, not in x+es)
+                          (let L ([X+τs (stx->list #'([X_ τX_] ...))]
+                                  [Xs null] [inst-args null] [new-antes null])
                             (if (null? X+τs)
-                                (list (reverse Xs) (reverse new-antes) (reverse inst-args))
+                                (list (reverse Xs) (reverse inst-args) (reverse new-antes))
                                 (let* ([X+τ (car X+τs)]
                                        [maybe-unify-result
                                         (member (stx-car X+τ) x+es
@@ -333,28 +337,29 @@
                                   (if maybe-unify-result
                                       (L (cdr X+τs)
                                          (cons (stx-car X+τ) Xs)
-                                         new-antes
-                                         (cons (cadr (syntax-e (car maybe-unify-result))) inst-args))
+                                         (cons (cadr (syntax-e (car maybe-unify-result))) inst-args)
+                                         new-antes)
                                       (L (cdr X+τs)
                                          Xs
-                                         (cons (stx-cadr X+τ) new-antes)
-                                         inst-args))))))
-                        (list (stx-take #'(X ...) num-inst-args) ; X to subst
-                              (stx-drop #'(τX ...) num-inst-args) ; extra antes (ie subgoals)
-                              (stx-map (normalize/ctxt ctxt) inst-args_))))
-            (~parse (antecedent* ...) (stx-append #'extra-antes #'(antecedent ...)))
+                                         inst-args
+                                         (cons (stx-cadr X+τ) new-antes)))))))
+                        ;; else use given inst-args
+                        (list (stx-take #'(X_ ...) num-inst-args) ; X to subst
+                              (stx-map (normalize/ctxt ctxt) inst-args_) 
+                              (stx-drop #'(τX_ ...) num-inst-args)))) ; extra antes (ie subgoals)
+            (~parse (antecedent ...) (stx-append #'extra-antes #'(antecedent_ ...)))
             (~parse new-thm
                     (normalize
                      (substs #'inst-args
-                             #'(X* ...)
-                             (if tgt-name (stx-car #'(antecedent* ...)) #'consequent))
+                             #'(X ...)
+                             (if tgt-name (stx-car #'(antecedent ...)) #'consequent))
                      ctxt))
             (~fail #:unless (typecheck? #'new-thm target)
                    (raise-ntac-goal-exception
                     "by-apply: applying ~a does not produce term with goal type ~a"
                    (stx->datum name) (stx->datum #`#,(resugar-type target)))))
       (if tgt-name
-          (let ([new-thm (substs #'inst-args #'(X* ...) #'consequent)])
+          (let ([new-thm (substs #'inst-args #'(X ...) #'consequent)])
             (make-ntt-apply
              goal
              (list
@@ -373,8 +378,8 @@
            (stx-map ; each ante is a new subgoal; TODO: should be fold?
             (λ (ante)
               (make-ntt-hole
-               (normalize (substs #'inst-args #'(X* ...) ante) ctxt)))
-            #'(antecedent* ...))
+               (normalize (substs #'inst-args #'(X ...) ante) ctxt)))
+            #'(antecedent ...))
            (λ body-pfs
              (quasisyntax/loc goal (#,name #,@(stx-map unexpand #'inst-args) . #,body-pfs)))))]))
   )
