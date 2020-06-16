@@ -296,7 +296,7 @@
                                X)
                            e)])
                      inst-var+args_))
-            (~parse inst-args
+            (~parse inst-args*
                     (if (= (stx-length #'(X ...)) (stx-length inst-args_))
                         (stx-map (normalize/ctxt ctxt) inst-args_)
                         ; else search
@@ -326,22 +326,29 @@
                              (λ (x) (member x x+es
                                      (λ (x x+e) (free-identifier=? x (stx-car x+e)))))
                              (syntax->list #'(X ...))))))))
-            (~fail #:unless (stx-length=? #'(X ...) #'inst-args)
+#;            (~fail #:unless (stx-length=? #'(X ...) #'inst-args)
                    (raise-ntac-goal-exception
                     "by-apply: could not infer instantiation of: ~a; try explicit #:with or #:with-var args?\n"
                     (stx->datum name)))
+            (~parse ((X* ...) (antecedent* ...) inst-args)
+                    (if (stx-length=? #'(X ...) #'inst-args*)
+                        (list #'(X ...) #'(antecedent ...) #'inst-args*)
+                        (list (stx-take #'(X ...) (stx-length inst-args_))
+                              (stx-append (stx-drop #'(τX ...) (stx-length inst-args_))
+                                          #'(antecedent ...))
+                              (stx-map (normalize/ctxt ctxt) inst-args_))))
             (~parse new-thm
                     (normalize
                      (substs #'inst-args
-                             #'(X ...)
-                             (if tgt-name (stx-car #'(antecedent ...)) #'consequent))
+                             #'(X* ...)
+                             (if tgt-name (stx-car #'(antecedent* ...)) #'consequent))
                      ctxt))
             (~fail #:unless (typecheck? #'new-thm target)
                    (raise-ntac-goal-exception
                     "by-apply: applying ~a does not produce term with goal type ~a"
                    (stx->datum name) (stx->datum #`#,(resugar-type target)))))
       (if tgt-name
-          (let ([new-thm (substs #'inst-args #'(X ...) #'consequent)])
+          (let ([new-thm (substs #'inst-args #'(X* ...) #'consequent)])
             (make-ntt-apply
              goal
              (list
@@ -360,8 +367,8 @@
            (stx-map ; each ante is a new subgoal; TODO: should be fold?
             (λ (ante)
               (make-ntt-hole
-               (normalize (substs #'inst-args #'(X ...) ante) ctxt)))
-            #'(antecedent ...))
+               (normalize (substs #'inst-args #'(X* ...) ante) ctxt)))
+            #'(antecedent* ...))
            (λ body-pfs
              (quasisyntax/loc goal (#,name #,@(stx-map unexpand #'inst-args) . #,body-pfs)))))]))
   )
