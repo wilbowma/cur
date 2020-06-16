@@ -4,7 +4,7 @@
   "../defs.rkt"
   (for-label cur/stdlib/datum)
   (for-label (only-meta-in 0 cur/stdlib/nat))
-  (for-label (only-meta-in 0 cur))
+  (except-in (for-label (only-meta-in 0 cur)) #%datum)
   (for-label (only-in (only-meta-in 1 cur/stdlib/nat) nat->unary nat-datum))
   (for-label (only-in racket syntax? procedure?))
   scribble/eval)

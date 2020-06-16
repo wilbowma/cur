@@ -10,7 +10,7 @@
             parameter?
             [-> r:->])
    racket/syntax
-   (only-meta-in 0 cur)
+   (except-in (only-meta-in 0 cur) #%datum)
    (only-meta-in 0 cur/stdlib/nat)
    (only-meta-in 0 cur/stdlib/bool)
    #;(only-in (only-meta-in 0 cur/curnel/coc-saccharata) ∀ forall ->)

@@ -25,7 +25,7 @@
           ;cur-step
           cur-equal?))
    (for-label
-     (except-in (only-meta-in 0 cur) ->))
+     (except-in (only-meta-in 0 cur) -> #%datum))
    (for-label
      (only-in racket local-expand syntax? listof -> cons/c any identifier? or/c
               symbol? natural-number/c thunk boolean?))
