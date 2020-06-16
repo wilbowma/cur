@@ -125,3 +125,11 @@
 ;;      #'(begin (define x void) ... (provide x ...))]))
 
 ;; (define+provide-placeholders Π Type)
+
+(define-syntax (#%datum syn)
+  (raise-syntax-error
+   '#%datum
+   "No datum datum parser defined"
+   syn))
+
+(provide #%datum)
