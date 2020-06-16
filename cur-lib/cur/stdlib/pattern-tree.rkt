@@ -313,7 +313,13 @@
                   [match-var-type-values (and match-var-type-for-env
                                               (> (length match-var-type-for-env) 2)
                                               (rest (rest match-var-type-for-env)))]
-                  [match-var-type-bindings (and match-var-type-values (map cons type-parameters match-var-type-values))]
+                  ;; TODO: All this is duplicated in extend-env-with-tmps.
+                  [match-var-type-bindings (and match-var-type-values (map cons
+                                                                           type-parameters
+                                                                           (take
+                                                                            match-var-type-values
+                                                                            (length
+                                                                             type-parameters))))]
                   [new-arg-binding-types (and match-var-type-bindings
                                               (append match-var-type-values
                                                       (for/list ([ty arg-binding-types])
@@ -471,7 +477,12 @@
                  [match-var-type-values (and match-var-type-for-env
                                              (> (length match-var-type-for-env) 2)
                                              (rest (rest match-var-type-for-env)))]
-                 [match-var-type-bindings (and match-var-type-values (map cons type-parameters match-var-type-values))]
+                 [match-var-type-bindings (and match-var-type-values (map cons
+                                                                          type-parameters
+                                                                          (take
+                                                                           match-var-type-values
+                                                                           (length
+                                                                            type-parameters))))]
                  [new-arg-binding-types (and arg-binding-types
                                              (append (or match-var-type-values empty)
                                                      (for/list ([ty arg-binding-types])
