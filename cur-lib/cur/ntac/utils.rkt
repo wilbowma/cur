@@ -5,7 +5,7 @@
  syntax/parse
  syntax/id-set
  (for-template turnstile+/eval
-               (only-in macrotypes/typecheck-core substs)
+               (only-in macrotypes/typecheck-core substs current-typecheck-relation)
                (only-in cur/curnel/lang #%plain-lambda #%plain-app))
  macrotypes/stx-utils
  cur/curnel/reflection
@@ -17,6 +17,9 @@
 
 (define (normalize ty ctxt)
   (cur-normalize (reflect ty) #:local-env (ctx->env ctxt)))
+(define (normalize/nocheck ty ctxt)
+  (parameterize ([current-typecheck-relation (λ (t1 t2) #t)])
+    (normalize ty ctxt)))
 (define ((normalize/ctxt ctxt) ty) (normalize ty ctxt)) ; curried version
 
 (define ((mk-bind-stxf f) x ty)
