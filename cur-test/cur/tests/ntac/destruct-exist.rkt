@@ -20,7 +20,8 @@
     False)
    (by-intros ex)
    (by-destruct ex #:as [(aa bb)]))
-;; fails
+
+;; fails before issue#121 fix
 (define-theorem f
   (∀
    (T : Type)
