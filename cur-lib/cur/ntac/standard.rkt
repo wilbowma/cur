@@ -388,7 +388,7 @@
                   (mk-update #:inst #'(C Aval ... . new-xs) #:idxs (get-idxs #'τout)))
                 (define (update-ctxt old-ctxt)
                   (define tmp-ctxt
-                    (ctx-adds ctxt-unchanged #'new-xs #'(τ ...) #:do normalize))
+                    (ctx-adds ctxt-unchanged #'new-xs #'(τ ...) #:do normalize/nocheck))
                   (ctx-append tmp-ctxt
                               (ctx-map
                                (compose (normalize/ctxt tmp-ctxt) update-ty)
