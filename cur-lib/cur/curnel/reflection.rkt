@@ -26,6 +26,7 @@
 ;; with-env
 ;; call-with-env
  cur->datum
+ curnel->datum
  ;;deprecated-cur-expand
  cur-expand
  cur-type-infer
@@ -83,51 +84,52 @@
          [type (car (cadddr (infer (list syn) #:ctx ctx)))])
     type))
 
-(define (turnstile-expand syn #:local-env [env '()]) ;returns ((tvs) (xs) (es) (τs))
+; Returns ((tvs) (xs) (es) (τs))
+(define (turnstile-expand syn #:local-env [env '()])
   (let ([ctx (env->ctx env)])
     (infer (list syn) #:ctx ctx)))
 
-(define (cur-type-infer syn #:local-env [env '()])
- (let cur-type-infer ([syn syn]
-                        [env env])
- (let* ([expanded (turnstile-expand syn #:local-env env)]
+(define (cur-reflect syn)
+  ; Convert (listof syntax) -> syntax
+  (quasisyntax/loc syn
+    #,(resugar-type syn)))
+
+(define (cur-expand syn #:local-env [env '()])
+  ; TODO: Encapsulate this pattern in turnstile-expand?
+  (let* ([expanded (turnstile-expand syn #:local-env env)]
          [xs-ls (syntax->list (second expanded))]
          [es-ls (syntax->list (third expanded))]
-         [τs-ls (fourth expanded)]
          [env-ids (reverse (map car env))])
-   #;(when debug-scopes?
-     (printf "cur-type-infer syn ~s~n" (add-scopes syn))
-     (printf "cur-type-infer env ~s~n" (add-scopes env-ids))
-     (printf "cur-type-infer xs ~s~n" (add-scopes xs-ls))
-     (printf "ought to replace ~s by ~s~n" (add-scopes xs-ls) (add-scopes env-ids))
-     (printf "τs ~s~n"(add-scopes τs-ls))
-     (printf "cur-type-infer subst ~s~n" (add-scopes (subst* env-ids xs-ls (first τs-ls))))
-     (printf "cur-type-infer transfer ~s~n" (add-scopes (transfer-props syn (subst* env-ids xs-ls (first τs-ls))))))
-    (cur-reflect (cur-expand (transfer-props (first τs-ls) (substs env-ids xs-ls  (first τs-ls))) #:local-env env)))))
+    (transfer-props syn (substs env-ids xs-ls (first es-ls)))))
 
+(define (cur-type-infer syn #:local-env [env '()])
+  (cur-reflect
+   ; TODO: Encapsulate this pattern in ... turnstile-expand?
+   (let* ([expanded (turnstile-expand syn #:local-env env)]
+          [xs-ls (syntax->list (second expanded))]
+          [es-ls (syntax->list (third expanded))]
+          [τs-ls (fourth expanded)]
+          [env-ids (reverse (map car env))])
+     (transfer-props (first τs-ls) (substs env-ids xs-ls  (first τs-ls))))))
 
 (define (cur-type-check? term expected-type #:local-env [env '()])
   (let ([inferred-type (turnstile-infer term #:local-env env)])
-    ;(displayln (format "inferred: ~a\nexpected: ~a" (syntax->datum inferred-type) (syntax->datum expected-type)))
-    (typecheck? inferred-type expected-type #;(cur-expand expected-type #:local-env env))))
+    (typecheck? inferred-type (cur-expand expected-type #:local-env env))))
 
+;; TODO: Should probably distinguish between ->datum and resugar->datum?
+;; TODO: Not sure cur->datum should actually run cur-expand.
 (define (cur->datum syn)
-  (let ([expanded (cur-expand syn)])
-    ;(displayln (format "expanded: ~a" expanded))
-    (let ([reflected (cur-reflect expanded)])
-      ;(displayln (format "reflected: ~a" reflected))
-      (syntax->datum reflected))))
+  (syntax->datum (cur-reflect (cur-expand syn))))
+
+(define (curnel->datum syn)
+  (syntax->datum (cur-reflect syn)))
 
 (define (cur-normalize syn #:local-env [env '()])
-    (let ([evaled (cur-expand syn #:local-env env)])
-      #;(displayln (format "in cur-normalize, syn: ~a, evaled: ~a" syn evaled))
-      evaled
-    #;(cur-reflect evaled)))
+  (cur-expand syn #:local-env env))
 
 (define (cur-equal? term1 term2 #:local-env [env '()])
-  (let ([term1-evaled (cur-expand term1 #:local-env env)]
-        [term2-evaled (cur-expand term2 #:local-env env)])
-   ; (printf "in cur-equal? term1: ~s~n term2: ~s~n" (add-scopes term1-evaled) (add-scopes term2-evaled))
+  (let ([term1-evaled (turnstile-expand term1 #:local-env env)]
+        [term2-evaled (turnstile-expand term2 #:local-env env)])
     (type=? term1-evaled term2-evaled)))
 
 (define (cur-constructors-for syn)
@@ -168,7 +170,8 @@
     (syntax->list rec-args)))
 
 
-(define (cur-reflect syn)
+;; TODO: Should be replaced by Turnstile's resugar-type?
+#;(define (cur-reflect syn)
   (syntax-parse syn
     #:literals (quote #%expression void #%plain-lambda #%plain-app list )
     #:datum-literals (:)
@@ -253,26 +256,4 @@
   (pattern x:id
            #:fail-unless (syntax-property #'x 'axiom-ref-name) (format "error: ~a has no property 'axiom-ref-name" #'x)
            #:attr name (syntax-property #'x 'axiom-ref-name)))
-
-(define (cur-expand syn #:local-env [env '()])
- (let cur-expand ([syn syn]
-                        [env env])
-  (let* ([expanded (turnstile-expand syn #:local-env env)]
-         [xs-ls (syntax->list (second expanded))]
-         [es-ls (syntax->list (third expanded))]
-         [env-ids (reverse (map car env))])
-    #;(when debug-scopes?
-      (printf "syn ~s~n" (add-scopes syn))
-      (printf "env ~s~n" (add-scopes env-ids))
-      (printf "xs ~s~n" (add-scopes xs-ls))
-      (printf "ought to replace ~s by ~s~n" (add-scopes xs-ls) (add-scopes env-ids))
-      #;(displayln (add-scopes xs-ls))
-      (printf "es ~s~n"(add-scopes (first es-ls)))
-      ;   #;(displayln (add-scopes expanded))
-      (printf "subst ~s~n" (add-scopes (subst* env-ids xs-ls (first es-ls))))
-      (printf "transfer ~s~n" (add-scopes (transfer-props syn (subst* env-ids xs-ls (first es-ls)))))
-      #;(displayln (format "in cur-expand, syn: ~a\n\n env-ids: ~a \n\n expanded: ~a \n\n xs-ls: ~a \n\n es-ls: ~a"
-                           syn env-ids expanded xs-ls es-ls)))
-(transfer-props syn (substs env-ids xs-ls (first es-ls))))
-  ))
 
