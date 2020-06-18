@@ -3,7 +3,8 @@
 ;; TODO: Automagically create a parser from bnf grammar
 (require
   "stdlib/sugar.rkt"
-  "stdlib/nat.rkt")
+  "stdlib/nat.rkt"
+  (for-syntax racket/string))
 
 (provide
   define-relation
