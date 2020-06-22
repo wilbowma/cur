@@ -39,6 +39,7 @@
  cur-normalize
  cur-rename
  cur-reflect-id
+ cur-reflect
  ;;cur-step
  cur-equal?
  ; curnel-type-infer returns a fully expanded internal type, not a resugared
