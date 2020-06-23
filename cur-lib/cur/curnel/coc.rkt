@@ -34,8 +34,14 @@
   (define-syntax ~Type*
     (pattern-expander
      (syntax-parser
-       [:id #'(~Type _)]
-       [(_ n) #'(~Type n)]))))
+       [:id
+        #'(~and b
+                (~parse (~Type _)
+                  ((current-type-eval) #'b)))]
+       [(_ n)
+        #'(~and b
+                (~parse (~Type n)
+                        ((current-type-eval) #'b)))]))))
 
 (define-typed-syntax Type
   [:id ≫ --- [≻ (Type 0)]]
@@ -61,7 +67,7 @@
 
 (define-typed-syntax Π
   ; Check
-  [(_ (x:id (~datum :) A) B) ⇐ (~Type n:nat) ≫
+  [(_ (x:id (~datum :) A) B) ⇐ (~Type* n:nat) ≫
    [⊢ A ≫ A- ⇐ (Type n)]
    [[x ≫ x-- : A-] ⊢ B ≫ B- ⇐ (Type n)]
    ; TODO: Oh look a pattern. Should be built into [x >> x-] form, or something.
@@ -85,8 +91,8 @@
 
   [(_ (x:id (~datum :) A) B)  ≫
    ; NB: Expect a type of arbitrary level, for better errors
-   [⊢ A ≫ A- ⇒ (~or (~Type n:nat) U₁)]
-   [[x ≫ x-- : A-] ⊢ B ≫ B- ⇒ (~or (~Type m:nat) U₂)]
+   [⊢ A ≫ A- ⇒ (~or (~Type* n:nat) U₁)]
+   [[x ≫ x-- : A-] ⊢ B ≫ B- ⇒ (~or (~Type* m:nat) U₂)]
    #:fail-unless (attribute n)
    (type-error #:src #'A- #:msg "expected (Type n) (for some n), given ~a" #'U₁)
    #:fail-unless (attribute m)
