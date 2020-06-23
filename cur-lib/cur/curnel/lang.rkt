@@ -25,6 +25,7 @@
                   current-check-relation
                   subst substs typecheck? typechecks? typeof add-expected-type
                   current-type-eval expand/df typecheck-fail-msg/multi
+                  type-error
                   ⇒ ⇐ ≫ ⊢ ≻)
          turnstile+/eval
          turnstile+/typedefs
