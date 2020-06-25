@@ -1,5 +1,8 @@
 #lang cur
 (require cur/stdlib/sugar
+;         cur/stdlib/equality
+         (except-in cur/stdlib/equality sym f-equal)
+         (only-in cur/stdlib/equality [sym sym-orig] [f-equal f-equal-orig])
          cur/stdlib/equality
          cur/ntac/base
          cur/ntac/standard
@@ -8,6 +11,9 @@
          "../rackunit-ntac.rkt")
 
 ; Software Foundations Tactics.v, part 2 of 5
+
+(define sym sym-orig)
+(define f-equal f-equal-orig)
 
 ;; copied from Poly-pairs.rkt
 (data bool : 0 Type

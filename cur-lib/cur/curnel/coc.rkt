@@ -14,7 +14,7 @@
  (rename-out [app #%app])
  app/eval
  (for-syntax ~#%app)
- define ann)
+ define define-for-export ann)
 
 (begin-for-syntax (current-use-stop-list? #f))
 
@@ -193,11 +193,15 @@
   --------
   [⊢ e- ⇒ τ])
 
-; TODO: This shouldn't inline x all over the place.
-; Instead, create x-, do the usual thing. But this will require a δ reduction
-; rule.
 (define-typed-syntax (define x:id e) ≫
-  ; NB: Must type check, but cannot use the expanded result or we run into
+  ; NB: Exporting x may result in stxprop module problems.
+  ; Use define-for-export for ids to be provided.
+  [⊢ e ≫ e- ⇒ _]
+  -----
+  [≻ (define-syntax x (make-variable-like-transformer #'e-))])
+
+(define-typed-syntax (define-for-export x:id e) ≫
+  ; NB: Type check but dont use the expanded result or we run into
   ; stxprop module problems.
   [⊢ e ≫ _ ⇒ _]
   -----

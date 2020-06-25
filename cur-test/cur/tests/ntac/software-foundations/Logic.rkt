@@ -1,7 +1,8 @@
 #lang cur
 (require cur/stdlib/sugar
          cur/stdlib/equality
-         cur/stdlib/prop
+         (except-in cur/stdlib/prop Not)
+         (only-in cur/stdlib/prop [Not Not-orig])
          cur/stdlib/bool
          cur/stdlib/axiom
          cur/ntac/base
@@ -11,6 +12,8 @@
          "../rackunit-ntac.rkt")
 
 ; Software Foundations Logic.v
+
+(define Not Not-orig)
 
 (data nat : 0 Type
       (O : nat) ; letter capital "O"

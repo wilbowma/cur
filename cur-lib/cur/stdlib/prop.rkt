@@ -37,7 +37,7 @@
   [or_introL [x : X] : (Or X Y)]
   [or_introR [y : Y] : (Or X Y)])
 
-(define (Not [P : Prop])
+(define-for-export (Not [P : Prop])
   (-> P False))
 
 (module* tauto #f
@@ -87,38 +87,38 @@
 ;; inferring version of conj
 (define-implicit conj/i = conj 2)
 
-(define thm:anything-implies-true (Π (P : Type) True))
-(define pf:anything-implies-true (λ (P : Type) I))
+(define-for-export thm:anything-implies-true (Π (P : Type) True))
+(define-for-export pf:anything-implies-true (λ (P : Type) I))
 
-(define thm:and-is-symmetric
+(define-for-export thm:and-is-symmetric
   (Π (P : Type) (Q : Type) (ab : (And P Q)) (And Q P)))
 
-(define pf:and-is-symmetric
+(define-for-export pf:and-is-symmetric
   (lambda (P : Type) (Q : Type) (ab : (And P Q))
           (match ab #:return (And Q P)
             [(conj (x : P) (y : Q))
              (conj Q P y x)])))
 
-(define thm:proj1
+(define-for-export thm:proj1
   (Π (A : Type) (B : Type) (c : (And A B)) A))
 
-(define pf:proj1
+(define-for-export pf:proj1
   (lambda (A : Type) (B : Type) (c : (And A B))
           (match c #:return A
             [(conj (a : A) (b : B)) a])))
 
-(define thm:proj2
+(define-for-export thm:proj2
   (Π (A : Type) (B : Type) (c : (And A B)) B))
 
-(define pf:proj2
+(define-for-export pf:proj2
   (lambda (A : Type) (B : Type) (c : (And A B))
           (match c #:return B
             [(conj (a : A) (b : B)) b])))
 
-(define (iff [A : Prop] [B : Prop])
+(define-for-export (iff [A : Prop] [B : Prop])
   (And (-> A B) (-> B A)))
 
-(define iff-sym
+(define-for-export iff-sym
   (λ (P : Prop) (Q : Prop) (H : (iff P Q))
      (match H #:as H
             #:in (iff P Q)

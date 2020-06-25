@@ -73,19 +73,19 @@
      #:with name (format-id syn "pair~a" (syntax->datum #'i))
      #`(name A P a b)]))
 
-(define (fst0 (A : (Type 0)) (P : (-> A (Type 0))) (p : (Σ A P)))
+(define-for-export (fst0 (A : (Type 0)) (P : (-> A (Type 0))) (p : (Σ A P)))
   (new-elim p (λ (x : (Σ A P)) A)
             (λ (a : A) (b : (P a)) a)))
 
-(define (snd0 (A : (Type 0)) (P : (-> A (Type 0))) (p : (Σ A P)))
+(define-for-export (snd0 (A : (Type 0)) (P : (-> A (Type 0))) (p : (Σ A P)))
   (new-elim p (λ (x : (Σ A P)) (P (fst0 A P x)))
             (λ (a : A) (b : (P a)) b)))
 
-(define (fst1 (A : (Type 0)) (P : (-> A (Type 0))) (p : (Σ1 A P)))
+(define-for-export (fst1 (A : (Type 0)) (P : (-> A (Type 0))) (p : (Σ1 A P)))
   (new-elim p (λ (x : (Σ1 A P)) A)
             (λ (a : A) (b : (P a)) a)))
 
-(define (snd1 (A : (Type 0)) (P : (-> A (Type 0))) (p : (Σ1 A P)))
+(define-for-export (snd1 (A : (Type 0)) (P : (-> A (Type 0))) (p : (Σ1 A P)))
   (new-elim p (λ (x : (Σ1 A P)) (P (fst1 A P x)))
             (λ (a : A) (b : (P a)) b)))
 

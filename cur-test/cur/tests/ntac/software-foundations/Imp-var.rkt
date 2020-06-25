@@ -30,11 +30,6 @@
   [AMinus (a1 a2 : aexp)]
   [AMult (a1 a2 : aexp)])
 
-(define W "W")
-(define X "X")
-(define Y "Y")
-(define Z "Z")
-
 (define-datatype bexp : Type
   [BTrue]
   [BFalse]
@@ -42,6 +37,30 @@
   [BLe (a1 a2 : aexp)]
   [BNot (b : bexp)]
   [BAnd (b1 b2 : bexp)])
+
+; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
+
+(begin-for-syntax
+  (current-datum
+   (λ (syn f)
+     (syntax-parse/typecheck syn
+      [x:nat ⇐ ~aexp ≫
+       ----------------
+       [⊢ (ANum x)]]
+      [s:str ⇐ ~aexp ≫
+       ----------------
+       [⊢ (AId s)]]
+      [b:boolean ⇐ ~bexp ≫
+       ----------------
+       [⊢ (bool-to-bexp #,(if (syntax-e #'b) #'true #'false))]]
+      [_ ≫ --- [≻ #,(f syn)]]))))
+
+;; these rely on new datum above
+;; also, they must be re-expanded on each reference, so use define-for-export
+(define-for-export W "W")
+(define-for-export X "X")
+(define-for-export Y "Y")
+(define-for-export Z "Z")
 
 (define/rec/match aeval : [st : State] aexp -> Nat
   [(ANum n) => n]
@@ -71,23 +90,6 @@
   (aeval (update empty-st X 5) (APlus (ANum 3) (AMult (AId X) (ANum 2)))))
 (check-type aexp-example1 : Nat -> 13)
 
-; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
-
-(begin-for-syntax
-  (current-datum
-   (λ (syn f)
-     (syntax-parse/typecheck syn
-      [x:nat ⇐ ~aexp ≫
-       ----------------
-       [⊢ (ANum x)]]
-      [s:str ⇐ ~aexp ≫
-       ----------------
-       [⊢ (AId s)]]
-      [b:boolean ⇐ ~bexp ≫
-       ----------------
-       [⊢ (bool-to-bexp #,(if (syntax-e #'b) #'true #'false))]]
-      [_ ≫ --- [≻ #,(f syn)]]))))
- 
 (define aexp-example/new-datum
   (aeval (update empty-st "X" 5) (APlus 3 (AMult "X" 2))))
 (define-theorem aexp/new-datum
