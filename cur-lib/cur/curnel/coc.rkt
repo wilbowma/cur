@@ -197,8 +197,10 @@
 ; Instead, create x-, do the usual thing. But this will require a δ reduction
 ; rule.
 (define-typed-syntax (define x:id e) ≫
-  ; NB: Must type check, but cannot use the expanded result or we run into
+  ; NB: Must type check, but cannot directly use expanded result or we run into
   ; stxprop module problems.
-  [⊢ e ≫ _ ⇒ _]
+  ; Instead, delay attaching type until use site
+  ; (TODO: not all tests passing, see issue #134)
+  [⊢ e ≫ e- ⇒ τ]
   -----
-  [≻ (define-syntax x (make-variable-like-transformer #'e))])
+  [≻ (define-syntax x (make-variable-like-transformer #'(attach/m e- : τ)))])
