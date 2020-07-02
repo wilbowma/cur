@@ -2,8 +2,7 @@
 ;; See https://softwarefoundations.cis.upenn.edu/plf-current/Stlc.html
 
 (require
- ; (except-in cur/stdlib/ascii String)
- cur/stdlib/ascii
+  cur/stdlib/ascii
   cur/stdlib/bool
   cur/stdlib/sugar
   cur/stdlib/equality
@@ -11,9 +10,6 @@
   cur/ntac/standard
   cur/ntac/rewrite)
 
-;; (require (only-in cur/stdlib/ascii [String String-orig]))
-;; (define String String-orig)
-          
 ;; =========
 ;;  HELPERS
 ;; =========

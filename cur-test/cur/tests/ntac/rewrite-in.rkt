@@ -1,5 +1,6 @@
 #lang cur
-(require cur/stdlib/equality
+(require (except-in cur/stdlib/equality sym)
+         (only-in cur/stdlib/equality [sym sym-orig])
          cur/stdlib/sugar
          cur/stdlib/bool
          cur/ntac/base
@@ -9,6 +10,8 @@
          rackunit/turnstile+)
 
 ;; test rewriting in ctx hypotheses
+
+(define sym sym-orig)
 
 ;; regular rewrite (no #:in)
 (define-theorem trans

@@ -193,23 +193,9 @@
   --------
   [⊢ e- ⇒ τ])
 
-(begin-for-syntax
-  (define (printing-variable-like-transformer ref-stx)
-    (unless (syntax? ref-stx)
-      (raise-type-error 'make-variable-like-transformer "syntax?" ref-stx))
-    (lambda (stx)
-      (syntax-case stx ()
-        [debug (and (printf "expanding ~a\n" (stx->datum stx)) #f) #'debug]
-        [id
-         (identifier? #'id)
-         (replace-stx-loc ref-stx stx)]
-        [(id . args)
-         (let ([stx* (list* '#%app #'id (cdr (syntax-e stx)))])
-           (datum->syntax stx stx* stx stx))]))))
-
 (define-typed-syntax (define x:id e) ≫
   ; NB: Exporting x may result in stxprop module problems.
-  ; Use define-for-export for exported ids
+  ; Use define-for-export for ids to be provided.
   [⊢ e ≫ e- ⇒ _]
   -----
   [≻ (define-syntax x (make-variable-like-transformer #'e-))])

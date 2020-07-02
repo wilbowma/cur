@@ -3,7 +3,8 @@
 (require
  cur/stdlib/nat
  cur/stdlib/bool
- cur/stdlib/prop
+ (except-in cur/stdlib/prop iff)
+ (only-in cur/stdlib/prop [iff iff-orig])
  cur/stdlib/sugar
  cur/stdlib/equality
  cur/ntac/base
@@ -11,6 +12,8 @@
  cur/ntac/rewrite
  rackunit/turnstile+
  "../rackunit-ntac.rkt")
+
+(define iff iff-orig)
 
 (define-datatype aexp : Type
   [ANum (n : Nat)]

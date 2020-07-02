@@ -1,6 +1,7 @@
 #lang cur
 (require cur/stdlib/bool
-         cur/stdlib/equality
+         (except-in cur/stdlib/equality sym)
+         (only-in cur/stdlib/equality [sym sym-orig])
          cur/stdlib/sugar
 
          cur/ntac/base
@@ -8,6 +9,8 @@
          cur/ntac/rewrite
 
          "rackunit-ntac.rkt")
+
+(define sym sym-orig)
 
 ;; tests involving rewrite of a ∀ thm
 
