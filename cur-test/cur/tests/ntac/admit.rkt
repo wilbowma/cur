@@ -19,6 +19,5 @@
   (admit ex-mid))
   
 (check-output
- "Axioms used by \"excluded-middle\":\n - ex-mid : (Π (P : (Type 0)) (And P (Π (X37 : P) False)))\n"
- ;"Axioms used by \"excluded-middle\":\n - ex-mid : (Π (P : (Type 0)) (And P (→ P False)))\n"
+ "Axioms used by \"excluded-middle\":\n - ex-mid : (Π (P : (Type 0)) (And P (→ P False)))\n"
  (print-assumptions excluded-middle))

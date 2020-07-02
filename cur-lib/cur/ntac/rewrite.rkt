@@ -14,8 +14,10 @@
                      (rename-out [by-rewrite by-rewriteR])))
 
 (require cur/stdlib/prop ; for False (see inversion), And (rewrite)
-         cur/stdlib/equality
+         (except-in cur/stdlib/equality sym)
          "standard.rkt")
+(require (only-in cur/stdlib/equality [sym sym-orig]))
+(define sym sym-orig)
 
 (begin-for-syntax
 

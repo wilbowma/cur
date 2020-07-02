@@ -30,7 +30,7 @@
   [true => true]
   [false => b])
 
-(define (bool-equal? [b1 : Bool] [b2 : Bool])
+(define-for-export (bool-equal? [b1 : Bool] [b2 : Bool])
   (or (and b1 b2)
       (not (or b1 b2))))
 

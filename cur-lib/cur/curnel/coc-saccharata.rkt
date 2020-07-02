@@ -21,11 +21,12 @@
   [→ Π] [→ Pi] [→ ∀] [→ forall] [→ ->]
   [λ/c λ] [λ/c lambda]
   [app/c #%app] [app/eval/c app/eval]
-  [define/c define])
+  [define/c define]
+  [define/c-for-export define-for-export])
  ; rexport
  (except-out
   (all-from-out "coc.rkt")
-  #%app λ Π define app/eval (for-syntax ~Π ~λ)))
+  #%app λ Π define define-for-export app/eval (for-syntax ~Π ~λ)))
 
 ;;; Curried core forms.
 ;;; -----------------------------------------------------------
@@ -104,6 +105,13 @@
     [(_ (f:id d:multi-λ-decl ...) e)
      (syntax/loc this-syntax
        (define f (λ/c d ... e)))]))
+
+(define-syntax define/c-for-export
+  (syntax-parser
+    [(_ x:id e) (syntax/loc this-syntax (define-for-export x e))]
+    [(_ (f:id d:multi-λ-decl ...) e)
+     (syntax/loc this-syntax
+       (define-for-export f (λ/c d ... e)))]))
 
 ;;; Pattern expanders for curried core forms.
 ;;; -----------------------------------------------------------

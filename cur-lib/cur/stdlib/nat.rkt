@@ -26,7 +26,7 @@
 
   (current-datum nat-datum))
 
-(define (add1 (n : Nat)) (s n))
+(define-for-export (add1 (n : Nat)) (s n))
 
 (define/rec/match sub1 : Nat -> Nat
   [z => z]
@@ -206,7 +206,7 @@
   [z => (s z)]
   [(s x) => (mult e (exp e x))])
 
-(define (square [n : Nat]) (exp n (s (s z))))
+(define-for-export (square [n : Nat]) (exp n (s (s z))))
 
 #;(define-red eval-zero?
   ;; TODO: this ~z triggers nonid case bc it gets moved to "head" in define-red, in eval.rkt

@@ -4,7 +4,8 @@
 
 ;; `by-inversion` tactic
 
-(require cur/stdlib/equality "prove-unify.rkt")
+(require cur/stdlib/equality
+         "prove-unify.rkt")
 
 (begin-for-syntax
 

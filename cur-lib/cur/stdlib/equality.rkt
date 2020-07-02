@@ -22,7 +22,7 @@
 (define-implicit ==/i = == 1)
 
 ;; pm symmetry
-(define PM-sym
+(define-for-export PM-sym
   (λ [A : Type]
     (λ [x : A] [y : A]
        (λ [e : (== A x y)]
@@ -34,7 +34,7 @@
           (refl A x))))))
 
 ;; pm transitivity (using pm-sym)
-(define PM-trans
+(define-for-export PM-trans
  (λ [A : Type]
    (λ [x : A] [y : A] [z : A]
       (λ [e1 : (== A x y)] [e2 : (== A y z)]
@@ -46,7 +46,7 @@
           e2)))))
 
 ;; coq f_equal
-(define f-equal
+(define-for-export f-equal
   (λ [A : Type] [B : Type]
      [f : (-> A B)]
      [x : A] [y : A]

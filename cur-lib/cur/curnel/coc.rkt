@@ -14,7 +14,7 @@
  (rename-out [app #%app])
  app/eval
  (for-syntax ~#%app)
- define ann)
+ define define-for-export ann)
 
 (begin-for-syntax (current-use-stop-list? #f))
 
@@ -193,14 +193,30 @@
   --------
   [⊢ e- ⇒ τ])
 
-; TODO: This shouldn't inline x all over the place.
-; Instead, create x-, do the usual thing. But this will require a δ reduction
-; rule.
+(begin-for-syntax
+  (define (printing-variable-like-transformer ref-stx)
+    (unless (syntax? ref-stx)
+      (raise-type-error 'make-variable-like-transformer "syntax?" ref-stx))
+    (lambda (stx)
+      (syntax-case stx ()
+        [debug (and (printf "expanding ~a\n" (stx->datum stx)) #f) #'debug]
+        [id
+         (identifier? #'id)
+         (replace-stx-loc ref-stx stx)]
+        [(id . args)
+         (let ([stx* (list* '#%app #'id (cdr (syntax-e stx)))])
+           (datum->syntax stx stx* stx stx))]))))
+
 (define-typed-syntax (define x:id e) ≫
-  ; NB: Must type check, but cannot directly use expanded result or we run into
-  ; stxprop module problems.
-  ; Instead, delay attaching type until use site
-  ; (TODO: not all tests passing, see issue #134)
-  [⊢ e ≫ e- ⇒ τ]
+  ; NB: Exporting x may result in stxprop module problems.
+  ; Use define-for-export for exported ids
+  [⊢ e ≫ e- ⇒ _]
   -----
-  [≻ (define-syntax x (make-variable-like-transformer #'(attach/m e- : τ)))])
+  [≻ (define-syntax x (make-variable-like-transformer #'e-))])
+
+(define-typed-syntax (define-for-export x:id e) ≫
+  ; NB: Type check but dont use the expanded result or we run into
+  ; stxprop module problems.
+  [⊢ e ≫ _ ⇒ _]
+  -----
+  [≻ (define-syntax x (make-variable-like-transformer #'e))])

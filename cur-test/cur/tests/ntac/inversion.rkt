@@ -1,5 +1,7 @@
 #lang cur
-(require cur/stdlib/equality
+(require ;cur/stdlib/equality
+         (except-in cur/stdlib/equality sym f-equal)
+         (only-in cur/stdlib/equality [sym sym-orig] [f-equal f-equal-orig])
          cur/stdlib/sugar
          cur/stdlib/nat
          cur/stdlib/prop
@@ -10,6 +12,9 @@
          "rackunit-ntac.rkt")
 
 ;; tests for inversion tactic
+
+(define sym sym-orig)
+(define f-equal f-equal-orig)
 
 ;; successors-equal-implies-equal ----------
 

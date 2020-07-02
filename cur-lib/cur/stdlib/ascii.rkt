@@ -24,10 +24,10 @@
 (data Ascii : 0 Type
   (ascii : (-> Bool Bool Bool Bool Bool Bool Bool Ascii)))
 
-(define Ascii-Str (List Ascii))
-(define empty-ascii-str (nil Ascii))
-(define ascii-str-concat (list-append Ascii))
-(define ascii-str-length (length Ascii))
+(define-for-export Ascii-Str (List Ascii))
+(define-for-export empty-ascii-str (nil Ascii))
+(define-for-export ascii-str-concat (list-append Ascii))
+(define-for-export ascii-str-length (length Ascii))
 (define-syntax (build-ascii-string syn)
   (syntax-case syn ()
     [(_ e ...)
