@@ -428,7 +428,7 @@
   ; Differs from turnstile+ get-match-info: accepts type's internal id instead of entire type
   ; - returns the match-info, or #f
   (define (get-match-info I)
-    (define d (eval-syntax I))
+    (define d (get-dict I))
     (and (dict? d) (dict-ref d #'get-datatype-info #f)))
 
   (define (get-datatype-elim ty)
