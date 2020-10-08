@@ -2,7 +2,7 @@
 (define collection 'multi)
 (define deps
   '(("base" #:version "7.6")
-    ("turnstile-lib" #:version "0.5.3")
+    ("turnstile-lib" #:version "0.5.6")
     ("macrotypes-lib" #:version "0.3.3")
     "reprovide-lang-lib"))
 (define build-deps '())
