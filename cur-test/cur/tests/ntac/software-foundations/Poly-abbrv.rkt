@@ -40,37 +40,37 @@
 
 (define-implicit length = length_ 1)
 
-;; TODO: Fragile test due to use of generated name.
+;; TODO: FRAGILE TEST, due to use of generated name.
 (define-theorem eq-remove-S
   (∀ [n : nat] [m : nat]
      (-> (== n m)
          (== (S n) (S m))))
   by-intros
-  (by-rewrite H39)
+  (by-rewrite H43)
   reflexivity)
 
-;; TODO: Fragile test due to use of generated name.
+;; TODO: FRAGILE TEST, due to use of generated name.
 (define-theorem length-app-sym/abbrv
 ;(ntac/trace
   (∀ [X : Type] [l1 : (list X)] [l2 : (list X)] [x : X] [n : nat]
      (-> (== (length (app l1 l2)) n)
          (== (length (app l1 (cons x l2))) (S n))))
   (by-intros Y l1)
-  (by-induction l1) ; adds IH44
+  (by-induction l1) ; adds IH48
   ; induction 1: nil -----
-  by-intros ; adds l2 x n H45
-  (by-rewrite H45)
+  by-intros ; adds l2 x n H49
+  (by-rewrite H49)
   reflexivity
   ; induction 2: cons -----
-  by-intros ; adds l2 x n H46
+  by-intros ; adds l2 x n H50
   (by-apply eq-remove-S)
   (by-destruct n)
   ;; destruct 2a: z -----
-  (by-inversion H46)
+  (by-inversion H50)
   ;; destruct 2b: (s n-1) -----
-  (by-apply IH44)
-  (by-inversion H46) ; adds Heq54
-  (by-rewrite Heq54)
+  (by-apply IH48)
+  (by-inversion H50) ; adds Heq58
+  (by-rewrite Heq58)
   reflexivity)
 
 (check-type length-app-sym/abbrv
