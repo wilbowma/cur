@@ -17,5 +17,7 @@
                  [sandbox-error-output 'string]
                  [sandbox-eval-limits '(30 256)]
                  [sandbox-memory-limit 256])
-    (make-module-evaluator
-     (format "#lang cur~n~a" init-string))))
+    (call-with-trusted-sandbox-configuration
+     (lambda ()
+       (make-module-evaluator
+        (format "#lang cur~n~a" init-string))))))
